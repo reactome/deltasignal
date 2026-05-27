@@ -53,7 +53,7 @@ with open(summary,'a') as f:
 PY
 }
 
-cd /home/awright/gitroot/deltasignal
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Six configs (3 AND × 2 inhibition). Restart between every distinct env combo.
 for and in geomean min signed; do

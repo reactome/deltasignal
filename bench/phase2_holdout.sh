@@ -56,7 +56,7 @@ with open(summary,'a') as f:
 PY
 }
 
-cd /home/awright/gitroot/deltasignal
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [ $# -eq 2 ]; then
     restart_api "$1" "$2"

@@ -27,8 +27,9 @@ services:
       - ./test:/app/test:ro
       - ./examples:/app/examples:ro
       # Pre-generated Reactome pathway catalog from the upstream
-      # logic-network-generator project. Mounted read-only.
-      - /home/awright/gitroot/logic-network-generator/output:/app/pathway_catalog:ro
+      # logic-network-generator project. Mounted read-only. Override the host
+      # path with PATHWAY_CATALOG (e.g. in a .env file) for other checkouts.
+      - ${PATHWAY_CATALOG:-${HOME}/gitroot/logic-network-generator/output}:/app/pathway_catalog:ro
       - julia-cache:/root/.julia
     command: julia --project=/app /app/src/api/server.jl --port=8080 --host=0.0.0.0
     restart: unless-stopped

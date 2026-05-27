@@ -11,7 +11,7 @@
   
   <p>
     <img src="https://img.shields.io/badge/Julia-v1.10+-blue?logo=julia" alt="Julia Version">
-    <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
+    <img src="https://img.shields.io/badge/License-Apache_2.0-blue" alt="License">
     <img src="https://img.shields.io/badge/Biological_Realism-96%25-brightgreen" alt="Biological Realism">
     <img src="https://img.shields.io/badge/Status-Beta-orange" alt="Status">
   </p>
@@ -250,11 +250,10 @@ POST /api/explain       # Explainability analysis
 
 ## 📄 License
 
-**Proprietary Software** - All Rights Reserved
+Licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE)
+file for the full text and [NOTICE](NOTICE) for attribution.
 
-Copyright © 2025 Adam Wright, Ontario Institute for Cancer Research (OICR)
-
-This software is proprietary and confidential. See [COPYRIGHT](COPYRIGHT) file for details.
+Copyright © 2025 Ontario Institute for Cancer Research (OICR)
 
 ## 🔗 References
 

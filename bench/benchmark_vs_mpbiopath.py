@@ -32,8 +32,16 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-GENERATOR_ROOT = Path("/home/awright/gitroot/logic-network-generator")
-MPBIO_ROOT = Path("/home/awright/gitroot/mp-biopath-pathways")
+# Locations of the upstream data, overridable via env so the harness isn't
+# pinned to one developer's checkout:
+#   LOGIC_NETWORK_GENERATOR — the logic-network-generator repo (with output/)
+#   MPBIO_PATHWAYS          — the mp-biopath-pathways ground-truth repo
+GENERATOR_ROOT = Path(os.environ.get(
+    "LOGIC_NETWORK_GENERATOR",
+    str(Path.home() / "gitroot" / "logic-network-generator")))
+MPBIO_ROOT = Path(os.environ.get(
+    "MPBIO_PATHWAYS",
+    str(Path.home() / "gitroot" / "mp-biopath-pathways")))
 CATALOG_ROOT = GENERATOR_ROOT / "output"
 CURATOR_DIR = MPBIO_ROOT / "reactome_curator_predictions"
 EXPERIMENTAL_DIR = MPBIO_ROOT / "experimental_results"

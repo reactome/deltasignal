@@ -61,7 +61,7 @@ with open(summary,'a') as f:
 PY
 }
 
-cd /home/awright/gitroot/deltasignal
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 for mode in geomean min signed; do
     restart_api_with_mode "$mode"
