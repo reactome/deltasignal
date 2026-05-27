@@ -1,0 +1,67 @@
+<svg width="240" height="80" viewBox="0 0 240 80" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Reactome color gradients -->
+    <linearGradient id="reactomeBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4e8cb8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2c5aa0;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="reactomeOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e55100;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2c5aa0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4e8cb8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Delta symbol on the left -->
+  <g transform="translate(15, 20)">
+    <path d="M5 35 L15 15 L25 35 Z" fill="url(#reactomeBlue)" stroke="#2c5aa0" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Small highlight on delta -->
+    <path d="M15 15 L20 25 L15 35" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Signal wave on the right -->
+  <g transform="translate(45, 20)">
+    <!-- Smooth signal wave with rounded lines -->
+    <path d="M0 25 Q5 15 10 25 T20 25 T30 15 Q35 10 40 15" 
+          fill="none" 
+          stroke="url(#reactomeOrange)" 
+          stroke-width="3" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+    
+    <!-- Second harmonic wave -->
+    <path d="M0 30 Q7 35 14 30 T28 35 Q35 40 42 35" 
+          fill="none" 
+          stroke="url(#reactomeOrange)" 
+          stroke-width="2" 
+          opacity="0.6"
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+    
+    <!-- Signal dots at peaks -->
+    <circle cx="10" cy="25" r="1.5" fill="#ff6b35"/>
+    <circle cx="30" cy="25" r="1.5" fill="#ff6b35"/>
+    <circle cx="40" cy="15" r="1.5" fill="#e55100"/>
+  </g>
+  
+  <!-- Text logo -->
+  <text x="95" y="35" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="22" font-weight="700" fill="url(#textGradient)">
+    DeltaSignal
+  </text>
+  
+  <!-- Tagline -->
+  <text x="95" y="50" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="500" fill="#666">
+    Pathway Perturbation &amp; Dynamics
+  </text>
+  
+  <!-- Version indicator -->
+  <rect x="210" y="25" width="25" height="12" rx="6" fill="#ff6b35"/>
+  <text x="222.5" y="33" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="white" text-anchor="middle">
+    v1.0
+  </text>
+</svg>

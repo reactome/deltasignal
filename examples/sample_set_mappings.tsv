@@ -1,0 +1,33 @@
+set_id	uuid	set_name	set_type
+MAPK_PATHWAY	EGFR	MAPK Signaling Pathway	pathway
+MAPK_PATHWAY	RAS	MAPK Signaling Pathway	pathway
+MAPK_PATHWAY	RAF	MAPK Signaling Pathway	pathway
+MAPK_PATHWAY	MEK	MAPK Signaling Pathway	pathway
+MAPK_PATHWAY	ERK	MAPK Signaling Pathway	pathway
+TRANSCRIPTION	FOS	Transcription Factors	functional_group
+TRANSCRIPTION	JUN	Transcription Factors	functional_group
+TRANSCRIPTION	AP1	Transcription Factors	functional_group
+TRANSCRIPTION	MYC	Transcription Factors	functional_group
+TRANSCRIPTION	E2F	Transcription Factors	functional_group
+CELL_CYCLE	CCND1	Cell Cycle Control	pathway
+CELL_CYCLE	CDK4	Cell Cycle Control	pathway
+CELL_CYCLE	CDK2	Cell Cycle Control	pathway
+CELL_CYCLE	RB	Cell Cycle Control	pathway
+CELL_CYCLE	E2F	Cell Cycle Control	pathway
+CELL_CYCLE	S_PHASE	Cell Cycle Control	pathway
+DNA_REPAIR	DNA_DAMAGE	DNA Damage Response	pathway
+DNA_REPAIR	ATM	DNA Damage Response	pathway
+DNA_REPAIR	P53	DNA Damage Response	pathway
+DNA_REPAIR	P21	DNA Damage Response	pathway
+APOPTOSIS_PATH	P53	Apoptosis Pathway	pathway
+APOPTOSIS_PATH	BAX	Apoptosis Pathway	pathway
+APOPTOSIS_PATH	BCL2	Apoptosis Pathway	pathway
+APOPTOSIS_PATH	APOPTOSIS	Apoptosis Pathway	pathway
+PI3K_AKT	PI3K	PI3K/AKT Signaling	pathway
+PI3K_AKT	AKT	PI3K/AKT Signaling	pathway
+PI3K_AKT	MTOR	PI3K/AKT Signaling	pathway
+PI3K_AKT	S6K1	PI3K/AKT Signaling	pathway
+METABOLISM	MTOR	Metabolic Control	pathway
+METABOLISM	AMPK	Metabolic Control	pathway
+METABOLISM	ENERGY_STRESS	Metabolic Control	pathway
+METABOLISM	PROTEIN_SYNTHESIS	Metabolic Control	pathway

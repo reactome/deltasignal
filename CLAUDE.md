@@ -1,0 +1,195 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Quick Start (Docker-First)
+```bash
+# Development environment (recommended)
+docker compose -f docker-compose.dev.yml up
+
+# This starts:
+# - Julia API backend (localhost:8080)
+# - Frontend dev server (localhost:3000) 
+# - Hot reload for all components
+
+# Production environment
+docker compose -f docker-compose.prod.yml up
+
+# This starts:
+# - Julia API backend (internal)
+# - Frontend (internal) 
+# - Nginx reverse proxy (localhost:80)
+# - All services with health checks
+
+# Access the application:
+# Development: http://localhost:3000
+# Production: http://localhost (via reverse proxy)
+```
+
+## Development Commands
+
+### Running Tests
+```bash
+# Run all tests in Docker (recommended)
+docker-compose -f docker-compose.dev.yml --profile test up test-runner
+
+# Run specific tests
+docker-compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/test/test_basic.jl
+docker-compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/test/test_steady_state.jl
+
+# Local Julia (if available)
+julia test/test_basic.jl
+```
+
+### Building and Dependencies
+```bash
+# Build development environment (recommended)
+docker-compose -f docker-compose.dev.yml build
+
+# Build production image
+./scripts/build.sh
+
+# Start development with auto-rebuild
+docker-compose -f docker-compose.dev.yml up --build
+
+# Local Julia setup (if needed)
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+### CLI Usage
+```bash
+# Available commands: parse, solve, export, rollout, train, validate, server
+# Use --help with any command for options
+
+# 1. Parse logic network from TSV files
+docker compose -f docker-compose.dev.yml run --rm julia-api sh -c \
+  'mkdir -p /app/data/output && julia --project=/app /app/cli/deltasignal.jl parse \
+  --logic /app/examples/sample_logic_network.tsv \
+  --uuid-map /app/examples/sample_uuid_mapping.tsv \
+  --set-map /app/examples/sample_set_mappings.tsv \
+  --output /app/data/output/network.json \
+  --validate'
+
+# 2. Solve steady-state network
+docker compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/cli/deltasignal.jl solve \
+  --network /app/data/output/network.json \
+  --observations /app/examples/sample_observations.csv \
+  --output /app/data/output/results.json \
+  --mu 1.0 \
+  --gamma 0.1
+
+# 3. Export results in various formats
+docker compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/cli/deltasignal.jl export \
+  --results /app/data/output/results.json \
+  --format csv \
+  --output /app/data/output/export.csv
+
+# Export formats: pathway-browser, cytoscape, csv
+# Aggregation methods: stoichiometry_weighted, mean, max, min, confidence_weighted, geometric_mean
+
+# Complete workflow example (parse → solve → export):
+docker compose -f docker-compose.dev.yml run --rm julia-api sh -c '
+  mkdir -p /app/data/output &&
+  julia --project=/app /app/cli/deltasignal.jl parse \
+    --logic /app/examples/sample_logic_network.tsv \
+    --uuid-map /app/examples/sample_uuid_mapping.tsv \
+    --set-map /app/examples/sample_set_mappings.tsv \
+    --output /app/data/output/network.json &&
+  julia --project=/app /app/cli/deltasignal.jl solve \
+    --network /app/data/output/network.json \
+    --observations /app/examples/sample_observations.csv \
+    --output /app/data/output/results.json &&
+  julia --project=/app /app/cli/deltasignal.jl export \
+    --results /app/data/output/results.json \
+    --format csv \
+    --output /app/data/output/export.csv'
+
+# Interactive Julia shell (for development)
+docker compose -f docker-compose.dev.yml --profile cli run --rm cli
+```
+
+## Architecture Overview
+
+### Core Mathematical Pipeline
+The system implements a biologically-realistic reaction model with the following mathematical transformations:
+
+1. **Sensitivity Transform** (`src/core/sensitivity.jl`): Adaptive input response based on activity levels
+2. **Multi-Input Aggregation** (`src/core/aggregators.jl`): Combines activator inputs using geometric mean or other methods
+3. **Hill Functions** (`src/core/hill_functions.jl`): Implements sigmoidal activation and inhibition
+4. **Reaction Model** (`src/core/reaction_model.jl`): Combines all transformations into complete reaction dynamics
+
+### Module Organization
+
+**Core Components** (`src/core/`):
+- `biological_realism.jl`: Pathway-specific parameter tuning (signaling, metabolic, transcriptional)
+- `compartmentalization.jl`: Cellular compartment modeling (nucleus, cytoplasm, mitochondria)
+- `experimental_constraints.jl`: Integration of experimental data (CRISPR, drug screens)
+- `temporal_dynamics.jl`: Time-dependent biological processes
+- `stochastic_effects.jl`: Cell-to-cell variability modeling
+- `feedback_enhancements.jl`: Negative and positive feedback loops
+
+**Solvers** (`src/solvers/`):
+- `steady_state.jl`: Fixed-point and penalty optimization methods
+- `enhanced_steady_state.jl`: Biologically-constrained steady-state solver
+- `time_dynamic.jl`: Discrete-time evolution with substrate consumption
+
+**I/O** (`src/io/`):
+- `tsv_parser.jl`: Parses logic networks from TSV format with UUID mapping
+- `reactome_mapper.jl`: Maps between expanded networks and Reactome pathways
+
+### Data Flow
+1. TSV logic network → Parser → ReactionNetwork JSON
+2. ReactionNetwork + Observations → Solver → Node activities + influence scores
+3. Results can be aggregated back to pathway-level view using Reactome mappings
+
+## Key Data Structures
+
+### Input Formats
+- **Logic Network TSV**: `Parent_UUID | Child_UUID | AND/OR | Pos/Neg | Stoichiometry`
+- **UUID Mapping TSV**: `Network_UUID | Reactome_ID | Entity_Type | Set_ID`
+- **Set Mappings TSV**: `Set_ID | Original_Name | Member_UUIDs`
+- **Observations CSV**: `node_uuid,activity,confidence` (activity in 0-100 scale)
+
+### Internal Scales
+- **User Interface (I/O files)**: 0-100 scale for node activities
+  - **0** = no activity
+  - **1** = normal baseline activity (1× normal)
+  - **100** = one hundred times normal activity (100× normal)
+  - All values constrained to [0, 100] range
+- **Internal computation**: 0-1 normalized scale (divide by 100)
+  - 0 → 0.0 (no activity)
+  - 1 → 0.01 (normal baseline)
+  - 100 → 1.0 (100× normal)
+- Conversion: `internal = ui_value / 100.0` and `ui_value = internal * 100.0`
+- All conversions handled automatically by solvers and CLI
+
+## Important Implementation Notes
+
+### Biological Realism Enhancements
+The system includes pathway-specific parameter tuning based on biological context:
+- **Signaling pathways**: Fast dynamics, sensitive activation
+- **Metabolic pathways**: Balanced kinetics, substrate availability
+- **Transcriptional networks**: Slow dynamics, strong cooperativity
+- **Stress response**: Rapid activation, strong feedback
+- **Cell cycle**: Bistable switches, checkpoint dynamics
+
+### Solver Configuration
+- Default aggregation: `stoichiometry_weighted`
+- Penalty method parameters can be tuned via CLI
+- Fixed-point iteration available as alternative solver
+- Enhanced solver includes biological constraints
+
+### Testing Strategy
+Tests are organized by functionality:
+- Basic parsing and I/O validation
+- Mathematical correctness of transformations
+- Solver convergence and accuracy
+- Biological realism validation
+- Feedback loop handling
+- Signal propagation through pathways
+
+## Project Dependencies
+- Julia 1.10+ (LTS required)
+- Key packages: Optim.jl, JSON3.jl, DataFrames.jl, CSV.jl, HTTP.jl, ArgParse.jl
+- Frontend (if present): Node.js for visualization components
+- Docker for containerized deployment

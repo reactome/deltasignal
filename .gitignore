@@ -1,0 +1,53 @@
+# Julia artifacts and cache
+Manifest.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+.julia/
+depot/
+deps/deps.jl
+
+# Build artifacts
+*.tar.gz
+*.so
+*.dylib
+*.dll
+julia-*/
+julia-*
+
+# Node modules and build artifacts
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Test results
+test_results.json
+results.txt
+
+# Development files
+.vscode/
+.idea/
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local agent / editor settings
+.claude/
+
+# Temporary files
+tmp/
+temp/
+*.swp
+*.swo
+*~
+
+# Data directory (inputs, outputs, cache)
+data/input/*
+data/output/*
+data/cache/*
+!data/*/
+!data/README.md

@@ -1,0 +1,37 @@
+{
+  "name": "deltasignal-frontend",
+  "version": "0.1.0",
+  "description": "Web frontend for DeltaSignal pathway visualization",
+  "main": "src/app.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "cytoscape": "^3.26.0",
+    "cytoscape-cose-bilkent": "^4.1.0",
+    "cytoscape-dagre": "^2.5.0",
+    "cytoscape-elk": "^2.1.0",
+    "d3": "^7.8.5",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-legacy": "^4.1.1",
+    "vite": "^4.4.9"
+  },
+  "keywords": [
+    "pathway",
+    "visualization",
+    "biology",
+    "reactome",
+    "cytoscape"
+  ],
+  "author": "Adam Wright (OICR)",
+  "license": "MIT"
+}

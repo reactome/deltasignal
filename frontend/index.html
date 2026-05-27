@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeltaSignal — Pathway Visualization</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=2">
+    <link rel="stylesheet" href="src/styles/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="/delta-signal-logo.png" alt="DeltaSignal Logo" class="logo-image">
+                </div>
+                <div class="controls">
+                    <button id="upload-btn" class="btn-primary">Upload Network</button>
+                    <button id="solve-btn" class="btn-secondary" disabled>Solve</button>
+                    <button id="perturbation-btn" class="btn-secondary" disabled>Node Editor</button>
+                    <button id="export-btn" class="btn-secondary" disabled>Export</button>
+                    <a href="http://localhost:3001/api-docs" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center;">📚 API Docs</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main content area -->
+        <main class="main-content">
+            <!-- Single panel with view switcher -->
+            <div class="panel main-panel">
+                <div class="panel-header">
+                    <div class="view-tabs">
+                        <button class="view-tab active" data-view="network">🔗 Network View</button>
+                        <button class="view-tab" data-view="pathway">🧬 Pathway View</button>
+                    </div>
+                    <div class="panel-controls">
+                        <!-- Network controls (shown by default) -->
+                        <div id="network-controls" class="view-controls" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; overflow-x: auto; min-width: 0;">
+                            <button id="panel-solve-btn" class="btn-primary" disabled style="flex-shrink: 0;">🧬 Solve</button>
+                            <select id="view-selector" style="flex-shrink: 0; min-width: 80px;">
+                                <option value="network">Network</option>
+                                <option value="nodes">Nodes List</option>
+                                <option value="edges">Edges List</option>
+                            </select>
+                            <select id="layout-selector" style="flex-shrink: 0; min-width: 100px;">
+                                <option value="dagre">Hierarchical</option>
+                                <option value="cose">Force-directed</option>
+                                <option value="breadthfirst">Breadthfirst</option>
+                                <option value="grid">Grid</option>
+                            </select>
+                            <div style="position: relative; flex-shrink: 1; min-width: 100px;">
+                                <input type="text" id="node-search" placeholder="Search..." style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.85rem; width: 120px; min-width: 100px;">
+                                <div id="search-autocomplete" class="search-autocomplete" style="display: none;"></div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0;">
+                                <span style="font-size: 0.75rem; color: #64748b;">Zoom:</span>
+                                <input type="range" id="zoom-slider" min="0.25" max="3" step="0.25" value="1" style="width: 80px;" title="Zoom level">
+                                <span id="zoom-level" style="font-size: 0.75rem; color: #64748b; width: 30px;">100%</span>
+                            </div>
+                            <button id="network-fit" class="btn-icon" title="Fit to view" style="flex-shrink: 0;">🔍</button>
+                            <button id="show-labels" class="btn-icon active" title="Toggle labels" style="flex-shrink: 0;">🏷️</button>
+                        </div>
+                        <!-- Pathway controls (hidden by default) -->
+                        <div id="pathway-controls" class="view-controls" style="display: none;">
+                            <select id="pathway-selector" disabled>
+                                <option value="">Select pathway...</option>
+                            </select>
+                            <button id="pathway-fit" class="btn-icon" title="Fit to view">🔍</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Network view container (shown by default) -->
+                <div id="cytoscape-container" class="visualization-container active">
+                    <div class="placeholder">
+                        <div class="placeholder-icon">🔗</div>
+                        <p>Network topology will appear here</p>
+                    </div>
+                </div>
+                
+                <!-- Pathway view container (hidden by default) -->
+                <div id="pathway-browser" class="visualization-container" style="display: none;">
+                    <div class="placeholder">
+                        <div class="placeholder-icon">🧬</div>
+                        <p>Upload a network file to begin pathway visualization</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Resize handle -->
+        <div class="resize-handle" id="resize-handle"></div>
+
+        <!-- Bottom panel - Analysis results -->
+        <section class="results-panel collapsed" id="results-panel">
+            <div class="results-header" id="results-toggle">
+                <h3>Analysis Results</h3>
+                <span class="toggle-icon">▲</span>
+            </div>
+            <div class="results-content">
+                <div class="results-grid">
+                    <div class="result-section">
+                        <h4>Node Activities</h4>
+                        <div id="node-activities" class="data-table"></div>
+                    </div>
+                    <div class="result-section">
+                        <h4>Influence Scores</h4>
+                        <div id="influence-scores" class="data-table"></div>
+                    </div>
+                    <div class="result-section">
+                        <h4>Pathway Stats</h4>
+                        <div id="pathway-stats" class="stats-container"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- File upload modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Upload Network Files</h3>
+                <button id="modal-close" class="btn-icon">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 0.75rem 0; color: #3b82f6; font-size: 0.9rem;">📋 Quick Start with Examples</h4>
+                    <p style="margin: 0 0 0.75rem 0; font-size: 0.8rem; color: #64748b;">Try DeltaSignal with sample data files</p>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button id="load-examples-btn" class="btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 1rem;">Regulatory Network</button>
+                        <button id="load-reaction-example-btn" class="btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 1rem;">🧪 Reaction Network</button>
+                    </div>
+                </div>
+                
+                <div class="upload-group">
+                    <label>Logic Network (TSV) <span style="color: #ef4444;">*</span></label>
+                    <input type="file" id="logic-file" accept=".tsv,.txt" required>
+                    <div id="logic-file-status" class="file-status"></div>
+                </div>
+                <div class="upload-group">
+                    <label>UUID Mapping (TSV) <span style="color: #ef4444;">*</span></label>
+                    <input type="file" id="uuid-file" accept=".tsv,.txt" required>
+                    <div id="uuid-file-status" class="file-status"></div>
+                </div>
+                <div class="upload-group">
+                    <label>Set Mappings (TSV)</label>
+                    <input type="file" id="set-file" accept=".tsv,.txt">
+                    <div id="set-file-status" class="file-status"></div>
+                </div>
+                <div class="upload-group">
+                    <label>Observations (CSV)</label>
+                    <input type="file" id="observations-file" accept=".csv">
+                    <div id="observations-file-status" class="file-status"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="upload-cancel" class="btn-secondary">Cancel</button>
+                <button id="upload-confirm" class="btn-primary" disabled>Process Files</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Node Editor Modal -->
+    <div id="node-editor-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>🎛️ Node Perturbation Editor</h3>
+                <button id="node-editor-close" class="btn-icon">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 1rem; color: #64748b; font-size: 0.9rem;">
+                    Click on nodes in the network to edit their activity levels and see pathway impacts
+                </p>
+                <div id="node-editor-list" class="node-editor-list">
+                    <p style="text-align: center; color: #94a3b8; font-style: italic;">No nodes selected. Click on a node in the network view.</p>
+                </div>
+                <div style="margin-top: 1rem; padding: 1rem; background: #f8fafc; border-radius: 6px;">
+                    <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #374151;">Perturbation Scenario</h4>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+                        <input type="text" id="scenario-name" placeholder="e.g., Drug Treatment A" style="flex: 1; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.8rem;">
+                        <button id="save-scenario-btn" class="btn-secondary" style="padding: 0.5rem 0.75rem; font-size: 0.8rem;">Save</button>
+                    </div>
+                    <div id="saved-scenarios" class="saved-scenarios"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="clear-perturbations-btn" class="btn-secondary">Clear All</button>
+                <button id="close-editor-btn" class="btn-primary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p id="loading-text">Processing network...</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <script type="module" src="src/app.js"></script>
+</body>
+</html>

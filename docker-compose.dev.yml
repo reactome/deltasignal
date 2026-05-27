@@ -1,0 +1,113 @@
+# Development-focused Docker Compose
+# Usage: docker-compose -f docker-compose.dev.yml up
+version: '3.8'
+
+services:
+  # Julia API Backend - Core computation engine
+  julia-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: julia-builder
+    ports:
+      - "8080:8080"
+    environment:
+      - JULIA_NUM_THREADS=4
+      - JULIA_ENV=development
+      # AND-cluster aggregator mode for benchmark tuning.
+      # Defaults to "geomean"; set via host env: DS_AND_MODE=min|signed|geomean
+      - DS_AND_MODE=${DS_AND_MODE:-geomean}
+      # Inhibition handling. "spec" = multiplicative Hill (β=0 ⇒ inactive);
+      # "inversion" = invert source state and fold in as AND-clustered activator
+      # (continuous analog of the naive baseline's {0↔2,1↔1} inversion).
+      - DS_INHIBITION_MODE=${DS_INHIBITION_MODE:-spec}
+    volumes:
+      - ./src:/app/src:ro
+      - ./cli:/app/cli:ro
+      - ./test:/app/test:ro
+      - ./examples:/app/examples:ro
+      # Pre-generated Reactome pathway catalog from the upstream
+      # logic-network-generator project. Mounted read-only.
+      - /home/awright/gitroot/logic-network-generator/output:/app/pathway_catalog:ro
+      - julia-cache:/root/.julia
+    command: julia --project=/app /app/src/api/server.jl --port=8080 --host=0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Frontend Development Server - Hot reload & API proxy
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"    # Vite dev server
+      - "3001:3001"    # Express dev API
+    environment:
+      - NODE_ENV=development
+      - API_BASE_URL=http://julia-api:8080
+      - VITE_API_BASE_URL=http://localhost:8080
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.js:/app/vite.config.js
+      - node-modules:/app/node_modules
+    depends_on:
+      julia-api:
+        condition: service_healthy
+    restart: unless-stopped
+    command: npm run dev
+
+  # Test Runner - On-demand testing
+  test-runner:
+    build:
+      context: .
+      target: julia-builder
+    environment:
+      - JULIA_NUM_THREADS=2
+    volumes:
+      - ./src:/app/src:ro
+      - ./test:/app/test:ro
+      - ./examples:/app/examples:ro
+      - julia-cache:/root/.julia
+    profiles:
+      - test
+    command: |
+      sh -c "
+        echo '🧪 Running Julia tests...'
+        julia --project=/app /app/test/test_basic.jl &&
+        julia --project=/app /app/test/test_steady_state.jl &&
+        julia --project=/app /app/test/test_full_pipeline.jl &&
+        echo '✅ All tests passed!'
+      "
+
+  # CLI Runner - Interactive command execution
+  cli:
+    build:
+      context: .
+      target: julia-builder
+    environment:
+      - JULIA_NUM_THREADS=4
+    volumes:
+      - ./src:/app/src:ro
+      - ./cli:/app/cli:ro
+      - ./examples:/app/examples:ro
+      - ./data:/app/data  # For input/output files
+      - julia-cache:/root/.julia
+    working_dir: /app
+    profiles:
+      - cli
+    stdin_open: true
+    tty: true
+    command: julia --project=/app
+
+volumes:
+  julia-cache:
+    driver: local
+  node-modules:
+    driver: local
