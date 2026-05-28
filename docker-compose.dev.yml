@@ -24,6 +24,10 @@ services:
       # OR-cluster aggregation. "max" = best-available alternative (default);
       # "mean" = each alternative carries weight (registers single-member knockouts).
       - DS_OR_MODE=${DS_OR_MODE:-max}
+      # Inhibitor strength β applied uniformly to every inhibitor edge. Default
+      # empty = use per-edge β (currently all 0, i.e. no inhibition). Set to a
+      # single principled value (e.g. 1.0) as the publication-baseline setting.
+      - DS_INHIBITOR_BETA=${DS_INHIBITOR_BETA:-}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro

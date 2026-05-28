@@ -70,6 +70,10 @@ PIN_CONFIDENCE = 1.0
 # How to collapse a key-output's multiple UUID activities into one prediction.
 KO_AGG = os.environ.get("DS_KO_AGG", "max")
 
+# Diagnostic: comma-separated logic_network edge_types to drop before solving
+# (e.g. "assembly,dissociation"). Empty = keep all edges.
+SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").split(",") if t.strip()}
+
 
 def classify(ui_value: float) -> int:
     if ui_value < DOWN_CUTOFF:
@@ -124,6 +128,16 @@ def build_adjacency(pathway_dir: Path) -> dict:
         for row in reader:
             adj[row["source_id"]].append(row["target_id"])
     return adj
+
+
+def load_edge_pairs(pathway_dir: Path, edge_types: set) -> set:
+    """(source_id, target_id) pairs whose edge_type is in `edge_types`."""
+    pairs = set()
+    with open(pathway_dir / "logic_network.csv") as f:
+        for row in csv.DictReader(f):
+            if row.get("edge_type") in edge_types:
+                pairs.add((str(row["source_id"]), str(row["target_id"])))
+    return pairs
 
 
 def reachable_from(adj, sources):
@@ -284,7 +298,15 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     parsed = parse_pathway_via_ds_api(pathway_dir.name)
     if parsed.get("status") != "success":
         return {"status": "parse_failed", "name": pathway_name, "error": parsed.get("message")}
-    network_payload = {"nodes": parsed["nodes"], "edges": parsed["edges"], "pathways": parsed["pathways"]}
+    edges = parsed["edges"]
+    # Diagnostic A/B: drop synthetic boundary edges (assembly/dissociation) of a
+    # given type at solve time, to isolate their effect without regenerating.
+    if SKIP_EDGE_TYPES:
+        skip_pairs = load_edge_pairs(pathway_dir, SKIP_EDGE_TYPES)
+        if skip_pairs:
+            edges = [e for e in edges
+                     if (str(e["parent_uuid"]), str(e["child_uuid"])) not in skip_pairs]
+    network_payload = {"nodes": parsed["nodes"], "edges": edges, "pathways": parsed["pathways"]}
 
     total = 0
     correct = 0

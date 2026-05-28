@@ -451,17 +451,75 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
         end
     end
 
-    # Multiplicative Hill suppression — only engages in "spec" mode. In
-    # "inversion" mode the inhibitors are already folded into A, so H=1.
+    # Inhibition formula, selectable via DS_INHIBITION_MODE:
+    #
+    #   "spec"    — multiplicative Hill ∏ 1/(1+β·xᵐ). Asymmetric: H≈1 at
+    #               baseline but drifts BELOW 1 when x is just slightly above,
+    #               which combined with signed AND aggregation cascades into
+    #               catastrophic network-wide collapse at any β>0. Default β=0
+    #               (inert). The "publishable" β>0 setting doesn't work here.
+    #
+    #   "krep"    — Hill repressor ∏ Kᵐ/(Kᵐ+xᵐ). Symmetric (H=1 at x=0, full
+    #               de-repression on knockout) but still has baseline drift
+    #               unless K >> baseline. K controlled by DS_INHIBITOR_K.
+    #
+    #   "divide"  — Smooth MP-BioPath analog: H = (b+ε)/(x+ε) per inhibitor.
+    #               EXACTLY 1 at x=baseline (no spurious drift through signed
+    #               AND), >1 for knockout (de-repression), <1 for upregulation.
+    #               Matches "doubling the inhibitor halves the target." ε
+    #               controlled by DS_INHIBITOR_EPS (default 1e-3, small vs
+    #               baseline 0.01). The H factor is bounded by the output
+    #               clamping later.
+    #
+    #   "devspec" — Deviation-only spec: 1/(1+β·max(0, x-b)ᵐ). H=1 below or at
+    #               baseline (no drift, no de-repression), suppresses above.
+    #               β via DS_INHIBITOR_BETA.
+    #
+    #   "inversion" — Folded into A as an AND-clustered activator above.
     H = if inhibition_mode == "inversion" || isempty(rxn.inhibitor_indices)
         one(T)
-    else
+    elseif inhibition_mode == "krep"
+        K = T(parse(Float64, get(ENV, "DS_INHIBITOR_K", "0.1")))
+        result = one(T)
+        @inbounds for k in 1:length(rxn.inhibitor_indices)
+            x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
+            m = T(p.inhibitor_ms[k])
+            Km = K^m
+            result *= Km / (Km + x_inh^m)
+        end
+        clamp(result, zero(T), one(T))
+    elseif inhibition_mode == "divide"
+        eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
+        result = one(T)
+        @inbounds for k in 1:length(rxn.inhibitor_indices)
+            x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
+            result *= (bl + eps_T) / (x_inh + eps_T)
+        end
+        # Cap H to prevent catastrophic de-repression from multiple knockouts.
+        # The output is also clamped later, but keeping H bounded keeps signed
+        # AND propagation well-behaved upstream.
+        clamp(result, zero(T), T(10.0))
+    elseif inhibition_mode == "devspec"
+        beta_env = get(ENV, "DS_INHIBITOR_BETA", "1.0")
+        β = T(parse(Float64, beta_env))
+        result = one(T)
+        @inbounds for k in 1:length(rxn.inhibitor_indices)
+            x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
+            dev = max(zero(T), x_inh - bl)
+            m = T(p.inhibitor_ms[k])
+            result *= one(T) / (one(T) + β * dev^m)
+        end
+        clamp(result, zero(T), one(T))
+    else  # "spec" — multiplicative Hill ∏ 1/(1+β·xᵐ)
         n_inh = length(rxn.inhibitor_indices)
         inh = Vector{T}(undef, n_inh)
         @inbounds for k in 1:n_inh
             inh[k] = x[rxn.inhibitor_indices[k]]
         end
-        inhibition_aggregator(inh, p.inhibitor_betas, p.inhibitor_ms)
+        beta_env = get(ENV, "DS_INHIBITOR_BETA", "")
+        betas = isempty(beta_env) ? p.inhibitor_betas :
+                fill(parse(Float64, beta_env), n_inh)
+        inhibition_aggregator(inh, betas, p.inhibitor_ms)
     end
 
     # Substrate availability (soft-AND)
