@@ -28,6 +28,23 @@ services:
       # empty = use per-edge β (currently all 0, i.e. no inhibition). Set to a
       # single principled value (e.g. 1.0) as the publication-baseline setting.
       - DS_INHIBITOR_BETA=${DS_INHIBITOR_BETA:-}
+      # Selects inhibition formula (spec | krep | divide | devspec | inversion).
+      # divide is the synthetic-validated default for the publication baseline.
+      - DS_INHIBITION_MODE=${DS_INHIBITION_MODE:-divide}
+      # Smoothing constant ε for divide-form inhibition; non-load-bearing in
+      # [0.0005, 0.01].
+      - DS_INHIBITOR_EPS=${DS_INHIBITOR_EPS:-0.001}
+      # Floor for divide-form H. 0 = full repression possible; 0.95 = each
+      # inhibitor edge can only repress by 5% (Adam's idea for negative-feedback
+      # loops that otherwise over-repress through compounding).
+      - DS_INHIBITOR_FLOOR=${DS_INHIBITOR_FLOOR:-0.0}
+      # Scope: "loops" (default) applies the floor only to inhibitor edges in
+      # short negative-feedback loops; "all" applies it to every inhibitor.
+      - DS_INHIBITOR_FLOOR_SCOPE=${DS_INHIBITOR_FLOOR_SCOPE:-loops}
+      # Max forward-hops from target back to inhibitor to count as a "short loop".
+      - DS_LOOP_DEPTH=${DS_LOOP_DEPTH:-3}
+      # K parameter for the krep formula H = K^m/(K^m+x^m). Unused if divide.
+      - DS_INHIBITOR_K=${DS_INHIBITOR_K:-0.1}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro

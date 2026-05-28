@@ -298,6 +298,12 @@ struct IndexedReaction
     activator_indices::Vector{Int}
     activator_is_and::Vector{Bool}  # per-activator AND/OR flag
     inhibitor_indices::Vector{Int}
+    inhibitor_in_short_loop::Vector{Bool}  # per-inhibitor: is the inhibitor a
+                                            # node that the reaction's target
+                                            # can reach in ≤ DS_LOOP_DEPTH
+                                            # forward hops? If so, it's part
+                                            # of a small negative-feedback loop
+                                            # and DS_INHIBITOR_FLOOR applies.
     substrate_indices::Vector{Int}
     params::ReactionParams
 end
@@ -313,28 +319,83 @@ function index_reactions(
     uuid_to_idx::Dict{String, Int},
     baselines::Dict{String, Float64},
 )::Vector{IndexedReaction}
-    indexed = IndexedReaction[]
+    # First pass: build the bare IndexedReactions (without loop flags) and the
+    # forward adjacency for short-loop detection.
+    raw = NamedTuple[]
+    n_nodes = length(uuid_to_idx)
+    fwd_adj = [Set{Int}() for _ in 1:n_nodes]
+
     for r in reactions
         haskey(uuid_to_idx, r.target_uuid) || continue
+        target_idx = uuid_to_idx[r.target_uuid]
 
         act_indices = Int[]
         act_is_and = Bool[]
         for (k, uuid) in enumerate(r.activator_uuids)
             haskey(uuid_to_idx, uuid) || continue
             push!(act_indices, uuid_to_idx[uuid])
-            # Defensive: fall back to is_and_gate if per-edge vector is
-            # the wrong length for any reason.
             push!(act_is_and, k <= length(r.activator_is_and) ? r.activator_is_and[k] : r.is_and_gate)
         end
+        inh_indices = [uuid_to_idx[u] for u in r.inhibitor_uuids if haskey(uuid_to_idx, u)]
+        sub_indices = [uuid_to_idx[u] for u in r.substrate_uuids if haskey(uuid_to_idx, u)]
 
+        # Forward adjacency: every activator AND inhibitor source points to this
+        # reaction's target (both define how the target's value depends on
+        # upstream nodes for short-loop reachability).
+        for a in act_indices
+            push!(fwd_adj[a], target_idx)
+        end
+        for i in inh_indices
+            push!(fwd_adj[i], target_idx)
+        end
+
+        push!(raw, (
+            target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
+            act_indices=act_indices, act_is_and=act_is_and,
+            inh_indices=inh_indices, sub_indices=sub_indices, params=r.params,
+        ))
+    end
+
+    # Second pass: for each (target, inhibitor) pair, BFS forward from the
+    # target up to max_depth hops to see if the inhibitor is reachable. If so,
+    # they sit in a small negative-feedback loop and the inhibitor edge is
+    # eligible for DS_INHIBITOR_FLOOR dampening.
+    max_depth = parse(Int, get(ENV, "DS_LOOP_DEPTH", "3"))
+    indexed = IndexedReaction[]
+    for rec in raw
+        in_loop = Bool[]
+        for inh in rec.inh_indices
+            found = false
+            if inh == rec.target_idx
+                # Self-loop: target is its own inhibitor. Trivially in a loop.
+                found = true
+            else
+                visited = Set{Int}([rec.target_idx])
+                frontier = Set{Int}([rec.target_idx])
+                for _ in 1:max_depth
+                    next_frontier = Set{Int}()
+                    for u in frontier
+                        for v in fwd_adj[u]
+                            if v == inh
+                                found = true; break
+                            end
+                            if !(v in visited)
+                                push!(visited, v); push!(next_frontier, v)
+                            end
+                        end
+                        found && break
+                    end
+                    found && break
+                    isempty(next_frontier) && break
+                    frontier = next_frontier
+                end
+            end
+            push!(in_loop, found)
+        end
         push!(indexed, IndexedReaction(
-            uuid_to_idx[r.target_uuid],
-            get(baselines, r.target_uuid, 0.01),
-            act_indices,
-            act_is_and,
-            [uuid_to_idx[u] for u in r.inhibitor_uuids if haskey(uuid_to_idx, u)],
-            [uuid_to_idx[u] for u in r.substrate_uuids if haskey(uuid_to_idx, u)],
-            r.params,
+            rec.target_idx, rec.baseline,
+            rec.act_indices, rec.act_is_and,
+            rec.inh_indices, in_loop, rec.sub_indices, rec.params,
         ))
     end
     return indexed
@@ -425,6 +486,20 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
                     summed += (v - bl)
                 end
                 clamp(summed, zero(T), one(T))
+            elseif mode == "multiplicative"
+                # Multiplicative fold-change AND:  out = baseline · Π (vᵢ / baseline)
+                # Symmetric (above- and below-baseline behave equivalently),
+                # saturates at the clamp, composes log-additively under chains.
+                # Matches "multiply for AND positives" in MP-BioPath, and gives
+                # the user-expected behaviour: 2·2 ⇒ 4, ½·½ ⇒ ¼, 100·100 ⇒ 100.
+                # ε keeps the division safe when an input is exactly zero
+                # (knockout); the clamp then bounds the result.
+                eps_T = T(1e-6)
+                prod_T = bl
+                for v in and_vals
+                    prod_T *= (v + eps_T) / (bl + eps_T)
+                end
+                clamp(prod_T, zero(T), one(T))
             else
                 geometric_mean_aggregator(and_vals, and_wts)
             end
@@ -490,10 +565,23 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
         clamp(result, zero(T), one(T))
     elseif inhibition_mode == "divide"
         eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
+        # DS_INHIBITOR_FLOOR caps how strongly an inhibitor edge can suppress
+        # its target. By default it applies ONLY to inhibitor edges within
+        # small negative-feedback loops (where compounding through the loop
+        # over-represses). DS_INHIBITOR_FLOOR_SCOPE=all forces it onto every
+        # inhibitor (the global variant, for comparison).
+        h_floor = T(parse(Float64, get(ENV, "DS_INHIBITOR_FLOOR", "0.0")))
+        floor_scope = get(ENV, "DS_INHIBITOR_FLOOR_SCOPE", "loops")
         result = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
-            result *= (bl + eps_T) / (x_inh + eps_T)
+            h_k = (bl + eps_T) / (x_inh + eps_T)
+            apply_floor = floor_scope == "all" ||
+                          (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k])
+            if apply_floor
+                h_k = max(h_floor, h_k)
+            end
+            result *= h_k
         end
         # Cap H to prevent catastrophic de-repression from multiple knockouts.
         # The output is also clamped later, but keeping H bounded keeps signed
