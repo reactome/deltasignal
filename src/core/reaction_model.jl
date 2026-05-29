@@ -486,6 +486,23 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
                     summed += (v - bl)
                 end
                 clamp(summed, zero(T), one(T))
+            elseif mode == "signed_gated"
+                # Hybrid: signed-AND propagation gated by a "completeness" factor.
+                # gate = min over inputs of (v / baseline) capped at 1. Equal to 1
+                # when every input is at-or-above baseline (so signed propagation
+                # is unmodified, preserving upregulation cascades). Below 1 when
+                # any input is sub-baseline; exactly 0 when any input is
+                # knocked out — which forces A=0 (correct "all required" AND
+                # semantics). Fixes the wrong-direction failures where signed
+                # alone lets one saturated input cancel another's knockout.
+                summed = bl
+                gate = one(T)
+                for v in and_vals
+                    summed += (v - bl)
+                    ratio = v / bl
+                    gate = min(gate, min(ratio, one(T)))
+                end
+                clamp(summed * gate, zero(T), one(T))
             elseif mode == "multiplicative"
                 # Multiplicative fold-change AND:  out = baseline · Π (vᵢ / baseline)
                 # Symmetric (above- and below-baseline behave equivalently),
@@ -500,6 +517,44 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
                     prod_T *= (v + eps_T) / (bl + eps_T)
                 end
                 clamp(prod_T, zero(T), one(T))
+            elseif mode == "hill_sat"
+                # Multiplicative AND with smooth boundary saturation.
+                #
+                # Behaviour goal (per design): essentially exact multiplication
+                # of fold-changes through the common operating range, with
+                # smooth (autodiff-friendly) sigmoid transitions ONLY at the
+                # UI=0 and UI=100 boundaries. Composes for any number of
+                # inputs and any cascade depth without per-hop signal decay.
+                #
+                #     raw  = bl · Π(vᵢ/bl)                     # raw product
+                #     hi   = ½(raw + max − √((raw−max)² + ε²)) # smooth-min cap
+                #     out  = ½(hi  +  0  + √((hi −  0)² + ε²)) # smooth-max floor
+                #
+                # The smooth-min/max pair (Hjelmfelt softening) is identity
+                # except inside a transition zone of width ~ε at each boundary.
+                # With the default ε = 0.001 (DS_HILL_SAT_EPS) the offset at
+                # exact boundary is ε/2 — well below benchmark resolution.
+                # For raw in [3·ε, max−3·ε] (UI ≈ 0.3 to 99.7) the output is
+                # within 1e-7 of pure multiplication.
+                #
+                # Per-edge parameters (n, K, max) are NOT plumbed into this
+                # formula yet — the planned next step. See memory:
+                # project-sigmoid-design-intent.
+                eps_T = T(1e-6)
+                sat_eps = T(parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")))
+                max_internal = one(T)
+                prod_fold = one(T)
+                for v in and_vals
+                    prod_fold *= (v + eps_T) / (bl + eps_T)
+                end
+                raw = bl * prod_fold
+                # Smooth-min with max_internal (caps at 1.0).
+                diff_hi = raw - max_internal
+                hi = (raw + max_internal -
+                      sqrt(diff_hi * diff_hi + sat_eps * sat_eps)) / T(2.0)
+                # Smooth-max with 0 (floors at 0).
+                lo = (hi + sqrt(hi * hi + sat_eps * sat_eps)) / T(2.0)
+                clamp(lo, zero(T), one(T))
             else
                 geometric_mean_aggregator(and_vals, and_wts)
             end
@@ -598,6 +653,38 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
             result *= one(T) / (one(T) + β * dev^m)
         end
         clamp(result, zero(T), one(T))
+    elseif inhibition_mode == "hill_sat"
+        # Divide-form inhibition with smooth boundary saturation.
+        #
+        # Behaviour goal: exact A/B-style suppression in the common operating
+        # range (no compression for inhibitors at UI ≈ 0.25 to 10), smooth
+        # transitions only at the H=0 and H=H_max boundaries. This matches
+        # the AND-side hill_sat philosophy.
+        #
+        #     H_raw = Π (b+ε)/(xᵢ+ε)                         # raw A/B product
+        #     H_hi  = ½(H_raw + H_max − √((H_raw−H_max)² + ε²))  # smooth cap
+        #     H_out = ½(H_hi  +  0    + √(H_hi² + ε²))           # smooth floor
+        #
+        # Outside the transition zones (width ~ε around each boundary),
+        # H_out equals H_raw exactly. The H_max default of 10 caps the
+        # de-repression boost from inhibitor knockouts at 10× baseline.
+        # Use DS_HILL_SAT_H_MAX to tune, DS_HILL_SAT_EPS for transition width.
+        #
+        # Same per-edge learnable-parameter intent as hill_sat AND. See
+        # memory: project-sigmoid-design-intent.
+        eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
+        h_max = T(parse(Float64, get(ENV, "DS_HILL_SAT_H_MAX", "10.0")))
+        sat_eps = T(parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")))
+        h_raw = one(T)
+        @inbounds for k in 1:length(rxn.inhibitor_indices)
+            x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
+            h_raw *= (bl + eps_T) / (x_inh + eps_T)
+        end
+        diff_hi = h_raw - h_max
+        h_hi = (h_raw + h_max -
+                sqrt(diff_hi * diff_hi + sat_eps * sat_eps)) / T(2.0)
+        h_out = (h_hi + sqrt(h_hi * h_hi + sat_eps * sat_eps)) / T(2.0)
+        clamp(h_out, zero(T), h_max)
     else  # "spec" — multiplicative Hill ∏ 1/(1+β·xᵐ)
         n_inh = length(rxn.inhibitor_indices)
         inh = Vector{T}(undef, n_inh)

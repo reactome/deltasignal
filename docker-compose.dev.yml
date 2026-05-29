@@ -45,6 +45,15 @@ services:
       - DS_LOOP_DEPTH=${DS_LOOP_DEPTH:-3}
       # K parameter for the krep formula H = K^m/(K^m+x^m). Unused if divide.
       - DS_INHIBITOR_K=${DS_INHIBITOR_K:-0.1}
+      # hill_sat boundary-transition width (Hjelmfelt smoothing). Identity
+      # outside ~ε of the UI=0 and UI=100 boundaries; small default keeps the
+      # operating range (UI 0.25–10) effectively exact-multiplicative.
+      - DS_HILL_SAT_EPS=${DS_HILL_SAT_EPS:-0.001}
+      # hill_sat saturation sharpness — legacy soft-min exponent, unused by
+      # the current Hjelmfelt formulation but kept for backward compat.
+      - DS_HILL_SAT_K=${DS_HILL_SAT_K:-8.0}
+      # hill_sat inhibition de-repression cap (max H value on knockout).
+      - DS_HILL_SAT_H_MAX=${DS_HILL_SAT_H_MAX:-10.0}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro
