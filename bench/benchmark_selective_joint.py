@@ -64,6 +64,9 @@ JOINT_GROUPS = {
         "Mitotic_G1-G1_S_phases_R-HSA-453279",
         "Cell_Cycle_Checkpoints_R-HSA-69620",
     ],
+    # Cell_Cycle_Checkpoints, TP53, Mitotic_Prophase REGRESS under joint
+    # (UUID-collapse loses position-awareness that these dense pathways need).
+    # Keep them single-pathway.
     # Cell_Cycle_Checkpoints would also belong here, but isn't in the 4-pathway test set.
 }
 
@@ -72,6 +75,11 @@ EXPERIMENTAL_PATHWAYS = [
     ("Signaling_by_ERBB2", "1227986"),
     ("Mitotic_G1-G1_S_phases", "453279"),
     ("S_Phase", "69242"),
+    ("HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_", "5693567"),
+    ("Cell_Cycle_Checkpoints", "69620"),
+    ("Transcriptional_Regulation_by_TP53", "3700989"),
+    ("Signaling_by_WNT", "195721"),
+    ("Mitotic_Prophase", "68875"),
 ]
 
 
@@ -144,9 +152,14 @@ def main():
     print("Loading single-pathway networks ...", file=sys.stderr)
     pw_data = {}
     for pname, pid in EXPERIMENTAL_PATHWAYS:
-        dir_name = f"{pname}_R-HSA-{pid}"
+        # Some pathway names end with a trailing underscore (e.g. HDR_..._SSA_)
+        # — avoid double underscores between pname and "_R-HSA-{pid}".
+        sep = "" if pname.endswith("_") else "_"
+        dir_name = f"{pname}{sep}R-HSA-{pid}"
         dir_path = CAT / dir_name
-        if not dir_path.exists(): continue
+        if not dir_path.exists():
+            print(f"  [skip] {pname} ({dir_name})", file=sys.stderr)
+            continue
         parsed = api("/api/parse", {"pathway_id": dir_name})
         stid_to_uuids = defaultdict(list)
         with open(dir_path / "stid_to_uuid_mapping.csv") as f:
