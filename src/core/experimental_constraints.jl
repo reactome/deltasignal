@@ -309,10 +309,13 @@ function create_experimentally_constrained_network(
             reaction.target_uuid,
             reaction.activator_uuids,
             reaction.inhibitor_uuids,
+            reaction.depletion_uuids,
             reaction.substrate_uuids,
             reaction.product_uuids,
             constrained_params,
-            reaction.is_and_gate
+            reaction.is_and_gate,
+            reaction.activator_is_and,
+            reaction.inhibitor_is_and,
         )
         
         push!(constrained_reactions, constrained_reaction)

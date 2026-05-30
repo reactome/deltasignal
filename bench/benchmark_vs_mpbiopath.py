@@ -238,7 +238,8 @@ def solve_via_ds_api(network_json: dict, observations: dict):
                   data=body,
                   headers={"Content-Type": "application/json"},
                   method="POST")
-    with urlopen(req, timeout=60) as r:
+    timeout_s = int(os.environ.get("DS_SOLVE_TIMEOUT", "600"))
+    with urlopen(req, timeout=timeout_s) as r:
         return json.loads(r.read())
 
 

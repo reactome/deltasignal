@@ -140,12 +140,14 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
 
     edges = DeltaSignal.LogicNetworkEdge[]
     for e in data.edges
+        et = hasproperty(e, :edge_type) ? String(e.edge_type) : ""
         push!(edges, DeltaSignal.LogicNetworkEdge(
             String(e.parent_uuid),
             String(e.child_uuid),
             Bool(e.is_and),
             Bool(e.is_positive),
             Float64(e.stoichiometry),
+            et,
         ))
     end
 
@@ -419,7 +421,8 @@ function parse_handler(req)
                 "child_uuid" => edge.child_uuid,
                 "is_and" => edge.is_and,
                 "is_positive" => edge.is_positive,
-                "stoichiometry" => edge.stoichiometry
+                "stoichiometry" => edge.stoichiometry,
+                "edge_type" => edge.edge_type,
             ))
         end
         

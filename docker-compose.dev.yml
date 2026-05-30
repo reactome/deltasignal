@@ -54,6 +54,11 @@ services:
       - DS_HILL_SAT_K=${DS_HILL_SAT_K:-8.0}
       # hill_sat inhibition de-repression cap (max H value on knockout).
       - DS_HILL_SAT_H_MAX=${DS_HILL_SAT_H_MAX:-10.0}
+      # Depletion-edge de-repression cap. catalyst→substrate edges with
+      # edge_type="depletion" are ALWAYS divide-form: H = (b+ε)/(x+ε), capped
+      # here. When the catalyst is knocked out (x → 0), substrate boosted by
+      # ~H_max (e.g. PTEN-KO → PIP3 up).
+      - DS_DEPLETION_H_MAX=${DS_DEPLETION_H_MAX:-10.0}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro

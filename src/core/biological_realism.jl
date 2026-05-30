@@ -332,10 +332,13 @@ function create_biologically_enhanced_reaction_network(network::ReactionNetwork)
             target_uuid,
             activators,
             inhibitors,
+            String[],   # depletion_uuids
             substrates,
             products,
             params,
-            is_and_gate
+            is_and_gate,
+            fill(is_and_gate, length(activators)),
+            fill(is_and_gate, length(inhibitors)),
         )
         
         push!(reactions, reaction)

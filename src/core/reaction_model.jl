@@ -30,11 +30,21 @@ end
 
 """
 A complete reaction in the network with all inputs and parameters.
+
+`depletion_uuids` is a SEPARATE set of negative inputs marked with
+edge_type="depletion" — these represent catalyst→substrate "consumption"
+edges (e.g., PTEN → PIP3, MDM2 → TP53). Unlike normal inhibitor edges which
+typically use devspec (only suppresses above baseline), depletion edges use
+divide-form inhibition so a knocked-out catalyst boosts the substrate
+(de-repression). This is what unblocks substrate-depletion biology without
+the global -14pp regression that comes from switching all inhibitor edges
+to divide form.
 """
 struct Reaction
     target_uuid::String
     activator_uuids::Vector{String}
     inhibitor_uuids::Vector{String}
+    depletion_uuids::Vector{String}
     substrate_uuids::Vector{String}
     product_uuids::Vector{String}
     params::ReactionParams
@@ -85,10 +95,15 @@ function create_reaction_from_edges(
 )::Reaction
     
     # Separate edges by role, preserving each edge's is_and flag.
+    # Depletion edges (catalyst→substrate, marked with edge_type="depletion")
+    # are split into their own vector so the propagator can apply divide-form
+    # inhibition to them specifically while regular inhibitors stay on
+    # whatever DS_INHIBITION_MODE is set to (default devspec).
     activators = String[]
     activator_is_and = Bool[]
     inhibitors = String[]
     inhibitor_is_and = Bool[]
+    depletions = String[]
     substrates = String[]
     products = String[]
 
@@ -96,6 +111,8 @@ function create_reaction_from_edges(
         if edge.is_positive
             push!(activators, edge.parent_uuid)
             push!(activator_is_and, edge.is_and)
+        elseif edge.edge_type == "depletion"
+            push!(depletions, edge.parent_uuid)
         else
             push!(inhibitors, edge.parent_uuid)
             push!(inhibitor_is_and, edge.is_and)
@@ -115,6 +132,7 @@ function create_reaction_from_edges(
         target_uuid,
         activators,
         inhibitors,
+        depletions,
         substrates,
         products,
         params,
@@ -304,6 +322,14 @@ struct IndexedReaction
                                             # forward hops? If so, it's part
                                             # of a small negative-feedback loop
                                             # and DS_INHIBITOR_FLOOR applies.
+    depletion_indices::Vector{Int}          # catalyst→substrate "consumption"
+                                            # inhibitor edges from
+                                            # edge_type="depletion". Always
+                                            # treated with divide-form
+                                            # inhibition (separate from the
+                                            # DS_INHIBITION_MODE selection,
+                                            # so KO-of-catalyst can boost the
+                                            # substrate via de-repression).
     substrate_indices::Vector{Int}
     params::ReactionParams
 end
@@ -337,6 +363,7 @@ function index_reactions(
             push!(act_is_and, k <= length(r.activator_is_and) ? r.activator_is_and[k] : r.is_and_gate)
         end
         inh_indices = [uuid_to_idx[u] for u in r.inhibitor_uuids if haskey(uuid_to_idx, u)]
+        dep_indices = [uuid_to_idx[u] for u in r.depletion_uuids if haskey(uuid_to_idx, u)]
         sub_indices = [uuid_to_idx[u] for u in r.substrate_uuids if haskey(uuid_to_idx, u)]
 
         # Forward adjacency: every activator AND inhibitor source points to this
@@ -348,11 +375,15 @@ function index_reactions(
         for i in inh_indices
             push!(fwd_adj[i], target_idx)
         end
+        for d in dep_indices
+            push!(fwd_adj[d], target_idx)
+        end
 
         push!(raw, (
             target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
             act_indices=act_indices, act_is_and=act_is_and,
-            inh_indices=inh_indices, sub_indices=sub_indices, params=r.params,
+            inh_indices=inh_indices, dep_indices=dep_indices,
+            sub_indices=sub_indices, params=r.params,
         ))
     end
 
@@ -395,7 +426,9 @@ function index_reactions(
         push!(indexed, IndexedReaction(
             rec.target_idx, rec.baseline,
             rec.act_indices, rec.act_is_and,
-            rec.inh_indices, in_loop, rec.sub_indices, rec.params,
+            rec.inh_indices, in_loop,
+            rec.dep_indices,
+            rec.sub_indices, rec.params,
         ))
     end
     return indexed
@@ -708,11 +741,27 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
         L = substrate_availability_aggregator(sub, p.substrate_weights)
     end
 
+    # Depletion factor (H_dep): catalyst → substrate "consumption" edges.
+    # Always divide-form `(b+ε)/(x+ε)` regardless of DS_INHIBITION_MODE — the
+    # POINT is that catalyst-knockout boosts the substrate via de-repression
+    # (H > 1 when catalyst < baseline). devspec and similar can't do this.
+    # Capped at DS_DEPLETION_H_MAX (default 10) to bound runaway de-repression.
+    H_dep = one(T)
+    if !isempty(rxn.depletion_indices)
+        eps_dep = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
+        h_max_dep = T(parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")))
+        @inbounds for k in 1:length(rxn.depletion_indices)
+            x_dep = clamp(x[rxn.depletion_indices[k]], zero(T), one(T))
+            H_dep *= (bl + eps_dep) / (x_dep + eps_dep)
+        end
+        H_dep = clamp(H_dep, zero(T), h_max_dep)
+    end
+
     # Same rationale as the dict-version compute_reaction_output above:
     # drop the spec's output Hill step in favor of clamped linear propagation
     # to keep baseline as a stable fixed point. Hill primitives remain
     # available for explicit per-reaction use after training.
-    return clamp(A * H * L, zero(T), one(T))
+    return clamp(A * H * H_dep * L, zero(T), one(T))
 end
 
 """

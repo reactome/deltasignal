@@ -286,9 +286,12 @@ function create_reaction_from_edges_with_params(
         target_uuid,
         activators,
         inhibitors,
+        String[],   # depletion_uuids: none for feedback-enhanced reactions
         substrates,
         products,
         params,
-        is_and_gate
+        is_and_gate,
+        fill(is_and_gate, length(activators)),  # activator_is_and
+        fill(is_and_gate, length(inhibitors)),  # inhibitor_is_and
     )
 end

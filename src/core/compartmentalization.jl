@@ -381,10 +381,13 @@ function create_compartmentalized_reactions(network::ReactionNetwork)::Vector{Co
             reaction.target_uuid,
             reaction.activator_uuids,
             reaction.inhibitor_uuids,
+            reaction.depletion_uuids,
             reaction.substrate_uuids,
             reaction.product_uuids,
             adjusted_params,
-            reaction.is_and_gate
+            reaction.is_and_gate,
+            reaction.activator_is_and,
+            reaction.inhibitor_is_and,
         )
         
         comp_reaction = CompartmentalizedReaction(

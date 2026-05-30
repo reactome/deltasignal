@@ -15,6 +15,8 @@ struct LogicNetworkEdge
     is_and::Bool  # true for AND (1), false for OR (0)
     is_positive::Bool  # true for positive (1), false for negative (-1)
     stoichiometry::Float64
+    edge_type::String  # generator: input/output/catalyst/regulator/assembly/
+                       # dissociation/depletion. "" for sample format.
 end
 
 struct SetExpansionMapping
@@ -67,6 +69,7 @@ function parse_logic_network(filepath::String)::Vector{LogicNetworkEdge}
             is_and,
             is_positive,
             stoich,
+            "",  # sample format has no edge_type
         ))
     end
     return edges
@@ -78,6 +81,7 @@ pos_neg is "pos" / "neg".
 """
 function parse_logic_network_generator(df::DataFrame)::Vector{LogicNetworkEdge}
     edges = LogicNetworkEdge[]
+    has_edge_type = "edge_type" in names(df)
     for row in eachrow(df)
         and_raw = ismissing(row.and_or) ? "" : lowercase(strip(String(row.and_or)))
         pos_raw = lowercase(strip(String(row.pos_neg)))
@@ -85,6 +89,11 @@ function parse_logic_network_generator(df::DataFrame)::Vector{LogicNetworkEdge}
         is_and = and_raw == "and"
         is_positive = pos_raw == "pos"
         stoich = ismissing(row.stoichiometry) ? 1.0 : Float64(row.stoichiometry)
+        et = if has_edge_type && !ismissing(row.edge_type)
+            lowercase(strip(String(row.edge_type)))
+        else
+            ""
+        end
 
         push!(edges, LogicNetworkEdge(
             String(row.source_id),
@@ -92,6 +101,7 @@ function parse_logic_network_generator(df::DataFrame)::Vector{LogicNetworkEdge}
             is_and,
             is_positive,
             stoich,
+            et,
         ))
     end
     return edges
