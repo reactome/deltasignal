@@ -54,6 +54,9 @@ services:
       - DS_HILL_SAT_K=${DS_HILL_SAT_K:-8.0}
       # hill_sat inhibition de-repression cap (max H value on knockout).
       - DS_HILL_SAT_H_MAX=${DS_HILL_SAT_H_MAX:-10.0}
+      # hill_log saturation point — log of max fold-change (default log(100) ≈ 4.605).
+      # Lower → sharper saturation. Higher → closer to pure multiplication.
+      - DS_HILL_LOG_ZMAX=${DS_HILL_LOG_ZMAX:-4.605}
       # Depletion-edge de-repression cap. catalyst→substrate edges with
       # edge_type="depletion" are ALWAYS divide-form: H = (b+ε)/(x+ε), capped
       # here. When the catalyst is knocked out (x → 0), substrate boosted by

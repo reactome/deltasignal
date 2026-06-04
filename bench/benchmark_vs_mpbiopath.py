@@ -363,8 +363,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                     agg = max(vals, key=lambda v: abs(v - 0.01))
                 else:
                     agg = max(vals)
-                predicted = classify(agg * 100.0)
+                pred_ui = agg * 100.0
+                predicted = classify(pred_ui)
             else:
+                pred_ui = 1.0  # default NORMAL
                 predicted = NORMAL  # gene or key_output not in network
 
             total += 1
@@ -384,7 +386,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                                          reachable_cache[gene])
                 failure_categories[cat] += 1
             case_log.append((gene, direction, ko, predicted, expected, is_valid,
-                             len(uuids), len(ko_uuids), cat))
+                             len(uuids), len(ko_uuids), cat, pred_ui))
 
     return {
         "status": "ok",
@@ -547,14 +549,14 @@ def main():
     if args.dump_cases:
         with open(args.dump_cases, "w") as f:
             f.write("pathway\tgene\tdirection\tkey_output\tpredicted\texpected\t"
-                    "valid\tn_gene_uuids\tn_ko_uuids\tcategory\n")
+                    "valid\tn_gene_uuids\tn_ko_uuids\tcategory\tpred_ui\n")
             for r in results:
                 if r["status"] != "ok":
                     continue
                 for (gene, direction, ko, pred, exp, valid,
-                     ng, nk, cat) in r.get("case_log", []):
+                     ng, nk, cat, pred_ui) in r.get("case_log", []):
                     f.write(f"{r['name']}\t{gene}\t{direction}\t{ko}\t{pred}\t{exp}\t"
-                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\n")
+                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\n")
         print(f"Per-case dump: {args.dump_cases}")
 
 
