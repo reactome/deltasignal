@@ -631,17 +631,32 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
             end
         end
         # OR cluster = biological alternatives ("any one of {A,B,C}").
-        #   "max"  — reaction proceeds at the best-available alternative. Clean
-        #            logical-OR reading, but masks single-member knockouts:
-        #            max(0, x₀, x₀) = x₀ ⇒ no change registered.
-        #   "mean" — each alternative carries weight, so knocking one out lowers
-        #            the cluster. Matches the curator's assumption that a single
-        #            ligand knockout has an effect even when paralogs exist.
+        #   "max"    — reaction proceeds at the best-available alternative. Clean
+        #              logical-OR reading, but masks single-member knockouts:
+        #              max(0, x₀, x₀) = x₀ ⇒ no change registered.
+        #   "mean"   — each alternative carries weight, so knocking one out
+        #              lowers the cluster. Captures KOs that propagate but
+        #              over-predicts when paralogs compensate (e.g. RB1 family).
+        #   "median" — middle-rank alternative wins. Preserves paralog
+        #              compensation (median of (0,1,1) = 1) but registers KOs
+        #              when most alternatives drop (median of (0,0,1) = 0). A
+        #              "majority wins" semantics — useful when many OR
+        #              alternatives are themselves cascaded from the same
+        #              upstream gene.
         or_result = if isempty(or_vals)
             nothing
         else
             or_mode = get(ENV, "DS_OR_MODE", "max")
-            or_mode == "mean" ? sum(or_vals) / length(or_vals) : maximum(or_vals)
+            if or_mode == "mean"
+                sum(or_vals) / length(or_vals)
+            elseif or_mode == "median"
+                # Plain median; ties are fine because clamp keeps us in [0,1].
+                sorted = sort(collect(or_vals))
+                n = length(sorted)
+                isodd(n) ? sorted[(n + 1) ÷ 2] : (sorted[n ÷ 2] + sorted[n ÷ 2 + 1]) / 2
+            else
+                maximum(or_vals)
+            end
         end
         if and_result === nothing
             or_result

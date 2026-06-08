@@ -183,10 +183,11 @@ def main():
         print(f"  {key:35s} {len(stids)} nodes, {len(net['edges'])} edges",
               file=sys.stderr)
 
-    # Run cases
+    # Run cases — also collect per-case results for failure analysis
     solve_cache = {}
     per_pw = defaultdict(lambda: {"correct": 0, "total": 0,
                                   "via_joint": 0, "via_single": 0})
+    case_results = []  # (pathway, gene, direction, key_output, predicted, expected, method, pred_ui)
 
     for c in cases:
         pname = c["pathway"]
@@ -220,7 +221,11 @@ def main():
             per_pw[pname]["via_single"] += 1
 
         per_pw[pname]["total"] += 1
-        if not gene_resolved or not ko_resolved: continue
+        method = "joint" if joint_key else "single"
+        if not gene_resolved or not ko_resolved:
+            case_results.append((pname, c["gene"], c["direction"], c["key_output"],
+                                 1, c["expected"], method, 1.0))
+            continue
         ui = PERTURB_UI_DOWN if c["direction"] == 0 else PERTURB_UI_UP
         ck = (joint_key or pname, c["gene"], c["direction"])
         if ck not in solve_cache:
@@ -231,11 +236,17 @@ def main():
             except Exception:
                 solve_cache[ck] = None
         acts = solve_cache[ck]
-        if acts is None: continue
+        if acts is None:
+            case_results.append((pname, c["gene"], c["direction"], c["key_output"],
+                                 1, c["expected"], method, 1.0))
+            continue
         vals = [acts.get(u, 0.01) * 100 for u in ko_resolved]
         pred_v = max(vals, key=lambda v: abs(v - 1.0))
-        if classify(pred_v) == c["expected"]:
+        pred_cls = classify(pred_v)
+        if pred_cls == c["expected"]:
             per_pw[pname]["correct"] += 1
+        case_results.append((pname, c["gene"], c["direction"], c["key_output"],
+                             pred_cls, c["expected"], method, pred_v))
 
     print()
     print(f"{'pathway':50s} {'accuracy':>15s}  {'joint?':>8s}")
@@ -248,6 +259,14 @@ def main():
         print(f"  {pname[:48]:50s} {s['correct']:>3d}/{s['total']:<3d} "
               f"({s['correct']*100/s['total']:5.1f}%)  {method:>8s}")
     print(f"\n  {'TOTAL':50s} {total_c}/{total_t} = {total_c*100/total_t:.2f}%")
+
+    # Dump per-case results for offline analysis.
+    dump = os.environ.get("DS_DUMP_CASES", "/tmp/ds_selective_joint_cases.tsv")
+    with open(dump, "w") as f:
+        f.write("pathway\tgene\tdirection\tkey_output\tpredicted\texpected\tmethod\tpred_ui\n")
+        for r in case_results:
+            f.write(f"{r[0]}\t{r[1]}\t{r[2]}\t{r[3]}\t{r[4]}\t{r[5]}\t{r[6]}\t{r[7]:.6f}\n")
+    print(f"\n  Per-case dump: {dump}")
 
 
 if __name__ == "__main__":
