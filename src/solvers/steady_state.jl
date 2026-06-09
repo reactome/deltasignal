@@ -146,6 +146,15 @@ function solve_steady_state_penalty(
     iters = 0
     max_change = 0.0
 
+    # Optional damping for loop convergence. The original feed-forward
+    # iteration (damping = 0) converges in network-depth steps for acyclic
+    # networks but oscillates in cyclic ones (negative-feedback loops,
+    # bistable switches). DS_DAMPING > 0 blends x ← (1-λ)·x + λ·F(x), which
+    # is a contraction for bounded operators and converges to the same
+    # fixed-point as the un-damped iteration when one exists. Observations
+    # are still hard-pinned each step. Default 0 = original behaviour.
+    damping = parse(Float64, get(ENV, "DS_DAMPING", "0.0"))
+
     for it in 1:params.max_iters
         x_fwd = forward_model_vec(x, rxns_idx)
 
@@ -154,9 +163,10 @@ function solve_steady_state_penalty(
             if i in obs_set
                 continue  # pinned observation, don't update
             end
-            change = abs(x_fwd[i] - x[i])
+            new_val = damping > 0.0 ? (1.0 - damping) * x[i] + damping * x_fwd[i] : x_fwd[i]
+            change = abs(new_val - x[i])
             change > max_change && (max_change = change)
-            x[i] = x_fwd[i]
+            x[i] = new_val
         end
 
         iters = it

@@ -62,6 +62,11 @@ services:
       # here. When the catalyst is knocked out (x → 0), substrate boosted by
       # ~H_max (e.g. PTEN-KO → PIP3 up).
       - DS_DEPLETION_H_MAX=${DS_DEPLETION_H_MAX:-10.0}
+      # Damping for the steady-state penalty solver. 0 = original feed-forward
+      # iteration (converges in network-depth steps for acyclic, oscillates in
+      # cyclic). >0 = damped x ← (1-λ)·x + λ·F(x), better convergence for
+      # feedback loops. Observations stay hard-pinned regardless.
+      - DS_DAMPING=${DS_DAMPING:-0.0}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro
