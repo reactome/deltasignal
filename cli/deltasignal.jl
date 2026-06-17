@@ -296,7 +296,8 @@ function execute_parse_command(args)
                 "child_uuid" => edge.child_uuid,
                 "is_and" => edge.is_and,
                 "is_positive" => edge.is_positive,
-                "stoichiometry" => edge.stoichiometry
+                "stoichiometry" => edge.stoichiometry,
+                "edge_type" => edge.edge_type
             ) for edge in network.edges],
             "set_mappings" => Dict(set_id => Dict(
                 "original_set_id" => mapping.original_set_id,
@@ -340,12 +341,15 @@ function execute_solve_command(args)
 
         edges = LogicNetworkEdge[]
         for edge_data in network_json["edges"]
+            edge_type = haskey(edge_data, "edge_type") && edge_data["edge_type"] !== nothing ?
+                String(edge_data["edge_type"]) : ""
             push!(edges, LogicNetworkEdge(
                 String(edge_data["parent_uuid"]),
                 String(edge_data["child_uuid"]),
                 Bool(edge_data["is_and"]),
                 Bool(edge_data["is_positive"]),
-                Float64(edge_data["stoichiometry"])
+                Float64(edge_data["stoichiometry"]),
+                edge_type
             ))
         end
 
