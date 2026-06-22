@@ -40,7 +40,6 @@ DEFAULT_PATHWAYS = [
 SCRIPT_DIR = Path(__file__).resolve().parent
 TCGA_VALIDATION_DIR = SCRIPT_DIR.parent
 DELTASIGNAL_REPO = TCGA_VALIDATION_DIR.parents[1]
-GSOC_ROOT = DELTASIGNAL_REPO.parent
 
 
 @dataclass(frozen=True)
@@ -83,39 +82,44 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--lng-output-root",
         type=Path,
-        default=GSOC_ROOT / "logic-network-generator" / "output",
+        required=True,
+        help=(
+            "Directory containing Logic Network Generator pathway output folders. "
+            "Each pathway folder must contain logic_network.csv and stid_to_uuid_mapping.csv."
+        ),
     )
     parser.add_argument(
         "--observability-summary",
         type=Path,
-        default=(
-            GSOC_ROOT
-            / "real-deltasignal-pipeline"
-            / "outputs"
-            / "observability_audit_panel_rhsa_after_lng_mapping_fix"
-            / "pathway_suitability.tsv"
+        required=True,
+        help=(
+            "TSV with at least pathway_id, pathway_name, and suitability columns. "
+            "This is produced by the pathway observability audit."
         ),
     )
     parser.add_argument(
         "--root-audit",
         type=Path,
-        default=(
-            GSOC_ROOT
-            / "real-deltasignal-pipeline"
-            / "outputs"
-            / "observability_audit_panel_rhsa_after_lng_mapping_fix"
-            / "root_observability_audit.tsv"
+        required=True,
+        help=(
+            "TSV with root UUID to gene observability rows. "
+            "Required columns include pathway_id, root_uuid, mapping_status, and gene_symbol."
         ),
     )
     parser.add_argument(
         "--expression-tsv",
         type=Path,
-        default=GSOC_ROOT / "deltasignal-pipeline" / "data" / "processed" / "TCGA.LUAD.HiSeqV2.tsv",
+        required=True,
+        help="TCGA LUAD expression matrix TSV with genes as rows and sample IDs as columns.",
     )
     parser.add_argument(
         "--clinical-tsv",
         type=Path,
-        default=GSOC_ROOT / "deltasignal-pipeline" / "data" / "raw" / "TCGA.LUAD.clinicalMatrix.tsv",
+        required=True,
+        help=(
+            "TCGA LUAD clinical matrix TSV containing sampleID, days_to_death, "
+            "days_to_last_followup, and vital_status."
+        ),
     )
     parser.add_argument(
         "--deltasignal-dir",
