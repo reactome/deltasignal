@@ -1,0 +1,4 @@
+pathway_id	pathway_name	selection_reason
+R-HSA-69620	Cell Cycle Checkpoints	High mRNA observability and strongest full-cohort LUAD survival signal in the focused validation run.
+R-HSA-453279	Mitotic G1-G1/S phases	Good mRNA observability and borderline full-cohort LUAD survival signal.
+R-HSA-1257604	PIP3 activates AKT signaling	Good mRNA observability; included as PI3K/AKT signaling control pathway.

@@ -51,3 +51,10 @@ data/output/*
 data/cache/*
 !data/*/
 !data/README.md
+
+# Validation pipeline intermediates
+validation/**/outputs/
+validation/**/example_results/**/parsed_networks/
+validation/**/example_results/**/observations/
+validation/**/example_results/**/solve_results/
+validation/**/example_results/**/logs/
