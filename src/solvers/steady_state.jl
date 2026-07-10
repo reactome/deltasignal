@@ -231,7 +231,7 @@ function solve_steady_state_penalty(
     # are still hard-pinned each step. Default 0 = original behaviour.
     damping = parse(Float64, get(ENV, "DS_DAMPING", "0.0"))
 
-    scc_solve = get(ENV, "DS_SCC_SOLVE", "0") != "0"
+    scc_solve = get(ENV, "DS_SCC_SOLVE", "1") != "0"  # SCC-condensation solve is the default; set DS_SCC_SOLVE=0 for legacy flat iteration
     if scc_solve && n_comp > 0
         # SCC-condensation solve (see solve_scc_ordered!): solves the acyclic
         # majority exactly in topological order and confines damped iteration to

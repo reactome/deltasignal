@@ -73,7 +73,7 @@ services:
       # the target) — the catalyst is read at baseline as a conserved-moiety
       # modulator, dissolving artifactual recycling SCCs (e.g. TP53 1250→50)
       # without editing the network. See bench/analysis/scc_edge_breakdown.py.
-      - DS_SCC_SOLVE=${DS_SCC_SOLVE:-0}
+      - DS_SCC_SOLVE=${DS_SCC_SOLVE:-1}
       # Per-SCC damping for the SCC-condensation solver (only used when
       # DS_SCC_SOLVE=1). Confined to strongly-connected components; the acyclic
       # majority is solved exactly regardless.

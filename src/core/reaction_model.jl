@@ -481,7 +481,7 @@ function index_reactions(
     # node i, numbered in reverse-topological order. Used for (a) the SCC-
     # condensation solver's processing order [DS_SCC_SOLVE] and (b) marking
     # recycling catalyst back-edges to relax [DS_SCC_BREAK_CATALYST].
-    scc_solve = get(ENV, "DS_SCC_SOLVE", "0") != "0"
+    scc_solve = get(ENV, "DS_SCC_SOLVE", "1") != "0"  # SCC-condensation solve is the default; set DS_SCC_SOLVE=0 for legacy flat iteration
     break_catalyst = get(ENV, "DS_SCC_BREAK_CATALYST", "0") != "0"
     comp_id, n_comp = (scc_solve || break_catalyst) ?
         tarjan_scc_components(fwd_adj) : (Int[], 0)
