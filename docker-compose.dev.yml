@@ -74,6 +74,13 @@ services:
       # modulator, dissolving artifactual recycling SCCs (e.g. TP53 1250→50)
       # without editing the network. See bench/analysis/scc_edge_breakdown.py.
       - DS_SCC_SOLVE=${DS_SCC_SOLVE:-0}
+      # Per-SCC damping for the SCC-condensation solver (only used when
+      # DS_SCC_SOLVE=1). Confined to strongly-connected components; the acyclic
+      # majority is solved exactly regardless.
+      - DS_SCC_DAMPING=${DS_SCC_DAMPING:-0.5}
+      # Optional layer on the SCC solver: relax recycling-catalyst back-edges,
+      # reading the catalyst at its component-entry (frozen-supply) value.
+      - DS_SCC_BREAK_CATALYST=${DS_SCC_BREAK_CATALYST:-0}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro
