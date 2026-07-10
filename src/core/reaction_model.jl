@@ -56,6 +56,34 @@ struct Reaction
     # be aggregated with geomean and dragged down by whichever input is at baseline.
     activator_is_and::Vector{Bool}
     inhibitor_is_and::Vector{Bool}
+
+    # Per-activator catalyst flag (edge_type=="catalyst"), aligned with
+    # activator_uuids. Catalysts are regenerated (conserved moiety), not
+    # consumed — used by the SCC-aware solver to relax catalyst edges that
+    # close a recycling cycle (see DS_SCC_SOLVE in compute_reaction_output_vec).
+    activator_is_catalyst::Vector{Bool}
+end
+
+# Back-compat outer constructor: callers predating the per-activator catalyst
+# flag (the biological-realism / feedback / compartmentalization enhancement
+# modules) pass the 10-arg form. Default to no catalysts so they keep working.
+function Reaction(
+    target_uuid::String,
+    activator_uuids::Vector{String},
+    inhibitor_uuids::Vector{String},
+    depletion_uuids::Vector{String},
+    substrate_uuids::Vector{String},
+    product_uuids::Vector{String},
+    params::ReactionParams,
+    is_and_gate::Bool,
+    activator_is_and::Vector{Bool},
+    inhibitor_is_and::Vector{Bool},
+)
+    return Reaction(
+        target_uuid, activator_uuids, inhibitor_uuids, depletion_uuids,
+        substrate_uuids, product_uuids, params, is_and_gate,
+        activator_is_and, inhibitor_is_and, fill(false, length(activator_uuids)),
+    )
 end
 
 """
@@ -101,6 +129,7 @@ function create_reaction_from_edges(
     # whatever DS_INHIBITION_MODE is set to (default devspec).
     activators = String[]
     activator_is_and = Bool[]
+    activator_is_catalyst = Bool[]
     inhibitors = String[]
     inhibitor_is_and = Bool[]
     depletions = String[]
@@ -111,6 +140,7 @@ function create_reaction_from_edges(
         if edge.is_positive
             push!(activators, edge.parent_uuid)
             push!(activator_is_and, edge.is_and)
+            push!(activator_is_catalyst, edge.edge_type == "catalyst")
         elseif edge.edge_type == "depletion"
             push!(depletions, edge.parent_uuid)
         else
@@ -139,6 +169,7 @@ function create_reaction_from_edges(
         is_and_gate,
         activator_is_and,
         inhibitor_is_and,
+        activator_is_catalyst,
     )
 end
 
@@ -315,6 +346,14 @@ struct IndexedReaction
     target_baseline::Float64
     activator_indices::Vector{Int}
     activator_is_and::Vector{Bool}  # per-activator AND/OR flag
+    activator_break::Vector{Bool}   # per-activator: relax this edge under
+                                    # DS_SCC_SOLVE. True iff it is a catalyst
+                                    # edge whose source sits in the SAME SCC as
+                                    # the target — i.e. a recycling-cycle
+                                    # closure. The catalyst is then read at
+                                    # baseline (conserved-moiety modulator) so
+                                    # the artifactual SCC dissolves at solve
+                                    # time without editing the network.
     inhibitor_indices::Vector{Int}
     inhibitor_in_short_loop::Vector{Bool}  # per-inhibitor: is the inhibitor a
                                             # node that the reaction's target
@@ -335,6 +374,38 @@ struct IndexedReaction
 end
 
 """
+Return a copy of `p` whose edge-aligned parameter vectors keep only the entries
+at the surviving original positions (`act_orig`/`inh_orig`/`sub_orig`, in
+increasing order). This keeps per-edge parameters aligned with the filtered
+activator/inhibitor/substrate index vectors in `index_reactions`. It is a no-op
+in value when nothing was dropped (positions == 1:n). Defensive: if a parameter
+vector is shorter than the requested positions (e.g. reactions built by a
+non-default constructor), that vector is left unchanged rather than erroring.
+"""
+function compact_reaction_params(
+    p::ReactionParams,
+    act_orig::Vector{Int},
+    inh_orig::Vector{Int},
+    sub_orig::Vector{Int},
+)::ReactionParams
+    pick(v, idx) = (isempty(idx) || maximum(idx) <= length(v)) ? v[idx] : v
+    return ReactionParams(
+        p.h, p.K,
+        pick(p.activator_weights, act_orig),
+        pick(p.activator_sensitivity_s, act_orig),
+        pick(p.activator_sensitivity_n, act_orig),
+        pick(p.activator_sensitivity_K, act_orig),
+        pick(p.inhibitor_betas, inh_orig),
+        pick(p.inhibitor_ms, inh_orig),
+        pick(p.substrate_weights, sub_orig),
+        pick(p.consumption_lambdas, sub_orig),
+        p.production_etas,
+        p.replenishment_rho,
+        p.decay_delta,
+    )
+end
+
+"""
 Convert Vector{Reaction} → Vector{IndexedReaction} using a uuid → index map
 and a baseline lookup (uuid → baseline). Reactions targeting nodes outside
 the map are dropped (defensive — shouldn't happen for well-formed networks).
@@ -344,7 +415,7 @@ function index_reactions(
     reactions::Vector{Reaction},
     uuid_to_idx::Dict{String, Int},
     baselines::Dict{String, Float64},
-)::Vector{IndexedReaction}
+)::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # First pass: build the bare IndexedReactions (without loop flags) and the
     # forward adjacency for short-loop detection.
     raw = NamedTuple[]
@@ -355,16 +426,33 @@ function index_reactions(
         haskey(uuid_to_idx, r.target_uuid) || continue
         target_idx = uuid_to_idx[r.target_uuid]
 
+        # Track the ORIGINAL edge position of each surviving input so the
+        # per-edge parameter vectors (weights, sensitivity, Hill m/β) can be
+        # compacted in lockstep. Without this, dropping an input whose UUID is
+        # absent from the node set shifts every later input onto the wrong
+        # parameter slot — silent under uniform defaults, corrupting once
+        # per-edge parameters are trained.
         act_indices = Int[]
         act_is_and = Bool[]
+        act_is_catalyst = Bool[]
+        act_orig = Int[]
         for (k, uuid) in enumerate(r.activator_uuids)
             haskey(uuid_to_idx, uuid) || continue
             push!(act_indices, uuid_to_idx[uuid])
             push!(act_is_and, k <= length(r.activator_is_and) ? r.activator_is_and[k] : r.is_and_gate)
+            push!(act_is_catalyst, k <= length(r.activator_is_catalyst) ? r.activator_is_catalyst[k] : false)
+            push!(act_orig, k)
         end
+        inh_orig = [k for (k, u) in enumerate(r.inhibitor_uuids) if haskey(uuid_to_idx, u)]
+        sub_orig = [k for (k, u) in enumerate(r.substrate_uuids) if haskey(uuid_to_idx, u)]
         inh_indices = [uuid_to_idx[u] for u in r.inhibitor_uuids if haskey(uuid_to_idx, u)]
         dep_indices = [uuid_to_idx[u] for u in r.depletion_uuids if haskey(uuid_to_idx, u)]
         sub_indices = [uuid_to_idx[u] for u in r.substrate_uuids if haskey(uuid_to_idx, u)]
+
+        # Compact the edge-aligned parameter vectors to match the surviving
+        # inputs. No-op when nothing was dropped (act_orig == 1:n), so this is
+        # behaviour-preserving for well-formed networks.
+        params = compact_reaction_params(r.params, act_orig, inh_orig, sub_orig)
 
         # Forward adjacency: every activator AND inhibitor source points to this
         # reaction's target (both define how the target's value depends on
@@ -382,10 +470,21 @@ function index_reactions(
         push!(raw, (
             target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
             act_indices=act_indices, act_is_and=act_is_and,
+            act_is_catalyst=act_is_catalyst,
             inh_indices=inh_indices, dep_indices=dep_indices,
-            sub_indices=sub_indices, params=r.params,
+            sub_indices=sub_indices, params=params,
         ))
     end
+
+    # SCC component ids. Computed when either SCC feature is enabled (keeps the
+    # default path byte-for-byte unchanged otherwise). comp_id[i] = SCC id of
+    # node i, numbered in reverse-topological order. Used for (a) the SCC-
+    # condensation solver's processing order [DS_SCC_SOLVE] and (b) marking
+    # recycling catalyst back-edges to relax [DS_SCC_BREAK_CATALYST].
+    scc_solve = get(ENV, "DS_SCC_SOLVE", "0") != "0"
+    break_catalyst = get(ENV, "DS_SCC_BREAK_CATALYST", "0") != "0"
+    comp_id, n_comp = (scc_solve || break_catalyst) ?
+        tarjan_scc_components(fwd_adj) : (Int[], 0)
 
     # Second pass: for each (target, inhibitor) pair, BFS forward from the
     # target up to max_depth hops to see if the inhibitor is reachable. If so,
@@ -423,15 +522,94 @@ function index_reactions(
             end
             push!(in_loop, found)
         end
+
+        # Recycling-catalyst back-edges: a catalyst activator whose source is in
+        # the same SCC as this reaction's target closes a recycling cycle. Mark
+        # it for relaxation under DS_SCC_SOLVE. All-false when SCC solve is off.
+        act_break = Bool[]
+        for k in eachindex(rec.act_indices)
+            brk = false
+            if break_catalyst && rec.act_is_catalyst[k]
+                src = rec.act_indices[k]
+                if comp_id[src] == comp_id[rec.target_idx]
+                    brk = true
+                end
+            end
+            push!(act_break, brk)
+        end
+
         push!(indexed, IndexedReaction(
             rec.target_idx, rec.baseline,
-            rec.act_indices, rec.act_is_and,
+            rec.act_indices, rec.act_is_and, act_break,
             rec.inh_indices, in_loop,
             rec.dep_indices,
             rec.sub_indices, rec.params,
         ))
     end
-    return indexed
+    return indexed, comp_id, n_comp
+end
+
+"""
+Iterative Tarjan SCC. `adj[u]` is the set of nodes u points to. Returns
+`(comp_id, ncomp)` where comp_id[i] = SCC id of node i (1-based) and ncomp is
+the number of components. Nodes in the same cycle share an id; acyclic nodes
+each get their own. Components are numbered in REVERSE topological order
+(sinks get low ids, sources high), so processing in DESCENDING comp_id is a
+valid topological order (upstream before downstream). O(V+E).
+"""
+function tarjan_scc_components(adj::Vector{Set{Int}})::Tuple{Vector{Int},Int}
+    n = length(adj)
+    index = fill(0, n)
+    low = fill(0, n)
+    onstack = falses(n)
+    comp_id = fill(0, n)
+    stack = Int[]
+    counter = 0
+    ncomp = 0
+    # iterative DFS: work stack holds (node, neighbor-iteration-position)
+    for s in 1:n
+        index[s] != 0 && continue
+        work = Tuple{Int,Int}[(s, 1)]
+        # neighbors as indexable vectors (Set isn't indexable)
+        neigh = Dict{Int,Vector{Int}}()
+        neigh[s] = collect(adj[s])
+        counter += 1; index[s] = counter; low[s] = counter
+        push!(stack, s); onstack[s] = true
+        while !isempty(work)
+            v, pi = work[end]
+            vs = get!(neigh, v) do; collect(adj[v]) end
+            advanced = false
+            i = pi
+            while i <= length(vs)
+                w = vs[i]
+                if index[w] == 0
+                    work[end] = (v, i + 1)
+                    counter += 1; index[w] = counter; low[w] = counter
+                    push!(stack, w); onstack[w] = true
+                    push!(work, (w, 1))
+                    advanced = true
+                    break
+                elseif onstack[w]
+                    low[v] = min(low[v], index[w])
+                end
+                i += 1
+            end
+            advanced && continue
+            pop!(work)
+            if !isempty(work)
+                p = work[end][1]
+                low[p] = min(low[p], low[v])
+            end
+            if low[v] == index[v]
+                ncomp += 1
+                while true
+                    w = pop!(stack); onstack[w] = false; comp_id[w] = ncomp
+                    w == v && break
+                end
+            end
+        end
+    end
+    return comp_id, ncomp
 end
 
 """
@@ -440,7 +618,8 @@ version (sensitivity transform → geomean activators × Hill-suppression
 inhibitors × geomean substrates → Hill output), but generic-typed over the
 element type so ForwardDiff Duals propagate.
 """
-function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction) where {T<:Real}
+function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
+                                     supply::Union{Nothing,AbstractVector}=nothing) where {T<:Real}
     p = rxn.params
 
     # Activators (and optionally inverted inhibitors): split by per-edge AND/OR
@@ -474,8 +653,19 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction)
     # Activator inputs (with per-input sensitivity transform + per-edge AND/OR)
     @inbounds for k in 1:length(rxn.activator_indices)
         i = rxn.activator_indices[k]
+        # Recycling-catalyst back-edge (DS_SCC_BREAK_CATALYST): relax this edge
+        # so the catalyst acts as a conserved-moiety modulator rather than a
+        # loop-carrying signal. Read it from `supply` (its externally-supplied
+        # value, frozen before the SCC was iterated) when available, else fall
+        # back to baseline. The catalyst's real perturbation still reaches this
+        # reaction through its forward (non-recycling) paths.
+        src_val = if k <= length(rxn.activator_break) && rxn.activator_break[k]
+            supply === nothing ? bl : T(supply[i])
+        else
+            x[i]
+        end
         transformed = apply_sensitivity_transform(
-            x[i];
+            src_val;
             s=p.activator_sensitivity_s[k],
             n=p.activator_sensitivity_n[k],
             K_α=p.activator_sensitivity_K[k],
@@ -822,10 +1012,11 @@ Forward model F(x; θ) in vector form. Returns a new vector where each
 target node carries the output of its driving reaction; nodes with no
 incoming reaction keep their current value.
 """
-function forward_model_vec(x::AbstractVector{T}, reactions::Vector{IndexedReaction}) where {T<:Real}
+function forward_model_vec(x::AbstractVector{T}, reactions::Vector{IndexedReaction};
+                           supply::Union{Nothing,AbstractVector}=nothing) where {T<:Real}
     y = copy(x)  # preserves element type, including Dual
     for rxn in reactions
-        y[rxn.target_idx] = compute_reaction_output_vec(x, rxn)
+        y[rxn.target_idx] = compute_reaction_output_vec(x, rxn; supply=supply)
     end
     return y
 end

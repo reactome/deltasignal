@@ -75,6 +75,87 @@ function solve_steady_state(
 end
 
 """
+SCC-condensation solve. Processes strongly-connected components in topological
+order (Tarjan numbers them in reverse-topo order, so DESCENDING comp_id is
+upstream-first). Singleton (acyclic) components are evaluated exactly in one
+pass — Gauss-Seidel reading the already-final upstream values — so the acyclic
+majority of the network (≈90%+) is solved without any damping and matches the
+plain feed-forward result. Non-trivial components (genuine loops) get a damped
+fixed-point iteration CONFINED to that component, with external inputs held
+fixed at their solved upstream values. This makes feedback loops converge to a
+stable point instead of the flat solver's oscillating last-iterate.
+
+Mutates `x` in place. Returns (total_inner_iters, last_max_change). Observations
+in `obs_set` are never updated (hard-pinned). `DS_SCC_DAMPING` (default 0.5)
+sets the per-component blend; `DS_SCC_BREAK_CATALYST` additionally freezes
+recycling-catalyst edges at their component-entry value (conserved moiety).
+"""
+function solve_scc_ordered!(
+    x::Vector{Float64},
+    rxns_idx::Vector{IndexedReaction},
+    comp_id::Vector{Int},
+    n_comp::Int,
+    obs_set::Set{Int},
+    params::SteadyStateParams,
+)
+    λ = parse(Float64, get(ENV, "DS_SCC_DAMPING", "0.5"))
+    use_supply = get(ENV, "DS_SCC_BREAK_CATALYST", "0") != "0"
+    max_inner = params.max_iters
+    tol = params.tolerance
+
+    # Reactions grouped by their target node's component.
+    comp_rxns = [Int[] for _ in 1:n_comp]
+    @inbounds for ri in eachindex(rxns_idx)
+        c = comp_id[rxns_idx[ri].target_idx]
+        push!(comp_rxns[c], ri)
+    end
+    # Node count per component → distinguishes acyclic singletons from real SCCs.
+    comp_size = zeros(Int, n_comp)
+    @inbounds for c in comp_id
+        c >= 1 && (comp_size[c] += 1)
+    end
+
+    total_iters = 0
+    last_change = 0.0
+
+    # Topological order: upstream (high comp_id) before downstream (low).
+    @inbounds for c in n_comp:-1:1
+        rs = comp_rxns[c]
+        isempty(rs) && continue
+
+        if comp_size[c] == 1
+            # Acyclic node: exact single evaluation (upstream already final).
+            for ri in rs
+                t = rxns_idx[ri].target_idx
+                t in obs_set && continue
+                x[t] = compute_reaction_output_vec(x, rxns_idx[ri])
+            end
+        else
+            # Genuine loop: damped fixed point confined to this component.
+            # Freeze the entry state for the optional catalyst-break layer.
+            supply = use_supply ? copy(x) : nothing
+            for it in 1:max_inner
+                total_iters += 1
+                maxch = 0.0
+                for ri in rs
+                    r = rxns_idx[ri]
+                    t = r.target_idx
+                    t in obs_set && continue
+                    fwd = compute_reaction_output_vec(x, r; supply=supply)
+                    nv = (1.0 - λ) * x[t] + λ * fwd
+                    ch = abs(nv - x[t])
+                    ch > maxch && (maxch = ch)
+                    x[t] = nv
+                end
+                last_change = maxch
+                maxch < tol && break
+            end
+        end
+    end
+    return total_iters, last_change
+end
+
+"""
 Steady-state solver: damped fixed-point iteration with observations pinned
 as hard constraints. This is the right tool for the interactive perturbation
 case ("user sets node X to value Y, propagate") because observations are
@@ -88,14 +169,9 @@ implement the learning pass; for single-condition inference, the fixed-point
 form gives biologically clean answers without the local-minima traps that
 the penalty form has.
 
-Algorithm:
-  1. Pre-compute integer-indexed reactions (vector form).
-  2. Pin observed nodes to their observation values; non-observed nodes start
-     at their baseline x₀ (or wherever solve_steady_state's caller put them).
-  3. Iterate x ← (1−λ)·x + λ·F(x;θ) until convergence (or hit max_iters).
-     Damping λ = 0.3 by default — empirically stable for Hill networks with
-     feedback loops.
-  4. Re-pin observed nodes after each step (hard constraints).
+When DS_SCC_SOLVE is set, the iteration is replaced by solve_scc_ordered!
+(SCC-condensation); otherwise the flat feed-forward (optionally DS_DAMPING)
+loop below runs.
 """
 function solve_steady_state_penalty(
     reactions::Vector{Reaction},
@@ -109,7 +185,7 @@ function solve_steady_state_penalty(
     all_nodes = collect(keys(x0))
     n = length(all_nodes)
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
-    rxns_idx = index_reactions(reactions, uuid_to_idx, baseline_activities)
+    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities)
 
     # Initial state vector.
     x = Vector{Float64}(undef, n)
@@ -155,24 +231,35 @@ function solve_steady_state_penalty(
     # are still hard-pinned each step. Default 0 = original behaviour.
     damping = parse(Float64, get(ENV, "DS_DAMPING", "0.0"))
 
-    for it in 1:params.max_iters
-        x_fwd = forward_model_vec(x, rxns_idx)
+    scc_solve = get(ENV, "DS_SCC_SOLVE", "0") != "0"
+    if scc_solve && n_comp > 0
+        # SCC-condensation solve (see solve_scc_ordered!): solves the acyclic
+        # majority exactly in topological order and confines damped iteration to
+        # the strongly-connected components (real loops), so feedback converges
+        # instead of settling on an oscillating last-iterate.
+        iters, max_change = solve_scc_ordered!(
+            x, rxns_idx, comp_id, n_comp, obs_set, params)
+        converged = max_change < params.tolerance
+    else
+        for it in 1:params.max_iters
+            x_fwd = forward_model_vec(x, rxns_idx)
 
-        max_change = 0.0
-        @inbounds for i in 1:n
-            if i in obs_set
-                continue  # pinned observation, don't update
+            max_change = 0.0
+            @inbounds for i in 1:n
+                if i in obs_set
+                    continue  # pinned observation, don't update
+                end
+                new_val = damping > 0.0 ? (1.0 - damping) * x[i] + damping * x_fwd[i] : x_fwd[i]
+                change = abs(new_val - x[i])
+                change > max_change && (max_change = change)
+                x[i] = new_val
             end
-            new_val = damping > 0.0 ? (1.0 - damping) * x[i] + damping * x_fwd[i] : x_fwd[i]
-            change = abs(new_val - x[i])
-            change > max_change && (max_change = change)
-            x[i] = new_val
-        end
 
-        iters = it
-        if max_change < params.tolerance
-            converged = true
-            break
+            iters = it
+            if max_change < params.tolerance
+                converged = true
+                break
+            end
         end
     end
 

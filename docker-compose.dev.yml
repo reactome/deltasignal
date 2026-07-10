@@ -67,10 +67,18 @@ services:
       # cyclic). >0 = damped x ← (1-λ)·x + λ·F(x), better convergence for
       # feedback loops. Observations stay hard-pinned regardless.
       - DS_DAMPING=${DS_DAMPING:-0.0}
+      # SCC-aware solving. 0 = off (default, original behaviour). When set,
+      # the solver computes strongly-connected components and relaxes catalyst
+      # edges that close a recycling cycle (catalyst source in the same SCC as
+      # the target) — the catalyst is read at baseline as a conserved-moiety
+      # modulator, dissolving artifactual recycling SCCs (e.g. TP53 1250→50)
+      # without editing the network. See bench/analysis/scc_edge_breakdown.py.
+      - DS_SCC_SOLVE=${DS_SCC_SOLVE:-0}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro
       - ./test:/app/test:ro
+      - ./bench:/app/bench:ro
       - ./examples:/app/examples:ro
       # Pre-generated Reactome pathway catalog from the upstream
       # logic-network-generator project. Mounted read-only. Override the host
