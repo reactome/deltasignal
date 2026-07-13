@@ -87,6 +87,10 @@ services:
       - DS_SCC_NEG_MODE=${DS_SCC_NEG_MODE:-converge}
       - DS_SCC_NEG_FRAC=${DS_SCC_NEG_FRAC:-0.5}
       - DS_SCC_NEG_ITERS=${DS_SCC_NEG_ITERS:-1}
+      # File of gene stable_ids (one per line) marking transcription-reaction
+      # inputs, so the solver can identify transcriptional autoregulation loops
+      # (DS_INHIBITOR_FLOOR_SCOPE=transcription). Empty/unset = inert.
+      - DS_GENE_STIDS_FILE=${DS_GENE_STIDS_FILE:-/app/bench/gene_stids.txt}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro

@@ -358,9 +358,22 @@ struct IndexedReaction
     inhibitor_in_short_loop::Vector{Bool}  # per-inhibitor: is the inhibitor a
                                             # node that the reaction's target
                                             # can reach in ≤ DS_LOOP_DEPTH
-                                            # forward hops? If so, it's part
-                                            # of a small negative-feedback loop
-                                            # and DS_INHIBITOR_FLOOR applies.
+                                            # forward hops (or shares its SCC)?
+                                            # If so, it's part of a negative-
+                                            # feedback loop and DS_INHIBITOR_FLOOR
+                                            # (scope=loops) applies.
+    inhibitor_transcriptional::Vector{Bool} # per-inhibitor: is this a
+                                            # TRANSCRIPTIONAL autoregulation edge
+                                            # — the reaction has a gene input
+                                            # (it's a transcription/expression
+                                            # step) AND the inhibitor is in the
+                                            # target's SCC (self-regulating
+                                            # feedback). These get weakened
+                                            # (DS_INHIBITOR_FLOOR scope=transcription)
+                                            # because continuous gene dosage +
+                                            # strong proportional repression is
+                                            # unphysical; protein-level feedback
+                                            # (no gene input) keeps full strength.
     depletion_indices::Vector{Int}          # catalyst→substrate "consumption"
                                             # inhibitor edges from
                                             # edge_type="depletion". Always
@@ -405,6 +418,25 @@ function compact_reaction_params(
     )
 end
 
+# Gene stable_ids (transcription-reaction inputs), loaded once from the file at
+# DS_GENE_STIDS_FILE (one R-HSA stable_id per line). Empty when unset — then no
+# edge is ever classified transcriptional and scope=transcription is inert.
+const _GENE_STIDS = Ref{Union{Nothing, Set{String}}}(nothing)
+function gene_stid_set()::Set{String}
+    if _GENE_STIDS[] === nothing
+        s = Set{String}()
+        path = get(ENV, "DS_GENE_STIDS_FILE", "")
+        if !isempty(path) && isfile(path)
+            for line in eachline(path)
+                t = strip(line)
+                isempty(t) || push!(s, String(t))
+            end
+        end
+        _GENE_STIDS[] = s
+    end
+    return _GENE_STIDS[]::Set{String}
+end
+
 """
 Convert Vector{Reaction} → Vector{IndexedReaction} using a uuid → index map
 and a baseline lookup (uuid → baseline). Reactions targeting nodes outside
@@ -415,7 +447,12 @@ function index_reactions(
     reactions::Vector{Reaction},
     uuid_to_idx::Dict{String, Int},
     baselines::Dict{String, Float64},
+    gene_uuids::Set{String} = Set{String}(),
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
+    # Node indices that are gene entities (inputs to transcription/expression
+    # reactions). Used to detect transcriptional autoregulation loops.
+    gene_indices = Set{Int}(uuid_to_idx[u] for u in gene_uuids if haskey(uuid_to_idx, u))
+
     # First pass: build the bare IndexedReactions (without loop flags) and the
     # forward adjacency for short-loop detection.
     raw = NamedTuple[]
@@ -536,6 +573,18 @@ function index_reactions(
             push!(in_loop, found)
         end
 
+        # Transcriptional repression: this reaction is a transcription/
+        # expression step (it has a gene entity among its inputs), so any
+        # negative regulator of it is repressing gene transcription. These get
+        # weakened under scope=transcription because genes are ~on/off — strong
+        # proportional repression of a continuous gene-dosage node is unphysical.
+        # NOTE: the SCC/loop requirement is intentionally NOT applied: positional
+        # decomposition severs the gene→protein→own-transcription autoregulation
+        # loop into separate UUIDs, so these edges are feed-forward in the graph
+        # (in_loop≈0) even though biologically they are self-regulation.
+        rxn_has_gene = any(a -> a in gene_indices, rec.act_indices)
+        in_transcription = fill(rxn_has_gene, length(rec.inh_indices))
+
         # Recycling-catalyst back-edges: a catalyst activator whose source is in
         # the same SCC as this reaction's target closes a recycling cycle. Mark
         # it for relaxation under DS_SCC_SOLVE. All-false when SCC solve is off.
@@ -554,7 +603,7 @@ function index_reactions(
         push!(indexed, IndexedReaction(
             rec.target_idx, rec.baseline,
             rec.act_indices, rec.act_is_and, act_break,
-            rec.inh_indices, in_loop,
+            rec.inh_indices, in_loop, in_transcription,
             rec.dep_indices,
             rec.sub_indices, rec.params,
         ))
@@ -910,10 +959,15 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     elseif inhibition_mode == "divide"
         eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
         # DS_INHIBITOR_FLOOR caps how strongly an inhibitor edge can suppress
-        # its target. By default it applies ONLY to inhibitor edges within
-        # small negative-feedback loops (where compounding through the loop
-        # over-represses). DS_INHIBITOR_FLOOR_SCOPE=all forces it onto every
-        # inhibitor (the global variant, for comparison).
+        # its target. DS_INHIBITOR_FLOOR_SCOPE selects which edges it applies to:
+        #   "all"           — every inhibitor (global variant, for comparison)
+        #   "loops"         — inhibitors in any negative-feedback loop (SCC or
+        #                     short BFS)
+        #   "transcription" — ONLY transcriptional autoregulation loops (the
+        #                     reaction has a gene input and the inhibitor is in
+        #                     its SCC). This is the biologically-typed rule:
+        #                     weaken self-regulating gene transcription, leave
+        #                     protein-level feedback at full divide strength.
         h_floor = T(parse(Float64, get(ENV, "DS_INHIBITOR_FLOOR", "0.0")))
         floor_scope = get(ENV, "DS_INHIBITOR_FLOOR_SCOPE", "loops")
         result = one(T)
@@ -921,7 +975,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
             h_k = (bl + eps_T) / (x_inh + eps_T)
             apply_floor = floor_scope == "all" ||
-                          (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k])
+                          (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k]) ||
+                          (floor_scope == "transcription" && rxn.inhibitor_transcriptional[k])
             if apply_floor
                 h_k = max(h_floor, h_k)
             end

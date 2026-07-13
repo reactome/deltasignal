@@ -58,6 +58,11 @@ function solve_steady_state(
     x0 = Dict{String, Float64}()
     baseline_activities = Dict{String, Float64}()
     
+    # Gene-entity UUIDs (nodes whose Reactome stable_id is a gene) — used to
+    # detect transcriptional autoregulation loops. Empty unless DS_GENE_STIDS_FILE
+    # is set, so this is a no-op by default.
+    gene_stids = gene_stid_set()
+    gene_uuids = Set{String}()
     for (uuid, node) in network.nodes
         if haskey(observations, uuid)
             x0[uuid] = observations[uuid][1] / 100.0  # Convert from UI scale 0-100 to internal 0-1
@@ -65,10 +70,13 @@ function solve_steady_state(
             x0[uuid] = node.baseline
         end
         baseline_activities[uuid] = node.baseline
+        if !isempty(gene_stids) && node.reactome_id !== nothing && node.reactome_id in gene_stids
+            push!(gene_uuids, uuid)
+        end
     end
-    
+
     if params.method == "penalty"
-        return solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time)
+        return solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids)
     else
         return solve_steady_state_fixed_point(reactions, observations, x0, baseline_activities, params, start_time)
     end
@@ -223,12 +231,13 @@ function solve_steady_state_penalty(
     baseline_activities::Dict{String, Float64},
     params::SteadyStateParams,
     start_time::Float64,
+    gene_uuids::Set{String} = Set{String}(),
 )::SolverResult
 
     all_nodes = collect(keys(x0))
     n = length(all_nodes)
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
-    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities)
+    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids)
 
     # Initial state vector.
     x = Vector{Float64}(undef, n)
