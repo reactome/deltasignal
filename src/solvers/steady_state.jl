@@ -103,6 +103,20 @@ function solve_scc_ordered!(
     max_inner = params.max_iters
     tol = params.tolerance
 
+    # Type-aware loop handling. Positive/recycling SCCs want full convergence
+    # (resolves spuriously-sustained signal). Negative-feedback / switch SCCs
+    # are hurt by full relaxation — the fully-relaxed steady state buffers or
+    # inverts the transient response a perturbation experiment measures. For
+    # those we cap the iteration at DS_SCC_NEG_ITERS sweeps ("transient" read)
+    # instead of relaxing to the feedback-corrected fixed point.
+    #   DS_SCC_NEG_MODE: "converge" (default, plain v2) | "transient"
+    #   DS_SCC_NEG_FRAC: fraction of internal edges that must be negative for an
+    #                    SCC to count as negative-feedback-dominant (default 0.5)
+    #   DS_SCC_NEG_ITERS: sweeps for negative SCCs in transient mode (default 1)
+    neg_mode = get(ENV, "DS_SCC_NEG_MODE", "converge")
+    neg_frac_thresh = parse(Float64, get(ENV, "DS_SCC_NEG_FRAC", "0.5"))
+    neg_iters = parse(Int, get(ENV, "DS_SCC_NEG_ITERS", "1"))
+
     # Reactions grouped by their target node's component.
     comp_rxns = [Int[] for _ in 1:n_comp]
     @inbounds for ri in eachindex(rxns_idx)
@@ -113,6 +127,31 @@ function solve_scc_ordered!(
     comp_size = zeros(Int, n_comp)
     @inbounds for c in comp_id
         c >= 1 && (comp_size[c] += 1)
+    end
+
+    # Per-component internal edge sign census (only when transient mode is on).
+    # Activators count as positive; inhibitors + depletions as negative. Only
+    # intra-SCC edges (source and target in the same component) are counted.
+    comp_neg_frac = zeros(Float64, n_comp)
+    if neg_mode != "converge"
+        comp_pos = zeros(Int, n_comp); comp_neg = zeros(Int, n_comp)
+        @inbounds for r in rxns_idx
+            c = comp_id[r.target_idx]
+            comp_size[c] > 1 || continue
+            for a in r.activator_indices
+                comp_id[a] == c && (comp_pos[c] += 1)
+            end
+            for i in r.inhibitor_indices
+                comp_id[i] == c && (comp_neg[c] += 1)
+            end
+            for dpt in r.depletion_indices
+                comp_id[dpt] == c && (comp_neg[c] += 1)
+            end
+        end
+        @inbounds for c in 1:n_comp
+            tot = comp_pos[c] + comp_neg[c]
+            comp_neg_frac[c] = tot > 0 ? comp_neg[c] / tot : 0.0
+        end
     end
 
     total_iters = 0
@@ -134,7 +173,11 @@ function solve_scc_ordered!(
             # Genuine loop: damped fixed point confined to this component.
             # Freeze the entry state for the optional catalyst-break layer.
             supply = use_supply ? copy(x) : nothing
-            for it in 1:max_inner
+            # Negative-feedback SCCs get a bounded (transient) relaxation; all
+            # others relax to convergence.
+            is_neg = neg_mode != "converge" && comp_neg_frac[c] >= neg_frac_thresh
+            cap = is_neg ? neg_iters : max_inner
+            for it in 1:cap
                 total_iters += 1
                 maxch = 0.0
                 for ri in rs

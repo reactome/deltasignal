@@ -81,6 +81,12 @@ services:
       # Optional layer on the SCC solver: relax recycling-catalyst back-edges,
       # reading the catalyst at its component-entry (frozen-supply) value.
       - DS_SCC_BREAK_CATALYST=${DS_SCC_BREAK_CATALYST:-0}
+      # Type-aware loop handling: negative-feedback SCCs get a bounded transient
+      # relaxation instead of full convergence (which buffers/inverts the
+      # measured transient). "converge" (default) = plain v2.
+      - DS_SCC_NEG_MODE=${DS_SCC_NEG_MODE:-converge}
+      - DS_SCC_NEG_FRAC=${DS_SCC_NEG_FRAC:-0.5}
+      - DS_SCC_NEG_ITERS=${DS_SCC_NEG_ITERS:-1}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro
