@@ -520,6 +520,19 @@ function index_reactions(
                     frontier = next_frontier
                 end
             end
+            # Also flag SCC membership: an inhibitor whose source sits in the
+            # SAME strongly-connected component as the target is part of a
+            # feedback cycle of ANY length — this catches the long
+            # gene→mRNA→protein→transcription autoregulation loops (e.g. MDM2
+            # repressing its own transcription) that the depth-bounded BFS
+            # above misses. Such self-regulating negative feedback is where
+            # continuous gene dosage + strong proportional repression is
+            # biologically wrong, so these edges are the ones DS_INHIBITOR_FLOOR
+            # should weaken (while feed-forward inhibition keeps full divide
+            # strength). comp_id is empty when SCC detection is off → skipped.
+            if !found && !isempty(comp_id) && comp_id[inh] == comp_id[rec.target_idx]
+                found = true
+            end
             push!(in_loop, found)
         end
 
