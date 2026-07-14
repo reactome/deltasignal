@@ -120,6 +120,26 @@ end
 
 const PARSE_FIELDS = ("logic_network", "uuid_mapping", "set_mappings", "observations")
 
+# Server-side cache of parsed networks, so a client can /api/parse once and then
+# /api/solve many times against a `network_id` — sending only observations, not
+# re-shipping (and re-parsing) the whole network on every solve. Critical for
+# large networks (30k+ edges) with hundreds of perturbations. Keyed by a stable
+# id (catalog pathway id when available); benchmark parses each pathway once.
+const NETWORK_CACHE = Dict{String, DeltaSignal.ReactionNetwork}()
+const NETWORK_CACHE_LOCK = ReentrantLock()
+
+function cache_network!(network_id::String, network::DeltaSignal.ReactionNetwork)
+    lock(NETWORK_CACHE_LOCK) do
+        NETWORK_CACHE[network_id] = network
+    end
+end
+
+function get_cached_network(network_id::String)
+    lock(NETWORK_CACHE_LOCK) do
+        get(NETWORK_CACHE, network_id, nothing)
+    end
+end
+
 # Reconstruct a ReactionNetwork from the JSON shape parse_handler returns,
 # so /api/solve can use a network the client already parsed (no need to
 # re-upload TSVs on every solve).
@@ -363,6 +383,7 @@ function parse_handler(req)
     upload = extract_uploaded_files(req)
     try
         local logic_network_path, uuid_mapping_path, set_mapping_path
+        pathway_id = nothing
 
         if upload !== nothing
             logic_network_path = upload.paths["logic_network"]
@@ -396,6 +417,12 @@ function parse_handler(req)
             uuid_mapping_path,
             set_mapping_path
         )
+
+        # Cache the parsed network so subsequent /api/solve calls can reference it
+        # by id instead of re-shipping the whole network each time.
+        network_id = pathway_id !== nothing ? "pw:" * pathway_id :
+                     "net:" * string(hash(logic_network_path))
+        cache_network!(network_id, network)
 
         # Replace placeholder names with real Reactome display names + types.
         # No-op if the network already has them or if ContentService is down.
@@ -438,6 +465,7 @@ function parse_handler(req)
         result = Dict(
             "status" => "success",
             "message" => "Network parsed successfully",
+            "network_id" => network_id,
             "nodes" => nodes_array,
             "edges" => edges_array,
             "pathways" => pathways_array
@@ -467,11 +495,15 @@ function solve_handler(req)
         # Parse the JSON request
         request_data = JSON3.read(body)
 
-        # If the client sent the previously-parsed network in the request,
-        # use it. Otherwise fall back to the bundled sample so older clients
-        # / smoke tests still work.
+        # Prefer a cached network referenced by network_id (from a prior
+        # /api/parse) — avoids re-shipping/re-parsing the whole network per
+        # solve. Otherwise use an inline `network`, else the bundled sample.
+        network_id_raw = get(request_data, :network_id, nothing)
         network_raw = get(request_data, :network, nothing)
-        if network_raw !== nothing
+        cached = network_id_raw === nothing ? nothing : get_cached_network(String(network_id_raw))
+        if cached !== nothing
+            network = cached
+        elseif network_raw !== nothing
             network = reaction_network_from_json(network_raw)
         else
             examples_dir = "examples"

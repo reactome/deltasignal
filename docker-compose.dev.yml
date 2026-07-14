@@ -62,10 +62,40 @@ services:
       # here. When the catalyst is knocked out (x → 0), substrate boosted by
       # ~H_max (e.g. PTEN-KO → PIP3 up).
       - DS_DEPLETION_H_MAX=${DS_DEPLETION_H_MAX:-10.0}
+      # Damping for the steady-state penalty solver. 0 = original feed-forward
+      # iteration (converges in network-depth steps for acyclic, oscillates in
+      # cyclic). >0 = damped x ← (1-λ)·x + λ·F(x), better convergence for
+      # feedback loops. Observations stay hard-pinned regardless.
+      - DS_DAMPING=${DS_DAMPING:-0.0}
+      # SCC-aware solving. 0 = off (default, original behaviour). When set,
+      # the solver computes strongly-connected components and relaxes catalyst
+      # edges that close a recycling cycle (catalyst source in the same SCC as
+      # the target) — the catalyst is read at baseline as a conserved-moiety
+      # modulator, dissolving artifactual recycling SCCs (e.g. TP53 1250→50)
+      # without editing the network. See bench/analysis/scc_edge_breakdown.py.
+      - DS_SCC_SOLVE=${DS_SCC_SOLVE:-1}
+      # Per-SCC damping for the SCC-condensation solver (only used when
+      # DS_SCC_SOLVE=1). Confined to strongly-connected components; the acyclic
+      # majority is solved exactly regardless.
+      - DS_SCC_DAMPING=${DS_SCC_DAMPING:-0.5}
+      # Optional layer on the SCC solver: relax recycling-catalyst back-edges,
+      # reading the catalyst at its component-entry (frozen-supply) value.
+      - DS_SCC_BREAK_CATALYST=${DS_SCC_BREAK_CATALYST:-0}
+      # Type-aware loop handling: negative-feedback SCCs get a bounded transient
+      # relaxation instead of full convergence (which buffers/inverts the
+      # measured transient). "converge" (default) = plain v2.
+      - DS_SCC_NEG_MODE=${DS_SCC_NEG_MODE:-converge}
+      - DS_SCC_NEG_FRAC=${DS_SCC_NEG_FRAC:-0.5}
+      - DS_SCC_NEG_ITERS=${DS_SCC_NEG_ITERS:-1}
+      # File of gene stable_ids (one per line) marking transcription-reaction
+      # inputs, so the solver can identify transcriptional autoregulation loops
+      # (DS_INHIBITOR_FLOOR_SCOPE=transcription). Empty/unset = inert.
+      - DS_GENE_STIDS_FILE=${DS_GENE_STIDS_FILE:-/app/bench/gene_stids.txt}
     volumes:
       - ./src:/app/src:ro
       - ./cli:/app/cli:ro
       - ./test:/app/test:ro
+      - ./bench:/app/bench:ro
       - ./examples:/app/examples:ro
       # Pre-generated Reactome pathway catalog from the upstream
       # logic-network-generator project. Mounted read-only. Override the host

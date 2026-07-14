@@ -51,6 +51,11 @@ data/output/*
 data/cache/*
 !data/*/
 !data/README.md
+graphify-out/
+
+# Python bytecode
+__pycache__/
+*.pyc
 
 # Validation pipeline intermediates
 validation/**/outputs/

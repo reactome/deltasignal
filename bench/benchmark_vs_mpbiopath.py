@@ -92,8 +92,37 @@ def find_pathway_dir(numeric_id: str):
 
 
 def load_stid_to_uuids(pathway_dir: Path):
-    """stable_id → list of UUIDs (multiple if entity at multiple positions)."""
+    """stable_id → list of UUIDs.
+
+    Variant-aware: when the generator emits ``nodes.csv`` (complexes bundled as
+    set_variant nodes), a plain Reactome stId no longer appears verbatim as a
+    node id. We index each node by BOTH its ``diagram_entity_id`` (the stId a
+    diagram renders — parent complex for a variant) AND every stId in its
+    ``member_leaves``. So a gene resolves to every variant node that contains
+    it, and a complex/entity readout resolves to its node(s) — no string
+    parsing. Falls back to the legacy stid_to_uuid_mapping.csv when nodes.csv is
+    absent (older catalogs).
+    """
     out = defaultdict(list)
+    nodes_csv = pathway_dir / "nodes.csv"
+    if nodes_csv.exists():
+        seen = set()
+        with open(nodes_csv) as f:
+            for row in csv.DictReader(f):
+                uuid = str(row["uuid"])
+                keys = set()
+                de = (row.get("diagram_entity_id") or "").strip()
+                if de:
+                    keys.add(de)
+                for m in (row.get("member_leaves") or "").split("|"):
+                    m = m.strip()
+                    if m:
+                        keys.add(m)
+                for k in keys:
+                    if (k, uuid) not in seen:
+                        seen.add((k, uuid))
+                        out[k].append(uuid)
+        return out
     with open(pathway_dir / "stid_to_uuid_mapping.csv") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -187,6 +216,35 @@ def neo4j_gene_to_stids(genes):
     return {r["gene"]: r["stids"] for r in rows}
 
 
+def neo4j_dbid_to_stid(dbids):
+    """Resolve numeric dbIds → {dbId: stId} via the local Reactome Neo4j.
+
+    key_output values in the ground-truth files are numeric dbIds. The stId is
+    NOT always ``R-HSA-{dbId}`` — small molecules / species-agnostic entities use
+    ``R-ALL-`` (e.g. PIP3 is R-ALL-179838), so a hardcoded R-HSA prefix silently
+    fails to find nodes that ARE in the network. Resolve the real stId here.
+    """
+    from py2neo import Graph
+    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    ints = []
+    for d in dbids:
+        try:
+            ints.append(int(d))
+        except (TypeError, ValueError):
+            continue
+    if not ints:
+        return {}
+    rows = graph.run(
+        """
+        UNWIND $dbids AS dbid
+        MATCH (e:DatabaseObject {dbId: dbid})
+        RETURN dbid AS dbid, e.stId AS stid
+        """,
+        dbids=ints,
+    ).data()
+    return {str(r["dbid"]): r["stid"] for r in rows if r["stid"]}
+
+
 def parse_perturbation_columns(header):
     """Curator columns like 'KRAS_0' / 'KRAS_2' → list of (gene, direction, col)."""
     out = []
@@ -231,9 +289,19 @@ def load_curator(pathway_name: str, ground_truth: str = "curator"):
     return header, rows
 
 
-def solve_via_ds_api(network_json: dict, observations: dict):
-    """Call deltasignal /api/solve with a pre-parsed network + observations."""
-    body = json.dumps({"network": network_json, "observations": observations}).encode()
+def solve_via_ds_api(network_json: dict, observations: dict, network_id=None):
+    """Call deltasignal /api/solve.
+
+    When ``network_id`` is given (from a prior /api/parse), send only the
+    observations and let the server reuse its cached network — avoids
+    re-shipping/re-parsing the whole network on every solve (critical for large
+    networks). Falls back to sending the full network otherwise.
+    """
+    if network_id is not None:
+        payload = {"network_id": network_id, "observations": observations}
+    else:
+        payload = {"network": network_json, "observations": observations}
+    body = json.dumps(payload).encode()
     req = Request(f"{DS_BASE}/api/solve",
                   data=body,
                   headers={"Content-Type": "application/json"},
@@ -284,16 +352,33 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             uuids.extend(stid_to_uuids.get(sid, []))
         gene_to_uuids[g] = uuids
 
+    # Resolve key_output dbIds to their REAL stIds (may be R-ALL-, R-NUL-, not
+    # just R-HSA-) so species that are genuinely in the network are found.
+    dbid_to_stid = neo4j_dbid_to_stid({str(r["key_output"]) for r in rows})
+
     key_output_uuids = {}
     for r in rows:
         ko = str(r["key_output"])
         if ko and ko not in key_output_uuids:
-            sid = f"R-HSA-{ko}"
-            uuids = stid_to_uuids.get(sid, [])
+            # Try the resolved stId first, then the historical R-HSA-{ko} guess.
+            candidate_sids = []
+            resolved = dbid_to_stid.get(ko)
+            if resolved:
+                candidate_sids.append(resolved)
+            if f"R-HSA-{ko}" not in candidate_sids:
+                candidate_sids.append(f"R-HSA-{ko}")
+            uuids = []
+            for sid in candidate_sids:
+                uuids = stid_to_uuids.get(sid, [])
+                if uuids:
+                    break
             # Fallback: a curated species expanded into virtual variants has no
             # UUID of its own — read the flux of its producing reaction instead.
             if not uuids:
-                uuids = entity_reaction_proxies.get(sid, [])
+                for sid in candidate_sids:
+                    uuids = entity_reaction_proxies.get(sid, [])
+                    if uuids:
+                        break
             key_output_uuids[ko] = uuids
 
     parsed = parse_pathway_via_ds_api(pathway_dir.name)
@@ -308,6 +393,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             edges = [e for e in edges
                      if (str(e["parent_uuid"]), str(e["child_uuid"])) not in skip_pairs]
     network_payload = {"nodes": parsed["nodes"], "edges": edges, "pathways": parsed["pathways"]}
+    # Use the server-cached network by id (fast: send only observations per
+    # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
+    # network is stale, so send the full modified payload instead.
+    solve_network_id = parsed.get("network_id") if not SKIP_EDGE_TYPES else None
 
     total = 0
     correct = 0
@@ -328,7 +417,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             ui_value = PERTURB_UI_DOWN if direction == DOWN else PERTURB_UI_UP
             obs = {u: [ui_value, PIN_CONFIDENCE] for u in uuids}
             try:
-                ds_result = solve_via_ds_api(network_payload, obs)
+                ds_result = solve_via_ds_api(network_payload, obs, network_id=solve_network_id)
             except (HTTPError, URLError) as e:
                 return {"status": "solve_failed", "name": pathway_name, "error": str(e)}
             if ds_result.get("status") != "success":

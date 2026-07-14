@@ -469,10 +469,23 @@ function execute_solve_command(args)
         # Generate pathway-level aggregation if requested
         if haskey(args, :output_pathway) && args[:output_pathway] !== nothing
             println("\n📦 Aggregating to pathway view...")
+            # aggregate_to_pathway_view expects Vector{NetworkResult} + the
+            # ReactionNetwork, with aggregation_method as a String keyword.
+            # Build NetworkResults from the solved activities (internal 0-1),
+            # carrying observation confidence and influence score where known.
+            network_results = DeltaSignal.NetworkResult[
+                DeltaSignal.NetworkResult(
+                    uuid,
+                    activity,
+                    haskey(observations, uuid) ? observations[uuid][2] : 1.0,
+                    get(influence_scores, uuid, 0.0),
+                )
+                for (uuid, activity) in result.node_activities
+            ]
             pathway_results = aggregate_to_pathway_view(
-                network,
-                result,
-                Symbol(args[:aggregation])
+                network_results,
+                network;
+                aggregation_method = String(args[:aggregation]),
             )
 
             open(args[:output_pathway], "w") do f
