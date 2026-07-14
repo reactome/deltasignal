@@ -1,0 +1,20 @@
+title	png	svg
+Kaplan-Meier curves for all pathways	figures/km/km_all_pathways.png	figures/km/km_all_pathways.svg
+R-HSA-69620 Kaplan-Meier curve	figures/km/R-HSA-69620_km.png	figures/km/R-HSA-69620_km.svg
+R-HSA-453279 Kaplan-Meier curve	figures/km/R-HSA-453279_km.png	figures/km/R-HSA-453279_km.svg
+R-HSA-1257604 Kaplan-Meier curve	figures/km/R-HSA-1257604_km.png	figures/km/R-HSA-1257604_km.svg
+Activity by survival event	figures/activity_by_event/activity_by_survival_event_all_pathways.png	figures/activity_by_event/activity_by_survival_event_all_pathways.svg
+R-HSA-69620 activity by event	figures/activity_by_event/R-HSA-69620_activity_by_survival_event.png	figures/activity_by_event/R-HSA-69620_activity_by_survival_event.svg
+R-HSA-453279 activity by event	figures/activity_by_event/R-HSA-453279_activity_by_survival_event.png	figures/activity_by_event/R-HSA-453279_activity_by_survival_event.svg
+R-HSA-1257604 activity by event	figures/activity_by_event/R-HSA-1257604_activity_by_survival_event.png	figures/activity_by_event/R-HSA-1257604_activity_by_survival_event.svg
+Terminal mean histograms	figures/histograms/terminal_mean_histograms_all_pathways.png	figures/histograms/terminal_mean_histograms_all_pathways.svg
+R-HSA-69620 terminal mean histogram	figures/histograms/R-HSA-69620_terminal_mean_histogram.png	figures/histograms/R-HSA-69620_terminal_mean_histogram.svg
+R-HSA-453279 terminal mean histogram	figures/histograms/R-HSA-453279_terminal_mean_histogram.png	figures/histograms/R-HSA-453279_terminal_mean_histogram.svg
+R-HSA-1257604 terminal mean histogram	figures/histograms/R-HSA-1257604_terminal_mean_histogram.png	figures/histograms/R-HSA-1257604_terminal_mean_histogram.svg
+Samples x pathways heatmap	figures/heatmap_pathway_activity_zscore.png	figures/heatmap_pathway_activity_zscore.svg
+Pair plot of pathway scores	figures/pairplot_pathway_scores.png	figures/pairplot_pathway_scores.svg
+Shuffle null plots	figures/shuffle_nulls/shuffle_nulls_all_pathways.png	figures/shuffle_nulls/shuffle_nulls_all_pathways.svg
+R-HSA-69620 shuffle null	figures/shuffle_nulls/R-HSA-69620_shuffle_null.png	figures/shuffle_nulls/R-HSA-69620_shuffle_null.svg
+R-HSA-453279 shuffle null	figures/shuffle_nulls/R-HSA-453279_shuffle_null.png	figures/shuffle_nulls/R-HSA-453279_shuffle_null.svg
+R-HSA-1257604 shuffle null	figures/shuffle_nulls/R-HSA-1257604_shuffle_null.png	figures/shuffle_nulls/R-HSA-1257604_shuffle_null.svg
+Univariate Cox forest plot	figures/cox_univariate_terminal_mean.png	figures/cox_univariate_terminal_mean.svg

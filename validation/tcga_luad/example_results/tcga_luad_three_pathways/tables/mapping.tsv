@@ -1,0 +1,4 @@
+pathway_id	pathway_name	root_uuid_count	stable_id_missing	mapped	gene_not_in_expression	no_gene_mapping
+R-HSA-453279	Mitotic G1-G1 S phases	539	0	427	3	109
+R-HSA-1257604	PIP3 activates AKT signaling	2392	0	1504	745	143
+R-HSA-69620	Cell Cycle Checkpoints	8526	0	6552	706	1268

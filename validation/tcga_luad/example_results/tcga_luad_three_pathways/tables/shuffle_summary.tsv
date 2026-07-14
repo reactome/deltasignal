@@ -1,0 +1,4 @@
+pathway_id	pathway_name	metric	shuffle_count	observed_logrank_p	shuffle_p_median	shuffle_p05	shuffle_p95	shuffle_fraction_p_le_observed
+R-HSA-1257604	PIP3 activates AKT signaling	terminal_mean_activity	1000	0.5779532443098079	0.5209503728228015	0.0540840570707069	0.9529666074098322	0.567
+R-HSA-453279	Mitotic G1-G1 S phases	terminal_mean_activity	1000	0.0554909358507297	0.5193415007296251	0.0588298914669489	0.939081354117435	0.048
+R-HSA-69620	Cell Cycle Checkpoints	terminal_mean_activity	1000	8.918653918176066e-05	0.4735454543262809	0.0451630581169798	0.9440893291271312	0.0

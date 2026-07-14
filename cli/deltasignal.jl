@@ -341,14 +341,15 @@ function execute_solve_command(args)
 
         edges = LogicNetworkEdge[]
         for edge_data in network_json["edges"]
+            edge_type = haskey(edge_data, "edge_type") && edge_data["edge_type"] !== nothing ?
+                String(edge_data["edge_type"]) : ""
             push!(edges, LogicNetworkEdge(
                 String(edge_data["parent_uuid"]),
                 String(edge_data["child_uuid"]),
                 Bool(edge_data["is_and"]),
                 Bool(edge_data["is_positive"]),
                 Float64(edge_data["stoichiometry"]),
-                haskey(edge_data, "edge_type") && edge_data["edge_type"] !== nothing ?
-                    String(edge_data["edge_type"]) : "",
+                edge_type
             ))
         end
 
