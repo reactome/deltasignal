@@ -74,6 +74,19 @@ KO_AGG = os.environ.get("DS_KO_AGG", "max")
 # (e.g. "assembly,dissociation"). Empty = keep all edges.
 SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").split(",") if t.strip()}
 
+# Key-output remap for pathways whose 2019 curator ground truth references
+# entities that were deleted/replaced by a later Reactome recuration (the old
+# dbId no longer resolves, so the case is unscoreable). Opt-in via DS_KO_REMAP=1.
+#
+# Currently handles the RHO GTPase cycle: the 2019 model had two GENERIC pooled
+# readouts — RhoGTPase:GTP (dbId 194890, active) and RhoGTPase:GDP (194900,
+# inactive). v97 replaced these with PER-PARALOG forms (RHOA:GTP, RAC1:GTP, …).
+# We remap the generic readout to the perturbed gene's OWN active/inactive form
+# when it is itself a GTPase, else to the pooled union of all such forms in the
+# network (matching the original pooled semantics for GEF/GAP/GDI perturbations).
+KO_REMAP = os.environ.get("DS_KO_REMAP", "0") == "1"
+GENERIC_GTPASE_READOUTS = {"194890": "GTP", "194900": "GDP"}
+
 
 def classify(ui_value: float) -> int:
     if ui_value < DOWN_CUTOFF:
@@ -245,6 +258,38 @@ def neo4j_dbid_to_stid(dbids):
     return {str(r["dbid"]): r["stid"] for r in rows if r["stid"]}
 
 
+def neo4j_gtpase_readout_stids(stids):
+    """For network stIds, find the pure GTP-bound (active) / GDP-bound (inactive)
+    GTPase forms, keyed by the GTPase gene symbol.
+
+    Returns {"GTP": {gene: [stid, ...]}, "GDP": {gene: [stid, ...]}}. A node
+    counts only if its displayName is exactly ``GENE:GTP [compartment]`` (or
+    ``:GDP``) — i.e. the bare active/inactive form, not a downstream
+    GTPase:effector complex — so the readout is the cycle's actual output.
+    """
+    from py2neo import Graph
+    import re
+    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    rows = graph.run(
+        """
+        UNWIND $stids AS s
+        MATCH (e:DatabaseObject {stId: s})
+        WHERE e.displayName CONTAINS ':GTP' OR e.displayName CONTAINS ':GDP'
+        RETURN e.stId AS stid, e.displayName AS name
+        """,
+        stids=list(stids),
+    ).data()
+    out = {"GTP": {}, "GDP": {}}
+    pat = re.compile(r"^([A-Z0-9]+):(GTP|GDP)(?: \[|$)")
+    for r in rows:
+        m = pat.match(r["name"] or "")
+        if not m:
+            continue
+        gene, tag = m.group(1), m.group(2)
+        out[tag].setdefault(gene, []).append(r["stid"])
+    return out
+
+
 def parse_perturbation_columns(header):
     """Curator columns like 'KRAS_0' / 'KRAS_2' → list of (gene, direction, col)."""
     out = []
@@ -381,6 +426,25 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                         break
             key_output_uuids[ko] = uuids
 
+    # Optional key-output remap for recurated pathways (see DS_KO_REMAP). Build
+    # the perturbed-gene → active/inactive-form lookup from the network's own
+    # nodes, plus a pooled fallback for upstream-regulator perturbations.
+    gtpase_readout = None
+    if KO_REMAP and any(ko in GENERIC_GTPASE_READOUTS for ko in key_output_uuids):
+        readout_stids = neo4j_gtpase_readout_stids(list(stid_to_uuids.keys()))
+        per_gene = {"GTP": {}, "GDP": {}}
+        pooled = {"GTP": [], "GDP": []}
+        for tag in ("GTP", "GDP"):
+            for g, sids in readout_stids[tag].items():
+                us = [u for sid in sids for u in stid_to_uuids.get(sid, [])]
+                per_gene[tag][g] = us
+                pooled[tag].extend(us)
+        gtpase_readout = (per_gene, pooled)
+        print(f"    [KO_REMAP] {pathway_name}: mapped generic RhoGTPase readouts "
+              f"to {len(per_gene['GTP'])} GTP / {len(per_gene['GDP'])} GDP paralog "
+              f"forms (pooled fallback {len(pooled['GTP'])}/{len(pooled['GDP'])} uuids)",
+              flush=True)
+
     parsed = parse_pathway_via_ds_api(pathway_dir.name)
     if parsed.get("status") != "success":
         return {"status": "parse_failed", "name": pathway_name, "error": parsed.get("message")}
@@ -429,6 +493,20 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         for r in rows:
             ko = str(r["key_output"])
             ko_uuids = key_output_uuids.get(ko, [])
+            # Remap a generic RhoGTPase readout to the perturbed gene's own
+            # active/inactive form, falling back to the pooled union of all such
+            # forms when the perturbed gene is an upstream regulator (no self form).
+            if gtpase_readout is not None and ko in GENERIC_GTPASE_READOUTS:
+                tag = GENERIC_GTPASE_READOUTS[ko]
+                per_gene, pooled = gtpase_readout
+                # Perturbed gene IS a GTPase → read its own active/inactive form
+                # (clean, faithful). Upstream regulator (GEF/GAP/GDI) → the pooled
+                # union (the original generic-readout semantics). Note: regulator
+                # cases are limited not by this mapping but by a genuine coarse→fine
+                # divergence — v97 encodes regulatory redundancy (multiple GEFs/GAPs
+                # per GTPase, OR logic) that the pooled 2019 curator model lacked, so
+                # single-regulator perturbation legitimately doesn't move the readout.
+                ko_uuids = per_gene[tag].get(gene) or pooled[tag]
             try:
                 expected = int(r[col])
             except (KeyError, ValueError):
