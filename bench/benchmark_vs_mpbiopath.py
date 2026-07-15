@@ -258,6 +258,25 @@ def neo4j_dbid_to_stid(dbids):
     return {str(r["dbid"]): r["stid"] for r in rows if r["stid"]}
 
 
+def neo4j_set_member_stids(stids):
+    """For each EntitySet stId, its member species stIds (all levels, matching
+    granularity). Used to resolve a set-typed key-output to the member nodes the
+    network actually carries — sets no longer survive as nodes now that the
+    generator expands them (see LNG _matching_leaves)."""
+    from py2neo import Graph
+    graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    rows = graph.run(
+        """
+        UNWIND $stids AS s
+        MATCH (e {stId: s}) WHERE e:EntitySet
+        MATCH (e)-[:hasMember|hasCandidate*1..]->(m)
+        RETURN s AS setid, collect(DISTINCT m.stId) AS members
+        """,
+        stids=list(stids),
+    ).data()
+    return {r["setid"]: r["members"] for r in rows if r["members"]}
+
+
 def neo4j_gtpase_readout_stids(stids):
     """For network stIds, find the pure GTP-bound (active) / GDP-bound (inactive)
     GTPase forms, keyed by the GTPase gene symbol.
@@ -424,6 +443,18 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                     uuids = entity_reaction_proxies.get(sid, [])
                     if uuids:
                         break
+            # Set-typed readout: the generator expands EntitySets to their member
+            # species, so the set itself has no node. Aggregate the member
+            # species that ARE present in the network.
+            if not uuids:
+                members = neo4j_set_member_stids(candidate_sids)
+                seen_m = set()
+                for sid in candidate_sids:
+                    for m in members.get(sid, []):
+                        if m in seen_m:
+                            continue
+                        seen_m.add(m)
+                        uuids = uuids + stid_to_uuids.get(m, [])
             key_output_uuids[ko] = uuids
 
     # Optional key-output remap for recurated pathways (see DS_KO_REMAP). Build
