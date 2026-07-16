@@ -707,8 +707,34 @@ def main():
             grand_confusion[k] += v
         results.append(res)
 
+    # --- Imbalance-aware metrics (PRIMARY) ---------------------------------
+    # Accuracy is dominated by the majority NORMAL class, so it rewards
+    # predicting "no change". macro-F1 (unweighted mean of per-class F1 over
+    # DOWN/NORMAL/UP) weights each class equally, so a lazy all-NORMAL
+    # predictor scores F1=0 on both change classes. change-F1 (UP+DOWN only)
+    # is the "are we actually detecting regulation" guard. These are the
+    # numbers to optimize; accuracy is reported below for continuity.
+    def _prf(cls):
+        tp = grand_confusion.get((cls, cls), 0)
+        fp = sum(grand_confusion.get((cls, e), 0) for e in (DOWN, NORMAL, UP) if e != cls)
+        fn = sum(grand_confusion.get((p, cls), 0) for p in (DOWN, NORMAL, UP) if p != cls)
+        prec = tp / (tp + fp) if (tp + fp) else 0.0
+        rec = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+        return prec, rec, f1
+    f1 = {c: _prf(c)[2] for c in (DOWN, NORMAL, UP)}
+    rec = {c: _prf(c)[1] for c in (DOWN, NORMAL, UP)}
+    macro_f1 = sum(f1.values()) / 3
+    change_f1 = (f1[DOWN] + f1[UP]) / 2
+    bal_acc = sum(rec.values()) / 3
+
     print()
     print("=" * 70)
+    print(f"DeltaSignal macro-F1 (DOWN/NORM/UP):  {macro_f1:.4f}   "
+          f"[PRIMARY — imbalance-aware]")
+    print(f"  change-F1 (UP+DOWN only):           {change_f1:.4f}")
+    print(f"  balanced accuracy (macro-recall):   {bal_acc:.4f}")
+    print(f"  per-class F1: DOWN={f1[DOWN]:.3f}  NORM={f1[NORMAL]:.3f}  UP={f1[UP]:.3f}")
     print(f"DeltaSignal end-to-end accuracy:  "
           f"{grand_correct}/{grand_total} = "
           f"{grand_correct/grand_total*100 if grand_total else 0:.2f}%")
