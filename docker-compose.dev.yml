@@ -76,6 +76,14 @@ services:
       # producer lets E track its NET producers; E is still consumed and R's
       # other outputs are untouched. See core/reaction_model.jl.
       - DS_DROP_PASSTHROUGH=${DS_DROP_PASSTHROUGH:-0}
+      # Limiting-reactant aggregation for assembly (member→complex) edges. 0 =
+      # off (default). When set, the AND inputs that come from edge_type
+      # "assembly" are combined with min() rather than the permissive
+      # DS_AND_MODE: a complex cannot exceed its scarcest subunit, so
+      # overexpressing one subunit of a many-membered complex no longer drives
+      # the whole complex up. Selective (only assembly edges), so catalytic /
+      # signaling propagation is untouched. See core/reaction_model.jl.
+      - DS_ASSEMBLY_LIMITING=${DS_ASSEMBLY_LIMITING:-0}
       # SCC-aware solving. 0 = off (default, original behaviour). When set,
       # the solver computes strongly-connected components and relaxes catalyst
       # edges that close a recycling cycle (catalyst source in the same SCC as
