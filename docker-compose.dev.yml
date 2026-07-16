@@ -67,6 +67,15 @@ services:
       # cyclic). >0 = damped x ← (1-λ)·x + λ·F(x), better convergence for
       # feedback loops. Observations stay hard-pinned regardless.
       - DS_DAMPING=${DS_DAMPING:-0.0}
+      # Pass-through recycle suppression. 0 = off (default). When set, an
+      # `output` edge R→E is dropped whenever the reverse input edge E→R also
+      # exists — i.e. reaction R both consumes and re-emits the same entity E
+      # (a stable scaffold/participant threaded through many reactions, e.g.
+      # active p53). Such a "producer" only recycles E and otherwise pins it at
+      # baseline via OR-max, masking upstream knockouts. Dropping it as a
+      # producer lets E track its NET producers; E is still consumed and R's
+      # other outputs are untouched. See core/reaction_model.jl.
+      - DS_DROP_PASSTHROUGH=${DS_DROP_PASSTHROUGH:-0}
       # SCC-aware solving. 0 = off (default, original behaviour). When set,
       # the solver computes strongly-connected components and relaxes catalyst
       # edges that close a recycling cycle (catalyst source in the same SCC as

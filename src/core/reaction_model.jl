@@ -91,11 +91,29 @@ Convert logic network to reaction-based representation.
 Groups edges by target node and creates reactions.
 """
 function convert_to_reaction_network(network::ReactionNetwork)::Vector{Reaction}
-    
+
+    # Pass-through suppression (DS_DROP_PASSTHROUGH): drop an `output` edge R→E
+    # when the reverse input edge E→R also exists — i.e. reaction R both consumes
+    # and re-emits the same entity E (a stable participant / scaffold, e.g. active
+    # p53 threaded through ~90 reactions). Such a "producer" only recycles E and
+    # otherwise pins it at baseline via OR-max, masking upstream knockouts (the
+    # dominant propagator_missed failure). Dropping it as a producer lets E track
+    # its NET producers so a knockout can lower it. E is still CONSUMED (its input
+    # edge stays) and R's other outputs are untouched. Faithful: R does not
+    # produce E de novo. See memory project_loop_taxonomy_finding (Type II).
+    drop_pt = get(ENV, "DS_DROP_PASSTHROUGH", "0") == "1"
+    edge_pairs = drop_pt ?
+        Set{Tuple{String,String}}((e.parent_uuid, e.child_uuid) for e in network.edges) :
+        Set{Tuple{String,String}}()
+
     # Group edges by target (child) node
     target_groups = Dict{String, Vector{LogicNetworkEdge}}()
-    
+
     for edge in network.edges
+        if drop_pt && edge.edge_type == "output" &&
+           (edge.child_uuid, edge.parent_uuid) in edge_pairs
+            continue  # R→E is a pass-through recycle of E; not a net producer
+        end
         target = edge.child_uuid
         if !haskey(target_groups, target)
             target_groups[target] = LogicNetworkEdge[]
