@@ -62,6 +62,16 @@ struct Reaction
     # consumed — used by the SCC-aware solver to relax catalyst edges that
     # close a recycling cycle (see DS_SCC_SOLVE in compute_reaction_output_vec).
     activator_is_catalyst::Vector{Bool}
+
+    # Per-activator assembly flag (edge_type=="assembly"), aligned with
+    # activator_uuids. Assembly edges are the synthetic member→complex edges of
+    # a decomposed complex: a Complex is the AND of its subunits and cannot
+    # exceed the abundance of its scarcest subunit (hard stoichiometric cap).
+    # Used by DS_ASSEMBLY_LIMITING to aggregate assembly inputs with a
+    # limiting-reactant (min) rule instead of the permissive DS_AND_MODE, so
+    # overexpressing one subunit of a many-membered complex doesn't spuriously
+    # drive the whole complex up (the dominant curator OE false-positive mode).
+    activator_is_assembly::Vector{Bool}
 end
 
 # Back-compat outer constructor: callers predating the per-activator catalyst
@@ -82,7 +92,9 @@ function Reaction(
     return Reaction(
         target_uuid, activator_uuids, inhibitor_uuids, depletion_uuids,
         substrate_uuids, product_uuids, params, is_and_gate,
-        activator_is_and, inhibitor_is_and, fill(false, length(activator_uuids)),
+        activator_is_and, inhibitor_is_and,
+        fill(false, length(activator_uuids)),   # activator_is_catalyst
+        fill(false, length(activator_uuids)),   # activator_is_assembly
     )
 end
 
@@ -91,11 +103,29 @@ Convert logic network to reaction-based representation.
 Groups edges by target node and creates reactions.
 """
 function convert_to_reaction_network(network::ReactionNetwork)::Vector{Reaction}
-    
+
+    # Pass-through suppression (DS_DROP_PASSTHROUGH): drop an `output` edge R→E
+    # when the reverse input edge E→R also exists — i.e. reaction R both consumes
+    # and re-emits the same entity E (a stable participant / scaffold, e.g. active
+    # p53 threaded through ~90 reactions). Such a "producer" only recycles E and
+    # otherwise pins it at baseline via OR-max, masking upstream knockouts (the
+    # dominant propagator_missed failure). Dropping it as a producer lets E track
+    # its NET producers so a knockout can lower it. E is still CONSUMED (its input
+    # edge stays) and R's other outputs are untouched. Faithful: R does not
+    # produce E de novo. See memory project_loop_taxonomy_finding (Type II).
+    drop_pt = get(ENV, "DS_DROP_PASSTHROUGH", "0") == "1"
+    edge_pairs = drop_pt ?
+        Set{Tuple{String,String}}((e.parent_uuid, e.child_uuid) for e in network.edges) :
+        Set{Tuple{String,String}}()
+
     # Group edges by target (child) node
     target_groups = Dict{String, Vector{LogicNetworkEdge}}()
-    
+
     for edge in network.edges
+        if drop_pt && edge.edge_type == "output" &&
+           (edge.child_uuid, edge.parent_uuid) in edge_pairs
+            continue  # R→E is a pass-through recycle of E; not a net producer
+        end
         target = edge.child_uuid
         if !haskey(target_groups, target)
             target_groups[target] = LogicNetworkEdge[]
@@ -130,6 +160,7 @@ function create_reaction_from_edges(
     activators = String[]
     activator_is_and = Bool[]
     activator_is_catalyst = Bool[]
+    activator_is_assembly = Bool[]
     inhibitors = String[]
     inhibitor_is_and = Bool[]
     depletions = String[]
@@ -141,6 +172,7 @@ function create_reaction_from_edges(
             push!(activators, edge.parent_uuid)
             push!(activator_is_and, edge.is_and)
             push!(activator_is_catalyst, edge.edge_type == "catalyst")
+            push!(activator_is_assembly, edge.edge_type == "assembly")
         elseif edge.edge_type == "depletion"
             push!(depletions, edge.parent_uuid)
         else
@@ -170,6 +202,7 @@ function create_reaction_from_edges(
         activator_is_and,
         inhibitor_is_and,
         activator_is_catalyst,
+        activator_is_assembly,
     )
 end
 
@@ -354,6 +387,12 @@ struct IndexedReaction
                                     # baseline (conserved-moiety modulator) so
                                     # the artifactual SCC dissolves at solve
                                     # time without editing the network.
+    activator_is_assembly::Vector{Bool}  # per-activator: edge_type=="assembly"
+                                    # (member→complex). Under DS_ASSEMBLY_LIMITING
+                                    # these inputs are aggregated with a
+                                    # limiting-reactant (min) rule — a complex
+                                    # cannot exceed its scarcest subunit — rather
+                                    # than the permissive DS_AND_MODE.
     inhibitor_indices::Vector{Int}
     inhibitor_in_short_loop::Vector{Bool}  # per-inhibitor: is the inhibitor a
                                             # node that the reaction's target
@@ -472,12 +511,14 @@ function index_reactions(
         act_indices = Int[]
         act_is_and = Bool[]
         act_is_catalyst = Bool[]
+        act_is_assembly = Bool[]
         act_orig = Int[]
         for (k, uuid) in enumerate(r.activator_uuids)
             haskey(uuid_to_idx, uuid) || continue
             push!(act_indices, uuid_to_idx[uuid])
             push!(act_is_and, k <= length(r.activator_is_and) ? r.activator_is_and[k] : r.is_and_gate)
             push!(act_is_catalyst, k <= length(r.activator_is_catalyst) ? r.activator_is_catalyst[k] : false)
+            push!(act_is_assembly, k <= length(r.activator_is_assembly) ? r.activator_is_assembly[k] : false)
             push!(act_orig, k)
         end
         inh_orig = [k for (k, u) in enumerate(r.inhibitor_uuids) if haskey(uuid_to_idx, u)]
@@ -507,7 +548,7 @@ function index_reactions(
         push!(raw, (
             target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
             act_indices=act_indices, act_is_and=act_is_and,
-            act_is_catalyst=act_is_catalyst,
+            act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
             inh_indices=inh_indices, dep_indices=dep_indices,
             sub_indices=sub_indices, params=params,
         ))
@@ -603,6 +644,7 @@ function index_reactions(
         push!(indexed, IndexedReaction(
             rec.target_idx, rec.baseline,
             rec.act_indices, rec.act_is_and, act_break,
+            rec.act_is_assembly,
             rec.inh_indices, in_loop, in_transcription,
             rec.dep_indices,
             rec.sub_indices, rec.params,
@@ -712,6 +754,16 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     and_wts = Float64[]
     or_vals = T[]
 
+    # Assembly (member→complex) inputs, when DS_ASSEMBLY_LIMITING is on, are
+    # aggregated with a limiting-reactant (min) rule and injected as a SINGLE
+    # AND input below: a complex cannot exceed the abundance of its scarcest
+    # subunit, so overexpressing one member of a many-subunit complex must not
+    # drive the complex up. When off, assembly inputs fall through to the normal
+    # AND/OR handling (byte-for-byte unchanged default).
+    assembly_limiting = get(ENV, "DS_ASSEMBLY_LIMITING", "0") == "1"
+    assembly_min = typemax(T)
+    have_assembly = false
+
     # Activator inputs (with per-input sensitivity transform + per-edge AND/OR)
     @inbounds for k in 1:length(rxn.activator_indices)
         i = rxn.activator_indices[k]
@@ -732,12 +784,24 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             n=p.activator_sensitivity_n[k],
             K_α=p.activator_sensitivity_K[k],
         )
-        if rxn.activator_is_and[k]
+        if assembly_limiting && k <= length(rxn.activator_is_assembly) &&
+           rxn.activator_is_assembly[k]
+            # Limiting-reactant: track the scarcest subunit; injected once below.
+            assembly_min = min(assembly_min, transformed)
+            have_assembly = true
+        elseif rxn.activator_is_and[k]
             push!(and_vals, transformed)
             push!(and_wts, p.activator_weights[k])
         else
             push!(or_vals, transformed)
         end
+    end
+
+    # Inject the assembled-complex limiting value as a single AND input, so it
+    # combines with any catalytic/regulatory inputs via the normal DS_AND_MODE.
+    if have_assembly
+        push!(and_vals, assembly_min)
+        push!(and_wts, 1.0)
     end
 
     # Inverted-inhibitor activators (when inhibition_mode == "inversion").

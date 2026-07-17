@@ -15,15 +15,16 @@ services:
       - JULIA_NUM_THREADS=4
       - JULIA_ENV=development
       # AND-cluster aggregator mode for benchmark tuning.
-      # Defaults to "geomean"; set via host env: DS_AND_MODE=min|signed|geomean
-      - DS_AND_MODE=${DS_AND_MODE:-geomean}
+      # Winning config default is hill_log; override via host env
+      # (DS_AND_MODE=min|signed|geomean|multiplicative|hill_sat).
+      - DS_AND_MODE=${DS_AND_MODE:-hill_log}
       # Inhibition handling. "spec" = multiplicative Hill (β=0 ⇒ inactive);
       # "inversion" = invert source state and fold in as AND-clustered activator
       # (continuous analog of the naive baseline's {0↔2,1↔1} inversion).
       - DS_INHIBITION_MODE=${DS_INHIBITION_MODE:-spec}
       # OR-cluster aggregation. "max" = best-available alternative (default);
       # "mean" = each alternative carries weight (registers single-member knockouts).
-      - DS_OR_MODE=${DS_OR_MODE:-max}
+      - DS_OR_MODE=${DS_OR_MODE:-mean}
       # Inhibitor strength β applied uniformly to every inhibitor edge. Default
       # empty = use per-edge β (currently all 0, i.e. no inhibition). Set to a
       # single principled value (e.g. 1.0) as the publication-baseline setting.
@@ -56,7 +57,7 @@ services:
       - DS_HILL_SAT_H_MAX=${DS_HILL_SAT_H_MAX:-10.0}
       # hill_log saturation point — log of max fold-change (default log(100) ≈ 4.605).
       # Lower → sharper saturation. Higher → closer to pure multiplication.
-      - DS_HILL_LOG_ZMAX=${DS_HILL_LOG_ZMAX:-4.605}
+      - DS_HILL_LOG_ZMAX=${DS_HILL_LOG_ZMAX:-10.0}
       # Depletion-edge de-repression cap. catalyst→substrate edges with
       # edge_type="depletion" are ALWAYS divide-form: H = (b+ε)/(x+ε), capped
       # here. When the catalyst is knocked out (x → 0), substrate boosted by
@@ -67,6 +68,23 @@ services:
       # cyclic). >0 = damped x ← (1-λ)·x + λ·F(x), better convergence for
       # feedback loops. Observations stay hard-pinned regardless.
       - DS_DAMPING=${DS_DAMPING:-0.0}
+      # Pass-through recycle suppression. 0 = off (default). When set, an
+      # `output` edge R→E is dropped whenever the reverse input edge E→R also
+      # exists — i.e. reaction R both consumes and re-emits the same entity E
+      # (a stable scaffold/participant threaded through many reactions, e.g.
+      # active p53). Such a "producer" only recycles E and otherwise pins it at
+      # baseline via OR-max, masking upstream knockouts. Dropping it as a
+      # producer lets E track its NET producers; E is still consumed and R's
+      # other outputs are untouched. See core/reaction_model.jl.
+      - DS_DROP_PASSTHROUGH=${DS_DROP_PASSTHROUGH:-0}
+      # Limiting-reactant aggregation for assembly (member→complex) edges. 0 =
+      # off (default). When set, the AND inputs that come from edge_type
+      # "assembly" are combined with min() rather than the permissive
+      # DS_AND_MODE: a complex cannot exceed its scarcest subunit, so
+      # overexpressing one subunit of a many-membered complex no longer drives
+      # the whole complex up. Selective (only assembly edges), so catalytic /
+      # signaling propagation is untouched. See core/reaction_model.jl.
+      - DS_ASSEMBLY_LIMITING=${DS_ASSEMBLY_LIMITING:-1}
       # SCC-aware solving. 0 = off (default, original behaviour). When set,
       # the solver computes strongly-connected components and relaxes catalyst
       # edges that close a recycling cycle (catalyst source in the same SCC as
