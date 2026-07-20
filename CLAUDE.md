@@ -3,27 +3,22 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Quick Start (Docker-First)
+
+This repo is the DeltaSignal **engine + HTTP API**. The UI lives in the
+WebsiteAngular workspace and talks to this API over HTTP — see `docs/API.md`
+for the contract.
+
 ```bash
-# Development environment (recommended)
-docker compose -f docker-compose.dev.yml up
+# Development: start the Julia API (binds 0.0.0.0:8080, published on the host)
+docker compose -f docker-compose.dev.yml up julia-api
+# Then point the Angular dev server's proxy at http://localhost:8080.
 
-# This starts:
-# - Julia API backend (localhost:8080)
-# - Frontend dev server (localhost:3000) 
-# - Hot reload for all components
-
-# Production environment
+# Production: single API service (TLS / reverse proxy / UI hosting are handled
+# by the WebsiteAngular deployment, not here)
 docker compose -f docker-compose.prod.yml up
 
-# This starts:
-# - Julia API backend (internal)
-# - Frontend (internal) 
-# - Nginx reverse proxy (localhost:80)
-# - All services with health checks
-
-# Access the application:
-# Development: http://localhost:3000
-# Production: http://localhost (via reverse proxy)
+# Health check:
+curl http://localhost:8080/api/health
 ```
 
 ## Development Commands
@@ -199,5 +194,5 @@ Tests are organized by functionality:
 ## Project Dependencies
 - Julia 1.10+ (LTS required)
 - Key packages: Optim.jl, JSON3.jl, DataFrames.jl, CSV.jl, HTTP.jl, ArgParse.jl
-- Frontend (if present): Node.js for visualization components
 - Docker for containerized deployment
+- UI: separate — Angular project in the WebsiteAngular workspace, consuming this repo's HTTP API (`docs/API.md`)

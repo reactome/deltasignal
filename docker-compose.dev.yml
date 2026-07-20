@@ -125,29 +125,10 @@ services:
       retries: 3
       start_period: 30s
 
-  # Frontend Development Server - Hot reload & API proxy
-  frontend-dev:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    ports:
-      - "3000:3000"    # Vite dev server
-      - "3001:3001"    # Express dev API
-    environment:
-      - NODE_ENV=development
-      - API_BASE_URL=http://julia-api:8080
-      - VITE_API_BASE_URL=http://localhost:8080
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - ./frontend/index.html:/app/index.html
-      - ./frontend/vite.config.js:/app/vite.config.js
-      - node-modules:/app/node_modules
-    depends_on:
-      julia-api:
-        condition: service_healthy
-    restart: unless-stopped
-    command: npm run dev
+  # NOTE: the frontend now lives in the WebsiteAngular workspace, not here.
+  # This repo is the DeltaSignal engine + HTTP API. Point the Angular dev
+  # server's proxy at http://localhost:8080 (see docs/API.md). julia-api binds
+  # 0.0.0.0 so it is reachable from the host.
 
   # Test Runner - On-demand testing
   test-runner:
@@ -194,6 +175,4 @@ services:
 
 volumes:
   julia-cache:
-    driver: local
-  node-modules:
     driver: local

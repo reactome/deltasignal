@@ -13,12 +13,6 @@ Manifest.toml
 .julia
 depot/
 
-# Node modules and build artifacts
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/coverage/
-
 # Test files and results
 test_results.json
 results.txt

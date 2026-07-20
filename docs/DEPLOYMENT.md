@@ -1,5 +1,11 @@
 # 🚀 DeltaSignal Deployment Guide
 
+> **⚠️ Partially outdated (2026-07).** This repo is now the DeltaSignal
+> **engine + HTTP API** only. The frontend moved to the WebsiteAngular
+> workspace and is deployed there; the nginx reverse-proxy / frontend build
+> steps below no longer apply here. For the current, minimal deployment see
+> `docker-compose.prod.yml` (a single API service) and `docs/API.md`.
+
 Complete deployment guide for DeltaSignal pathway analysis system.
 
 ## Prerequisites
