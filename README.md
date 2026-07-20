@@ -170,10 +170,8 @@ child-002,25.0,0.7
 
 ### 🔄 In Development
 
-- **Time-Dynamic Mode**: Substrate consumption and product accumulation over time
-- **Parameter Learning**: Learn reaction parameters from multi-condition datasets
-- **Web Frontend**: PathwayBrowser + Cytoscape.js dual visualization
-- **API Server**: REST endpoints for integration
+- **Web Frontend**: an Angular UI in the WebsiteAngular workspace, consuming this repo's HTTP API (contract in `docs/API.md`) — reuses Reactome's pathway-browser + cytoscape styling
+- **Time-Dynamic Mode / Parameter Learning**: prototyped then shelved; source archived in `attic/`
 
 ### 📈 Roadmap
 

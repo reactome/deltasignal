@@ -1,5 +1,13 @@
 # DeltaSignal Architecture
 
+> **⚠️ Partially outdated (2026-07).** The frontend has been retired from this
+> repo — the UI now lives as an Angular project in the WebsiteAngular workspace
+> and talks to this repo over HTTP (contract: `docs/API.md`). This repo is now
+> the **engine + HTTP API** only: no `frontend/`, no `proxy/`, no nginx/
+> supervisor multi-service stack. The frontend/proxy/multi-service sections
+> below are historical. Current entry points: `CLAUDE.md` (Quick Start) and
+> `docs/API.md`.
+
 ## Overview
 
 DeltaSignal follows a **microservices architecture** with Docker-first deployment, implementing best practices for service separation and scalability.

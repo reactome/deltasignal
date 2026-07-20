@@ -1,18 +1,36 @@
-# Production Docker Compose - Multi-service architecture
+# Production Docker Compose — DeltaSignal engine + HTTP API only.
+#
+# The frontend now lives in the WebsiteAngular workspace; this repo ships the
+# solver and its HTTP API (see docs/API.md). TLS termination, a reverse proxy,
+# and serving the UI are handled by the WebsiteAngular deployment, not here —
+# so this file is intentionally a single service.
+#
+# The winning solver config is baked into the code defaults (no DS_* env
+# needed). Override any DS_* var here only for experiments.
+#
 # Usage: docker compose -f docker-compose.prod.yml up
 
 services:
-  # Julia API Backend Service
   api:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
+      target: julia-builder
+    command: julia --project=/app /app/src/api/server.jl --port=8080 --host=0.0.0.0
+    ports:
+      - "8080:8080"
     environment:
       - JULIA_NUM_THREADS=4
       - JULIA_ENV=production
+      # Restrict to the UI's origin in a real deployment (default "*").
+      - DS_CORS_ORIGIN=${DS_CORS_ORIGIN:-*}
     volumes:
       - ./examples:/app/examples:ro
       - api_data:/app/data
+      # Pre-generated Reactome pathway catalog (for GET /api/pathways). Point
+      # PATHWAY_CATALOG at the generated catalog dir; /api/pathways returns an
+      # empty list if unset.
+      # - ${PATHWAY_CATALOG:-./data/catalog}:/app/pathway_catalog:ro
     restart: unless-stopped
     deploy:
       resources:
@@ -28,125 +46,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    networks:
-      - backend
-
-  # Frontend Service (Static files + Nginx)
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 64M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    networks:
-      - frontend
-    depends_on:
-      api:
-        condition: service_healthy
-
-  # Reverse Proxy (Main entry point)
-  proxy:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./proxy/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./proxy/conf.d:/etc/nginx/conf.d:ro
-      - ./proxy/ssl:/etc/nginx/ssl:ro
-      - proxy_logs:/var/log/nginx
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 32M
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    networks:
-      - frontend
-      - backend
-    depends_on:
-      - api
-      - frontend
-
-  # Optional: Monitoring with health checks aggregation
-  health-monitor:
-    image: alpine:latest
-    command: |
-      sh -c "
-        # Install wget for health checks
-        apk add --no-cache wget
-        while true; do
-          echo '[Health Monitor] Checking services...'
-          if wget -qO- http://api:8080/api/health > /dev/null 2>&1; then
-            echo '[✓] API service healthy'
-          else
-            echo '[✗] API service unhealthy'
-          fi
-          if wget -qO- http://frontend:3000/health > /dev/null 2>&1; then
-            echo '[✓] Frontend service healthy'  
-          else
-            echo '[✗] Frontend service unhealthy'
-          fi
-          if wget -qO- http://proxy:80/health > /dev/null 2>&1; then
-            echo '[✓] Proxy service healthy'
-          else
-            echo '[✗] Proxy service unhealthy'
-          fi
-          echo '---'
-          sleep 60
-        done
-      "
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.1'
-          memory: 32M
-        reservations:
-          cpus: '0.05'
-          memory: 8M
-    networks:
-      - backend
-      - frontend
-    depends_on:
-      - api
-      - frontend
-      - proxy
-    profiles:
-      - monitoring
-
-networks:
-  frontend:
-    driver: bridge
-    name: deltasignal_frontend
-  backend:
-    driver: bridge
-    name: deltasignal_backend
 
 volumes:
   api_data:
-    driver: local
-  proxy_logs:
     driver: local
