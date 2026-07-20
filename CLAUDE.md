@@ -58,7 +58,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 
 ### CLI Usage
 ```bash
-# Available commands: parse, solve, export, rollout, train, validate, server
+# Available commands: parse, solve, export
 # Use --help with any command for options
 
 # 1. Parse logic network from TSV files
