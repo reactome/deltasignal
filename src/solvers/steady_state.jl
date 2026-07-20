@@ -75,11 +75,12 @@ function solve_steady_state(
         end
     end
 
-    if params.method == "penalty"
-        return solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids)
-    else
-        return solve_steady_state_fixed_point(reactions, observations, x0, baseline_activities, params, start_time)
-    end
+    # The penalty/SCC-condensation solver is the only path (see
+    # solve_steady_state_penalty). `params.method` is retained for API
+    # compatibility but only "penalty" is supported.
+    params.method == "penalty" ||
+        error("Unsupported solver method $(params.method); only \"penalty\" is available.")
+    return solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids)
 end
 
 """
@@ -350,90 +351,6 @@ function solve_steady_state_penalty(
 end
 
 """
-Fixed-point iteration method.
-Repeatedly applies x^{t+1} = λF(x^t) + (1-λ)x^t until convergence.
-"""
-function solve_steady_state_fixed_point(
-    reactions::Vector{Reaction},
-    observations::Dict{String, Tuple{Float64, Float64}},
-    x0::Dict{String, Float64},
-    baseline_activities::Dict{String, Float64},
-    params::SteadyStateParams,
-    start_time::Float64
-)::SolverResult
-    
-    x_current = copy(x0)
-    damping = 0.3  # Lower damping for better feedback loop dynamics
-    
-    for iter in 1:params.max_iters
-        # Apply forward model
-        x_forward = forward_model(x_current, reactions)
-        
-        # Update with damping
-        x_new = Dict{String, Float64}()
-        max_change = 0.0
-        
-        for uuid in keys(x_current)
-            if haskey(x_forward, uuid)
-                # Update: x^{t+1} = (1-λ)x^t + λF(x^t)
-                x_new[uuid] = (1.0 - damping) * x_current[uuid] + damping * x_forward[uuid]
-            else
-                x_new[uuid] = x_current[uuid]
-            end
-            
-            # Apply observations as constraints (soft)
-            if haskey(observations, uuid)
-                obs_value = observations[uuid][1] / 100.0  # Convert to internal scale
-                confidence = observations[uuid][2]
-                
-                # Gentler blending to preserve feedback dynamics
-                blend_factor = min(confidence * 0.3, 0.4)  # Much gentler blending
-                x_new[uuid] = (1.0 - blend_factor) * x_new[uuid] + blend_factor * obs_value
-            end
-            
-            # Clamp to valid range
-            x_new[uuid] = clamp(x_new[uuid], 0.0, 1.0)
-            
-            # Track convergence
-            change = abs(x_new[uuid] - x_current[uuid])
-            max_change = max(max_change, change)
-        end
-        
-        x_current = x_new
-        
-        # Check convergence
-        if max_change < params.tolerance
-            solve_time = time() - start_time
-            
-            return SolverResult(
-                x_current,
-                true,
-                iter,
-                max_change,
-                solve_time,
-                Dict("method" => "fixed_point", "damping" => damping)
-            )
-        end
-        
-        if iter % 50 == 0
-            println("Fixed-point iteration $iter, max_change = $max_change")
-        end
-    end
-    
-    # Max iterations reached
-    solve_time = time() - start_time
-    
-    return SolverResult(
-        x_current,
-        false,
-        params.max_iters,
-        NaN,
-        solve_time,
-        Dict("method" => "fixed_point", "warning" => "max_iterations_reached")
-    )
-end
-
-"""
 Compute influence scores for explainability.
 Returns ranking of input nodes by their influence on the solution.
 """
@@ -487,42 +404,4 @@ function compute_influence_scores(
     end
 
     return influence_scores
-end
-
-"""
-Generate upstream explanation: what minimal changes to inputs would achieve target outputs?
-"""
-function explain_upstream_drivers(
-    network::ReactionNetwork,
-    result::SolverResult,
-    target_changes::Dict{String, Float64}  # Desired changes in target nodes
-)::Dict{String, Float64}
-    
-    # This is a simplified version - a full implementation would use constrained optimization
-    upstream_suggestions = Dict{String, Float64}()
-    
-    reactions = convert_to_reaction_network(network)
-    influence_scores = compute_influence_scores(result, reactions)
-    
-    # Find nodes with high influence that are not targets
-    target_nodes = Set(keys(target_changes))
-    
-    potential_drivers = [(uuid, score) for (uuid, score) in influence_scores 
-                        if !(uuid in target_nodes) && score > 1e-6]
-    
-    # Sort by influence (descending)
-    sort!(potential_drivers, by=x->x[2], rev=true)
-    
-    # Simple heuristic: suggest changes proportional to influence
-    total_influence = sum(score for (_, score) in potential_drivers[1:min(5, length(potential_drivers))])
-    
-    for (i, (uuid, score)) in enumerate(potential_drivers[1:min(5, length(potential_drivers))])
-        # Suggest change proportional to influence and desired target change
-        avg_target_change = sum(values(target_changes)) / length(target_changes)
-        suggested_change = (score / total_influence) * avg_target_change * 0.5  # Scale down for safety
-        
-        upstream_suggestions[uuid] = suggested_change
-    end
-    
-    return upstream_suggestions
 end
