@@ -187,6 +187,7 @@ function solve_scc_ordered!(
             # others relax to convergence.
             is_neg = neg_mode != "converge" && comp_neg_frac[c] >= neg_frac_thresh
             cap = is_neg ? neg_iters : max_inner
+            comp_residual = 0.0
             for it in 1:cap
                 total_iters += 1
                 maxch = 0.0
@@ -200,9 +201,12 @@ function solve_scc_ordered!(
                     ch > maxch && (maxch = ch)
                     x[t] = nv
                 end
-                last_change = maxch
+                comp_residual = maxch
                 maxch < tol && break
             end
+            # Report the worst final residual across all loop components, so a
+            # non-converged upstream loop isn't masked by a later converged one.
+            last_change = max(last_change, comp_residual)
         end
     end
     return total_iters, last_change
