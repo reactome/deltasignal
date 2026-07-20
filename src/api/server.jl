@@ -27,12 +27,15 @@ function parse_commandline()
     return parse_args(s)
 end
 
-# CORS middleware
+# CORS middleware. Allowed origin is configurable via DS_CORS_ORIGIN (default
+# "*") so a deployment can restrict it to the Angular app's origin; "*" is fine
+# for local dev and for a same-origin reverse-proxy setup.
 function cors_middleware(handler)
+    allow_origin = get(ENV, "DS_CORS_ORIGIN", "*")
     return function(req)
         # Add CORS headers
         headers = [
-            "Access-Control-Allow-Origin" => "*",
+            "Access-Control-Allow-Origin" => allow_origin,
             "Access-Control-Allow-Methods" => "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers" => "Content-Type, Authorization",
             "Access-Control-Max-Age" => "86400"
@@ -590,6 +593,7 @@ function start_server(host="127.0.0.1", port=8080; test_mode=false)
         println("Test mode - server would start on http://$host:$port")
         println("Available endpoints:")
         println("  GET  /api/health")
+        println("  GET  /api/pathways")
         println("  POST /api/parse")
         println("  POST /api/solve")
         return
@@ -604,6 +608,7 @@ function start_server(host="127.0.0.1", port=8080; test_mode=false)
         println("Server starting on http://$host:$port")
         println("Available endpoints:")
         println("  GET  /api/health")
+        println("  GET  /api/pathways")
         println("  POST /api/parse")
         println("  POST /api/solve")
         println("Press Ctrl+C to stop")
