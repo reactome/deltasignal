@@ -161,6 +161,7 @@ function create_reaction_from_edges(
     activator_is_and = Bool[]
     activator_is_catalyst = Bool[]
     activator_is_assembly = Bool[]
+    activator_stoich = Float64[]
     inhibitors = String[]
     inhibitor_is_and = Bool[]
     depletions = String[]
@@ -173,6 +174,7 @@ function create_reaction_from_edges(
             push!(activator_is_and, edge.is_and)
             push!(activator_is_catalyst, edge.edge_type == "catalyst")
             push!(activator_is_assembly, edge.edge_type == "assembly")
+            push!(activator_stoich, edge.stoichiometry)
         elseif edge.edge_type == "depletion"
             push!(depletions, edge.parent_uuid)
         else
@@ -187,7 +189,8 @@ function create_reaction_from_edges(
     params = create_default_reaction_params(
         length(activators),
         length(inhibitors),
-        length(substrates),
+        length(substrates);
+        activator_stoich=activator_stoich,
     )
 
     return Reaction(
@@ -212,17 +215,28 @@ Create default parameters for a reaction with specified input counts.
 function create_default_reaction_params(
     n_activators::Int,
     n_inhibitors::Int,
-    n_substrates::Int
+    n_substrates::Int;
+    activator_stoich::Union{Nothing,Vector{Float64}}=nothing,
 )::ReactionParams
-    
+
     # Per spec section 5/15: neutral defaults.
     # K=0.1 anchors near the spec baseline x₀=0.01 such that Hill(x₀, 2, 0.1) ≈ x₀,
     # giving a self-consistent fixed point at baseline.
     h = 2.0
     K = 0.1
 
-    # Activators: uniform weights, neutral sensitivity (s=0 ⇒ α=1)
-    activator_weights = n_activators > 0 ? fill(1.0/n_activators, n_activators) : Float64[]
+    # Activators: uniform weights by default. When DS_STOICH_WEIGHTS is on, carry
+    # the raw curated coefficient instead, so hill_log can use it as a mass-action
+    # exponent (see the hill_log branch). Coefficients all 1 ⇒ same as uniform for
+    # hill_log (which ignores weights when the flag is off).
+    use_stoich = activator_stoich !== nothing && get(ENV, "DS_STOICH_WEIGHTS", "0") == "1"
+    activator_weights = if n_activators == 0
+        Float64[]
+    elseif use_stoich
+        [k <= length(activator_stoich) ? activator_stoich[k] : 1.0 for k in 1:n_activators]
+    else
+        fill(1.0/n_activators, n_activators)
+    end
     activator_sensitivity_s = fill(0.0, n_activators)
     activator_sensitivity_n = fill(2.0, n_activators)
     activator_sensitivity_K = fill(0.1, n_activators)
@@ -632,6 +646,7 @@ struct ReactionEvalConfig
     devspec_beta_raw::String
     spec_beta_raw::String
     depletion_h_max::Float64
+    stoich_weights::Bool
 end
 
 """
@@ -655,6 +670,11 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
         parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")),
+        # DS_STOICH_WEIGHTS: when on, curated reaction stoichiometry weights the
+        # hill_log AND aggregation as a mass-action exponent (log_fold = Σ sₖ·log(vₖ/bl)).
+        # Off by default = validated winning config. No-op when all coefficients
+        # are 1 (uncurated networks), so only a stoichiometry-carrying catalog diverges.
+        get(ENV, "DS_STOICH_WEIGHTS", "0") == "1",
     )
 end
 
@@ -885,8 +905,19 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 eps_T = T(1e-6)
                 z_max = T(config.hill_log_zmax)
                 log_fold = zero(T)
-                for v in and_vals
-                    log_fold += log((v + eps_T) / (bl + eps_T))
+                # Mass-action weighting: a stoichiometric coefficient sₖ is the
+                # exponent on input vₖ in the rate law, i.e. a multiplier on its
+                # log-fold. and_wts carries the per-AND-input coefficient (1.0 for
+                # assembly/inversion injections). Off ⇒ plain unweighted sum
+                # (validated default); on with all-1 coefficients ⇒ identical.
+                if config.stoich_weights
+                    @inbounds for k in eachindex(and_vals)
+                        log_fold += and_wts[k] * log((and_vals[k] + eps_T) / (bl + eps_T))
+                    end
+                else
+                    for v in and_vals
+                        log_fold += log((v + eps_T) / (bl + eps_T))
+                    end
                 end
                 log_out = z_max * tanh(log_fold / z_max)
                 out = bl * exp(log_out)
