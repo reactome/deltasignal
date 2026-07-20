@@ -717,13 +717,72 @@ function tarjan_scc_components(adj::Vector{Set{Int}})::Tuple{Vector{Int},Int}
 end
 
 """
+Solver knobs read on every reaction evaluation, resolved ONCE per solve from
+the DS_* environment (with the validated winning-config defaults, commit
+c9805b2) instead of re-reading + re-parsing ENV inside the per-reaction /
+per-iteration hot loop. Concrete field types keep it type-stable.
+
+The two DS_INHIBITOR_BETA fields intentionally carry the raw string with the
+per-mode default ("1.0" for devspec, "" for spec) and are parsed lazily inside
+the branch that uses them — this preserves the existing behavior exactly,
+including that an explicitly-empty DS_INHIBITOR_BETA errors only if the devspec
+branch actually runs.
+"""
+struct ReactionEvalConfig
+    inhibition_mode::String
+    and_mode::String
+    or_mode::String
+    assembly_limiting::Bool
+    hill_sat_eps::Float64
+    hill_sat_h_max::Float64
+    hill_log_zmax::Float64
+    inhibitor_k::Float64
+    inhibitor_eps::Float64
+    inhibitor_floor::Float64
+    floor_scope::String
+    devspec_beta_raw::String
+    spec_beta_raw::String
+    depletion_h_max::Float64
+end
+
+"""
+Resolve a ReactionEvalConfig from the DS_* environment. Defaults are the
+validated winning config (commit c9805b2). Call once per solve and thread the
+result into compute_reaction_output_vec / forward_model_vec.
+"""
+function resolve_reaction_eval_config()::ReactionEvalConfig
+    return ReactionEvalConfig(
+        get(ENV, "DS_INHIBITION_MODE", "divide"),
+        get(ENV, "DS_AND_MODE", "hill_log"),
+        get(ENV, "DS_OR_MODE", "mean"),
+        get(ENV, "DS_ASSEMBLY_LIMITING", "1") == "1",
+        parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")),
+        parse(Float64, get(ENV, "DS_HILL_SAT_H_MAX", "10.0")),
+        parse(Float64, get(ENV, "DS_HILL_LOG_ZMAX", "10.0")),
+        parse(Float64, get(ENV, "DS_INHIBITOR_K", "0.1")),
+        parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")),
+        parse(Float64, get(ENV, "DS_INHIBITOR_FLOOR", "0.0")),
+        get(ENV, "DS_INHIBITOR_FLOOR_SCOPE", "loops"),
+        get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
+        get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
+        parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")),
+    )
+end
+
+"""
 Compute reaction output from a flat activity vector. Same math as the dict
 version (sensitivity transform → geomean activators × Hill-suppression
 inhibitors × geomean substrates → Hill output), but generic-typed over the
 element type so ForwardDiff Duals propagate.
+
+`config` is resolved once per solve (see resolve_reaction_eval_config). It
+defaults to a fresh resolve so back-compat callers (tests, dead modules) keep
+working; the solve hot path passes it explicitly so ENV is read once, not once
+per reaction per iteration.
 """
 function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
-                                     supply::Union{Nothing,AbstractVector}=nothing) where {T<:Real}
+                                     supply::Union{Nothing,AbstractVector}=nothing,
+                                     config::ReactionEvalConfig=resolve_reaction_eval_config()) where {T<:Real}
     p = rxn.params
 
     # Activators (and optionally inverted inhibitors): split by per-edge AND/OR
@@ -747,9 +806,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     #                baseline is preserved) and treat it as an AND-clustered
     #                activator. Continuous analog of the naive baseline's
     #                {0↔2, 1↔1} integer inversion. Default for benchmark.
-    # Default is the validated winning config (commit c9805b2): divide-form
-    # inhibition. Overridable via DS_INHIBITION_MODE for benchmark sweeps.
-    inhibition_mode = get(ENV, "DS_INHIBITION_MODE", "divide")
+    inhibition_mode = config.inhibition_mode
     bl = T(rxn.target_baseline)
 
     and_vals = T[]
@@ -762,7 +819,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # subunit, so overexpressing one member of a many-subunit complex must not
     # drive the complex up. When off, assembly inputs fall through to the normal
     # AND/OR handling (byte-for-byte unchanged default).
-    assembly_limiting = get(ENV, "DS_ASSEMBLY_LIMITING", "1") == "1"
+    assembly_limiting = config.assembly_limiting
     assembly_min = typemax(T)
     have_assembly = false
 
@@ -828,7 +885,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         and_result = if isempty(and_vals)
             nothing
         else
-            mode = get(ENV, "DS_AND_MODE", "hill_log")
+            mode = config.and_mode
             if mode == "min"
                 minimum(and_vals)
             elseif mode == "signed"
@@ -892,7 +949,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 # formula yet — the planned next step. See memory:
                 # project-sigmoid-design-intent.
                 eps_T = T(1e-6)
-                sat_eps = T(parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")))
+                sat_eps = T(config.hill_sat_eps)
                 max_internal = one(T)
                 prod_fold = one(T)
                 for v in and_vals
@@ -937,9 +994,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 # log(100)≈4.605 used in the illustrative numbers above, i.e.
                 # closer to pure multiplication (softer saturation).
                 eps_T = T(1e-6)
-                zmax_default = T(10.0)
-                z_max = T(parse(Float64, get(ENV, "DS_HILL_LOG_ZMAX",
-                                              string(Float64(zmax_default)))))
+                z_max = T(config.hill_log_zmax)
                 log_fold = zero(T)
                 for v in and_vals
                     log_fold += log((v + eps_T) / (bl + eps_T))
@@ -967,7 +1022,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         or_result = if isempty(or_vals)
             nothing
         else
-            or_mode = get(ENV, "DS_OR_MODE", "mean")
+            or_mode = config.or_mode
             if or_mode == "mean"
                 sum(or_vals) / length(or_vals)
             elseif or_mode == "median"
@@ -1016,7 +1071,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     H = if inhibition_mode == "inversion" || isempty(rxn.inhibitor_indices)
         one(T)
     elseif inhibition_mode == "krep"
-        K = T(parse(Float64, get(ENV, "DS_INHIBITOR_K", "0.1")))
+        K = T(config.inhibitor_k)
         result = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
@@ -1026,7 +1081,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         end
         clamp(result, zero(T), one(T))
     elseif inhibition_mode == "divide"
-        eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
+        eps_T = T(config.inhibitor_eps)
         # DS_INHIBITOR_FLOOR caps how strongly an inhibitor edge can suppress
         # its target. DS_INHIBITOR_FLOOR_SCOPE selects which edges it applies to:
         #   "all"           — every inhibitor (global variant, for comparison)
@@ -1037,8 +1092,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #                     its SCC). This is the biologically-typed rule:
         #                     weaken self-regulating gene transcription, leave
         #                     protein-level feedback at full divide strength.
-        h_floor = T(parse(Float64, get(ENV, "DS_INHIBITOR_FLOOR", "0.0")))
-        floor_scope = get(ENV, "DS_INHIBITOR_FLOOR_SCOPE", "loops")
+        h_floor = T(config.inhibitor_floor)
+        floor_scope = config.floor_scope
         result = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
@@ -1056,7 +1111,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         # AND propagation well-behaved upstream.
         clamp(result, zero(T), T(10.0))
     elseif inhibition_mode == "devspec"
-        beta_env = get(ENV, "DS_INHIBITOR_BETA", "1.0")
+        beta_env = config.devspec_beta_raw
         β = T(parse(Float64, beta_env))
         result = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
@@ -1085,9 +1140,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #
         # Same per-edge learnable-parameter intent as hill_sat AND. See
         # memory: project-sigmoid-design-intent.
-        eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
-        h_max = T(parse(Float64, get(ENV, "DS_HILL_SAT_H_MAX", "10.0")))
-        sat_eps = T(parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")))
+        eps_T = T(config.inhibitor_eps)
+        h_max = T(config.hill_sat_h_max)
+        sat_eps = T(config.hill_sat_eps)
         h_raw = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
@@ -1104,7 +1159,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         @inbounds for k in 1:n_inh
             inh[k] = x[rxn.inhibitor_indices[k]]
         end
-        beta_env = get(ENV, "DS_INHIBITOR_BETA", "")
+        beta_env = config.spec_beta_raw
         betas = isempty(beta_env) ? p.inhibitor_betas :
                 fill(parse(Float64, beta_env), n_inh)
         inhibition_aggregator(inh, betas, p.inhibitor_ms)
@@ -1128,8 +1183,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # Capped at DS_DEPLETION_H_MAX (default 10) to bound runaway de-repression.
     H_dep = one(T)
     if !isempty(rxn.depletion_indices)
-        eps_dep = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
-        h_max_dep = T(parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")))
+        eps_dep = T(config.inhibitor_eps)
+        h_max_dep = T(config.depletion_h_max)
         @inbounds for k in 1:length(rxn.depletion_indices)
             x_dep = clamp(x[rxn.depletion_indices[k]], zero(T), one(T))
             H_dep *= (bl + eps_dep) / (x_dep + eps_dep)
@@ -1150,10 +1205,11 @@ target node carries the output of its driving reaction; nodes with no
 incoming reaction keep their current value.
 """
 function forward_model_vec(x::AbstractVector{T}, reactions::Vector{IndexedReaction};
-                           supply::Union{Nothing,AbstractVector}=nothing) where {T<:Real}
+                           supply::Union{Nothing,AbstractVector}=nothing,
+                           config::ReactionEvalConfig=resolve_reaction_eval_config()) where {T<:Real}
     y = copy(x)  # preserves element type, including Dual
     for rxn in reactions
-        y[rxn.target_idx] = compute_reaction_output_vec(x, rxn; supply=supply)
+        y[rxn.target_idx] = compute_reaction_output_vec(x, rxn; supply=supply, config=config)
     end
     return y
 end

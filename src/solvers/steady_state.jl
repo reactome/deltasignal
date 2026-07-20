@@ -105,6 +105,7 @@ function solve_scc_ordered!(
     n_comp::Int,
     obs_set::Set{Int},
     params::SteadyStateParams,
+    config::ReactionEvalConfig = resolve_reaction_eval_config(),
 )
     λ = parse(Float64, get(ENV, "DS_SCC_DAMPING", "0.5"))
     use_supply = get(ENV, "DS_SCC_BREAK_CATALYST", "0") != "0"
@@ -175,7 +176,7 @@ function solve_scc_ordered!(
             for ri in rs
                 t = rxns_idx[ri].target_idx
                 t in obs_set && continue
-                x[t] = compute_reaction_output_vec(x, rxns_idx[ri])
+                x[t] = compute_reaction_output_vec(x, rxns_idx[ri]; config=config)
             end
         else
             # Genuine loop: damped fixed point confined to this component.
@@ -192,7 +193,7 @@ function solve_scc_ordered!(
                     r = rxns_idx[ri]
                     t = r.target_idx
                     t in obs_set && continue
-                    fwd = compute_reaction_output_vec(x, r; supply=supply)
+                    fwd = compute_reaction_output_vec(x, r; supply=supply, config=config)
                     nv = (1.0 - λ) * x[t] + λ * fwd
                     ch = abs(nv - x[t])
                     ch > maxch && (maxch = ch)
@@ -238,6 +239,11 @@ function solve_steady_state_penalty(
     n = length(all_nodes)
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
     rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids)
+
+    # Resolve the per-reaction DS_* knobs ONCE here (not once per reaction per
+    # iteration inside compute_reaction_output_vec). Threaded into every forward
+    # evaluation below.
+    eval_config = resolve_reaction_eval_config()
 
     # Initial state vector.
     x = Vector{Float64}(undef, n)
@@ -290,11 +296,11 @@ function solve_steady_state_penalty(
         # the strongly-connected components (real loops), so feedback converges
         # instead of settling on an oscillating last-iterate.
         iters, max_change = solve_scc_ordered!(
-            x, rxns_idx, comp_id, n_comp, obs_set, params)
+            x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config)
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
-            x_fwd = forward_model_vec(x, rxns_idx)
+            x_fwd = forward_model_vec(x, rxns_idx; config=eval_config)
 
             max_change = 0.0
             @inbounds for i in 1:n
@@ -316,7 +322,7 @@ function solve_steady_state_penalty(
     end
 
     # Final consistency check on the stable state.
-    x_fwd_final = forward_model_vec(x, rxns_idx)
+    x_fwd_final = forward_model_vec(x, rxns_idx; config=eval_config)
     consistency_inf = maximum(abs.(x .- x_fwd_final))
 
     # Sanitize residual to a finite Float64 — JSON can't serialize Inf/NaN.
@@ -457,10 +463,11 @@ function compute_influence_scores(
         x[i] = result.node_activities[uuid]
     end
 
+    eval_config = resolve_reaction_eval_config()
     influence_scores = Dict{String, Float64}()
     h = 1e-6
     for rxn in indexed
-        base = compute_reaction_output_vec(x, rxn)
+        base = compute_reaction_output_vec(x, rxn; config=eval_config)
         # Every input the reaction's output depends on: activators, inhibitors,
         # depletion (catalyst→substrate), and substrates.
         input_idxs = vcat(rxn.activator_indices, rxn.inhibitor_indices,
@@ -471,7 +478,7 @@ function compute_influence_scores(
             # yields a finite-difference slope (forward step would clamp to 0).
             dir = (x_saved + h <= 1.0) ? h : -h
             x[idx] = x_saved + dir
-            plus = compute_reaction_output_vec(x, rxn)
+            plus = compute_reaction_output_vec(x, rxn; config=eval_config)
             x[idx] = x_saved
             deriv = (plus - base) / dir
             uuid = all_nodes[idx]
