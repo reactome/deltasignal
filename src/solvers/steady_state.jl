@@ -435,41 +435,50 @@ function compute_influence_scores(
     result::SolverResult,
     reactions::Vector{Reaction}
 )::Dict{String, Float64}
-    
-    # Simple influence measure: sum of absolute partial derivatives
+
+    # Influence = Σ_r |∂F_r/∂x_input| at the solved operating point, computed
+    # with the SAME forward model the solver used (compute_reaction_output_vec,
+    # which honors the active DS_* config — divide inhibition, hill_log AND,
+    # depletion, assembly-limiting). The previous implementation used the
+    # dict-form compute_reaction_output, which reads NONE of that config and
+    # defaults inhibitor β=0, so it reported ZERO influence for every inhibitor
+    # regardless of the config actually solved — misleading the moment any
+    # explainability view surfaces it.
+    all_nodes = collect(keys(result.node_activities))
+    uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
+
+    # Baselines are the universal spec x₀ = 0.01 (see tsv_parser). Passing an
+    # empty dict lets index_reactions default every target to 0.01, matching
+    # exactly what the solver built.
+    indexed, _, _ = index_reactions(reactions, uuid_to_idx, Dict{String, Float64}())
+
+    x = Vector{Float64}(undef, length(all_nodes))
+    @inbounds for (i, uuid) in enumerate(all_nodes)
+        x[i] = result.node_activities[uuid]
+    end
+
     influence_scores = Dict{String, Float64}()
-    
-    for reaction in reactions
-        target = reaction.target_uuid
-        
-        if !haskey(result.node_activities, target)
-            continue
-        end
-        
-        # Compute influence from each input
-        all_inputs = [reaction.activator_uuids; reaction.inhibitor_uuids; reaction.substrate_uuids]
-        
-        for input_uuid in all_inputs
-            if haskey(result.node_activities, input_uuid)
-                # Numerical derivative (simple finite difference)
-                h = 1e-6
-                activities_plus = copy(result.node_activities)
-                activities_plus[input_uuid] = min(1.0, activities_plus[input_uuid] + h)
-                
-                output_base = compute_reaction_output(reaction, result.node_activities)
-                output_plus = compute_reaction_output(reaction, activities_plus)
-                
-                derivative = (output_plus - output_base) / h
-                
-                if !haskey(influence_scores, input_uuid)
-                    influence_scores[input_uuid] = 0.0
-                end
-                
-                influence_scores[input_uuid] += abs(derivative)
-            end
+    h = 1e-6
+    for rxn in indexed
+        base = compute_reaction_output_vec(x, rxn)
+        # Every input the reaction's output depends on: activators, inhibitors,
+        # depletion (catalyst→substrate), and substrates.
+        input_idxs = vcat(rxn.activator_indices, rxn.inhibitor_indices,
+                          rxn.depletion_indices, rxn.substrate_indices)
+        for idx in input_idxs
+            x_saved = x[idx]
+            # Step inward from the [0,1] boundary so a saturated input still
+            # yields a finite-difference slope (forward step would clamp to 0).
+            dir = (x_saved + h <= 1.0) ? h : -h
+            x[idx] = x_saved + dir
+            plus = compute_reaction_output_vec(x, rxn)
+            x[idx] = x_saved
+            deriv = (plus - base) / dir
+            uuid = all_nodes[idx]
+            influence_scores[uuid] = get(influence_scores, uuid, 0.0) + abs(deriv)
         end
     end
-    
+
     return influence_scores
 end
 

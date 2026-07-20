@@ -747,7 +747,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     #                baseline is preserved) and treat it as an AND-clustered
     #                activator. Continuous analog of the naive baseline's
     #                {0↔2, 1↔1} integer inversion. Default for benchmark.
-    inhibition_mode = get(ENV, "DS_INHIBITION_MODE", "spec")
+    # Default is the validated winning config (commit c9805b2): divide-form
+    # inhibition. Overridable via DS_INHIBITION_MODE for benchmark sweeps.
+    inhibition_mode = get(ENV, "DS_INHIBITION_MODE", "divide")
     bl = T(rxn.target_baseline)
 
     and_vals = T[]
@@ -760,7 +762,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # subunit, so overexpressing one member of a many-subunit complex must not
     # drive the complex up. When off, assembly inputs fall through to the normal
     # AND/OR handling (byte-for-byte unchanged default).
-    assembly_limiting = get(ENV, "DS_ASSEMBLY_LIMITING", "0") == "1"
+    assembly_limiting = get(ENV, "DS_ASSEMBLY_LIMITING", "1") == "1"
     assembly_min = typemax(T)
     have_assembly = false
 
@@ -826,7 +828,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         and_result = if isempty(and_vals)
             nothing
         else
-            mode = get(ENV, "DS_AND_MODE", "geomean")
+            mode = get(ENV, "DS_AND_MODE", "hill_log")
             if mode == "min"
                 minimum(and_vals)
             elseif mode == "signed"
@@ -930,9 +932,12 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 # fold-changes (GSEA-style ranking benchmark becomes
                 # possible).
                 #
-                # z_max controlled by DS_HILL_LOG_ZMAX (default log(100) = 4.605).
+                # z_max controlled by DS_HILL_LOG_ZMAX. Default 10.0 is the
+                # validated winning config (commit c9805b2) — higher than the
+                # log(100)≈4.605 used in the illustrative numbers above, i.e.
+                # closer to pure multiplication (softer saturation).
                 eps_T = T(1e-6)
-                zmax_default = T(log(100.0))
+                zmax_default = T(10.0)
                 z_max = T(parse(Float64, get(ENV, "DS_HILL_LOG_ZMAX",
                                               string(Float64(zmax_default)))))
                 log_fold = zero(T)
@@ -962,7 +967,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         or_result = if isempty(or_vals)
             nothing
         else
-            or_mode = get(ENV, "DS_OR_MODE", "max")
+            or_mode = get(ENV, "DS_OR_MODE", "mean")
             if or_mode == "mean"
                 sum(or_vals) / length(or_vals)
             elseif or_mode == "median"

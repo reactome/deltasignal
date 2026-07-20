@@ -18,10 +18,6 @@ services:
       # Winning config default is hill_log; override via host env
       # (DS_AND_MODE=min|signed|geomean|multiplicative|hill_sat).
       - DS_AND_MODE=${DS_AND_MODE:-hill_log}
-      # Inhibition handling. "spec" = multiplicative Hill (β=0 ⇒ inactive);
-      # "inversion" = invert source state and fold in as AND-clustered activator
-      # (continuous analog of the naive baseline's {0↔2,1↔1} inversion).
-      - DS_INHIBITION_MODE=${DS_INHIBITION_MODE:-spec}
       # OR-cluster aggregation. "max" = best-available alternative (default);
       # "mean" = each alternative carries weight (registers single-member knockouts).
       - DS_OR_MODE=${DS_OR_MODE:-mean}
