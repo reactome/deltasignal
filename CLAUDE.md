@@ -58,7 +58,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 
 ### CLI Usage
 ```bash
-# Available commands: parse, solve, export, rollout, train, validate, server
+# Available commands: parse, solve, export
 # Use --help with any command for options
 
 # 1. Parse logic network from TSV files
@@ -121,17 +121,19 @@ The system implements a biologically-realistic reaction model with the following
 ### Module Organization
 
 **Core Components** (`src/core/`):
-- `biological_realism.jl`: Pathway-specific parameter tuning (signaling, metabolic, transcriptional)
-- `compartmentalization.jl`: Cellular compartment modeling (nucleus, cytoplasm, mitochondria)
-- `experimental_constraints.jl`: Integration of experimental data (CRISPR, drug screens)
-- `temporal_dynamics.jl`: Time-dependent biological processes
-- `stochastic_effects.jl`: Cell-to-cell variability modeling
-- `feedback_enhancements.jl`: Negative and positive feedback loops
+- `reaction_model.jl`: The complete reaction model — `compute_reaction_output_vec` (the live, config-driven propagator) and the AND/OR/inhibition/assembly aggregation modes.
+- `aggregators.jl`, `hill_functions.jl`: aggregation primitives used by the reaction model.
+- `sensitivity.jl`: `apply_sensitivity_transform`, applied per-activator in the reaction model.
 
 **Solvers** (`src/solvers/`):
-- `steady_state.jl`: Fixed-point and penalty optimization methods
-- `enhanced_steady_state.jl`: Biologically-constrained steady-state solver
-- `time_dynamic.jl`: Discrete-time evolution with substrate consumption
+- `steady_state.jl`: the live solver — SCC-condensation feed-forward with observation pinning (`solve_steady_state` → `solve_steady_state_penalty` → `solve_scc_ordered!`), plus `compute_influence_scores` for explainability.
+
+> **Quarantined (`attic/`):** the "biological realism" module cluster
+> (biological_realism, compartmentalization, experimental_constraints,
+> temporal_dynamics, stochastic_effects, feedback_enhancements), the
+> `enhanced_steady_state` / `time_dynamic` solvers, and `parameter_learning`
+> were moved to `attic/` — a call-graph audit confirmed none are reachable from
+> the live parse/solve path. See `attic/README.md` to revive any of them.
 
 **I/O** (`src/io/`):
 - `tsv_parser.jl`: Parses logic networks from TSV format with UUID mapping
@@ -174,10 +176,16 @@ The system includes pathway-specific parameter tuning based on biological contex
 - **Cell cycle**: Bistable switches, checkpoint dynamics
 
 ### Solver Configuration
-- Default aggregation: `stoichiometry_weighted`
-- Penalty method parameters can be tuned via CLI
-- Fixed-point iteration available as alternative solver
-- Enhanced solver includes biological constraints
+The reaction model is driven by `DS_*` environment variables, resolved once per
+solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
+`reaction_model.jl`). The **code defaults are the validated winning config**
+(commit c9805b2) — env vars only override for benchmark sweeps:
+- `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_log`, `DS_OR_MODE=mean`,
+  `DS_ASSEMBLY_LIMITING=1`, `DS_HILL_LOG_ZMAX=10.0`
+- SCC-condensation solve is on by default (`DS_SCC_SOLVE=1`); the legacy flat
+  iteration and the `"fixed_point"` `SteadyStateParams.method` are not used by
+  the CLI or API (both use the penalty/SCC path).
+- Export aggregation default: `stoichiometry_weighted`.
 
 ### Testing Strategy
 Tests are organized by functionality:

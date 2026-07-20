@@ -110,7 +110,7 @@ function test_pathway_propagation()
             end
             
             # Solve the network
-            params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "fixed_point")  # Balanced gamma to reduce baseline drift
+            params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "penalty")  # Balanced gamma to reduce baseline drift
             result = solve_steady_state(network, observations, params)
             
             if !result.converged

@@ -162,8 +162,8 @@ child-002,25.0,0.7
 
 - **TSV Logic Network Parsing** with UUID mapping and set expansion handling
 - **Mathematical Core**: Sensitivity transforms, multi-input aggregators, Hill functions
-- **Steady-State Solver**: Both penalty optimization and fixed-point iteration methods
-- **Explainability**: Influence scoring and upstream driver analysis
+- **Steady-State Solver**: SCC-condensation feed-forward with observations pinned as hard constraints
+- **Explainability**: Influence scoring (shares the live propagator's math)
 - **CLI Interface**: Parse, solve, and export commands
 - **Dual Scale Support**: 0-100 UI scale with internal 0-1 normalization
 - **Reactome Integration**: Mapping between expanded networks and original pathways

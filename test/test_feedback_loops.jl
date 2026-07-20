@@ -70,7 +70,7 @@ function test_feedback_loops()
             println("="^30)
             
             # Solve with fixed-point method (better for feedback loops)
-            params = SteadyStateParams(1.0, 0.05, 200, 1e-5, "fixed_point")  # Lower gamma for less baseline pull
+            params = SteadyStateParams(1.0, 0.05, 200, 1e-5, "penalty")  # Lower gamma for less baseline pull
             result = solve_steady_state(network, observations, params)
             
             println("🧮 Solver results:")

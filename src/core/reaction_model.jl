@@ -251,121 +251,10 @@ function create_default_reaction_params(
     )
 end
 
-"""
-Compute reaction output given input node activities.
-Implements the complete mathematical model from the specification.
-"""
-function compute_reaction_output(
-    reaction::Reaction,
-    node_activities::Dict{String, Float64}
-)::Float64
-    
-    # Get input activities
-    activator_activities = [get(node_activities, uuid, 0.0) for uuid in reaction.activator_uuids]
-    inhibitor_activities = [get(node_activities, uuid, 0.0) for uuid in reaction.inhibitor_uuids]
-    substrate_activities = [get(node_activities, uuid, 0.0) for uuid in reaction.substrate_uuids]
-    
-    # Step 1: Apply sensitivity transforms to activators
-    transformed_activators = Float64[]
-    for (i, activity) in enumerate(activator_activities)
-        transformed = apply_sensitivity_transform(
-            activity;
-            s = reaction.params.activator_sensitivity_s[i],
-            n = reaction.params.activator_sensitivity_n[i],
-            K_α = reaction.params.activator_sensitivity_K[i]
-        )
-        push!(transformed_activators, transformed)
-    end
-    
-    # Step 2: Compute activator aggregation (A).
-    # Split by per-edge AND/OR (see compute_reaction_output_vec for the full
-    # rationale). AND-cluster → weighted geomean, OR-cluster → max,
-    # combined → max. Empty activator set falls back to target baseline.
-    target_baseline = get(node_activities, reaction.target_uuid, 0.01)
-    if length(transformed_activators) > 0
-        and_vals = Float64[]
-        and_wts = Float64[]
-        or_vals = Float64[]
-        for (i, v) in enumerate(transformed_activators)
-            flag = i <= length(reaction.activator_is_and) ? reaction.activator_is_and[i] : reaction.is_and_gate
-            if flag
-                push!(and_vals, v)
-                push!(and_wts, reaction.params.activator_weights[i])
-            else
-                push!(or_vals, v)
-            end
-        end
-        and_A = isempty(and_vals) ? nothing : geometric_mean_aggregator(and_vals, and_wts)
-        or_A = isempty(or_vals) ? nothing : maximum(or_vals)
-        A = if and_A === nothing
-            or_A
-        elseif or_A === nothing
-            and_A
-        else
-            max(and_A, or_A)
-        end
-    else
-        A = target_baseline
-    end
-    
-    # Step 3: Compute inhibition aggregation (H)  
-    if length(inhibitor_activities) > 0
-        H = inhibition_aggregator(
-            inhibitor_activities,
-            reaction.params.inhibitor_betas,
-            reaction.params.inhibitor_ms
-        )
-    else
-        H = 1.0  # No inhibition
-    end
-    
-    # Step 4: Compute substrate availability (L)
-    if length(substrate_activities) > 0
-        L = substrate_availability_aggregator(
-            substrate_activities,
-            reaction.params.substrate_weights
-        )
-    else
-        L = 1.0  # No substrate limitation
-    end
-    
-    # Step 5: Reaction output = A·H·L, clamped to [0,1].
-    # We deliberately drop the spec's Section 2.3 output Hill step here.
-    # With Hill's default h=2, K=0.1, baseline x₀=0.01 is an UNSTABLE fixed
-    # point (F'(x₀) ≈ 1.96 > 1) — there's no K that simultaneously satisfies
-    # (a) Hill(baseline)=baseline and (b) F'(baseline) < 1. Without Hill,
-    # F=A·H·L is exactly boundary-stable at baseline (slope 1) and amounts
-    # propagate proportionally, which is what the user wants for the
-    # interactive perturbation case. Hill output can be re-enabled per
-    # reaction when h_r and K_r are explicitly trained for that reaction.
-    return clamp(A * H * L, zero(typeof(A)), one(typeof(A)))
-end
-
-"""
-Compute the forward model F(x; θ) for all reactions.
-Returns new node activities based on reaction outputs.
-"""
-function forward_model(
-    current_activities::Dict{String, Float64},
-    reactions::Vector{Reaction}
-)::Dict{String, Float64}
-
-    new_activities = copy(current_activities)
-
-    for reaction in reactions
-        output = compute_reaction_output(reaction, current_activities)
-        new_activities[reaction.target_uuid] = output
-    end
-
-    return new_activities
-end
-
-# --- Vector-form forward model (autodiff-friendly) ---
-#
-# The dict-keyed compute_reaction_output above is convenient for callers
-# but doesn't play well with ForwardDiff — dicts allocate per call and
-# Dict{String, Float64} can't hold Dual numbers. The vector form below
-# is what the Optim+LBFGS solver actually drives. Same math.
+# --- Vector-form model (autodiff-friendly) ---
+# compute_reaction_output_vec below is the ONLY propagator the solver drives.
+# The dict-keyed compute_reaction_output / forward_model variants were removed
+# (2026-07): they read none of the DS_* config and had diverged from this one.
 
 """
 Reaction with integer node indices instead of UUIDs. Built once per solve.
@@ -717,13 +606,72 @@ function tarjan_scc_components(adj::Vector{Set{Int}})::Tuple{Vector{Int},Int}
 end
 
 """
+Solver knobs read on every reaction evaluation, resolved ONCE per solve from
+the DS_* environment (with the validated winning-config defaults, commit
+c9805b2) instead of re-reading + re-parsing ENV inside the per-reaction /
+per-iteration hot loop. Concrete field types keep it type-stable.
+
+The two DS_INHIBITOR_BETA fields intentionally carry the raw string with the
+per-mode default ("1.0" for devspec, "" for spec) and are parsed lazily inside
+the branch that uses them — this preserves the existing behavior exactly,
+including that an explicitly-empty DS_INHIBITOR_BETA errors only if the devspec
+branch actually runs.
+"""
+struct ReactionEvalConfig
+    inhibition_mode::String
+    and_mode::String
+    or_mode::String
+    assembly_limiting::Bool
+    hill_sat_eps::Float64
+    hill_sat_h_max::Float64
+    hill_log_zmax::Float64
+    inhibitor_k::Float64
+    inhibitor_eps::Float64
+    inhibitor_floor::Float64
+    floor_scope::String
+    devspec_beta_raw::String
+    spec_beta_raw::String
+    depletion_h_max::Float64
+end
+
+"""
+Resolve a ReactionEvalConfig from the DS_* environment. Defaults are the
+validated winning config (commit c9805b2). Call once per solve and thread the
+result into compute_reaction_output_vec / forward_model_vec.
+"""
+function resolve_reaction_eval_config()::ReactionEvalConfig
+    return ReactionEvalConfig(
+        get(ENV, "DS_INHIBITION_MODE", "divide"),
+        get(ENV, "DS_AND_MODE", "hill_log"),
+        get(ENV, "DS_OR_MODE", "mean"),
+        get(ENV, "DS_ASSEMBLY_LIMITING", "1") == "1",
+        parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")),
+        parse(Float64, get(ENV, "DS_HILL_SAT_H_MAX", "10.0")),
+        parse(Float64, get(ENV, "DS_HILL_LOG_ZMAX", "10.0")),
+        parse(Float64, get(ENV, "DS_INHIBITOR_K", "0.1")),
+        parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")),
+        parse(Float64, get(ENV, "DS_INHIBITOR_FLOOR", "0.0")),
+        get(ENV, "DS_INHIBITOR_FLOOR_SCOPE", "loops"),
+        get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
+        get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
+        parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")),
+    )
+end
+
+"""
 Compute reaction output from a flat activity vector. Same math as the dict
 version (sensitivity transform → geomean activators × Hill-suppression
 inhibitors × geomean substrates → Hill output), but generic-typed over the
 element type so ForwardDiff Duals propagate.
+
+`config` is resolved once per solve (see resolve_reaction_eval_config). It
+defaults to a fresh resolve so back-compat callers (tests, dead modules) keep
+working; the solve hot path passes it explicitly so ENV is read once, not once
+per reaction per iteration.
 """
 function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
-                                     supply::Union{Nothing,AbstractVector}=nothing) where {T<:Real}
+                                     supply::Union{Nothing,AbstractVector}=nothing,
+                                     config::ReactionEvalConfig=resolve_reaction_eval_config()) where {T<:Real}
     p = rxn.params
 
     # Activators (and optionally inverted inhibitors): split by per-edge AND/OR
@@ -747,7 +695,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     #                baseline is preserved) and treat it as an AND-clustered
     #                activator. Continuous analog of the naive baseline's
     #                {0↔2, 1↔1} integer inversion. Default for benchmark.
-    inhibition_mode = get(ENV, "DS_INHIBITION_MODE", "spec")
+    inhibition_mode = config.inhibition_mode
     bl = T(rxn.target_baseline)
 
     and_vals = T[]
@@ -760,7 +708,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # subunit, so overexpressing one member of a many-subunit complex must not
     # drive the complex up. When off, assembly inputs fall through to the normal
     # AND/OR handling (byte-for-byte unchanged default).
-    assembly_limiting = get(ENV, "DS_ASSEMBLY_LIMITING", "0") == "1"
+    assembly_limiting = config.assembly_limiting
     assembly_min = typemax(T)
     have_assembly = false
 
@@ -826,7 +774,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         and_result = if isempty(and_vals)
             nothing
         else
-            mode = get(ENV, "DS_AND_MODE", "geomean")
+            mode = config.and_mode
             if mode == "min"
                 minimum(and_vals)
             elseif mode == "signed"
@@ -890,7 +838,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 # formula yet — the planned next step. See memory:
                 # project-sigmoid-design-intent.
                 eps_T = T(1e-6)
-                sat_eps = T(parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")))
+                sat_eps = T(config.hill_sat_eps)
                 max_internal = one(T)
                 prod_fold = one(T)
                 for v in and_vals
@@ -930,11 +878,12 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 # fold-changes (GSEA-style ranking benchmark becomes
                 # possible).
                 #
-                # z_max controlled by DS_HILL_LOG_ZMAX (default log(100) = 4.605).
+                # z_max controlled by DS_HILL_LOG_ZMAX. Default 10.0 is the
+                # validated winning config (commit c9805b2) — higher than the
+                # log(100)≈4.605 used in the illustrative numbers above, i.e.
+                # closer to pure multiplication (softer saturation).
                 eps_T = T(1e-6)
-                zmax_default = T(log(100.0))
-                z_max = T(parse(Float64, get(ENV, "DS_HILL_LOG_ZMAX",
-                                              string(Float64(zmax_default)))))
+                z_max = T(config.hill_log_zmax)
                 log_fold = zero(T)
                 for v in and_vals
                     log_fold += log((v + eps_T) / (bl + eps_T))
@@ -962,7 +911,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         or_result = if isempty(or_vals)
             nothing
         else
-            or_mode = get(ENV, "DS_OR_MODE", "max")
+            or_mode = config.or_mode
             if or_mode == "mean"
                 sum(or_vals) / length(or_vals)
             elseif or_mode == "median"
@@ -1011,7 +960,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     H = if inhibition_mode == "inversion" || isempty(rxn.inhibitor_indices)
         one(T)
     elseif inhibition_mode == "krep"
-        K = T(parse(Float64, get(ENV, "DS_INHIBITOR_K", "0.1")))
+        K = T(config.inhibitor_k)
         result = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
@@ -1021,7 +970,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         end
         clamp(result, zero(T), one(T))
     elseif inhibition_mode == "divide"
-        eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
+        eps_T = T(config.inhibitor_eps)
         # DS_INHIBITOR_FLOOR caps how strongly an inhibitor edge can suppress
         # its target. DS_INHIBITOR_FLOOR_SCOPE selects which edges it applies to:
         #   "all"           — every inhibitor (global variant, for comparison)
@@ -1032,8 +981,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #                     its SCC). This is the biologically-typed rule:
         #                     weaken self-regulating gene transcription, leave
         #                     protein-level feedback at full divide strength.
-        h_floor = T(parse(Float64, get(ENV, "DS_INHIBITOR_FLOOR", "0.0")))
-        floor_scope = get(ENV, "DS_INHIBITOR_FLOOR_SCOPE", "loops")
+        h_floor = T(config.inhibitor_floor)
+        floor_scope = config.floor_scope
         result = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
@@ -1051,7 +1000,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         # AND propagation well-behaved upstream.
         clamp(result, zero(T), T(10.0))
     elseif inhibition_mode == "devspec"
-        beta_env = get(ENV, "DS_INHIBITOR_BETA", "1.0")
+        beta_env = config.devspec_beta_raw
         β = T(parse(Float64, beta_env))
         result = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
@@ -1080,9 +1029,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #
         # Same per-edge learnable-parameter intent as hill_sat AND. See
         # memory: project-sigmoid-design-intent.
-        eps_T = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
-        h_max = T(parse(Float64, get(ENV, "DS_HILL_SAT_H_MAX", "10.0")))
-        sat_eps = T(parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")))
+        eps_T = T(config.inhibitor_eps)
+        h_max = T(config.hill_sat_h_max)
+        sat_eps = T(config.hill_sat_eps)
         h_raw = one(T)
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
@@ -1099,7 +1048,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         @inbounds for k in 1:n_inh
             inh[k] = x[rxn.inhibitor_indices[k]]
         end
-        beta_env = get(ENV, "DS_INHIBITOR_BETA", "")
+        beta_env = config.spec_beta_raw
         betas = isempty(beta_env) ? p.inhibitor_betas :
                 fill(parse(Float64, beta_env), n_inh)
         inhibition_aggregator(inh, betas, p.inhibitor_ms)
@@ -1123,8 +1072,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # Capped at DS_DEPLETION_H_MAX (default 10) to bound runaway de-repression.
     H_dep = one(T)
     if !isempty(rxn.depletion_indices)
-        eps_dep = T(parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")))
-        h_max_dep = T(parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")))
+        eps_dep = T(config.inhibitor_eps)
+        h_max_dep = T(config.depletion_h_max)
         @inbounds for k in 1:length(rxn.depletion_indices)
             x_dep = clamp(x[rxn.depletion_indices[k]], zero(T), one(T))
             H_dep *= (bl + eps_dep) / (x_dep + eps_dep)
@@ -1145,133 +1094,11 @@ target node carries the output of its driving reaction; nodes with no
 incoming reaction keep their current value.
 """
 function forward_model_vec(x::AbstractVector{T}, reactions::Vector{IndexedReaction};
-                           supply::Union{Nothing,AbstractVector}=nothing) where {T<:Real}
+                           supply::Union{Nothing,AbstractVector}=nothing,
+                           config::ReactionEvalConfig=resolve_reaction_eval_config()) where {T<:Real}
     y = copy(x)  # preserves element type, including Dual
     for rxn in reactions
-        y[rxn.target_idx] = compute_reaction_output_vec(x, rxn; supply=supply)
+        y[rxn.target_idx] = compute_reaction_output_vec(x, rxn; supply=supply, config=config)
     end
     return y
-end
-
-"""
-Compute Jacobian matrix ∂F/∂x for sensitivity analysis.
-Returns sparse matrix representation.
-"""
-function compute_reaction_jacobian(
-    activities::Dict{String, Float64},
-    reactions::Vector{Reaction}
-)::SparseMatrixCSC{Float64, Int}
-    
-    # Create mapping from UUIDs to indices
-    all_uuids = collect(keys(activities))
-    uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_uuids))
-    n = length(all_uuids)
-    
-    # Initialize sparse matrix components
-    I = Int[]  # Row indices
-    J = Int[]  # Column indices  
-    V = Float64[]  # Values
-    
-    for reaction in reactions
-        target_idx = uuid_to_idx[reaction.target_uuid]
-        
-        # Compute partial derivatives w.r.t. each input
-        for uuid in [reaction.activator_uuids; reaction.inhibitor_uuids; reaction.substrate_uuids]
-            if haskey(uuid_to_idx, uuid)
-                input_idx = uuid_to_idx[uuid]
-                
-                # Numerical derivative (small perturbation)
-                h = 1e-8
-                activities_plus = copy(activities)
-                activities_plus[uuid] = min(1.0, activities[uuid] + h)
-                
-                output_plus = compute_reaction_output(reaction, activities_plus)
-                output_current = compute_reaction_output(reaction, activities)
-                
-                derivative = (output_plus - output_current) / h
-                
-                # Add to sparse matrix if non-zero
-                if abs(derivative) > 1e-12
-                    push!(I, target_idx)
-                    push!(J, input_idx)
-                    push!(V, derivative)
-                end
-            end
-        end
-    end
-    
-    # Create sparse matrix
-    return sparse(I, J, V, n, n)
-end
-
-"""
-Time-dynamic update step for substrate consumption and product formation.
-"""
-function time_dynamic_update!(
-    activities::Dict{String, Float64},
-    reactions::Vector{Reaction},
-    baseline_activities::Dict{String, Float64},
-    damping_factor::Float64 = 0.1
-)
-    
-    # First compute all reaction outputs
-    reaction_outputs = Dict{String, Float64}()
-    for reaction in reactions
-        reaction_outputs[reaction.target_uuid] = compute_reaction_output(reaction, activities)
-    end
-    
-    # Apply substrate consumption
-    for reaction in reactions
-        y_r = reaction_outputs[reaction.target_uuid]
-        
-        # Substrate consumption
-        for (i, substrate_uuid) in enumerate(reaction.substrate_uuids)
-            if i <= length(reaction.params.consumption_lambdas)
-                λ = reaction.params.consumption_lambdas[i]
-                ρ = reaction.params.replenishment_rho
-                x0 = get(baseline_activities, substrate_uuid, 0.01)
-                
-                # Update: x_k = x_k - λ * y_r * x_k + ρ * (x0 - x_k)
-                x_current = activities[substrate_uuid]
-                x_new = x_current - λ * y_r * x_current + ρ * (x0 - x_current)
-                activities[substrate_uuid] = clamp(x_new, 0.0, 1.0)
-            end
-        end
-        
-        # Product formation
-        for (i, product_uuid) in enumerate(reaction.product_uuids)
-            if i <= length(reaction.params.production_etas)
-                η = reaction.params.production_etas[i]
-                δ = reaction.params.decay_delta
-                x0 = get(baseline_activities, product_uuid, 0.01)
-                
-                # Substrate availability for this reaction
-                if length(reaction.substrate_uuids) > 0
-                    substrate_activities_vec = [activities[uuid] for uuid in reaction.substrate_uuids]
-                    L = substrate_availability_aggregator(
-                        substrate_activities_vec,
-                        reaction.params.substrate_weights
-                    )
-                else
-                    L = 1.0
-                end
-                
-                # Update: x_p = x_p + η * y_r * L - δ * (x_p - x0)
-                x_current = activities[product_uuid]
-                x_new = x_current + η * y_r * L - δ * (x_current - x0)
-                activities[product_uuid] = clamp(x_new, 0.0, 1.0)
-            end
-        end
-    end
-    
-    # Apply global damping for stability
-    for uuid in keys(activities)
-        baseline = get(baseline_activities, uuid, 0.01)
-        activities[uuid] = (1.0 - damping_factor) * activities[uuid] + damping_factor * baseline
-    end
-    
-    # Update regular node activities from reaction outputs
-    for (target_uuid, output) in reaction_outputs
-        activities[target_uuid] = (1.0 - damping_factor) * activities[target_uuid] + damping_factor * output
-    end
 end

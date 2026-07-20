@@ -19,7 +19,7 @@ function parse_commandline()
     # Check if we have at least one argument
     if length(ARGS) == 0
         println("Error: No command provided")
-        println("Available commands: parse, solve, rollout, train, validate, export, server")
+        println("Available commands: parse, solve, export")
         println("\nUse 'deltasignal <command> --help' for more information")
         exit(1)
     end
@@ -32,16 +32,8 @@ function parse_commandline()
         return parse_parse_args()
     elseif command == "solve"
         return parse_solve_args()
-    elseif command == "rollout"
-        return parse_rollout_args()
-    elseif command == "train"
-        return parse_train_args()
-    elseif command == "validate"
-        return parse_validate_args()
     elseif command == "export"
         return parse_export_args()
-    elseif command == "server"
-        return parse_server_args()
     elseif command == "--version" || command == "-v"
         println("DeltaSignal version 0.1.0")
         exit(0)
@@ -50,16 +42,12 @@ function parse_commandline()
         println("\nAvailable commands:")
         println("  parse      - Parse logic network from TSV files")
         println("  solve      - Solve steady-state network")
-        println("  rollout    - Run time-dynamic rollout")
-        println("  train      - Train parameters from data")
-        println("  validate   - Validate model against test data")
         println("  export     - Export results in various formats")
-        println("  server     - Start web API server")
         println("\nUse 'deltasignal <command> --help' for more information on a specific command")
         exit(0)
     else
         println("Unknown command: $command")
-        println("Available commands: parse, solve, rollout, train, validate, export, server")
+        println("Available commands: parse, solve, export")
         println("\nUse 'deltasignal --help' for more information")
         exit(1)
     end
@@ -138,86 +126,6 @@ function parse_solve_args()
     return merge(Dict(:command => "solve"), parse_args(ARGS[2:end], s, as_symbols=true))
 end
 
-function parse_rollout_args()
-    s = ArgParseSettings(autofix_names=true)
-    @add_arg_table! s begin
-        "--network", "-n"
-            help = "Network JSON file"
-            arg_type = String
-            required = true
-        "--initial", "-i"
-            help = "Initial conditions CSV file"
-            arg_type = String
-            required = true
-        "--steps", "-T"
-            help = "Number of time steps"
-            arg_type = Int
-            default = 100
-        "--output", "-o"
-            help = "Output trajectory JSON file"
-            arg_type = String
-            required = true
-        "--damping"
-            help = "Global damping factor for stability"
-            arg_type = Float64
-            default = 0.1
-    end
-    return merge(Dict(:command => "rollout"), parse_args(ARGS[2:end], s, as_symbols=true))
-end
-
-function parse_train_args()
-    s = ArgParseSettings(autofix_names=true)
-    @add_arg_table! s begin
-        "--data-dir", "-d"
-            help = "Training data directory"
-            arg_type = String
-            required = true
-        "--network", "-n"
-            help = "Network JSON file"
-            arg_type = String
-            required = true
-        "--output", "-o"
-            help = "Output trained parameters JSON file"
-            arg_type = String
-            required = true
-        "--epochs"
-            help = "Number of training epochs"
-            arg_type = Int
-            default = 100
-        "--learning-rate"
-            help = "Learning rate"
-            arg_type = Float64
-            default = 0.01
-        "--regularization"
-            help = "L2 regularization weight"
-            arg_type = Float64
-            default = 0.01
-    end
-    return merge(Dict(:command => "train"), parse_args(ARGS[2:end], s, as_symbols=true))
-end
-
-function parse_validate_args()
-    s = ArgParseSettings(autofix_names=true)
-    @add_arg_table! s begin
-        "--network", "-n"
-            help = "Network JSON file"
-            arg_type = String
-            required = true
-        "--test-data", "-t"
-            help = "Test data directory"
-            arg_type = String
-            required = true
-        "--params", "-p"
-            help = "Parameters JSON file"
-            arg_type = String
-        "--output", "-o"
-            help = "Validation report JSON file"
-            arg_type = String
-            required = true
-    end
-    return merge(Dict(:command => "validate"), parse_args(ARGS[2:end], s, as_symbols=true))
-end
-
 function parse_export_args()
     s = ArgParseSettings(autofix_names=true)
     @add_arg_table! s begin
@@ -236,21 +144,6 @@ function parse_export_args()
             required = true
     end
     return merge(Dict(:command => "export"), parse_args(ARGS[2:end], s, as_symbols=true))
-end
-
-function parse_server_args()
-    s = ArgParseSettings(autofix_names=true)
-    @add_arg_table! s begin
-        "--port", "-p"
-            help = "Server port"
-            arg_type = Int
-            default = 8000
-        "--host"
-            help = "Server host"
-            arg_type = String
-            default = "localhost"
-    end
-    return merge(Dict(:command => "server"), parse_args(ARGS[2:end], s, as_symbols=true))
 end
 
 function execute_parse_command(args)
@@ -501,51 +394,6 @@ function execute_solve_command(args)
     end
 end
 
-function execute_rollout_command(args)
-    println("⏱️  Running time-dynamic rollout...")
-    
-    try
-        # TODO: Implement time-dynamic rollout
-        println("⚠️  Time-dynamic rollout not yet implemented")
-        
-        println("✅ Trajectory would be saved to: $(args[:output])")
-        
-    catch e
-        println("❌ Error in rollout: $e")
-        exit(1)
-    end
-end
-
-function execute_train_command(args)
-    println("🎓 Training parameters...")
-    
-    try
-        # TODO: Implement parameter learning
-        println("⚠️  Parameter training not yet implemented")
-        
-        println("✅ Trained parameters would be saved to: $(args[:output])")
-        
-    catch e
-        println("❌ Error in training: $e")
-        exit(1)
-    end
-end
-
-function execute_validate_command(args)
-    println("🔬 Validating model...")
-    
-    try
-        # TODO: Implement validation
-        println("⚠️  Model validation not yet implemented")
-        
-        println("✅ Validation report would be saved to: $(args[:output])")
-        
-    catch e
-        println("❌ Error in validation: $e")
-        exit(1)
-    end
-end
-
 function execute_export_command(args)
     println("📤 Exporting results...")
 
@@ -697,21 +545,6 @@ function export_csv_format(results_json, output_path::String)
     println("✓ CSV export with $(nrow(df)) nodes")
 end
 
-function execute_server_command(args)
-    println("🚀 Starting DeltaSignal server...")
-    println("   Host: $(args[:host])")
-    println("   Port: $(args[:port])")
-    
-    try
-        # TODO: Implement web server
-        println("⚠️  Web server not yet implemented")
-        
-    catch e
-        println("❌ Error starting server: $e")
-        exit(1)
-    end
-end
-
 function main()
     println("🧬 DeltaSignal - Pathway Perturbation & Dynamics Engine")
     println("=" ^ 60)
@@ -722,16 +555,8 @@ function main()
         execute_parse_command(args)
     elseif args[:command] == "solve"
         execute_solve_command(args)
-    elseif args[:command] == "rollout"
-        execute_rollout_command(args)
-    elseif args[:command] == "train"
-        execute_train_command(args)
-    elseif args[:command] == "validate"
-        execute_validate_command(args)
     elseif args[:command] == "export"
         execute_export_command(args)
-    elseif args[:command] == "server"
-        execute_server_command(args)
     end
     
     println("\n✨ Complete!")

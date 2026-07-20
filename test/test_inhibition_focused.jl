@@ -46,7 +46,7 @@ function test_inhibition_focused()
                 observations[root] = (activity, 0.9)
             end
             
-            params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "fixed_point")
+            params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "penalty")
             result = solve_steady_state(network, observations, params)
             
             # Extract key activities
@@ -94,7 +94,7 @@ function test_inhibition_focused()
                 observations[root] = (activity, 0.9)
             end
             
-            params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "fixed_point")
+            params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "penalty")
             result = solve_steady_state(network, observations, params)
             
             root10_input = perturbations["ROOT10"]

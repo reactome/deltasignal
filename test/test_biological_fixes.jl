@@ -66,7 +66,7 @@ function fix_competitive_inhibition(network::ReactionNetwork)
     println("🥊 Analyzing and fixing competitive inhibition...")
     
     # Test current behavior
-    ss_params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "fixed_point")
+    ss_params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "penalty")
     
     # Current competition test
     obs_act = Dict("ROOT5" => (80.0, 0.9))
@@ -124,7 +124,7 @@ function fix_baseline_activities(network::ReactionNetwork)
     println("📏 Analyzing and fixing baseline activity levels...")
     
     # Test current baseline behavior
-    ss_params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "fixed_point")
+    ss_params = SteadyStateParams(1.0, 0.05, 150, 1e-5, "penalty")
     
     # No perturbations - should settle to baseline
     baseline_result = solve_steady_state(network, Dict{String, Tuple{Float64, Float64}}(), ss_params)
@@ -188,7 +188,7 @@ function fix_baseline_activities(network::ReactionNetwork)
             println("\\n  🧪 Testing with adjusted baseline parameters:")
             
             # Test with stronger baseline pull
-            ss_params_strong_baseline = SteadyStateParams(1.0, 0.2, 150, 1e-5, "fixed_point")  # Higher γ
+            ss_params_strong_baseline = SteadyStateParams(1.0, 0.2, 150, 1e-5, "penalty")  # Higher γ
             result_strong = solve_steady_state(network, Dict{String, Tuple{Float64, Float64}}(), ss_params_strong_baseline)
             
             if result_strong.converged
@@ -249,7 +249,7 @@ function validate_fixes(network::ReactionNetwork)
     # Test 2: Baseline behavior with stronger pull
     println("\\n  📏 Validating baseline behavior fix:")
     
-    ss_params_strong = SteadyStateParams(1.0, 0.15, 150, 1e-5, "fixed_point")
+    ss_params_strong = SteadyStateParams(1.0, 0.15, 150, 1e-5, "penalty")
     baseline_result = solve_steady_state(network, Dict{String, Tuple{Float64, Float64}}(), ss_params_strong)
     
     if baseline_result.converged

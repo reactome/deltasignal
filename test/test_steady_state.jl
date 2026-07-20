@@ -41,17 +41,6 @@ function test_steady_state_solver()
             println("  $uuid: $(activity)% (confidence: $confidence)")
         end
         
-        # Test fixed-point solver
-        println("\n🔄 Testing fixed-point solver...")
-        params_fp = SteadyStateParams(1.0, 0.1, 100, 1e-4, "fixed_point")
-        result_fp = solve_steady_state(network, observations, params_fp)
-        
-        println("Fixed-point results:")
-        println("  Converged: $(result_fp.converged)")
-        println("  Iterations: $(result_fp.iterations)")
-        println("  Solve time: $(round(result_fp.solve_time, digits=3))s")
-        println("  Final residual: $(round(result_fp.final_residual, digits=6))")
-        
         # Test penalty solver
         println("\n⚖️  Testing penalty solver...")
         params_penalty = SteadyStateParams(1.0, 0.1, 200, 1e-4, "penalty")
@@ -82,19 +71,6 @@ function test_steady_state_solver()
             sorted_influence = sort(collect(influence_scores), by=x->x[2], rev=true)
             for (i, (uuid, score)) in enumerate(sorted_influence[1:min(5, length(sorted_influence))])
                 println("  $(i). $uuid: $(round(score, digits=4))")
-            end
-        end
-        
-        # Test upstream drivers
-        println("\n🔍 Testing upstream driver analysis...")
-        target_changes = Dict("child-002" => 0.2)  # Want to increase child-002 by 20%
-        upstream_suggestions = explain_upstream_drivers(network, result_penalty, target_changes)
-        
-        if !isempty(upstream_suggestions)
-            println("Upstream driver suggestions:")
-            for (uuid, change) in upstream_suggestions
-                change_ui = round(change * 100, digits=1)
-                println("  $uuid: $(change_ui > 0 ? "+" : "")$(change_ui)%")
             end
         end
         
