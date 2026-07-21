@@ -203,7 +203,12 @@ function extract_uploaded_files(req)
     paths = Dict{String, String}()
     for part in multiparts
         part.name in PARSE_FIELDS || continue
-        target = joinpath(tmp_dir, "$(part.name)_$(something(part.filename, "uploaded"))")
+        # The client-controlled filename must never steer the write path: strip
+        # to a bare name and keep only safe characters (no separators, no "..").
+        raw_name = something(part.filename, "uploaded")
+        safe_name = replace(basename(raw_name), r"[^A-Za-z0-9._-]" => "_")
+        isempty(safe_name) && (safe_name = "uploaded")
+        target = joinpath(tmp_dir, "$(part.name)_$(safe_name)")
         open(target, "w") do io
             write(io, read(part.data))
         end
@@ -244,6 +249,10 @@ const REACTOME_TIMEOUT_SECONDS = 15
 const REACTOME_BATCH_SIZE = 20
 
 const REACTOME_CACHE = Dict{String, NamedTuple{(:name, :entity_type), Tuple{String, String}}}()
+# HTTP.serve dispatches handlers concurrently, so concurrent /api/parse
+# requests can touch this shared cache at once. Guard every access (Dict
+# reads racing writes can corrupt/crash), like NETWORK_CACHE_LOCK does.
+const REACTOME_CACHE_LOCK = ReentrantLock()
 
 function fetch_reactome_batch!(ids::Vector{String})
     isempty(ids) && return
@@ -256,11 +265,14 @@ function fetch_reactome_batch!(ids::Vector{String})
             retry = false,
         )
         response.status == 200 || return
-        for entry in JSON3.read(String(response.body))
-            stid = String(entry.stId)
-            name = haskey(entry, :displayName) ? String(entry.displayName) : stid
-            etype = haskey(entry, :className) ? lowercase(String(entry.className)) : "unknown"
-            REACTOME_CACHE[stid] = (name=name, entity_type=etype)
+        # HTTP call is done; only the cache writes need the lock.
+        lock(REACTOME_CACHE_LOCK) do
+            for entry in JSON3.read(String(response.body))
+                stid = String(entry.stId)
+                name = haskey(entry, :displayName) ? String(entry.displayName) : stid
+                etype = haskey(entry, :className) ? lowercase(String(entry.className)) : "unknown"
+                REACTOME_CACHE[stid] = (name=name, entity_type=etype)
+            end
         end
     catch e
         @warn "Reactome ContentService batch lookup failed; nodes will keep stable_id placeholder names" exception=e batch_size=length(ids)
@@ -275,7 +287,9 @@ function enrich_with_reactome_names!(nodes::Dict{String, DeltaSignal.NetworkNode
     for node in values(nodes)
         node.reactome_id === nothing && continue
         node.display_name == node.reactome_id || continue
-        haskey(REACTOME_CACHE, node.reactome_id) && continue
+        lock(REACTOME_CACHE_LOCK) do
+            haskey(REACTOME_CACHE, node.reactome_id)
+        end && continue
         push!(needed, node.reactome_id)
     end
 
@@ -290,7 +304,9 @@ function enrich_with_reactome_names!(nodes::Dict{String, DeltaSignal.NetworkNode
     for (uuid, node) in nodes
         node.reactome_id === nothing && continue
         node.display_name == node.reactome_id || continue
-        cached = get(REACTOME_CACHE, node.reactome_id, nothing)
+        cached = lock(REACTOME_CACHE_LOCK) do
+            get(REACTOME_CACHE, node.reactome_id, nothing)
+        end
         cached === nothing && continue
         nodes[uuid] = DeltaSignal.NetworkNode(
             node.uuid,

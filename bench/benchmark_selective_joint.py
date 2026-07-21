@@ -92,14 +92,27 @@ def build_joint_network(pathway_dirs):
             for r in csv.DictReader(f):
                 uuid_to_stid[r["uuid"]] = r["stable_id"]
     edges = set()
+    self_loops = 0
     for d in pathway_dirs:
         with open(CAT / d / "logic_network.csv") as f:
             for r in csv.DictReader(f):
                 s = uuid_to_stid.get(r["source_id"])
                 t = uuid_to_stid.get(r["target_id"])
                 if not s or not t: continue
+                # Collapsing UUIDs to stable_ids merges the many positional
+                # instances of one recycling reaction onto a single stid, which
+                # can turn an entity->reaction edge into a stid->stid self-loop.
+                # These are collapse artifacts, not real feedback (a node can't
+                # be its own input), and would be mis-solved as a size-1 acyclic
+                # node rather than iterated. Drop them at the source.
+                if s == t:
+                    self_loops += 1
+                    continue
                 edges.add((s, t, r["pos_neg"] == "pos", r["and_or"] == "and",
                           float(r.get("stoichiometry") or 1.0)))
+    if self_loops:
+        print(f"  [joint] dropped {self_loops} stid-collapse self-loop edges "
+              f"across {len(pathway_dirs)} pathways")
     stids = {x for e in edges for x in (e[0], e[1])}
     joint_proxy = defaultdict(set)
     for d in pathway_dirs:
