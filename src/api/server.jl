@@ -230,7 +230,7 @@ end
 # docker-compose.dev.yml. Each subdirectory is one pathway and contains
 # logic_network.csv + stid_to_uuid_mapping.csv (generator format).
 
-const CATALOG_DIR = "/app/pathway_catalog"
+const CATALOG_DIR = get(ENV, "DS_PATHWAY_CATALOG", "/app/pathway_catalog")
 const SAMPLE_DIR = "examples"
 
 # --- Reactome ContentService enrichment ---

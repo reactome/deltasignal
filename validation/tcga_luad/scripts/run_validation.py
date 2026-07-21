@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
@@ -40,6 +41,32 @@ DEFAULT_PATHWAYS = [
 SCRIPT_DIR = Path(__file__).resolve().parent
 TCGA_VALIDATION_DIR = SCRIPT_DIR.parent
 DELTASIGNAL_REPO = TCGA_VALIDATION_DIR.parents[1]
+
+DS_CONFIG_DEFAULTS = {
+    "DS_AND_MODE": "hill_log",
+    "DS_ASSEMBLY_LIMITING": "1",
+    "DS_DAMPING": "0.0",
+    "DS_DEPLETION_H_MAX": "10.0",
+    "DS_DROP_PASSTHROUGH": "0",
+    "DS_GENE_STIDS_FILE": "",
+    "DS_HILL_LOG_ZMAX": "10.0",
+    "DS_HILL_SAT_EPS": "0.001",
+    "DS_HILL_SAT_H_MAX": "10.0",
+    "DS_INHIBITION_MODE": "divide",
+    "DS_INHIBITOR_BETA": "1.0",
+    "DS_INHIBITOR_EPS": "0.001",
+    "DS_INHIBITOR_FLOOR": "0.0",
+    "DS_INHIBITOR_FLOOR_SCOPE": "loops",
+    "DS_INHIBITOR_K": "0.1",
+    "DS_LOOP_DEPTH": "3",
+    "DS_OR_MODE": "mean",
+    "DS_SCC_BREAK_CATALYST": "0",
+    "DS_SCC_DAMPING": "0.5",
+    "DS_SCC_NEG_FRAC": "0.5",
+    "DS_SCC_NEG_ITERS": "1",
+    "DS_SCC_NEG_MODE": "converge",
+    "DS_SCC_SOLVE": "1",
+}
 
 
 @dataclass(frozen=True)
@@ -184,6 +211,13 @@ def prepare_output_dirs(output_dir: Path) -> dict[str, Path]:
 def load_pathway_specs(args: argparse.Namespace, parsed_dir: Path) -> list[PathwaySpec]:
     requested = set(args.pathway_ids or DEFAULT_PATHWAYS)
     summary = pd.read_csv(args.observability_summary, sep="\t")
+    required_columns = {"pathway_id", "pathway_name", "suitability"}
+    missing_columns = sorted(required_columns - set(summary.columns))
+    if missing_columns:
+        raise ValueError(
+            f"{args.observability_summary} is not a pathway suitability table; "
+            f"missing required columns: {missing_columns}. Pass pathway_suitability.tsv."
+        )
     specs: list[PathwaySpec] = []
     for row in summary.itertuples(index=False):
         pathway_id = str(row.pathway_id)
@@ -221,10 +255,81 @@ def find_pathway_dir(output_root: Path, pathway_id: str) -> Path:
     return matches[0]
 
 
-def run_command(cmd: list[str], cwd: Path, log_path: Path) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+def run_command(
+    cmd: list[str],
+    cwd: Path,
+    log_path: Path,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        cmd,
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     log_path.write_text(result.stdout + "\n" + result.stderr)
     return result
+
+
+def git_provenance(path: Path) -> dict[str, object]:
+    repo_root_result = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if repo_root_result.returncode != 0:
+        return {"available": False, "path": str(path.resolve())}
+    repo_root = Path(repo_root_result.stdout.strip())
+
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), *args],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    status = git("status", "--porcelain")
+    return {
+        "available": True,
+        "repo_root": str(repo_root),
+        "commit": git("rev-parse", "HEAD"),
+        "branch": git("branch", "--show-current"),
+        "describe": git("describe", "--always", "--dirty", "--tags"),
+        "dirty": bool(status),
+        "status_porcelain": status.splitlines(),
+    }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def file_provenance(path: Path) -> dict[str, object]:
+    resolved = path.resolve()
+    return {
+        "path": str(resolved),
+        "size_bytes": resolved.stat().st_size,
+        "sha256": sha256_file(resolved),
+    }
+
+
+def effective_solver_config() -> dict[str, dict[str, object]]:
+    return {
+        key: {
+            "value": os.environ.get(key, default),
+            "source": "environment" if key in os.environ else "code_default",
+        }
+        for key, default in sorted(DS_CONFIG_DEFAULTS.items())
+    }
 
 
 def parse_pathway(spec: PathwaySpec, deltasignal_dir: Path, log_dir: Path, force: bool) -> None:
@@ -233,7 +338,7 @@ def parse_pathway(spec: PathwaySpec, deltasignal_dir: Path, log_dir: Path, force
     cmd = [
         "julia",
         "--project=.",
-        "cli/deltasignal.jl",
+        str((deltasignal_dir / "cli" / "deltasignal.jl").resolve()),
         "parse",
         "--logic",
         str(spec.logic_network),
@@ -247,6 +352,11 @@ def parse_pathway(spec: PathwaySpec, deltasignal_dir: Path, log_dir: Path, force
     result = run_command(cmd, deltasignal_dir, log_path)
     if result.returncode != 0:
         raise RuntimeError(f"DeltaSignal parse failed for {spec.pathway_id}. See {log_path}")
+    if not spec.parsed_network.exists():
+        raise RuntimeError(
+            f"DeltaSignal parse exited successfully but did not create {spec.parsed_network}. "
+            f"See {log_path}"
+        )
 
 
 def load_network_sets(parsed_network: Path) -> tuple[list[str], list[str]]:
@@ -349,7 +459,7 @@ def solve_sample(
     cmd = [
         "julia",
         "--project=.",
-        "cli/deltasignal.jl",
+        str((deltasignal_dir / "cli" / "deltasignal.jl").resolve()),
         "solve",
         "--network",
         str(spec.parsed_network),
@@ -367,6 +477,10 @@ def solve_sample(
     wall = time.time() - start
     if result.returncode != 0:
         raise RuntimeError(f"Solve failed for {spec.pathway_id} {sample_id}. See {log_path}")
+    if not result_path.exists():
+        raise RuntimeError(
+            f"DeltaSignal solve exited successfully but did not create {result_path}. See {log_path}"
+        )
     return json.loads(result_path.read_text()), wall
 
 
@@ -905,6 +1019,25 @@ def main() -> None:
         "all_solves_converged": bool(activity["converged"].fillna(False).all()),
         "mean_reported_solve_time": float(activity["solve_time_reported"].dropna().mean()),
         "max_reported_solve_time": float(activity["solve_time_reported"].dropna().max()),
+        "provenance": {
+            "deltasignal": git_provenance(args.deltasignal_dir),
+            "logic_network_generator": git_provenance(args.lng_output_root),
+            "effective_solver_config": effective_solver_config(),
+            "inputs": {
+                "observability_summary": file_provenance(args.observability_summary),
+                "root_audit": file_provenance(args.root_audit),
+                "expression": file_provenance(args.expression_tsv),
+                "clinical": file_provenance(args.clinical_tsv),
+                "pathways": {
+                    spec.pathway_id: {
+                        "logic_network": file_provenance(spec.logic_network),
+                        "uuid_map": file_provenance(spec.uuid_map),
+                        "parsed_network": file_provenance(spec.parsed_network),
+                    }
+                    for spec in specs
+                },
+            },
+        },
         "outputs": {name: str(path) for name, path in dirs.items()},
     }
     (args.output_dir / "readiness_run_summary.json").write_text(json.dumps(summary, indent=2))
