@@ -57,3 +57,25 @@ Unmapped cases are reported as unscored with an exact reason. They are never
 silently converted to unchanged predictions. Use a development split to choose
 thresholds and configuration, then report the final result once on held-out
 empirical pathways.
+
+## Preliminary Frozen-Network Result
+
+The first comparison used the three pathways already present in an older LNG
+catalog. Of 344 experimental cases, 204 were scorable after the ID and network
+mapping audit. On those same 204 cases:
+
+- legacy DeltaSignal was correct for 88 cases;
+- current DeltaSignal was correct for 91 cases;
+- MP-BioPath was correct for 145 cases;
+- curator predictions were correct for 156 cases.
+
+This is a small improvement for current DeltaSignal, but it remains well behind
+MP-BioPath on this fixed subset. The change is not consistent across pathways:
+PIP3/AKT improves, Mitotic G1/G1-S regresses, and Cell Cycle Checkpoints is
+unchanged. Enabling SCC solving removes the current solver's non-convergence
+reports but does not change any discrete classifications here, so the three-case
+gain comes from propagation semantics rather than loop solving.
+
+These are diagnostic results on older frozen LNG graphs, not the final
+current-stack benchmark. Regenerated current-LNG networks must be reported on
+the separate end-to-end scoreboard described above.
