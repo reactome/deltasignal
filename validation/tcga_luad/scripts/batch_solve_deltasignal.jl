@@ -19,6 +19,52 @@ using JSON3
 push!(LOAD_PATH, joinpath(deltasignal_dir, "src"))
 using DeltaSignal
 
+const DS_CONFIG_DEFAULTS = Dict(
+    "DS_AND_MODE" => "hill_log",
+    "DS_ASSEMBLY_LIMITING" => "1",
+    "DS_DAMPING" => "0.0",
+    "DS_DEPLETION_H_MAX" => "10.0",
+    "DS_DROP_PASSTHROUGH" => "0",
+    "DS_GENE_STIDS_FILE" => "",
+    "DS_HILL_LOG_ZMAX" => "10.0",
+    "DS_HILL_SAT_EPS" => "0.001",
+    "DS_HILL_SAT_H_MAX" => "10.0",
+    "DS_INHIBITION_MODE" => "divide",
+    "DS_INHIBITOR_BETA" => "1.0",
+    "DS_INHIBITOR_EPS" => "0.001",
+    "DS_INHIBITOR_FLOOR" => "0.0",
+    "DS_INHIBITOR_FLOOR_SCOPE" => "loops",
+    "DS_INHIBITOR_K" => "0.1",
+    "DS_LOOP_DEPTH" => "3",
+    "DS_OR_MODE" => "mean",
+    "DS_SCC_BREAK_CATALYST" => "0",
+    "DS_SCC_DAMPING" => "0.5",
+    "DS_SCC_NEG_FRAC" => "0.5",
+    "DS_SCC_NEG_ITERS" => "1",
+    "DS_SCC_NEG_MODE" => "converge",
+    "DS_SCC_SOLVE" => "1",
+)
+
+
+function effective_solver_config()
+    return Dict(
+        key => Dict(
+            "value" => get(ENV, key, default),
+            "source" => haskey(ENV, key) ? "environment" : "code_default",
+        )
+        for (key, default) in DS_CONFIG_DEFAULTS
+    )
+end
+
+
+function git_commit(repo_dir::String)
+    try
+        return readchomp(`git -C $repo_dir rev-parse HEAD`)
+    catch
+        return nothing
+    end
+end
+
 
 function parse_cli_args(args)
     parsed = Dict{String, String}()
@@ -119,6 +165,8 @@ function write_result(
     result::SolverResult,
     observations::Dict{String, Tuple{Float64, Float64}},
     params::SteadyStateParams,
+    solver_config::Dict,
+    deltasignal_commit,
 )
     activities_ui = Dict(uuid => activity * 100.0 for (uuid, activity) in result.node_activities)
     output_dict = Dict(
@@ -143,6 +191,10 @@ function write_result(
             "aggregation" => "not_computed",
             "batch_solver" => true,
             "influence_scores_computed" => false,
+        ),
+        "provenance" => Dict(
+            "deltasignal_commit" => deltasignal_commit,
+            "effective_solver_config" => solver_config,
         ),
     )
     open(output_path, "w") do handle
@@ -175,6 +227,8 @@ function main()
     max_iters = parse(Int, get(args, "max-iters", "2000"))
     tolerance = parse(Float64, get(args, "tolerance", "1e-6"))
     params = SteadyStateParams(mu, gamma, max_iters, tolerance, "penalty")
+    solver_config = effective_solver_config()
+    deltasignal_commit = git_commit(deltasignal_dir)
 
     batch_start = time()
     network = load_network(network_path)
@@ -204,7 +258,14 @@ function main()
             observations = load_observations(observations_csv)
             observations_count = length(observations)
             result = solve_steady_state(network, observations, params)
-            write_result(result_json, result, observations, params)
+            write_result(
+                result_json,
+                result,
+                observations,
+                params,
+                solver_config,
+                deltasignal_commit,
+            )
             elapsed = time() - sample_start
             write_sample_log(solve_log, sample_id, result, elapsed)
             converged = result.converged
@@ -246,6 +307,8 @@ function main()
         "tolerance" => tolerance,
         "mu" => mu,
         "gamma" => gamma,
+        "deltasignal_commit" => deltasignal_commit,
+        "effective_solver_config" => solver_config,
         "batch_wall_seconds" => time() - batch_start,
         "results" => rows,
     )

@@ -230,7 +230,7 @@ end
 # docker-compose.dev.yml. Each subdirectory is one pathway and contains
 # logic_network.csv + stid_to_uuid_mapping.csv (generator format).
 
-const CATALOG_DIR = "/app/pathway_catalog"
+const CATALOG_DIR = get(ENV, "DS_PATHWAY_CATALOG", "/app/pathway_catalog")
 const SAMPLE_DIR = "examples"
 
 # --- Reactome ContentService enrichment ---
@@ -247,6 +247,8 @@ const REACTOME_TIMEOUT_SECONDS = 15
 # ContentService silently truncates the response at 20 entries per batch
 # regardless of how many IDs you send. Empirically verified May 2026.
 const REACTOME_BATCH_SIZE = 20
+const REACTOME_ENRICH_ENABLED = lowercase(get(ENV, "DS_REACTOME_ENRICH", "1")) in
+    ("1", "true", "yes", "on")
 
 const REACTOME_CACHE = Dict{String, NamedTuple{(:name, :entity_type), Tuple{String, String}}}()
 # HTTP.serve dispatches handlers concurrently, so concurrent /api/parse
@@ -255,7 +257,7 @@ const REACTOME_CACHE = Dict{String, NamedTuple{(:name, :entity_type), Tuple{Stri
 const REACTOME_CACHE_LOCK = ReentrantLock()
 
 function fetch_reactome_batch!(ids::Vector{String})
-    isempty(ids) && return
+    isempty(ids) && return true
     try
         response = HTTP.post(
             REACTOME_BATCH_URL,
@@ -264,7 +266,7 @@ function fetch_reactome_batch!(ids::Vector{String})
             readtimeout = REACTOME_TIMEOUT_SECONDS,
             retry = false,
         )
-        response.status == 200 || return
+        response.status == 200 || return false
         # HTTP call is done; only the cache writes need the lock.
         lock(REACTOME_CACHE_LOCK) do
             for entry in JSON3.read(String(response.body))
@@ -274,8 +276,10 @@ function fetch_reactome_batch!(ids::Vector{String})
                 REACTOME_CACHE[stid] = (name=name, entity_type=etype)
             end
         end
+        return true
     catch e
         @warn "Reactome ContentService batch lookup failed; nodes will keep stable_id placeholder names" exception=e batch_size=length(ids)
+        return false
     end
 end
 
@@ -283,6 +287,8 @@ end
 # placeholder we set in parse_uuid_mapping_generator). Nodes that already
 # have a real name (e.g. from the bundled sample TSVs) are left untouched.
 function enrich_with_reactome_names!(nodes::Dict{String, DeltaSignal.NetworkNode})
+    REACTOME_ENRICH_ENABLED || return
+
     needed = String[]
     for node in values(nodes)
         node.reactome_id === nothing && continue
@@ -297,7 +303,9 @@ function enrich_with_reactome_names!(nodes::Dict{String, DeltaSignal.NetworkNode
         unique!(needed)
         for chunk_start in 1:REACTOME_BATCH_SIZE:length(needed)
             chunk_end = min(chunk_start + REACTOME_BATCH_SIZE - 1, length(needed))
-            fetch_reactome_batch!(needed[chunk_start:chunk_end])
+            # One failed request usually means the service is unavailable.
+            # Stop here instead of paying the full timeout once per batch.
+            fetch_reactome_batch!(needed[chunk_start:chunk_end]) || break
         end
     end
 

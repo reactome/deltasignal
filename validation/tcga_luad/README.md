@@ -112,6 +112,25 @@ python validation/tcga_luad/scripts/run_validation.py \
 
 The batch solver starts one Julia process per pathway and solves every sample for that pathway in one process. This avoids the large per-sample Julia startup overhead seen in early readiness runs.
 
+Each result JSON records the DeltaSignal commit and effective `DS_*` solver
+configuration. `readiness_run_summary.json` also records DeltaSignal and LNG
+Git state plus SHA-256 hashes for the expression, clinical, audit, LNG, and
+parsed-network inputs.
+
+To compare two runs on the same samples and pathways:
+
+```bash
+python validation/tcga_luad/scripts/compare_validation_runs.py \
+  --baseline-dir /path/to/baseline-run \
+  --candidate-dir /path/to/candidate-run \
+  --output-dir /path/to/comparison-output
+```
+
+The comparison reports score correlations, absolute shifts, boundary
+saturation, top-quartile overlap, and rank-quartile agreement. A new full-cohort
+run should proceed only after a small current-stack smoke run passes these
+distribution and convergence checks.
+
 ## Generate Figures and Report
 
 Use a Python environment with `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, and `lifelines`.
@@ -139,9 +158,13 @@ Generated artifacts include:
 - Univariate Cox model forest plot when `lifelines` is installed
 - `reports/RESULT_INTERPRETATION.md`
 
-## Main Current Result
+## Historical Demonstration Result
 
-In the example run included here, Cell Cycle Checkpoints (the Reactome pathway `R-HSA-69620`) was the strongest signal:
+The following result was produced with an older LNG network catalog and older
+DeltaSignal solver defaults. It demonstrates that the workflow runs end to end;
+it must not be presented as a current-stack benchmark.
+
+In that example run, Cell Cycle Checkpoints (the Reactome pathway `R-HSA-69620`) was the strongest signal:
 
 this pathway is about mechanisms that control whether cells are allowed to keep dividing: DNA damage checkpoints, G1/S transition control, G2/M control, mitotic checkpoint behavior, etc. In cancer, high activity in this kind of pathway often means the tumor is highly proliferative or under replication/checkpoint stress. That can be associated with more aggressive disease.
 
@@ -159,7 +182,10 @@ The log-rank p-value: p = 8.92e-05
 The shuffle control: 0/1000 shuffled controls were as strong or stronger
 (I randomly scrambled the pathway activity labels across patients 1000 times. None of those random fake splits produced a log-rank p-value as small as the real Cell Cycle Checkpoints split.)
 
-This does not yet prove anything strongly, it proves 'in TCGA LUAD, using this current mRNA-to-DeltaSignal pipeline, the predicted activity of Reactome Cell Cycle Checkpoints separates patients into groups with meaningfully different survival'.
+This is an association in one cohort, not evidence that DeltaSignal predicts
+causal pathway responses accurately. The result must be regenerated after any
+LNG graph or DeltaSignal propagation change before it is compared with a newer
+run.
 
 
 ## Important Caveats
@@ -170,3 +196,6 @@ This does not yet prove anything strongly, it proves 'in TCGA LUAD, using this c
 - The current expression-to-observation transform is cohort percentile activity.
 - Terminal outputs are graph-derived terminal nodes, not manually curated pathway readouts.
 - Batch scoring currently skips influence scores because the validation summaries use node activities and solver diagnostics only.
+- The historical example predates the current LNG and DeltaSignal defaults.
+- Survival association is not a solver-accuracy benchmark; use the fixed
+  perturbation benchmarks under `bench/` to assess DeltaSignal itself.
