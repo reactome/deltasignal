@@ -79,3 +79,42 @@ gain comes from propagation semantics rather than loop solving.
 These are diagnostic results on older frozen LNG graphs, not the final
 current-stack benchmark. Regenerated current-LNG networks must be reported on
 the separate end-to-end scoreboard described above.
+
+## Preliminary Current-Stack Result
+
+A second run regenerated all three networks from Reactome Release 96 with LNG
+`09b1597`, then tested DeltaSignal `ff39e3b`. Of 344 eligible experimental
+cases, 223 were scorable:
+
+- current DeltaSignal with SCC solving: 164/223 (73.5%);
+- MP-BioPath on the same cases: 162/223 (72.6%);
+- curator predictions on the same cases: 175/223 (78.5%).
+
+The paired bootstrap difference against MP-BioPath was +0.9 percentage points
+with a 95% interval from -3.6 to +4.9 points. This supports approximate parity
+on this subset, not a statistically established win. Mean rather than maximum
+aggregation across duplicate output UUIDs gave 165/223, so the overall result
+was not sensitive to that choice.
+
+The pathway results were uneven:
+
+- PIP3 activates AKT signaling: 82/84;
+- Mitotic G1/G1-S: 39/86;
+- Cell Cycle Checkpoints: 43/53.
+
+On these same regenerated networks, the legacy propagation configuration
+scored 142/223 and reported 49 non-converged cases. Current propagation with
+the flat solver scored 166/223 but reported 142 non-converged cases. SCC solving
+removed all convergence failures and changed the total from 166 to 164.
+
+For the 204 cases scorable in both the old and regenerated catalogs, current
+DeltaSignal improved from 91/204 to 145/204. Nineteen additional cases became
+scorable in the regenerated catalog and all 19 were classified correctly.
+This large shift is driven mainly by PIP3/AKT and must be replicated on held-out
+pathways before it is treated as general predictive improvement.
+
+The regenerated PIP3 graph was also produced twice with a fixed Python hash
+seed. UUID-labeled CSV hashes differed because LNG still creates random UUID4
+identifiers, but a 20-round attributed graph-refinement check produced the same
+semantic graph hash for both runs. Deterministic UUID5 identifiers would make
+byte-level provenance and run comparison much cleaner.
