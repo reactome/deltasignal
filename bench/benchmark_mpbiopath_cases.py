@@ -317,10 +317,24 @@ def metric_summary(rows: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
-def baseline_accuracy(rows: list[dict[str, object]], field: str) -> dict[str, float | int]:
-    scored = [row for row in rows if row["prediction"] is not None]
-    correct = sum(int(row[field]) == int(row["expected"]) for row in scored)
-    return {"correct": correct, "total": len(scored), "accuracy": correct / len(scored) if scored else 0.0}
+def baseline_accuracy(
+    rows: list[dict[str, object]],
+    field: str,
+    *,
+    deltasignal_scored_only: bool = True,
+) -> dict[str, float | int]:
+    """Score a published baseline on either the paired or full eligible set."""
+    evaluated = (
+        [row for row in rows if row["prediction"] is not None]
+        if deltasignal_scored_only
+        else rows
+    )
+    correct = sum(int(row[field]) == int(row["expected"]) for row in evaluated)
+    return {
+        "correct": correct,
+        "total": len(evaluated),
+        "accuracy": correct / len(evaluated) if evaluated else 0.0,
+    }
 
 
 def paired_bootstrap(rows: list[dict[str, object]], field: str, iterations: int, seed: int) -> dict[str, float]:
@@ -422,6 +436,16 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     summary = metric_summary(rows)
     summary["curator_on_scored_cases"] = baseline_accuracy(rows, "curator_prediction")
     summary["mpbiopath_on_scored_cases"] = baseline_accuracy(rows, "mpbiopath_prediction")
+    summary["curator_on_all_eligible_cases"] = baseline_accuracy(
+        rows,
+        "curator_prediction",
+        deltasignal_scored_only=False,
+    )
+    summary["mpbiopath_on_all_eligible_cases"] = baseline_accuracy(
+        rows,
+        "mpbiopath_prediction",
+        deltasignal_scored_only=False,
+    )
     summary["paired_bootstrap_vs_curator"] = paired_bootstrap(rows, "curator_prediction", args.bootstrap, args.seed)
     summary["paired_bootstrap_vs_mpbiopath"] = paired_bootstrap(rows, "mpbiopath_prediction", args.bootstrap, args.seed + 1)
 
