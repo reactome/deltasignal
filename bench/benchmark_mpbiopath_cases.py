@@ -223,6 +223,9 @@ def start_server(args: argparse.Namespace) -> tuple[subprocess.Popen, Path]:
     log_handle = log_path.open("w")
     env = os.environ.copy()
     env["DS_PATHWAY_CATALOG"] = str(args.catalog.resolve())
+    # Display-name enrichment is unrelated to numerical predictions and makes
+    # an otherwise local benchmark depend on the Reactome web service.
+    env["DS_REACTOME_ENRICH"] = "0"
     process = subprocess.Popen(
         [
             "julia",
