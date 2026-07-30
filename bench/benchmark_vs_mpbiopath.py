@@ -784,21 +784,42 @@ def main():
     print(f"  balanced accuracy (macro-recall):   {bal_acc:.4f}")
     print(f"  per-class F1: DOWN={f1[DOWN]:.3f}  NORM={f1[NORMAL]:.3f}  UP={f1[UP]:.3f}")
 
-    # Threshold-free metrics on the continuous predicted UI value (cutoff-independent).
-    tf_ui, tf_exp = [], []
+    # Threshold-free ranking metrics on the continuous predicted UI value.
+    # IMPORTANT: a raw AUROC over all cases is confounded — perturbation direction
+    # (knockout vs overexpression) already predicts expected direction (KO tends
+    # DOWN, OE tends UP), so "echo the perturbation" scores high without pathway
+    # reasoning. We report AUROC STRATIFIED BY perturbation direction: within
+    # knockouts-only / overexpression-only, does the continuous output still rank
+    # UP vs DOWN readouts? That isolates the model reading the SIGN of the path
+    # (e.g. KO of an inhibitor → up). The raw value is shown too, flagged.
+    by_dir = defaultdict(lambda: {"ui": [], "exp": []})
+    all_ui, all_exp = [], []
     for r in results:
         if r.get("status") != "ok":
             continue
         for case in r.get("case_log", []):
-            tf_ui.append(case[9])   # pred_ui
-            tf_exp.append(case[4])  # expected class
-    if tf_ui:
-        sp = _spearman(tf_ui, tf_exp)
-        up_auroc = _auroc(tf_ui, [1 if e == UP else 0 for e in tf_exp])
-        dn_auroc = _auroc([-v for v in tf_ui], [1 if e == DOWN else 0 for e in tf_exp])
-        ch_auroc = _auroc([abs(v - 1.0) for v in tf_ui], [1 if e != NORMAL else 0 for e in tf_exp])
-        print(f"  threshold-free (continuous output): Spearman={sp:.3f}  "
-              f"UP-AUROC={up_auroc:.3f}  DOWN-AUROC={dn_auroc:.3f}  change-AUROC={ch_auroc:.3f}")
+            d, e, v = case[1], case[4], case[9]  # direction, expected, pred_ui
+            by_dir[d]["ui"].append(v); by_dir[d]["exp"].append(e)
+            all_ui.append(v); all_exp.append(e)
+    if all_ui:
+        def _pooled(kind):  # n-weighted mean of within-direction AUROC
+            num = den = 0.0
+            for g in by_dir.values():
+                ui, ex = g["ui"], g["exp"]
+                tgt = UP if kind == "UP" else DOWN
+                sc = ui if kind == "UP" else [-v for v in ui]
+                a = _auroc(sc, [1 if e == tgt else 0 for e in ex])
+                pos = sum(1 for e in ex if e == tgt); neg = len(ex) - pos
+                if pos and neg and a == a:
+                    num += a * (pos + neg); den += (pos + neg)
+            return num / den if den else float("nan")
+        up_cc, dn_cc = _pooled("UP"), _pooled("DOWN")
+        raw_up = _auroc(all_ui, [1 if e == UP else 0 for e in all_exp])
+        sp = _spearman(all_ui, all_exp)
+        print(f"  ranking (confound-controlled, within perturbation direction): "
+              f"UP-AUROC={up_cc:.3f}  DOWN-AUROC={dn_cc:.3f}")
+        print(f"    (raw all-case UP-AUROC={raw_up:.3f} inflated by perturbation "
+              f"direction; Spearman(pred,exp)={sp:.3f})")
 
     print(f"DeltaSignal end-to-end accuracy:  "
           f"{grand_correct}/{grand_total} = "
