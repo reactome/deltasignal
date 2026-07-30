@@ -96,6 +96,54 @@ def classify(ui_value: float) -> int:
     return NORMAL
 
 
+# --- Threshold-free metrics on the continuous predicted UI value ---
+# These use DeltaSignal's graded output directly, so they don't depend on the
+# DOWN/NORMAL/UP cutoffs (a Boolean model can't produce them). AUROC = rank/
+# Mann-Whitney; Spearman = correlation of ranks. Self-contained (no sklearn).
+def _auroc(scores, positives):
+    pairs = sorted(zip(scores, positives))
+    ranks = [0.0] * len(pairs)
+    i = 0
+    while i < len(pairs):
+        j = i
+        while j < len(pairs) and pairs[j][0] == pairs[i][0]:
+            j += 1
+        avg = (i + 1 + j) / 2.0
+        for k in range(i, j):
+            ranks[k] = avg
+        i = j
+    npos = sum(p for _, p in pairs)
+    nneg = len(pairs) - npos
+    if npos == 0 or nneg == 0:
+        return float("nan")
+    sum_pos = sum(r for r, (_, p) in zip(ranks, pairs) if p)
+    return (sum_pos - npos * (npos + 1) / 2) / (npos * nneg)
+
+
+def _spearman(xs, ys):
+    def rank(a):
+        order = sorted(range(len(a)), key=lambda i: a[i])
+        r = [0.0] * len(a)
+        i = 0
+        while i < len(a):
+            j = i
+            while j < len(a) and a[order[j]] == a[order[i]]:
+                j += 1
+            avg = (i + 1 + j) / 2.0
+            for k in range(i, j):
+                r[order[k]] = avg
+            i = j
+        return r
+    rx, ry = rank(xs), rank(ys)
+    n = len(xs)
+    if n == 0:
+        return float("nan")
+    mx, my = sum(rx) / n, sum(ry) / n
+    num = sum((rx[i] - mx) * (ry[i] - my) for i in range(n))
+    den = (sum((x - mx) ** 2 for x in rx) * sum((y - my) ** 2 for y in ry)) ** 0.5
+    return num / den if den else 0.0
+
+
 def find_pathway_dir(numeric_id: str):
     """The R-HSA-suffixed dir is preferred (see generator dedupe convention)."""
     for d in sorted(CATALOG_ROOT.iterdir()):
@@ -735,6 +783,23 @@ def main():
     print(f"  change-F1 (UP+DOWN only):           {change_f1:.4f}")
     print(f"  balanced accuracy (macro-recall):   {bal_acc:.4f}")
     print(f"  per-class F1: DOWN={f1[DOWN]:.3f}  NORM={f1[NORMAL]:.3f}  UP={f1[UP]:.3f}")
+
+    # Threshold-free metrics on the continuous predicted UI value (cutoff-independent).
+    tf_ui, tf_exp = [], []
+    for r in results:
+        if r.get("status") != "ok":
+            continue
+        for case in r.get("case_log", []):
+            tf_ui.append(case[9])   # pred_ui
+            tf_exp.append(case[4])  # expected class
+    if tf_ui:
+        sp = _spearman(tf_ui, tf_exp)
+        up_auroc = _auroc(tf_ui, [1 if e == UP else 0 for e in tf_exp])
+        dn_auroc = _auroc([-v for v in tf_ui], [1 if e == DOWN else 0 for e in tf_exp])
+        ch_auroc = _auroc([abs(v - 1.0) for v in tf_ui], [1 if e != NORMAL else 0 for e in tf_exp])
+        print(f"  threshold-free (continuous output): Spearman={sp:.3f}  "
+              f"UP-AUROC={up_auroc:.3f}  DOWN-AUROC={dn_auroc:.3f}  change-AUROC={ch_auroc:.3f}")
+
     print(f"DeltaSignal end-to-end accuracy:  "
           f"{grand_correct}/{grand_total} = "
           f"{grand_correct/grand_total*100 if grand_total else 0:.2f}%")
