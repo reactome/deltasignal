@@ -114,6 +114,14 @@ silently converted to unchanged predictions. Use a development split to choose
 thresholds and configuration, then report the final result once on held-out
 empirical pathways.
 
+Use `--allow-output-proxies` to prefer an exact key-output entity and fall back
+to LNG's explicit producing/consuming reaction mapping only when that entity is
+absent. Proxy fallback must be reported separately from exact-entity scoring.
+For an internal validity control, combine `--derive-output-proxies` with
+`--prefer-output-proxies`; the harness then derives adjacent reaction readouts
+for exported entities so entity/proxy classification agreement can be measured
+on overlap cases. This audit mode is not the production endpoint.
+
 The summary also reports no-change, development-class-frequency, signed
 reachability, and shortest-signed-path baselines. Class frequency is fitted
 only on the development pathways. Structural baselines are cycle-safe and

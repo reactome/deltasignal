@@ -87,6 +87,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Score missing key-output entities through LNG's explicit entity-to-reaction proxy export",
     )
+    parser.add_argument(
+        "--prefer-output-proxies",
+        action="store_true",
+        help="Audit proxy validity by using an available reaction proxy even when the exact entity is exported",
+    )
+    parser.add_argument(
+        "--derive-output-proxies",
+        action="store_true",
+        help="Derive producing/consuming reaction proxies from graph adjacency for exact-entity proxy validation",
+    )
     parser.add_argument("--perturbation-up", type=float, default=80.0)
     parser.add_argument("--port", type=int, default=18080)
     parser.add_argument("--bootstrap", type=int, default=2000)
@@ -252,6 +262,34 @@ def load_proxy_dbid_to_uuids(pathway_dir: Path) -> dict[str, dict[str, list[str]
             uuid = normalize_cell(row["proxy_uuid"])
             if dbid and role and uuid and uuid not in mapping[dbid][role]:
                 mapping[dbid][role].append(uuid)
+    return mapping
+
+
+def derive_proxy_dbid_to_uuids(pathway_dir: Path) -> dict[str, dict[str, list[str]]]:
+    """Derive adjacent reaction proxies for entities already present in a graph."""
+    dbid_to_uuids = load_dbid_to_uuids(pathway_dir)
+    node_kinds: dict[str, str] = {}
+    with (pathway_dir / "nodes.csv").open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            node_kinds[normalize_cell(row["uuid"])] = normalize_cell(row["node_kind"])
+    entity_to_dbids: dict[str, set[str]] = defaultdict(set)
+    for dbid, uuids in dbid_to_uuids.items():
+        for uuid in uuids:
+            if node_kinds.get(uuid) != "reaction":
+                entity_to_dbids[uuid].add(dbid)
+    mapping: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+    with (pathway_dir / "logic_network.csv").open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            source = normalize_cell(row["source_id"])
+            target = normalize_cell(row["target_id"])
+            if node_kinds.get(source) == "reaction" and target in entity_to_dbids:
+                for dbid in entity_to_dbids[target]:
+                    if source not in mapping[dbid]["producing"]:
+                        mapping[dbid]["producing"].append(source)
+            if source in entity_to_dbids and node_kinds.get(target) == "reaction":
+                for dbid in entity_to_dbids[source]:
+                    if target not in mapping[dbid]["consuming"]:
+                        mapping[dbid]["consuming"].append(target)
     return mapping
 
 
@@ -564,8 +602,13 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     if absent_networks:
         raise FileNotFoundError(f"No LNG network for pathways: {absent_networks}")
     dbid_maps = {pathway_id: load_dbid_to_uuids(path) for pathway_id, path in pathway_dirs.items() if path}
+    proxy_loader = (
+        derive_proxy_dbid_to_uuids
+        if args.derive_output_proxies
+        else load_proxy_dbid_to_uuids
+    )
     proxy_maps = {
-        pathway_id: load_proxy_dbid_to_uuids(path)
+        pathway_id: proxy_loader(path)
         for pathway_id, path in pathway_dirs.items()
         if path
     }
@@ -605,7 +648,10 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 if preferred_proxy_role is not None
                 else []
             )
-            if exact_output_uuids:
+            if proxy_output_uuids and args.prefer_output_proxies:
+                output_uuids = proxy_output_uuids
+                output_mapping_mode = f"proxy_{preferred_proxy_role}_preferred"
+            elif exact_output_uuids:
                 output_uuids = exact_output_uuids
                 output_mapping_mode = "exact"
             elif proxy_output_uuids and args.allow_output_proxies:
@@ -859,6 +905,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "thresholds": {"down": args.down_cutoff, "up": args.up_cutoff},
         "output_aggregation": args.output_aggregation,
         "allow_output_proxies": args.allow_output_proxies,
+        "prefer_output_proxies": args.prefer_output_proxies,
+        "derive_output_proxies": args.derive_output_proxies,
         "perturbation_up": args.perturbation_up,
         "solver_environment_overrides": solver_config,
         "deltasignal_git": git_state(args.deltasignal_dir),

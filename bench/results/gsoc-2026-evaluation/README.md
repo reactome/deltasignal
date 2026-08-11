@@ -19,3 +19,9 @@ input and graph artifact; absolute workstation and server paths are excluded.
 The TCGA LUAD table in the report is a historical external-association
 demonstration. It is not perturbation ground truth and is deliberately kept
 separate from the 847-case causal benchmark.
+
+The primary report keeps reaction proxies disabled. The follow-up
+[`proxy_fallback_evaluation.md`](proxy_fallback_evaluation.md) evaluates them
+explicitly as a fallback, including an exact-entity overlap control. Proxy
+fallback raises scored coverage from 74.0% to 96.7%; it must be attributed to
+readout/mapping recovery, not to a DeltaSignal propagation change.

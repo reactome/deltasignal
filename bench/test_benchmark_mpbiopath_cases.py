@@ -1,15 +1,40 @@
 #!/usr/bin/env python3
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from benchmark_mpbiopath_cases import (
     DOWN,
     NORMAL,
     UP,
+    derive_proxy_dbid_to_uuids,
     metric_summary_for_field,
     reachable_path_signs,
     structural_prediction,
 )
+
+
+class DerivedProxyTests(unittest.TestCase):
+    def test_derives_producing_and_consuming_reaction_neighbors(self) -> None:
+        with TemporaryDirectory() as tmp:
+            pathway = Path(tmp)
+            (pathway / "nodes.csv").write_text(
+                "uuid,node_kind,diagram_entity_id,member_leaves\n"
+                "upstream,reaction,R-HSA-10,\n"
+                "entity,simple_entity,R-HSA-20,\n"
+                "downstream,reaction,R-HSA-30,\n"
+            )
+            (pathway / "logic_network.csv").write_text(
+                "source_id,target_id,pos_neg\n"
+                "upstream,entity,pos\n"
+                "entity,downstream,pos\n"
+            )
+
+            proxies = derive_proxy_dbid_to_uuids(pathway)
+
+            self.assertEqual(proxies["20"]["producing"], ["upstream"])
+            self.assertEqual(proxies["20"]["consuming"], ["downstream"])
 
 
 class StructuralBaselineTests(unittest.TestCase):
