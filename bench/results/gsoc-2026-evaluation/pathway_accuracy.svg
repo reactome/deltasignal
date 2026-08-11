@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1303" height="735" viewBox="0 0 1303 735">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="36" y="48" font-family="Arial" font-size="28" font-weight="700" fill="#111">Accuracy by pathway (scored cases)</text>
+<line x1="373.0" y1="78" x2="373.0" y2="680" stroke="#dddddd"/>
+<text x="373.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">0%</text>
+<line x1="535.0" y1="78" x2="535.0" y2="680" stroke="#dddddd"/>
+<text x="535.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">20%</text>
+<line x1="697.0" y1="78" x2="697.0" y2="680" stroke="#dddddd"/>
+<text x="697.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">40%</text>
+<line x1="859.0" y1="78" x2="859.0" y2="680" stroke="#dddddd"/>
+<text x="859.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">60%</text>
+<line x1="1021.0" y1="78" x2="1021.0" y2="680" stroke="#dddddd"/>
+<text x="1021.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">80%</text>
+<line x1="1183.0" y1="78" x2="1183.0" y2="680" stroke="#dddddd"/>
+<text x="1183.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">100%</text>
+<text x="361" y="128" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-1257604  PIP3 activates AKT signaling</text>
+<rect x="373" y="105" width="790.7" height="18" fill="#1877B9"/>
+<text x="1170.7" y="119" font-family="Arial" font-size="13" fill="#222">97.6</text>
+<rect x="373" y="128" width="790.7" height="18" fill="#E76F51"/>
+<text x="1170.7" y="142" font-family="Arial" font-size="13" fill="#222">97.6</text>
+<text x="361" y="182" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-453279  Mitotic G1 phase and G1/S tran</text>
+<rect x="373" y="159" width="414.4" height="18" fill="#1877B9"/>
+<text x="794.4" y="173" font-family="Arial" font-size="13" fill="#222">51.2</text>
+<rect x="373" y="182" width="367.3" height="18" fill="#E76F51"/>
+<text x="747.3" y="196" font-family="Arial" font-size="13" fill="#222">45.3</text>
+<text x="361" y="236" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-69620  Cell Cycle Checkpoints</text>
+<rect x="373" y="213" width="626.6" height="18" fill="#1877B9"/>
+<text x="1006.6" y="227" font-family="Arial" font-size="13" fill="#222">77.4</text>
+<rect x="373" y="236" width="657.2" height="18" fill="#E76F51"/>
+<text x="1037.2" y="250" font-family="Arial" font-size="13" fill="#222">81.1</text>
+<text x="361" y="290" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-68875  Mitotic Prophase</text>
+<rect x="373" y="267" width="625.9" height="18" fill="#1877B9"/>
+<text x="1005.9" y="281" font-family="Arial" font-size="13" fill="#222">77.3</text>
+<rect x="373" y="290" width="625.9" height="18" fill="#E76F51"/>
+<text x="1005.9" y="304" font-family="Arial" font-size="13" fill="#222">77.3</text>
+<text x="361" y="344" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-69242  S Phase</text>
+<rect x="373" y="321" width="702.0" height="18" fill="#1877B9"/>
+<text x="1082.0" y="335" font-family="Arial" font-size="13" fill="#222">86.7</text>
+<rect x="373" y="344" width="702.0" height="18" fill="#E76F51"/>
+<text x="1082.0" y="358" font-family="Arial" font-size="13" fill="#222">86.7</text>
+<text x="361" y="398" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-195721  Signaling by WNT</text>
+<rect x="373" y="375" width="591.1" height="18" fill="#1877B9"/>
+<text x="971.1" y="389" font-family="Arial" font-size="13" fill="#222">73.0</text>
+<rect x="373" y="398" width="591.1" height="18" fill="#E76F51"/>
+<text x="971.1" y="412" font-family="Arial" font-size="13" fill="#222">73.0</text>
+<text x="361" y="452" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-1227986  Signaling by ERBB2</text>
+<rect x="373" y="429" width="675.0" height="18" fill="#1877B9"/>
+<text x="1055.0" y="443" font-family="Arial" font-size="13" fill="#222">83.3</text>
+<rect x="373" y="452" width="652.5" height="18" fill="#E76F51"/>
+<text x="1032.5" y="466" font-family="Arial" font-size="13" fill="#222">80.6</text>
+<text x="361" y="506" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-3700989  Transcriptional Regulation by </text>
+<rect x="373" y="483" width="540.0" height="18" fill="#1877B9"/>
+<text x="920.0" y="497" font-family="Arial" font-size="13" fill="#222">66.7</text>
+<rect x="373" y="506" width="513.0" height="18" fill="#E76F51"/>
+<text x="893.0" y="520" font-family="Arial" font-size="13" fill="#222">63.3</text>
+<text x="361" y="560" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-5673001  RAF/MAP kinase cascade</text>
+<rect x="373" y="537" width="540.0" height="18" fill="#1877B9"/>
+<text x="920.0" y="551" font-family="Arial" font-size="13" fill="#222">66.7</text>
+<rect x="373" y="560" width="540.0" height="18" fill="#E76F51"/>
+<text x="920.0" y="574" font-family="Arial" font-size="13" fill="#222">66.7</text>
+<text x="361" y="614" text-anchor="end" font-family="Arial" font-size="15" fill="#222">R-HSA-5693567  HDR through HRR or SSA</text>
+<rect x="373" y="591" width="641.2" height="18" fill="#1877B9"/>
+<text x="1021.2" y="605" font-family="Arial" font-size="13" fill="#222">79.2</text>
+<rect x="373" y="614" width="641.2" height="18" fill="#E76F51"/>
+<text x="1021.2" y="628" font-family="Arial" font-size="13" fill="#222">79.2</text>
+<rect x="36" y="694" width="14" height="14" fill="#1877B9"/>
+<text x="57" y="707" font-family="Arial" font-size="14" fill="#333">Diagram edges on</text>
+<rect x="226" y="694" width="14" height="14" fill="#E76F51"/>
+<text x="247" y="707" font-family="Arial" font-size="14" fill="#333">Diagram edges off</text>
+</svg>

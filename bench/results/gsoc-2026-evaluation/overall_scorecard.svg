@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1210" height="411" viewBox="0 0 1210 411">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="36" y="48" font-family="Arial" font-size="28" font-weight="700" fill="#111">All-ten exact-output benchmark</text>
+<line x1="280.0" y1="78" x2="280.0" y2="356" stroke="#dddddd"/>
+<text x="280.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">0%</text>
+<line x1="442.0" y1="78" x2="442.0" y2="356" stroke="#dddddd"/>
+<text x="442.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">20%</text>
+<line x1="604.0" y1="78" x2="604.0" y2="356" stroke="#dddddd"/>
+<text x="604.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">40%</text>
+<line x1="766.0" y1="78" x2="766.0" y2="356" stroke="#dddddd"/>
+<text x="766.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">60%</text>
+<line x1="928.0" y1="78" x2="928.0" y2="356" stroke="#dddddd"/>
+<text x="928.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">80%</text>
+<line x1="1090.0" y1="78" x2="1090.0" y2="356" stroke="#dddddd"/>
+<text x="1090.0" y="72" text-anchor="middle" font-family="Arial" font-size="13" fill="#555">100%</text>
+<text x="268" y="128" text-anchor="end" font-family="Arial" font-size="15" fill="#222">Coverage</text>
+<rect x="280" y="105" width="599.6" height="18" fill="#1877B9"/>
+<text x="886.6" y="119" font-family="Arial" font-size="13" fill="#222">74.0</text>
+<rect x="280" y="128" width="599.6" height="18" fill="#E76F51"/>
+<text x="886.6" y="142" font-family="Arial" font-size="13" fill="#222">74.0</text>
+<text x="268" y="182" text-anchor="end" font-family="Arial" font-size="15" fill="#222">Scored accuracy</text>
+<rect x="280" y="159" width="589.1" height="18" fill="#1877B9"/>
+<text x="876.1" y="173" font-family="Arial" font-size="13" fill="#222">72.7</text>
+<rect x="280" y="182" width="573.6" height="18" fill="#E76F51"/>
+<text x="860.6" y="196" font-family="Arial" font-size="13" fill="#222">70.8</text>
+<text x="268" y="236" text-anchor="end" font-family="Arial" font-size="15" fill="#222">Coverage-adjusted</text>
+<rect x="280" y="213" width="436.1" height="18" fill="#1877B9"/>
+<text x="723.1" y="227" font-family="Arial" font-size="13" fill="#222">53.8</text>
+<rect x="280" y="236" width="424.6" height="18" fill="#E76F51"/>
+<text x="711.6" y="250" font-family="Arial" font-size="13" fill="#222">52.4</text>
+<text x="268" y="290" text-anchor="end" font-family="Arial" font-size="15" fill="#222">Macro-F1</text>
+<rect x="280" y="267" width="542.7" height="18" fill="#1877B9"/>
+<text x="829.7" y="281" font-family="Arial" font-size="13" fill="#222">67.0</text>
+<rect x="280" y="290" width="531.1" height="18" fill="#E76F51"/>
+<text x="818.1" y="304" font-family="Arial" font-size="13" fill="#222">65.6</text>
+<rect x="36" y="370" width="14" height="14" fill="#1877B9"/>
+<text x="57" y="383" font-family="Arial" font-size="14" fill="#333">Diagram edges on</text>
+<rect x="226" y="370" width="14" height="14" fill="#E76F51"/>
+<text x="247" y="383" font-family="Arial" font-size="14" fill="#333">Diagram edges off</text>
+</svg>

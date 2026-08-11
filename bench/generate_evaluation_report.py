@@ -32,6 +32,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--diagram-on-dir", type=Path, required=True)
     parser.add_argument("--diagram-off-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--lng-commit", help="LNG commit used to freeze both catalogs")
+    parser.add_argument("--reactome-release", help="Reactome release used by LNG")
     parser.add_argument(
         "--tcga-readiness",
         type=Path,
@@ -47,6 +49,50 @@ def load_run(path: Path) -> tuple[dict[str, object], list[dict[str, str]]]:
     if len(rows) != int(summary["eligible_cases"]):
         raise ValueError(f"Case count does not match summary in {path}")
     return summary, rows
+
+
+def sanitized_manifest(path: Path) -> dict[str, object]:
+    manifest = json.loads((path / "benchmark_manifest.json").read_text())
+    inputs = manifest["inputs"]
+    return {
+        "ground_truth": manifest["ground_truth"],
+        "pathway_ids": manifest["pathway_ids"],
+        "evaluation_split": manifest["evaluation_split"],
+        "thresholds": manifest["thresholds"],
+        "output_aggregation": manifest["output_aggregation"],
+        "allow_output_proxies": manifest["allow_output_proxies"],
+        "perturbation_up": manifest["perturbation_up"],
+        "solver_environment_overrides": {
+            key: value
+            for key, value in manifest["solver_environment_overrides"].items()
+            if key != "DS_PATHWAY_CATALOG"
+        },
+        "deltasignal_git": manifest["deltasignal_git"],
+        "benchmark_code": {
+            key: value
+            for key, value in manifest["benchmark_code"].items()
+            if key != "path"
+        },
+        "input_hashes": {
+            "supplementary_workbook": inputs["supplementary_workbook"]["sha256"],
+            "id_map": inputs["id_map"]["sha256"],
+            "reactome_id_audit": (
+                inputs["reactome_id_audit"]["sha256"]
+                if inputs["reactome_id_audit"]
+                else None
+            ),
+        },
+        "network_files": {
+            pathway_id: {
+                name: {
+                    "sha256": metadata["sha256"],
+                    "size_bytes": metadata["size_bytes"],
+                }
+                for name, metadata in files.items()
+            }
+            for pathway_id, files in inputs["networks"].items()
+        },
+    }
 
 
 def case_key(row: dict[str, str]) -> tuple[str, ...]:
@@ -160,6 +206,15 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     on_summary, on_rows = load_run(args.diagram_on_dir)
     off_summary, off_rows = load_run(args.diagram_off_dir)
+    provenance = {
+        "reactome_release": args.reactome_release,
+        "lng_commit": args.lng_commit,
+        "diagram_on": sanitized_manifest(args.diagram_on_dir),
+        "diagram_off": sanitized_manifest(args.diagram_off_dir),
+    }
+    (args.output_dir / "provenance.json").write_text(
+        json.dumps(provenance, indent=2) + "\n"
+    )
     on_by_key = {case_key(row): row for row in on_rows}
     off_by_key = {case_key(row): row for row in off_rows}
     if set(on_by_key) != set(off_by_key):
@@ -424,6 +479,8 @@ with predeclared pathway/readout definitions.
 - `pathway_scorecard.tsv`: pathway-level coverage and accuracy.
 - `paired_topology_changes.tsv`: every classification changed by diagram edges.
 - `overall_scorecard.svg` and `pathway_accuracy.svg`: presentation-ready plots.
+- `provenance.json`: sanitized commits, settings, and input/network hashes;
+  absolute workstation and server paths are intentionally excluded.
 """
     (args.output_dir / "evaluation_report.md").write_text(report)
     print(args.output_dir / "evaluation_report.md")
