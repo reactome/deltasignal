@@ -1,0 +1,11 @@
+id	pathway_name	evaluation_split
+R-HSA-1257604	PIP3 activates AKT signaling	development
+R-HSA-453279	Mitotic G1 phase and G1/S transition	development
+R-HSA-69620	Cell Cycle Checkpoints	development
+R-HSA-68875	Mitotic Prophase	held_out
+R-HSA-69242	S Phase	held_out
+R-HSA-195721	Signaling by WNT	held_out
+R-HSA-1227986	Signaling by ERBB2	held_out
+R-HSA-3700989	Transcriptional Regulation by TP53	held_out
+R-HSA-5673001	RAF/MAP kinase cascade	held_out
+R-HSA-5693567	HDR through Homologous Recombination (HRR) or Single Strand Annealing (SSA)	held_out

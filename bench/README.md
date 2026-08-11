@@ -43,6 +43,62 @@ python bench/benchmark_mpbiopath_cases.py \
   --output-dir /path/to/benchmark-output
 ```
 
+The default panel contains all 847 cases with experimental outcomes across the
+ten MP-BioPath pathways. The three pathways examined during development are
+fixed in `bench/mpbiopath_ten_pathways.tsv`; the other seven form the held-out
+test set. Do not change that split after looking at held-out results.
+
+For release-aware failure classification, first export the benchmark-relevant
+identifiers from the exact Reactome Neo4j release used to generate the catalog:
+
+```bash
+python bench/export_reactome_id_audit.py \
+  --supplementary-workbook /path/to/PredictiveAccuracyOfBiologicalPathways_SupplementaryTables.xlsx \
+  --id-map /path/to/db_id_to_name_mapping.txt \
+  --neo4j-http http://127.0.0.1:7474/db/graph.db/tx/commit \
+  --output /path/to/reactome_id_audit.tsv
+```
+
+Pass the resulting file with `--reactome-id-audit`. Key-output reaction proxies
+are disabled by default because they change the biological readout being
+scored. `--allow-output-proxies` enables only proxies explicitly exported by
+LNG and records their role in every case row.
+
+Run the frozen-catalog solver factorial with:
+
+```bash
+python bench/run_mpbiopath_factorial.py \
+  --catalog release97_diagram_on=/path/to/catalog-diagram-on \
+  --catalog release97_diagram_off=/path/to/catalog-diagram-off \
+  --supplementary-workbook /path/to/PredictiveAccuracyOfBiologicalPathways_SupplementaryTables.xlsx \
+  --id-map /path/to/db_id_to_name_mapping.txt \
+  --reactome-id-audit /path/to/reactome_id_audit.tsv \
+  --output-dir /path/to/factorial-output
+```
+
+This crosses each frozen graph catalog with legacy/current propagation and
+flat/SCC solving. Stoichiometric weighting is intentionally absent: current
+production defaults do not use it, and Adam's perturbation tests found no
+accuracy improvement from enabling it.
+
+After completing the current-SCC diagram-on and diagram-off runs, generate the
+auditable scorecard and presentation-ready figures with:
+
+```bash
+python bench/generate_evaluation_report.py \
+  --diagram-on-dir /path/to/v97-diagram-on-current-scc \
+  --diagram-off-dir /path/to/v97-diagram-off-current-scc \
+  --tcga-readiness /path/to/readiness_key_findings.tsv \
+  --output-dir /path/to/evaluation-report
+```
+
+The report distinguishes case-level convergence flags from unique perturbation
+solves. One failed solve can be repeated across several key-output cases, so
+reporting only the case count can exaggerate the number of numerical failures.
+It also reports accuracy on converged cases separately; non-converged outputs
+remain diagnostic results and must not be presented as equally reliable model
+predictions.
+
 The harness starts an isolated DeltaSignal API process, hashes all inputs and
 network files, caches one solve per perturbation, and writes:
 
@@ -57,6 +113,11 @@ Unmapped cases are reported as unscored with an exact reason. They are never
 silently converted to unchanged predictions. Use a development split to choose
 thresholds and configuration, then report the final result once on held-out
 empirical pathways.
+
+The summary also reports no-change, development-class-frequency, signed
+reachability, and shortest-signed-path baselines. Class frequency is fitted
+only on the development pathways. Structural baselines are cycle-safe and
+return unchanged when positive and negative paths conflict.
 
 ## How To Read The Two Scoreboards
 
