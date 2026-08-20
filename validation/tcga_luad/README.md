@@ -182,6 +182,11 @@ secondary external-association analysis. It does not convert TCGA survival into
 perturbation ground truth, and a historical score must not be attributed to a
 newer LNG or DeltaSignal configuration.
 
+The de-identified report, summary tables, figures, and exact input hashes from
+the historical run are in
+[`results/historical_clinical_utility`](results/historical_clinical_utility).
+The sample-level analysis cohort is intentionally not committed.
+
 ## Historical Demonstration Result
 
 The following result was produced with an older LNG network catalog and older
