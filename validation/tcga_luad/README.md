@@ -158,6 +158,30 @@ Generated artifacts include:
 - Univariate Cox model forest plot when `lifelines` is installed
 - `reports/RESULT_INTERPRETATION.md`
 
+## Evaluate Clinical Utility Beyond Simple Expression
+
+For a completed 502-tumor historical run, the clinical-utility analysis tests
+continuous DeltaSignal scores after adjustment for age, sex, pathologic stage,
+and smoking history. It also constructs an expression-only baseline from the
+same unique mapped genes used as DeltaSignal inputs. UUID duplication therefore
+does not give repeatedly exported gene contexts extra weight.
+
+```bash
+python validation/tcga_luad/scripts/analyze_clinical_utility.py \
+  --activity-tsv /path/to/completed-run/tables/sample_pathway_activity.tsv \
+  --clinical-tsv /path/to/TCGA.LUAD.clinicalMatrix.tsv \
+  --expression-tsv /path/to/TCGA.LUAD.expression.tsv \
+  --root-audit-tsv /path/to/root_observability_audit.tsv \
+  --output-dir /path/to/clinical-utility-output
+```
+
+The analysis writes adjusted Cox models, nested likelihood-ratio tests,
+repeated five-fold cross-validated concordance, score correlations, output
+aggregation sensitivity, figures, and a hashed provenance manifest. This is a
+secondary external-association analysis. It does not convert TCGA survival into
+perturbation ground truth, and a historical score must not be attributed to a
+newer LNG or DeltaSignal configuration.
+
 ## Historical Demonstration Result
 
 The following result was produced with an older LNG network catalog and older
@@ -186,6 +210,14 @@ This is an association in one cohort, not evidence that DeltaSignal predicts
 causal pathway responses accurately. The result must be regenerated after any
 LNG graph or DeltaSignal propagation change before it is compared with a newer
 run.
+
+In the follow-up continuous analysis, 471 tumors had complete age, sex, stage,
+and smoking covariates. Cell Cycle Checkpoints remained associated after
+clinical adjustment, but its DeltaSignal score was highly correlated with the
+unique-gene expression baseline. Adding DeltaSignal to the expression model did
+not improve repeated cross-validated concordance. The historical score therefore
+captures clinically relevant cell-cycle variation, but these data do not
+establish incremental predictive value from network propagation.
 
 
 ## Important Caveats
