@@ -212,6 +212,10 @@ child-002,25.0,0.7
 
 ## 📚 Documentation
 
+- [GSoC 2026 evaluation and Reactome UI report](docs/GSOC_2026_EVALUATION_AND_REACTOME_UI.md)
+- [Perturbation benchmark guide](bench/README.md)
+- [TCGA LUAD validation guide](validation/tcga_luad/README.md)
+
 ### CLI Commands
 
 ```bash
