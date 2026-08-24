@@ -1,5 +1,11 @@
 # Evaluating DeltaSignal and bringing perturbation predictions into Reactome
 
+- **GSoC 2026 project:** Improvement of MPBioPath for Reactome Scale
+  Perturbation Analysis
+- **Contributor:** Chryseis Xinyi Liu
+- **Organization:** Open Genome Informatics / Reactome
+- **Mentor:** Adam Wright
+
 ## What I built
 
 My goal was to make DeltaSignal easier to evaluate and easier to use without
@@ -17,6 +23,28 @@ questions. The perturbation benchmark is the direct accuracy test. TCGA is an
 observational application and control experiment. The browser work is a user
 interface. Keeping those claims separate is one of the main conclusions of the
 project.
+
+## Code and upstream status
+
+The work is split across three upstream Reactome repositories. This report is
+the index for the complete work product; the pull requests remain the best
+place to inspect individual code changes and reviews.
+
+| Repository | Contribution | Upstream status |
+| --- | --- | --- |
+| DeltaSignal | [PR #1: initial TCGA pipeline and preservation of LNG `edge_type`](https://github.com/reactome/deltasignal/pull/1) | Merged |
+| Logic Network Generator | [PR #38: stop stringified null identifiers entering UUID mappings](https://github.com/reactome/logic-network-generator/pull/38) | Merged |
+| Logic Network Generator | [PR #51: correct Reactome release-version sentinel handling](https://github.com/reactome/logic-network-generator/pull/51) | Merged |
+| DeltaSignal | [PR #10: reproducible frozen-network and current-stack benchmarks](https://github.com/reactome/deltasignal/pull/10) | Merged |
+| DeltaSignal | [PR #11: held-out ten-pathway evaluation, TCGA matched-expression control, reports, and figures](https://github.com/reactome/deltasignal/pull/11) | Open for review |
+| WebsiteAngular | [PR #155: interactive DeltaSignal perturbation UI and logic-network visualization](https://github.com/reactome/WebsiteAngular/pull/155) | Open for review |
+
+The final functional GSoC checkpoints on the two open branches are DeltaSignal
+commit [`e0ec076`](https://github.com/reactome/deltasignal/commit/e0ec07630a2e63cb42eaa9a21901ee2833e88ea2)
+and WebsiteAngular commit
+[`d20ccc2`](https://github.com/reactome/WebsiteAngular/commit/d20ccc2afa0d939937b8465ba99ee0e04fd8a7f7).
+Later review or maintenance work can continue on those branches without making
+the submitted work-product boundary ambiguous.
 
 ## The stack
 
@@ -470,6 +498,26 @@ one pathway, but it needs two modeling decisions first:
 The meeting discussed ReacFoam as a possibility, not as a finished model
 contract. I implemented the exact nodes-and-edges view first because it uses the
 graph DeltaSignal already returns and does not invent a new pathway summary.
+
+## Challenges and lessons
+
+The most time-consuming problems were often at the boundaries between tools,
+not inside one solver function. LNG mappings are position-aware rather than
+one-to-one, missing database identifiers can mean several different things,
+and changing the Reactome or LNG release can change a prediction before
+DeltaSignal itself runs. The stringified-null and release-sentinel fixes came
+from tracing those boundaries rather than skipping malformed rows.
+
+I also learned that evaluation scope changes the apparent conclusion. A paired
+comparison on mapped cases can show approximate parity while the complete
+system still has limited coverage. Likewise, 133 non-converged case rows can
+come from only nine unique solves. Both views are true, but only if the
+denominator and unit of analysis are stated.
+
+Finally, a biologically plausible clinical association is not enough to show
+that network propagation adds value. The matched-expression control changed
+the interpretation of the TCGA result. It showed why every future omics
+application should include a baseline built from the same measured inputs.
 
 ## What I would do next
 
