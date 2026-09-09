@@ -55,7 +55,7 @@ function parse_logic_network(filepath::String)::Vector{LogicNetworkEdge}
 
     # Sample/bundled schema
     if ncol(df) != 5
-        error("Logic network must have exactly 5 columns (parent, child, is_and, is_positive, stoichiometry) for the sample format, or generator-format columns (source_id, target_id, pos_neg, and_or, ...).")
+        throw(ArgumentError("Logic network must have exactly 5 columns (parent, child, is_and, is_positive, stoichiometry) for the sample format, or generator-format columns (source_id, target_id, pos_neg, and_or, ...)."))
     end
 
     edges = LogicNetworkEdge[]
@@ -125,7 +125,7 @@ function parse_uuid_mapping(filepath::String)::Dict{String, NetworkNode}
     end
 
     if ncol(df) < 4
-        error("UUID mapping must have at least 4 columns (uuid, name, reactome_id, entity_type) for the sample format, or generator-format columns (uuid, stable_id).")
+        throw(ArgumentError("UUID mapping must have at least 4 columns (uuid, name, reactome_id, entity_type) for the sample format, or generator-format columns (uuid, stable_id)."))
     end
 
     if ncol(df) == 4
@@ -189,7 +189,7 @@ function parse_set_mappings(filepath::String)::Dict{String, SetExpansionMapping}
     df = CSV.read(filepath, DataFrame, header=true)
     
     if ncol(df) < 4
-        error("Set mappings TSV must have at least 4 columns: set_id, uuid, set_name, set_type")
+        throw(ArgumentError("Set mappings TSV must have at least 4 columns: set_id, uuid, set_name, set_type"))
     end
     
     # Group by set_id to collect all members

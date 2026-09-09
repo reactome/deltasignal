@@ -181,6 +181,53 @@ function create_reaction_from_edges(
         end
     end
 
+    # Collapse duplicate parallel activator edges from the SAME source
+    # (DS_DEDUP_ACTIVATORS). Reactome routinely curates one entity as both the
+    # `input` and the `catalyst` of a reaction, which arrives here as two
+    # separate pos/and edges with the same parent_uuid. Each edge takes its own
+    # slot in the activator vectors, so the aggregators count that entity twice
+    # — under hill_log its log-fold is summed twice, i.e. its fold-change is
+    # SQUARED (an entity at UI 10 drives the target 7.7x higher than a single
+    # edge would). 4.84% of catalog edges sit in such duplicate groups, across
+    # 78 of 92 pathways, so this silently skews every propagated result.
+    #
+    # One entity should contribute one factor. Keep the first slot and merge the
+    # role flags (catalyst/assembly are unioned so the SCC catalyst-break and
+    # assembly-limiting layers still see the role). Params are built after this,
+    # so per-edge weights stay aligned with the deduplicated vectors.
+    if get(ENV, "DS_DEDUP_ACTIVATORS", "0") == "1" && length(activators) > 1
+        seen = Dict{String, Int}()
+        d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]
+        for k in eachindex(activators)
+            src = activators[k]
+            j = get(seen, src, 0)
+            if j == 0
+                push!(d_act, src)
+                push!(d_and, activator_is_and[k])
+                push!(d_cat, activator_is_catalyst[k])
+                push!(d_asm, activator_is_assembly[k])
+                seen[src] = length(d_act)
+            else
+                # Merge deterministically so the result cannot depend on edge
+                # order in the input file (the repo asserts edge-order
+                # invariance). AND wins for is_and: the slot's cluster
+                # membership decides whether it lands in and_vals or or_vals,
+                # which DS_OR_COMBINE=gate makes load-bearing, so a
+                # first-occurrence tie-break would let row order change the
+                # propagated value. Catalyst unions (it only marks SCC
+                # break-eligibility). Assembly requires ALL duplicates to be
+                # assembly, so a mixed input+assembly pair stays a normal
+                # activator contributing its own fold factor rather than being
+                # reclassified into the assembly_min limiting rule.
+                d_and[j] |= activator_is_and[k]
+                d_cat[j] |= activator_is_catalyst[k]
+                d_asm[j] &= activator_is_assembly[k]
+            end
+        end
+        activators, activator_is_and = d_act, d_and
+        activator_is_catalyst, activator_is_assembly = d_cat, d_asm
+    end
+
     # Reaction-level fallback flag (preserved for any legacy caller).
     is_and_gate = any(edge.is_and for edge in edges)
 
@@ -283,6 +330,14 @@ struct IndexedReaction
                                     # cannot exceed its scarcest subunit — rather
                                     # than the permissive DS_AND_MODE.
     inhibitor_indices::Vector{Int}
+    inhibitor_is_and::Vector{Bool}  # per-inhibitor AND/OR flag, mirroring
+                                    # activator_is_and. AND-clustered inhibitors
+                                    # repress cooperatively (their suppression
+                                    # factors multiply); OR-clustered ones are
+                                    # alternative repressors where any one
+                                    # suffices, so the dominant (most
+                                    # suppressing) one applies instead of the
+                                    # product. Honored under DS_INHIBITOR_OR.
     inhibitor_in_short_loop::Vector{Bool}  # per-inhibitor: is the inhibitor a
                                             # node that the reaction's target
                                             # can reach in ≤ DS_LOOP_DEPTH
@@ -434,11 +489,18 @@ function index_reactions(
             push!(fwd_adj[d], target_idx)
         end
 
+        # Per-inhibitor AND/OR flag, compacted in lockstep with inh_indices via
+        # the same surviving-position list used for the inhibitor params. Falls
+        # back to the reaction-level flag for any inhibitor whose per-edge flag
+        # is missing (legacy Reaction constructors).
+        inh_is_and = [k <= length(r.inhibitor_is_and) ? r.inhibitor_is_and[k] : r.is_and_gate
+                      for k in inh_orig]
+
         push!(raw, (
             target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
             act_indices=act_indices, act_is_and=act_is_and,
             act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
-            inh_indices=inh_indices, dep_indices=dep_indices,
+            inh_indices=inh_indices, inh_is_and=inh_is_and, dep_indices=dep_indices,
             sub_indices=sub_indices, params=params,
         ))
     end
@@ -534,7 +596,7 @@ function index_reactions(
             rec.target_idx, rec.baseline,
             rec.act_indices, rec.act_is_and, act_break,
             rec.act_is_assembly,
-            rec.inh_indices, in_loop, in_transcription,
+            rec.inh_indices, rec.inh_is_and, in_loop, in_transcription,
             rec.dep_indices,
             rec.sub_indices, rec.params,
         ))
@@ -632,6 +694,9 @@ struct ReactionEvalConfig
     devspec_beta_raw::String
     spec_beta_raw::String
     depletion_h_max::Float64
+    inhibitor_or::Bool
+    or_redundancy::Float64
+    or_combine::String
 end
 
 """
@@ -655,6 +720,12 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
         parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")),
+        get(ENV, "DS_INHIBITOR_OR", "0") == "1",
+        # Clamped: w is documented as [0,1], and w > 1 would invert a
+        # knockout (mean 0.96 + (1-w)*min with w=2 gives fold ~1.9, i.e. a KO
+        # driving the target UP). Easy to hit with a sweep typo.
+        clamp(parse(Float64, get(ENV, "DS_OR_REDUNDANCY", "1.0")), 0.0, 1.0),
+        get(ENV, "DS_OR_COMBINE", "max"),
     )
 end
 
@@ -919,6 +990,41 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 sorted = sort(collect(or_vals))
                 n = length(sorted)
                 isodd(n) ? sorted[(n + 1) ÷ 2] : (sorted[n ÷ 2] + sorted[n ÷ 2 + 1]) / 2
+            elseif or_mode == "capacity"
+                # Redundant-alternatives capacity, in FOLD space so it composes
+                # through a cascade the way the hill_log AND path does.
+                #
+                # Motivation: a set-valued catalyst is "any one of these plays
+                # this role", so losing one alternative should cost a share of
+                # the route — not nothing (max: KO of one of N leaves the max at
+                # baseline, masking it) and not everything (AND: any KO kills the
+                # reaction outright).
+                #
+                #   fold_i   = (vᵢ + ε) / (baseline + ε)
+                #   capacity = mean(fold_i)          # share of surviving routes
+                #   dominant = min(fold_i)           # any lost route is decisive
+                #   fold     = w·capacity + (1-w)·dominant
+                #
+                # w = DS_OR_REDUNDANCY ∈ [0,1]. w=1 credits full redundancy and
+                # is equivalent to `mean`; w=0 makes any lost alternative
+                # decisive (AND-like for a knockout). Intermediate values credit
+                # partial redundancy, which is the biologically interesting
+                # regime: Reactome sets enumerate every paralog, but in a given
+                # cell line only a subset is expressed, so a KO of the
+                # functionally relevant member behaves closer to a single point
+                # of failure than 1/N of a route. Pure capacity gives fold 0.96
+                # for a KO of 1-of-26 — above the DOWN cutoff, hence invisible.
+                eps_T = T(1e-6)
+                w = T(config.or_redundancy)
+                inv_n = one(T) / T(length(or_vals))
+                cap = zero(T)
+                dom = typemax(T)
+                for v in or_vals
+                    f = (v + eps_T) / (bl + eps_T)
+                    cap += inv_n * f
+                    f < dom && (dom = f)
+                end
+                clamp(bl * (w * cap + (one(T) - w) * dom), zero(T), one(T))
             else
                 maximum(or_vals)
             end
@@ -927,6 +1033,23 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             or_result
         elseif or_result === nothing
             and_result
+        elseif config.or_combine == "gate"
+            # DS_OR_COMBINE=gate: treat the OR cluster as a REQUIRED route whose
+            # remaining capacity throttles the reaction, rather than an
+            # alternative to the AND inputs.
+            #
+            # The default `max(and, or)` silently discards any OR-cluster loss:
+            # every reaction has AND-clustered input edges sitting at baseline,
+            # so max() falls back to those and the reaction proceeds unchanged.
+            # Measured: with one AND input present, knocking out an OR-catalyst
+            # alternative leaves the target at fold 1.0 for EVERY redundancy
+            # weight, including a total OR-cluster kill. So no OR aggregator can
+            # gate a reaction under `max` — the combination rule has to change.
+            #
+            # Gating multiplies the AND result by the OR cluster's fold-change,
+            # which is what "this reaction needs one of these catalysts" means.
+            eps_T = T(1e-6)
+            clamp(and_result * ((or_result + eps_T) / (bl + eps_T)), zero(T), one(T))
         else
             max(and_result, or_result)
         end
@@ -983,7 +1106,18 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #                     protein-level feedback at full divide strength.
         h_floor = T(config.inhibitor_floor)
         floor_scope = config.floor_scope
+        # DS_INHIBITOR_OR: honor the per-edge inhibitor AND/OR flag. AND-clustered
+        # repressors act cooperatively, so their suppression factors multiply
+        # (the existing behaviour, applied to every inhibitor). OR-clustered ones
+        # are ALTERNATIVE repressors — "any one of these represses" — so the
+        # dominant (most suppressing, i.e. smallest H) one applies instead of the
+        # product. Multiplying alternatives both over-represses when they are all
+        # present and, worse, manufactures de-repression when only one is knocked
+        # out even though the redundant partners still repress.
+        honor_or = config.inhibitor_or
         result = one(T)
+        or_h = one(T)
+        have_or = false
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
             h_k = (bl + eps_T) / (x_inh + eps_T)
@@ -993,8 +1127,14 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             if apply_floor
                 h_k = max(h_floor, h_k)
             end
-            result *= h_k
+            if honor_or && k <= length(rxn.inhibitor_is_and) && !rxn.inhibitor_is_and[k]
+                or_h = have_or ? min(or_h, h_k) : h_k
+                have_or = true
+            else
+                result *= h_k
+            end
         end
+        have_or && (result *= or_h)
         # Cap H to prevent catastrophic de-repression from multiple knockouts.
         # The output is also clamped later, but keeping H bounded keeps signed
         # AND propagation well-behaved upstream.
