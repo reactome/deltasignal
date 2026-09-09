@@ -683,6 +683,8 @@ struct ReactionEvalConfig
     spec_beta_raw::String
     depletion_h_max::Float64
     inhibitor_or::Bool
+    or_redundancy::Float64
+    or_combine::String
 end
 
 """
@@ -707,6 +709,8 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
         parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")),
         get(ENV, "DS_INHIBITOR_OR", "0") == "1",
+        parse(Float64, get(ENV, "DS_OR_REDUNDANCY", "1.0")),
+        get(ENV, "DS_OR_COMBINE", "max"),
     )
 end
 
@@ -971,6 +975,41 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 sorted = sort(collect(or_vals))
                 n = length(sorted)
                 isodd(n) ? sorted[(n + 1) ÷ 2] : (sorted[n ÷ 2] + sorted[n ÷ 2 + 1]) / 2
+            elseif or_mode == "capacity"
+                # Redundant-alternatives capacity, in FOLD space so it composes
+                # through a cascade the way the hill_log AND path does.
+                #
+                # Motivation: a set-valued catalyst is "any one of these plays
+                # this role", so losing one alternative should cost a share of
+                # the route — not nothing (max: KO of one of N leaves the max at
+                # baseline, masking it) and not everything (AND: any KO kills the
+                # reaction outright).
+                #
+                #   fold_i   = (vᵢ + ε) / (baseline + ε)
+                #   capacity = mean(fold_i)          # share of surviving routes
+                #   dominant = min(fold_i)           # any lost route is decisive
+                #   fold     = w·capacity + (1-w)·dominant
+                #
+                # w = DS_OR_REDUNDANCY ∈ [0,1]. w=1 credits full redundancy and
+                # is equivalent to `mean`; w=0 makes any lost alternative
+                # decisive (AND-like for a knockout). Intermediate values credit
+                # partial redundancy, which is the biologically interesting
+                # regime: Reactome sets enumerate every paralog, but in a given
+                # cell line only a subset is expressed, so a KO of the
+                # functionally relevant member behaves closer to a single point
+                # of failure than 1/N of a route. Pure capacity gives fold 0.96
+                # for a KO of 1-of-26 — above the DOWN cutoff, hence invisible.
+                eps_T = T(1e-6)
+                w = T(config.or_redundancy)
+                inv_n = one(T) / T(length(or_vals))
+                cap = zero(T)
+                dom = typemax(T)
+                for v in or_vals
+                    f = (v + eps_T) / (bl + eps_T)
+                    cap += inv_n * f
+                    f < dom && (dom = f)
+                end
+                clamp(bl * (w * cap + (one(T) - w) * dom), zero(T), one(T))
             else
                 maximum(or_vals)
             end
@@ -979,6 +1018,23 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             or_result
         elseif or_result === nothing
             and_result
+        elseif config.or_combine == "gate"
+            # DS_OR_COMBINE=gate: treat the OR cluster as a REQUIRED route whose
+            # remaining capacity throttles the reaction, rather than an
+            # alternative to the AND inputs.
+            #
+            # The default `max(and, or)` silently discards any OR-cluster loss:
+            # every reaction has AND-clustered input edges sitting at baseline,
+            # so max() falls back to those and the reaction proceeds unchanged.
+            # Measured: with one AND input present, knocking out an OR-catalyst
+            # alternative leaves the target at fold 1.0 for EVERY redundancy
+            # weight, including a total OR-cluster kill. So no OR aggregator can
+            # gate a reaction under `max` — the combination rule has to change.
+            #
+            # Gating multiplies the AND result by the OR cluster's fold-change,
+            # which is what "this reaction needs one of these catalysts" means.
+            eps_T = T(1e-6)
+            clamp(and_result * ((or_result + eps_T) / (bl + eps_T)), zero(T), one(T))
         else
             max(and_result, or_result)
         end
