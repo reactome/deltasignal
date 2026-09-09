@@ -4,9 +4,9 @@ MYC,treatment_A,2.1,0.8
 P53,treatment_A,0.3,0.7
 AKT,treatment_A,1.8,0.85
 ERK,treatment_A,1.2,0.75
-VEGF,treatment_B,-0.8,0.9
+VEGF,treatment_B,0.5,0.9
 PI3K,treatment_B,0.5,0.6
 APOPTOSIS,treatment_B,1.9,0.95
 P21,treatment_C,2.5,0.8
-CDK4,treatment_C,-1.2,0.7
-CCND1,treatment_C,-0.9,0.75
+CDK4,treatment_C,0.3,0.7
+CCND1,treatment_C,0.45,0.75

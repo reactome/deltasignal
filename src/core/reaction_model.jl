@@ -113,7 +113,7 @@ function convert_to_reaction_network(network::ReactionNetwork)::Vector{Reaction}
     # its NET producers so a knockout can lower it. E is still CONSUMED (its input
     # edge stays) and R's other outputs are untouched. Faithful: R does not
     # produce E de novo. See memory project_loop_taxonomy_finding (Type II).
-    drop_pt = get(ENV, "DS_DROP_PASSTHROUGH", "0") == "1"
+    drop_pt = _bool_env("DS_DROP_PASSTHROUGH", false)
     edge_pairs = drop_pt ?
         Set{Tuple{String,String}}((e.parent_uuid, e.child_uuid) for e in network.edges) :
         Set{Tuple{String,String}}()
@@ -195,7 +195,7 @@ function create_reaction_from_edges(
     # role flags (catalyst/assembly are unioned so the SCC catalyst-break and
     # assembly-limiting layers still see the role). Params are built after this,
     # so per-edge weights stay aligned with the deduplicated vectors.
-    if get(ENV, "DS_DEDUP_ACTIVATORS", "0") == "1" && length(activators) > 1
+    if _bool_env("DS_DEDUP_ACTIVATORS", false) && length(activators) > 1
         seen = Dict{String, Int}()
         d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]
         for k in eachindex(activators)
@@ -510,8 +510,8 @@ function index_reactions(
     # node i, numbered in reverse-topological order. Used for (a) the SCC-
     # condensation solver's processing order [DS_SCC_SOLVE] and (b) marking
     # recycling catalyst back-edges to relax [DS_SCC_BREAK_CATALYST].
-    scc_solve = get(ENV, "DS_SCC_SOLVE", "1") != "0"  # SCC-condensation solve is the default; set DS_SCC_SOLVE=0 for legacy flat iteration
-    break_catalyst = get(ENV, "DS_SCC_BREAK_CATALYST", "0") != "0"
+    scc_solve = _bool_env("DS_SCC_SOLVE", true)  # SCC-condensation solve is the default; set DS_SCC_SOLVE=0 for legacy flat iteration
+    break_catalyst = _bool_env("DS_SCC_BREAK_CATALYST", false)
     comp_id, n_comp = (scc_solve || break_catalyst) ?
         tarjan_scc_components(fwd_adj) : (Int[], 0)
 
@@ -700,32 +700,122 @@ struct ReactionEvalConfig
 end
 
 """
+Valid values for each `DS_*` mode variable.
+
+Every mode dispatch below is an `if/elseif/else` whose `else` is a real model,
+so an unrecognised value used to select a *different model* silently — and for
+`DS_INHIBITION_MODE` that fallback is `"spec"`, whose default β is 0, i.e. no
+inhibition at all. `DS_INHIBITION_MODE="Divide"` (or a trailing space, easily
+produced by a shell or compose file) therefore turned inhibition off and still
+reported a number. These sets make that a startup error instead.
+
+Each set below is the exhaustive list of values the corresponding dispatch
+actually implements, INCLUDING the value the `else` branch represents (named
+explicitly so that selecting it stays deliberate):
+
+- `DS_INHIBITION_MODE`: `spec` is the `else`.
+- `DS_AND_MODE`: `geomean` is the `else`.
+- `DS_OR_MODE`: `max` is the `else`.
+- `DS_OR_COMBINE`: `max` is the `else`.
+- `DS_INHIBITOR_FLOOR_SCOPE`: `none` is the `else` (no floor applied).
+"""
+const DS_VALID_MODES = Dict(
+    "DS_INHIBITION_MODE" => Set([
+        "divide", "devspec", "spec", "krep", "hill_sat", "inversion",
+    ]),
+    "DS_AND_MODE" => Set([
+        "hill_log", "hill_sat", "multiplicative", "signed", "signed_gated",
+        "min", "geomean",
+    ]),
+    "DS_OR_MODE"               => Set(["mean", "median", "capacity", "max"]),
+    "DS_OR_COMBINE"            => Set(["max", "gate"]),
+    "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
+)
+
+"""
+Read a `DS_*` mode variable, rejecting anything not in its allowlist.
+
+Names are matched exactly: silently lowercasing or trimming would just move the
+guess one level up. A typo is a configuration error, not a model choice.
+"""
+function _mode_env(name::String, default::String)::String
+    value = get(ENV, name, default)
+    valid = DS_VALID_MODES[name]
+    if !(value in valid)
+        throw(ArgumentError(
+            "$name=\"$value\" is not a recognised mode. Valid values: " *
+            join(sort(collect(valid)), ", ") * ". " *
+            "(Unrecognised values used to fall through to a different model silently.)"
+        ))
+    end
+    return value
+end
+
+"""
+Read a boolean `DS_*` flag.
+
+Flags were previously tested two incompatible ways — some `== "1"`, others
+`!= "0"` — so `DS_ASSEMBLY_LIMITING="true"` turned the feature OFF (a 74x
+change in output) while `DS_SCC_SOLVE="false"` left it ON. Both spellings are
+now accepted, and anything else is an error rather than a silent default.
+"""
+function _bool_env(name::String, default::Bool)::Bool
+    raw = get(ENV, name, nothing)
+    raw === nothing && return default
+    value = lowercase(strip(raw))
+    value in ("1", "true", "yes", "on") && return true
+    value in ("0", "false", "no", "off") && return false
+    throw(ArgumentError(
+        "$name=\"$raw\" is not a boolean. Use one of 1/0, true/false, yes/no, on/off."
+    ))
+end
+
+"""
+Read a numeric `DS_*` variable, reporting the variable name on a bad value.
+
+A bare `parse(Float64, ...)` raises `ArgumentError: cannot parse "" as Float64`,
+which does not say which of the two dozen DS_* knobs was wrong.
+"""
+function _float_env(name::String, default::Float64)::Float64
+    raw = get(ENV, name, nothing)
+    raw === nothing && return default
+    value = tryparse(Float64, strip(raw))
+    if value === nothing || !isfinite(value)
+        throw(ArgumentError("$name=\"$raw\" is not a finite number."))
+    end
+    return value
+end
+
+"""
 Resolve a ReactionEvalConfig from the DS_* environment. Defaults are the
 validated winning config (commit c9805b2). Call once per solve and thread the
 result into compute_reaction_output_vec / forward_model_vec.
+
+Invalid values raise `ArgumentError` here, at the single resolution point,
+rather than silently selecting a different model deeper in the dispatch.
 """
 function resolve_reaction_eval_config()::ReactionEvalConfig
     return ReactionEvalConfig(
-        get(ENV, "DS_INHIBITION_MODE", "divide"),
-        get(ENV, "DS_AND_MODE", "hill_log"),
-        get(ENV, "DS_OR_MODE", "mean"),
-        get(ENV, "DS_ASSEMBLY_LIMITING", "1") == "1",
-        parse(Float64, get(ENV, "DS_HILL_SAT_EPS", "0.001")),
-        parse(Float64, get(ENV, "DS_HILL_SAT_H_MAX", "10.0")),
-        parse(Float64, get(ENV, "DS_HILL_LOG_ZMAX", "10.0")),
-        parse(Float64, get(ENV, "DS_INHIBITOR_K", "0.1")),
-        parse(Float64, get(ENV, "DS_INHIBITOR_EPS", "0.001")),
-        parse(Float64, get(ENV, "DS_INHIBITOR_FLOOR", "0.0")),
-        get(ENV, "DS_INHIBITOR_FLOOR_SCOPE", "loops"),
+        _mode_env("DS_INHIBITION_MODE", "divide"),
+        _mode_env("DS_AND_MODE", "hill_log"),
+        _mode_env("DS_OR_MODE", "mean"),
+        _bool_env("DS_ASSEMBLY_LIMITING", true),
+        _float_env("DS_HILL_SAT_EPS", 0.001),
+        _float_env("DS_HILL_SAT_H_MAX", 10.0),
+        _float_env("DS_HILL_LOG_ZMAX", 10.0),
+        _float_env("DS_INHIBITOR_K", 0.1),
+        _float_env("DS_INHIBITOR_EPS", 0.001),
+        _float_env("DS_INHIBITOR_FLOOR", 0.0),
+        _mode_env("DS_INHIBITOR_FLOOR_SCOPE", "loops"),
         get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
-        parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")),
-        get(ENV, "DS_INHIBITOR_OR", "0") == "1",
+        _float_env("DS_DEPLETION_H_MAX", 10.0),
+        _bool_env("DS_INHIBITOR_OR", false),
         # Clamped: w is documented as [0,1], and w > 1 would invert a
         # knockout (mean 0.96 + (1-w)*min with w=2 gives fold ~1.9, i.e. a KO
         # driving the target UP). Easy to hit with a sweep typo.
-        clamp(parse(Float64, get(ENV, "DS_OR_REDUNDANCY", "1.0")), 0.0, 1.0),
-        get(ENV, "DS_OR_COMBINE", "max"),
+        clamp(_float_env("DS_OR_REDUNDANCY", 1.0), 0.0, 1.0),
+        _mode_env("DS_OR_COMBINE", "max"),
     )
 end
 
