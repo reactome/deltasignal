@@ -284,9 +284,35 @@ function execute_solve_command(args)
             end
 
             confidence = Float64(row.confidence)
+
+            # Range-check here, as the HTTP API does. The solver pins
+            # `activity/100` WITHOUT clamping but clamps the value it reports,
+            # so an out-of-range observation propagates a value outside the
+            # model's [0,1] domain while the output file shows a plausible
+            # number: `EGFR,-100` and `EGFR,0` both report EGFR = 0 but produce
+            # completely different networks. Fail loudly instead.
+            if !isfinite(activity) || activity < 0.0 || activity > 100.0
+                error("Observation for '$uuid' has activity $activity; " *
+                      "must be a finite value in 0-100 (0 = none, 1 = baseline, 100 = 100x).")
+            end
+            if !isfinite(confidence) || confidence < 0.0 || confidence > 1.0
+                error("Observation for '$uuid' has confidence $confidence; " *
+                      "must be a finite value in 0-1.")
+            end
+
             observations[uuid] = (activity, confidence)
         end
         println("✓ Loaded $(length(observations)) observations")
+
+        # A uuid that is not in the network is silently dropped by the solver,
+        # producing a result indistinguishable from "no perturbation". Say so.
+        unknown = sort([u for u in keys(observations) if !haskey(network.nodes, u)])
+        if !isempty(unknown)
+            shown = join(first(unknown, 5), ", ")
+            suffix = length(unknown) > 5 ? ", ... ($(length(unknown)) total)" : ""
+            @warn "Observations reference nodes that are not in the network; " *
+                  "they will be ignored: $shown$suffix"
+        end
 
         # Create solver parameters
         params = SteadyStateParams(

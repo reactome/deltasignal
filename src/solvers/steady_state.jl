@@ -108,8 +108,20 @@ function solve_scc_ordered!(
     params::SteadyStateParams,
     config::ReactionEvalConfig = resolve_reaction_eval_config(),
 )
-    λ = parse(Float64, get(ENV, "DS_SCC_DAMPING", "0.5"))
-    use_supply = get(ENV, "DS_SCC_BREAK_CATALYST", "0") != "0"
+    # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
+    # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
+    # domain and reaches log((v+ε)/(bl+ε)) as a negative argument — an uncaught
+    # DomainError out of the solver. λ = 0 never updates the component at all
+    # and silently burns every iteration. Both are sweep typos, not choices.
+    λ = _float_env("DS_SCC_DAMPING", 0.5)
+    if !(0.0 < λ <= 1.0)
+        throw(ArgumentError(
+            "DS_SCC_DAMPING=$λ is out of range; must be in (0, 1]. " *
+            "λ ≤ 0 never updates the component; λ > 1 extrapolates outside " *
+            "the model domain and throws from inside the propagator."
+        ))
+    end
+    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false)
     max_inner = params.max_iters
     tol = params.tolerance
 
@@ -124,7 +136,7 @@ function solve_scc_ordered!(
     #                    SCC to count as negative-feedback-dominant (default 0.5)
     #   DS_SCC_NEG_ITERS: sweeps for negative SCCs in transient mode (default 1)
     neg_mode = get(ENV, "DS_SCC_NEG_MODE", "converge")
-    neg_frac_thresh = parse(Float64, get(ENV, "DS_SCC_NEG_FRAC", "0.5"))
+    neg_frac_thresh = _float_env("DS_SCC_NEG_FRAC", 0.5)
     neg_iters = parse(Int, get(ENV, "DS_SCC_NEG_ITERS", "1"))
 
     # Reactions grouped by their target node's component.
@@ -318,9 +330,15 @@ function solve_steady_state_penalty(
     # is a contraction for bounded operators and converges to the same
     # fixed-point as the un-damped iteration when one exists. Observations
     # are still hard-pinned each step. Default 0 = original behaviour.
-    damping = parse(Float64, get(ENV, "DS_DAMPING", "0.0"))
+    damping = _float_env("DS_DAMPING", 0.0)
+    if !(0.0 <= damping < 1.0)
+        throw(ArgumentError(
+            "DS_DAMPING=$damping is out of range; must be in [0, 1). " *
+            "1.0 would freeze the iteration entirely."
+        ))
+    end
 
-    scc_solve = get(ENV, "DS_SCC_SOLVE", "1") != "0"  # SCC-condensation solve is the default; set DS_SCC_SOLVE=0 for legacy flat iteration
+    scc_solve = _bool_env("DS_SCC_SOLVE", true)  # SCC-condensation solve is the default; set DS_SCC_SOLVE=0 for legacy flat iteration
     if scc_solve && n_comp > 0
         # SCC-condensation solve (see solve_scc_ordered!): solves the acyclic
         # majority exactly in topological order and confines damped iteration to

@@ -98,6 +98,9 @@ const JSON_HEADERS = ["Content-Type" => "application/json"]
 const OBS_SHAPE_ERROR = "Each observation must be a 2-element numeric array [activity, confidence]."
 const OBS_RANGE_ERROR = "Observation activity must be within 0-100 and confidence within 0-1."
 const NODE_BASELINE_ERROR = "Each network node baseline must be a finite number in (0, 1]."
+const UPLOAD_ERROR = "Upload requires both a 'logic_network' and a 'uuid_mapping' file part."
+const UNKNOWN_NETWORK_ERROR = "Unknown network_id. The server cache is per-process and is cleared on restart; call /api/parse again."
+const NO_NETWORK_ERROR = "Request must provide a network: a pathway_id, an uploaded network, an inline network, or a known network_id."
 
 function user_facing_error(e::Exception)::Tuple{Int, String}
     if isa(e, ArgumentError)
@@ -111,7 +114,8 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
             # interpolate the requested pathway_id, reflecting arbitrary input
             # into the response body.
             return 400, "Unknown or unusable pathway id."
-        elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR || msg == NODE_BASELINE_ERROR
+        elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR || msg == NODE_BASELINE_ERROR ||
+               msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
             return 400, "Required input not found."
@@ -172,6 +176,19 @@ end
 # so /api/solve can use a network the client already parsed (no need to
 # re-upload TSVs on every solve).
 function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
+    # Type-check before touching fields. `data.nodes` on a scalar raises a bare
+    # ErrorException ("type String has no field nodes"), which user_facing_error
+    # deliberately does not map to 4xx — so {"network":"hello"} returned 500 and
+    # a genuine-fault alert for what is plainly malformed input. The comment
+    # there says malformed inputs should throw ArgumentError at the site that
+    # reads them; this is that site.
+    if !(data isa JSON3.Object)
+        throw(ArgumentError("Field 'network' must be an object with 'nodes' and 'edges'."))
+    end
+    if !haskey(data, :nodes) || !haskey(data, :edges)
+        throw(ArgumentError("Field 'network' must be an object with 'nodes' and 'edges'."))
+    end
+
     nodes_dict = Dict{String, DeltaSignal.NetworkNode}()
     for n in data.nodes
         reactome_id_raw = get(n, :reactome_id, nothing)
@@ -230,13 +247,30 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings)
 end
 
+"""
+Whether the request declares a multipart upload.
+
+Used to tell "the client sent no network" (fall back to the bundled sample,
+documented back-compat) from "the client tried to send one and it did not
+arrive" (an error). Both used to be indistinguishable `nothing`, so a misnamed
+form part or a wrong Content-Type silently returned the 40-node sample network
+with HTTP 200 and `status: success`.
+"""
+is_multipart_request(req) =
+    occursin("multipart/form-data", lowercase(HTTP.header(req, "Content-Type", "")))
+
 function extract_uploaded_files(req)
     multiparts = try
         HTTP.parse_multipart_form(req)
     catch
         nothing
     end
-    multiparts === nothing && return nothing
+    if multiparts === nothing
+        is_multipart_request(req) && throw(ArgumentError(
+            "Request declared multipart/form-data but the body could not be parsed."
+        ))
+        return nothing
+    end
 
     tmp_dir = mktempdir()
     paths = Dict{String, String}()
@@ -256,7 +290,10 @@ function extract_uploaded_files(req)
 
     if !haskey(paths, "logic_network") || !haskey(paths, "uuid_mapping")
         rm(tmp_dir, recursive=true, force=true)
-        return nothing
+        # An upload was attempted. Falling through to the sample network here
+        # is what turned a misnamed part into a successful parse of unrelated
+        # data, so this is an error even though a bodyless request is not.
+        throw(ArgumentError(UPLOAD_ERROR))
     end
 
     return (paths=paths, tmp_dir=tmp_dir)
@@ -446,8 +483,12 @@ function pathways_handler(req)
 end
 
 function parse_handler(req)
-    upload = extract_uploaded_files(req)
+    # Must be inside the try: extract_uploaded_files now rejects a malformed
+    # upload with ArgumentError, and outside the try that escaped the handler
+    # entirely and became a bodyless 500 instead of a 400 with the reason.
+    local upload = nothing
     try
+        upload = extract_uploaded_files(req)
         local logic_network_path, uuid_mapping_path, set_mapping_path
         pathway_id = nothing
 
@@ -471,9 +512,15 @@ function parse_handler(req)
             if pathway_id !== nothing
                 logic_network_path, uuid_mapping_path, set_mapping_path =
                     catalog_network_paths(pathway_id)
-            else
-                # Final fallback: bundled sample (back-compat)
+            elseif isempty(body)
+                # Bodyless request: bundled sample (documented back-compat).
+                # Only a request that expressed NO intent gets the sample; a
+                # request that carried a body but no usable pathway_id has
+                # asked for something specific and must not silently receive
+                # unrelated demo data with HTTP 200.
                 logic_network_path, uuid_mapping_path, set_mapping_path = sample_network_paths()
+            else
+                throw(ArgumentError(NO_NETWORK_ERROR))
             end
         end
 
@@ -569,6 +616,14 @@ function solve_handler(req)
         cached = network_id_raw === nothing ? nothing : get_cached_network(String(network_id_raw))
         if cached !== nothing
             network = cached
+        elseif network_id_raw !== nothing
+            # The client named a network that this process does not have.
+            # NETWORK_CACHE is per-process and is cleared on restart, so a UI
+            # holding an id from before a restart used to get the bundled
+            # sample network solved for it, with HTTP 200 and no signal at all.
+            # docs/API.md already tells clients to re-parse on a cache miss;
+            # this makes that miss observable.
+            throw(ArgumentError(UNKNOWN_NETWORK_ERROR))
         elseif network_raw !== nothing
             network = reaction_network_from_json(network_raw)
         else

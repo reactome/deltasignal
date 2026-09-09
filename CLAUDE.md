@@ -145,7 +145,14 @@ The system implements a biologically-realistic reaction model with the following
 - **Logic Network TSV**: `Parent_UUID | Child_UUID | AND/OR | Pos/Neg | Stoichiometry`
 - **UUID Mapping TSV**: `Network_UUID | Reactome_ID | Entity_Type | Set_ID`
 - **Set Mappings TSV**: `Set_ID | Original_Name | Member_UUIDs`
-- **Observations CSV**: `node_uuid,activity,confidence` (activity in 0-100 scale)
+- **Observations CSV**: `node_uuid,activity,confidence`. The node column may
+  also be `node`, and the activity column may also be `value`
+  (`examples/sample_observations.csv` uses `node,condition,value,confidence`).
+  Activity is on the **0-100 scale** (0 = none, 1 = normal baseline, 100 = 100x)
+  and is range-checked; a value outside 0-100 is an error, not a clamp.
+  Confidence is 0-1. Any extra column — including `condition` — is ignored, so
+  a file holding several conditions is applied as one simultaneous
+  perturbation set.
 
 ### Internal Scales
 - **User Interface (I/O files)**: 0-100 scale for node activities

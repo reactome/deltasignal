@@ -71,7 +71,16 @@ Parse a logic network into nodes + edges. Three input modes (checked in order):
    ```
 2. **File upload** (escape hatch) — `multipart/form-data` with parts
    `logic_network` and `uuid_mapping` (required), `set_mappings` (optional).
-3. **No body** — falls back to the bundled sample network.
+   A request that declares `multipart/form-data` but is missing either required
+   part is a **`400`** — it is not silently treated as mode 3.
+3. **No body** — falls back to the bundled sample network. This applies only to
+   a genuinely empty body. A request that sends a body but no usable
+   `pathway_id` gets a **`400`**, because it asked for something specific and
+   must not receive unrelated demo data with a `200`.
+
+Upload is actually checked before the body is read, so a multipart request
+never reaches mode 1; the ordering above matters only when more than one mode
+could apply, which the `400`s now prevent.
 
 Response:
 ```json
@@ -95,8 +104,10 @@ down — names fall back to the stable id).
 **`network_id`** is the key to the parse-once/solve-many flow: hand it to
 `/api/solve` instead of re-shipping the whole network on every solve. It is an
 in-memory, per-process cache — it does **not** survive a server restart, so a
-client must be prepared to re-`parse` on a `404`-style cache miss (a solve with
-an unknown `network_id` falls through to the inline `network`, then the sample).
+client must be prepared to re-`parse` on a cache miss. A solve naming a
+`network_id` the server does not hold returns **`400`** with a message saying
+to re-`parse`; it does **not** fall through to the inline `network` or the
+sample, which previously returned a confident `200` for a different network.
 
 ### `POST /api/solve`
 Solve the steady state under a set of perturbations. JSON body:
@@ -108,7 +119,9 @@ Solve the steady state under a set of perturbations. JSON body:
 ```
 - **Network source** (in priority order): `network_id` (from a prior parse) →
   inline `network` (same shape as the parse response's nodes/edges/pathways) →
-  bundled sample.
+  bundled sample. A `network_id` that is present but unknown is a `400`, not a
+  fall-through: naming a network the server does not have is an error, whereas
+  naming none at all still selects the sample.
 - **`observations`**: object keyed by node `uuid`; each value is
   `[activity, confidence]` where `activity` is **0–100** and `confidence` is
   `0–1`. Confidence `> 0` pins the node as a hard constraint; `0` ignores it.
