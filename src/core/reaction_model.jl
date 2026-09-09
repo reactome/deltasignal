@@ -208,8 +208,20 @@ function create_reaction_from_edges(
                 push!(d_asm, activator_is_assembly[k])
                 seen[src] = length(d_act)
             else
+                # Merge deterministically so the result cannot depend on edge
+                # order in the input file (the repo asserts edge-order
+                # invariance). AND wins for is_and: the slot's cluster
+                # membership decides whether it lands in and_vals or or_vals,
+                # which DS_OR_COMBINE=gate makes load-bearing, so a
+                # first-occurrence tie-break would let row order change the
+                # propagated value. Catalyst unions (it only marks SCC
+                # break-eligibility). Assembly requires ALL duplicates to be
+                # assembly, so a mixed input+assembly pair stays a normal
+                # activator contributing its own fold factor rather than being
+                # reclassified into the assembly_min limiting rule.
+                d_and[j] |= activator_is_and[k]
                 d_cat[j] |= activator_is_catalyst[k]
-                d_asm[j] |= activator_is_assembly[k]
+                d_asm[j] &= activator_is_assembly[k]
             end
         end
         activators, activator_is_and = d_act, d_and
@@ -709,7 +721,10 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
         parse(Float64, get(ENV, "DS_DEPLETION_H_MAX", "10.0")),
         get(ENV, "DS_INHIBITOR_OR", "0") == "1",
-        parse(Float64, get(ENV, "DS_OR_REDUNDANCY", "1.0")),
+        # Clamped: w is documented as [0,1], and w > 1 would invert a
+        # knockout (mean 0.96 + (1-w)*min with w=2 gives fold ~1.9, i.e. a KO
+        # driving the target UP). Easy to hit with a sweep typo.
+        clamp(parse(Float64, get(ENV, "DS_OR_REDUNDANCY", "1.0")), 0.0, 1.0),
         get(ENV, "DS_OR_COMBINE", "max"),
     )
 end

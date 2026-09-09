@@ -57,6 +57,70 @@
 - [ ] **T019** Consider whether `max` should be retired entirely as a
       combination rule (it treats a catalyst as a substitute for a substrate).
 
+## Phase 5 — Self-review of this branch (adversarial diff review)
+
+A high-effort adversarial review of **my own diff** raised 15 findings. Fixed:
+
+- [X] **T020** `free_residual` filtered non-finite values out of the max, so a
+      NaN/Inf state reported `converged: true` with `null` activities. The code
+      it replaced got this right only incidentally (`NaN < tol == false`). Now
+      tracked explicitly; non-finite ⇒ never converged.
+- [X] **T021** **λ scale mismatch — corrected a wrong claim.** The inner SCC loop
+      broke on the *damped* step `λ·|F−x| < tol`, while the new verdict tested
+      `|F−x| < tol`. With the default `λ=0.5` a component could legitimately stop
+      at up to 2× tolerance and be reported non-converged. This is what produced
+      the "122/223 non-converged" figure. With the inner loop measuring the
+      undamped residual, it is **0/223**, and the residual is a live measurement
+      (2.4e-17 unperturbed, 6.8e-7 for a KO, all under the 1e-6 tolerance).
+      **The earlier "55% of solves don't converge" claim was my own bug, not a
+      property of the solver.**
+- [X] **T022** Dedup kept `is_and` from the first occurrence, making AND/OR
+      cluster membership depend on edge order (the repo asserts edge-order
+      invariance, and `gate`/`capacity` make membership load-bearing). Now
+      AND-wins for `is_and`, union for catalyst, and assembly requires *all*
+      duplicates to be assembly so a mixed input+assembly pair isn't
+      reclassified into the `assembly_min` rule. Verified order-independent.
+- [X] **T023** `isa Real` accepted JSON booleans (`Bool <: Integer <: Real`), so
+      `[false, true]` pinned a full knockout at confidence 1.0 and returned 200.
+- [X] **T024** For an array-shaped `observations`, `String(node_uuid)` in the
+      `@warn` threw before the intended `ArgumentError`, so the client got the
+      generic message instead of the specific shape one.
+- [X] **T025** Client-supplied `baseline` was unvalidated while being a divisor
+      throughout the propagator (`baseline: 0` + `gate` amplifies ~1/ε; negative
+      ⇒ NaN). Now required finite and in (0, 1].
+- [X] **T026** `DS_OR_REDUNDANCY` was unclamped; `w=2` inverts a knockout into a
+      ~2× increase. Clamped to [0,1] at resolve time.
+- [X] **T027** Mapping `ErrorException`/`DomainError` to 400 reported genuine
+      server faults as client errors (`error(...)` is this codebase's internal
+      invariant failure, e.g. `aggregators.jl` parameter-length checks). Narrowed
+      to `MethodError`/`InexactError`, and the TSV schema checks now throw
+      `ArgumentError` at the read site so they still surface as 400.
+
+Deferred, with reasons:
+
+- [ ] **T028** The final consistency evaluation omits `supply`, so under
+      `DS_SCC_BREAK_CATALYST` (default off) `F(x)` is a different operator than
+      the one solved and `converged` would always be false. Needs
+      `solve_scc_ordered!` to report its own residual rather than a global
+      recompute.
+- [ ] **T029** Self-loop singletons are invisible to the negative-edge census
+      (`comp_size[c] > 1 || continue`), so `DS_SCC_NEG_MODE=transient` (default
+      `converge`) treats `A ⊣ A` differently from the equivalent `A ⊣ B → A`.
+      Also `DS_SCC_NEG_FRAC=0` would mark every self-loop singleton negative.
+- [ ] **T030** `comp_has_self_loop` ignores `activator_break`, so under
+      `DS_SCC_BREAK_CATALYST` a deliberately-broken self-catalyst is routed into
+      the damped branch and reads its entry value instead of baseline — a
+      numeric change smuggled into a reporting fix.
+- [ ] **T031** Dedup covers activators only; duplicate inhibitor/depletion edges
+      still square their suppression. Low impact in practice — only 3 of 11,901
+      catalog duplicate groups are negative.
+- [ ] **T032** An observation for a uuid absent from the network is still
+      silently dropped (200, unperturbed solve). Pre-existing; the node set is
+      available at validation time, so it could be rejected or counted.
+- [ ] **T033** A fully-pinned solve (no free nodes) reports `converged: true`
+      vacuously. Kept as-is deliberately — "nothing to converge" reads as
+      converged, and the empty-network case would otherwise report false.
+
 ## Out of scope
 
 - Input/output edge operators — VR splitting already encodes their OR-ness.

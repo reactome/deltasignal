@@ -216,7 +216,14 @@ function solve_scc_ordered!(
                     t in obs_set && continue
                     fwd = compute_reaction_output_vec(x, r; supply=supply, config=config)
                     nv = (1.0 - λ) * x[t] + λ * fwd
-                    ch = abs(nv - x[t])
+                    # Measure the UNDAMPED model residual |F(x) - x|, not the
+                    # damped step |nv - x|. The damped step is λ·|F(x) - x|, so
+                    # with the default λ = 0.5 a component could break at a true
+                    # residual of up to 2·tolerance and then be reported
+                    # non-converged by the |F(x) - x| < tolerance test below —
+                    # the stopping rule and the convergence verdict were on
+                    # different scales.
+                    ch = abs(fwd - x[t])
                     ch > maxch && (maxch = ch)
                     x[t] = nv
                 end
@@ -363,14 +370,24 @@ function solve_steady_state_penalty(
     # Excluding pinned nodes measures the thing that actually matters: whether
     # the free variables reached a fixed point of the forward model.
     free_residual = 0.0
+    saw_nonfinite = false
     @inbounds for i in 1:n
         i in obs_set && continue
         d = abs(x[i] - x_fwd_final[i])
-        isfinite(d) && d > free_residual && (free_residual = d)
+        if !isfinite(d)
+            # Track separately rather than skipping: filtering non-finite values
+            # out of the max would leave free_residual finite and report
+            # `converged = true` for a state containing NaN/Inf (whose activities
+            # then serialize as JSON null). The code this replaced got that right
+            # only incidentally, via `NaN < tolerance == false`.
+            saw_nonfinite = true
+        elseif d > free_residual
+            free_residual = d
+        end
     end
 
-    converged = free_residual < params.tolerance
-    safe_residual = isfinite(free_residual) ? Float64(free_residual) : Float64(consistency_inf)
+    converged = !saw_nonfinite && free_residual < params.tolerance
+    safe_residual = saw_nonfinite ? Float64(consistency_inf) : Float64(free_residual)
 
     result_dict = Dict{String, Float64}(all_nodes[i] => clamp(x[i], 0.0, 1.0) for i in 1:n)
     solve_time = time() - start_time
