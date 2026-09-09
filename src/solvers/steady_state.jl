@@ -139,6 +139,25 @@ function solve_scc_ordered!(
         c >= 1 && (comp_size[c] += 1)
     end
 
+    # Components containing a SELF-loop must be iterated, not evaluated once.
+    # Tarjan correctly assigns a self-looping node its own single-node
+    # component, so `comp_size == 1` alone would classify it as acyclic and
+    # evaluate it exactly once — reading its own pre-update value and reporting
+    # a converged solve with residual 0 (measured 8.25x off the damped
+    # fixed-point answer on a 3-node network). A node that feeds itself is a
+    # cycle regardless of component size.
+    comp_has_self_loop = falses(n_comp)
+    @inbounds for r in rxns_idx
+        t = r.target_idx
+        c = comp_id[t]
+        c >= 1 || continue
+        comp_has_self_loop[c] && continue
+        if t in r.activator_indices || t in r.inhibitor_indices || t in r.depletion_indices ||
+           t in r.substrate_indices
+            comp_has_self_loop[c] = true
+        end
+    end
+
     # Per-component internal edge sign census (only when transient mode is on).
     # Activators count as positive; inhibitors + depletions as negative. Only
     # intra-SCC edges (source and target in the same component) are counted.
@@ -172,7 +191,7 @@ function solve_scc_ordered!(
         rs = comp_rxns[c]
         isempty(rs) && continue
 
-        if comp_size[c] == 1
+        if comp_size[c] == 1 && !comp_has_self_loop[c]
             # Acyclic node: exact single evaluation (upstream already final).
             for ri in rs
                 t = rxns_idx[ri].target_idx
@@ -328,14 +347,30 @@ function solve_steady_state_penalty(
 
     # Final consistency check on the stable state.
     x_fwd_final = forward_model_vec(x, rxns_idx; config=eval_config)
-    consistency_inf = maximum(abs.(x .- x_fwd_final))
+    consistency_inf = n == 0 ? 0.0 : maximum(abs.(x .- x_fwd_final))
 
-    # Sanitize residual to a finite Float64 — JSON can't serialize Inf/NaN.
-    safe_residual = if isfinite(max_change)
-        Float64(max_change)
-    else
-        Float64(consistency_inf)
+    # Honest residual: max |x - F(x)| over the FREE nodes only.
+    #
+    # Two reasons not to report what was reported before:
+    #  - `max_change` is written only inside the multi-node-SCC branch of
+    #    solve_scc_ordered!. A network whose components are all singletons (the
+    #    common case) therefore returned max_change = 0.0 and converged = true
+    #    unconditionally, regardless of the actual residual.
+    #  - the all-node `consistency_inf` is systematically large by construction,
+    #    because a pinned observation is a hard constraint and is deliberately
+    #    NOT at its model value; reporting it would call every perturbation
+    #    solve non-converged.
+    # Excluding pinned nodes measures the thing that actually matters: whether
+    # the free variables reached a fixed point of the forward model.
+    free_residual = 0.0
+    @inbounds for i in 1:n
+        i in obs_set && continue
+        d = abs(x[i] - x_fwd_final[i])
+        isfinite(d) && d > free_residual && (free_residual = d)
     end
+
+    converged = free_residual < params.tolerance
+    safe_residual = isfinite(free_residual) ? Float64(free_residual) : Float64(consistency_inf)
 
     result_dict = Dict{String, Float64}(all_nodes[i] => clamp(x[i], 0.0, 1.0) for i in 1:n)
     solve_time = time() - start_time
@@ -348,7 +383,10 @@ function solve_steady_state_penalty(
         solve_time,
         Dict{String, Any}(
             "method" => "feed_forward_pinned",
-            "max_change_final" => safe_residual,
+            # Retained for continuity with earlier runs: the last per-iteration
+            # delta from the loop components (0.0 when there were none).
+            "max_change_final" => isfinite(max_change) ? Float64(max_change) : -1.0,
+            "free_residual_inf" => safe_residual,
             "model_residual_inf" => isfinite(consistency_inf) ? Float64(consistency_inf) : -1.0,
         ),
     )

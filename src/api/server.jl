@@ -93,6 +93,11 @@ end
 
 const JSON_HEADERS = ["Content-Type" => "application/json"]
 
+# Fixed, non-reflecting validation messages. The offending node uuid is
+# client-controlled, so it is logged server-side rather than echoed back.
+const OBS_SHAPE_ERROR = "Each observation must be a 2-element numeric array [activity, confidence]."
+const OBS_RANGE_ERROR = "Observation activity must be within 0-100 and confidence within 0-1."
+
 function user_facing_error(e::Exception)::Tuple{Int, String}
     if isa(e, ArgumentError)
         msg = e.msg
@@ -101,6 +106,11 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
         elseif occursin("Unknown pathway id", msg) ||
                occursin("Invalid pathway id", msg) ||
                occursin("missing required files", msg)
+            # Do NOT echo the client's value back — these messages used to
+            # interpolate the requested pathway_id, reflecting arbitrary input
+            # into the response body.
+            return 400, "Unknown or unusable pathway id."
+        elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
             return 400, "Required input not found."
@@ -110,6 +120,14 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
         return 400, "Could not read input file."
     elseif isa(e, KeyError) || isa(e, BoundsError)
         return 400, "Required field missing from input."
+    elseif isa(e, MethodError) || isa(e, InexactError) ||
+           isa(e, DomainError) || isa(e, ErrorException)
+        # Malformed request payloads land here: a wrongly-typed field
+        # (pathway_id as a number, is_and as 2 or "true", observations as null),
+        # a TSV with the wrong column count, or a value that drives the
+        # propagator out of domain. These are client errors — returning 500
+        # made clients retry requests that can never succeed.
+        return 400, "Malformed or unsupported input."
     end
     return 500, "Internal server error."
 end
@@ -546,9 +564,35 @@ function solve_handler(req)
         
         if haskey(request_data, :observations) && request_data.observations !== nothing
             for (node_uuid, obs_data) in request_data.observations
-                # obs_data contains [activity, confidence] 
-                activity = Float64(obs_data[1])
-                confidence = Float64(obs_data[2])
+                # obs_data must be [activity, confidence]. Validate the SHAPE and
+                # TYPES explicitly: `Float64(obs_data[1])` on a JSON string
+                # silently succeeded by indexing the String to a Char and taking
+                # its codepoint, so {"ATM": "80"} pinned ATM at 0.56 (from '8')
+                # with confidence 48 (from '0') and returned HTTP 200 — a
+                # confident, plausible, wrong answer for the most natural client
+                # mistake (an un-cast form value).
+                if !(obs_data isa AbstractVector) || length(obs_data) != 2
+                    @warn "Malformed observation entry" node=String(node_uuid)
+                    throw(ArgumentError(OBS_SHAPE_ERROR))
+                end
+                raw_activity, raw_confidence = obs_data[1], obs_data[2]
+                if !(raw_activity isa Real) || !(raw_confidence isa Real)
+                    @warn "Non-numeric observation entry" node=String(node_uuid)
+                    throw(ArgumentError(OBS_SHAPE_ERROR))
+                end
+                activity = Float64(raw_activity)
+                confidence = Float64(raw_confidence)
+                # Out-of-range values were pinned unclamped, so they drove the
+                # propagator outside its [0,1] domain (activity 5000 -> x=50)
+                # while the response clamped the reported value, hiding it.
+                if !isfinite(activity) || activity < 0.0 || activity > 100.0
+                    @warn "Observation activity out of range" node=String(node_uuid) activity
+                    throw(ArgumentError(OBS_RANGE_ERROR))
+                end
+                if !isfinite(confidence) || confidence < 0.0 || confidence > 1.0
+                    @warn "Observation confidence out of range" node=String(node_uuid) confidence
+                    throw(ArgumentError(OBS_RANGE_ERROR))
+                end
                 observations[String(node_uuid)] = (activity, confidence)
             end
         end
