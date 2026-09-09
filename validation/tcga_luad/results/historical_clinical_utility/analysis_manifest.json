@@ -1,0 +1,45 @@
+{
+  "analysis": "historical_tcga_luad_clinical_utility",
+  "clinical_covariates": [
+    "age",
+    "sex",
+    "pathologic_stage",
+    "ever_smoker"
+  ],
+  "cv_folds": 5,
+  "cv_repeats": 20,
+  "expression_baseline": "mean cohort percentile across unique mapped genes",
+  "git": {
+    "available": true,
+    "branch": "validation/all-ten-readiness-sprint",
+    "commit": "ca9ed3f530870599270b3932ed2727033cfb0332",
+    "dirty": false
+  },
+  "inputs": {
+    "activity": {
+      "name": "sample_pathway_activity.tsv",
+      "sha256": "7e578d2997b9323d0d18875f5ec713af1efe6ae74b749df39a295d2b3091c948"
+    },
+    "clinical": {
+      "name": "TCGA.LUAD.clinicalMatrix.tsv",
+      "sha256": "0e7a7fa7773a44326d2270160201b059c50c8a0c75359359a8639772497db59a"
+    },
+    "expression": {
+      "name": "TCGA.LUAD.HiSeqV2.tsv",
+      "sha256": "64421a30147a689571f4cc537eb484b294e4325807e2b83031e7d918e07fe83c"
+    },
+    "root_audit": {
+      "name": "root_observability_audit.tsv",
+      "sha256": "4dc537dfa70f03f2d793515986b75934c729877916d75a4622e879c1f33765ad"
+    }
+  },
+  "pathways": [
+    "R-HSA-1257604",
+    "R-HSA-453279",
+    "R-HSA-69620"
+  ],
+  "sample_count_locked": 502,
+  "scope": "Secondary external association; not perturbation ground truth and not a current-stack pathway score.",
+  "script_sha256": "63835423547af2b0e0540cbd11bf3fd8cea970f97be419468212cafe196c0c9f",
+  "seed": 29
+}
