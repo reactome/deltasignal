@@ -18,12 +18,23 @@ struct SteadyStateParams
 end
 
 function default_steady_state_params()
+    # DS_MAX_ITERS overrides the per-SCC iteration budget. Added because the
+    # budget was hardcoded with no way to distinguish "this component is
+    # oscillating" from "this component is converging but needs more sweeps" —
+    # a distinction that decides whether the fixed-point iteration can work at
+    # all here. Weaker damping made non-convergence WORSE (122 -> 152 TP53
+    # cases at lambda=0.1), which points at slow convergence rather than
+    # oscillation, but only a larger budget settles it.
+    max_iters = round(Int, _float_env("DS_MAX_ITERS", 500.0))
+    if max_iters < 1
+        throw(ArgumentError("DS_MAX_ITERS=$max_iters must be at least 1."))
+    end
     return SteadyStateParams(
-        1.0,    # mu
-        0.1,    # gamma
-        500,    # max_iters
-        1e-6,   # tolerance
-        "penalty"  # method
+        1.0,        # mu     (currently unused — see solve_steady_state_penalty)
+        0.1,        # gamma  (currently unused)
+        max_iters,
+        _float_env("DS_TOLERANCE", 1e-6),
+        "penalty"
     )
 end
 
