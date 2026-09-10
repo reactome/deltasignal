@@ -175,3 +175,103 @@ correctly and I quoted the number without letting it inform the conclusion.
    for? Must be measured against curator ground truth, not only experimental.
 3. What explains the 42 wrong-direction upregulation cases?
 4. Why is DeltaSignal behind a model-free traversal even with the clamp off?
+
+## R7 — the curator axis does NOT regress; it moves the most (T011/T012)
+
+Open question 2 above is answered, and the answer is the opposite of the
+worry that motivated the task. Both arms, same shared catalog build
+(`$S/cat`, ten pathways, LNG main 4ff0408, Release97), `--ground-truth
+curator`, 3914 cases DeltaSignal scores:
+
+| arm | correct | acc | macro-F1 | F1_DOWN | F1_NO_CHANGE | F1_UP |
+|---|---|---|---|---|---|---|
+| old defaults (`hill_log`, eps 1e-3, clamp ON) | 2479/3914 | 0.6334 | 0.5798 | 0.5949 | 0.7316 | 0.4130 |
+| **new defaults** (`hill_sat`, eps 1e-5, clamp OFF) | **2628/3914** | **0.6714** | **0.6408** | 0.5814 | 0.7550 | **0.5858** |
+
+**+149 cases, +3.81 pp, macro-F1 +0.0609.** Recall by class: UP
+343/985 -> **592/985**, DOWN 522/991 -> 523/991, NO_CHANGE 1614/1938 ->
+1513/1938. The gain is upregulation and nothing else, which is the
+hypothesis this feature was written to test, now confirmed on the ground
+truth it was *not* tuned against.
+
+The trade-off T012 was reserved for does not exist on this catalog, so no
+decision is being deferred to Adam. Two honest caveats:
+
+- **DOWN F1 drops slightly** (0.5949 -> 0.5814) even though DOWN recall is
+  flat, because the arm predicts DOWN 764 -> 808 times. Precision, not
+  recall, pays for it.
+- **The +0.9pp curator result that justified the clamp was measured on the
+  92-pathway catalog, and its named regression (Interferon α/β −75) is not
+  in these ten pathways.** So this is not a re-measurement of that exact
+  experiment; it is the same axis on the benchmark catalog. Whether the
+  clamp still earns its keep on Interferon α/β specifically is untested and
+  stays open.
+
+Per-pathway (curator, changed predictions only; 282 of 462 changed with both
+arms converged, so this is not the uuid4 sweep-order artifact):
+
+| pathway | + | − | net |
+|---|---|---|---|
+| PIP3_activates_AKT_signaling | 81 | 9 | +72 |
+| Mitotic_G1-G1_S_phases | 44 | 9 | +35 |
+| HDR_through_Homologous_Recombination | 41 | 21 | +20 |
+| Cell_Cycle_Checkpoints | 18 | 0 | +18 |
+| S_Phase | 10 | 0 | +10 |
+| Mitotic_Prophase | 9 | 1 | +8 |
+| Signaling_by_WNT | 26 | 19 | +7 |
+| Signaling_by_ERBB2 | 6 | 6 | 0 |
+| Transcriptional_Regulation_by_TP53 | 45 | 66 | **−21** |
+
+TP53 is the only net loss and it is the pathway that does not converge.
+
+## R8 — where this leaves us against the baselines (T013)
+
+Experimental ground truth, identical 564 scored cases:
+
+| model | correct | acc | macro-F1 |
+|---|---|---|---|
+| DeltaSignal, old defaults | 334/564 | 0.5922 | 0.5601 |
+| **DeltaSignal, new defaults** | **365/564** | 0.6472 | 0.5781 |
+| `shortest_signed_path` (model-free traversal) | 393/564 | 0.6968 | 0.6177 |
+| MP-BioPath | 407/564 | 0.7216 | 0.6707 |
+
+Curator ground truth, identical 3914 scored cases: DeltaSignal 2628 (0.6714),
+`shortest_signed_path` 2824 (0.7215), MP-BioPath 3034 (0.7752).
+
+So this feature closes **31 of the 73-case experimental gap to MP-BioPath**
+and leaves 42. Open question 4 stands unanswered: **DeltaSignal is still
+behind a model-free signed traversal on both axes.** A propagator that loses
+to "follow the shortest signed path" is not yet earning its complexity, and
+that — not the remaining distance to MP-BioPath — is the sharpest statement
+of what is left to fix.
+
+Per-pathway on the experimental axis, new defaults:
+
+| pathway | DS | MP-BioPath | shortest-path |
+|---|---|---|---|
+| Cell_Cycle_Checkpoints | 35/44 | 42/44 | 38/44 |
+| HDR_through_Homologous_Recombination | 24/32 | 28/32 | 24/32 |
+| Mitotic_G1-G1_S_phases | 21/73 | 31/73 | 21/73 |
+| Mitotic_Prophase | 17/20 | 18/20 | 17/20 |
+| PIP3_activates_AKT_signaling | 75/84 | 79/84 | 79/84 |
+| RAF_MAP_kinase_cascade | 2/4 | 4/4 | 4/4 |
+| S_Phase | 10/15 | 12/15 | 10/15 |
+| Signaling_by_ERBB2 | 13/23 | 16/23 | 17/23 |
+| Signaling_by_WNT | **24/37** | 23/37 | 28/37 |
+| Transcriptional_Regulation_by_TP53 | 144/232 | 154/232 | 155/232 |
+
+DeltaSignal beats MP-BioPath on exactly one pathway (WNT, +1) and loses
+everywhere else. `Mitotic_G1-G1_S_phases` at 21/73 is the worst absolute
+deficit and is also the **only pathway this feature made worse** on the
+experimental axis (−10 net, 15 of its 20 changed predictions converged in
+both arms, so it is a real regression rather than noise).
+
+## R9 — the change makes non-convergence worse, as expected (T016)
+
+Non-converged solves on the experimental arm rise **122/564 -> 179/564**.
+This is the predicted consequence, not a surprise: removing the clamp lets
+larger signals reach the cyclic components, and larger signals circulate.
+It is a direct argument that `specs/003-solver-objective` is now *more*
+urgent — 32% of scored cases currently report a value that depends on where
+the fixed-point iteration was stopped. Out of scope here; do not attempt to
+fix it in this feature.

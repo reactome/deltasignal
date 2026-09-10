@@ -126,14 +126,19 @@ end
 
 @testset "defaults are the validated winning config" begin
     for name in ("DS_INHIBITION_MODE", "DS_AND_MODE", "DS_OR_MODE",
-                 "DS_ASSEMBLY_LIMITING", "DS_OR_COMBINE", "DS_INHIBITOR_OR")
+                 "DS_ASSEMBLY_LIMITING", "DS_OR_COMBINE", "DS_INHIBITOR_OR",
+                 "DS_HILL_SAT_EPS")
         haskey(ENV, name) && delete!(ENV, name)
     end
     config = resolve_reaction_eval_config()
     @test config.inhibition_mode == "divide"
-    @test config.and_mode == "hill_log"
+    # hill_sat / clamp-off / eps 1e-5 as of specs/002-upregulation-propagation.
+    # test/test_and_curves.jl covers why; this only pins that the defaults are
+    # what that feature measured.
+    @test config.and_mode == "hill_sat"
     @test config.or_mode == "mean"
-    @test config.assembly_limiting == true
+    @test config.assembly_limiting == false
+    @test config.hill_sat_eps == 1e-5
     @test config.or_combine == "max"
     @test config.inhibitor_or == false
     @test config.or_redundancy == 1.0
