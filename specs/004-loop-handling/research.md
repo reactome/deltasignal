@@ -82,7 +82,10 @@ so the ratio is large.
 | Signaling_by_WNT | 23 | 40 | 8 | 4 | 5.8 |
 
 The separation is clean: large components have ratios of 20–161, small ones
-3–9. Cell Cycle Checkpoints' 643-node component is **three curated reactions
+3–9. At the default threshold of 15 this classifies **12 of the 34
+components as recycling artifacts, holding 4,205 of the 4,561 cycle-resident
+nodes (92%)**; the other 22 components hold 356. The partition is identical
+at threshold 10 and moves two components at threshold 20. Cell Cycle Checkpoints' 643-node component is **three curated reactions
 contributing exactly 320 intra-component edges each**, plus 160 diagram
 bridges — one reaction replicated 320 times.
 
@@ -129,3 +132,110 @@ the solver objective is not expected to close this gap on its own.
    simplification even if it does not move the score.
 3. Does breaking recycling artifacts help, hurt, or do nothing once the
    readout is still reachable?
+
+---
+
+# Phase 3 result — the control (T011–T013)
+
+## R6 — The propagator is not the problem. The networks are.
+
+DeltaSignal's propagator run on MP-BioPath's own published networks, same
+cases, default solver config. Common case set = scored in all three arms
+(562 of 847).
+
+| arm | correct | accuracy | macro-F1 | F1 DOWN | F1 NO_CHANGE | F1 UP |
+|---|---|---|---|---|---|---|
+| **DeltaSignal on MP-BioPath's networks** | **403/562** | **0.7171** | 0.6443 | 0.812 | 0.320 | **0.801** |
+| MP-BioPath's published predictions | 405/562 | 0.7206 | 0.6701 | 0.820 | 0.402 | 0.788 |
+| DeltaSignal on our networks | 364/562 | 0.6477 | 0.5787 | 0.753 | 0.277 | 0.706 |
+| shortest signed path on our networks | 391/562 | 0.6957 | 0.6171 | 0.812 | 0.280 | 0.759 |
+
+**Given the same networks, DeltaSignal and MP-BioPath are two cases apart.**
+The 41-case deficit is not the propagator; **it is entirely network
+structure**. That answers SC-001 and it redirects the feature: the question
+is no longer "is our maths worse" but "what about our representation costs
+39 cases".
+
+DeltaSignal's macro-F1 is still 0.026 behind on the same networks, and all
+of it is `NO_CHANGE` (F1 0.320 against 0.402) — we over-call change. Our
+`UP` F1 is *better* (0.801 against 0.788). That residual is a real but
+second-order finding.
+
+### Adversarial checks — the result survives all six
+
+This looked too clean, so it was attacked before being believed.
+
+1. **Not reading back a pinned input.** 12 of 845 control cases had a fully
+   pinned readout and all 12 were excluded — a *lower* rate than our own
+   arm's 49 of 564.
+2. **Not just reproducing MP-BioPath.** The two agree on only **477 of 562
+   (84.9%)**. DeltaSignal is right where MP-BioPath is wrong on 36 cases and
+   wrong where it is right on 38. Same score by a genuinely different route,
+   not a reimplementation.
+3. **Convergence: 0 of 845 non-converged**, against 179 of 564 on our
+   networks. Direct confirmation that our non-convergence is caused by the
+   cycles and not by the solver.
+4. **No prediction bias.** DOWN/NO_CHANGE/UP is 200/135/227 on their
+   networks and 203/131/228 on ours — near-identical, so the gain is not the
+   distribution shift that caught us in feature 002. Both over-predict
+   NO_CHANGE against an actual 71.
+5. **Per pathway, DeltaSignal-on-their-networks beats DeltaSignal-on-ours in
+   9 of 10 pathways**, so it is not one pathway carrying the result.
+6. **It also beats MP-BioPath's own published predictions on four
+   pathways** — S_Phase 14/15 vs 12/15, ERBB2 18/23 vs 16/23, WNT 25/35 vs
+   21/35, TP53 159/232 vs 154/232.
+
+| pathway | DS on their nets | DS on our nets | MP-BioPath published |
+|---|---|---|---|
+| Cell_Cycle_Checkpoints | 42/44 | 35/44 | 42/44 |
+| HDR | 25/32 | 24/32 | 28/32 |
+| Mitotic_G1-G1_S_phases | 31/73 | 21/73 | 31/73 |
+| Mitotic_Prophase | 18/20 | 17/20 | 18/20 |
+| **PIP3_activates_AKT_signaling** | 67/84 | **75/84** | 79/84 |
+| RAF_MAP_kinase_cascade | 4/4 | 2/4 | 4/4 |
+| S_Phase | 14/15 | 10/15 | **12/15** |
+| Signaling_by_ERBB2 | 18/23 | 13/23 | **16/23** |
+| Signaling_by_WNT | 25/35 | 23/35 | **21/35** |
+| Transcriptional_Regulation_by_TP53 | 159/232 | 144/232 | **154/232** |
+
+**PIP3 is the counter-example and should not be buried**: our network is
+better there, 75 against 67. Whatever our representation does right, it does
+it in PIP3, and a blanket "their networks are better" claim is wrong.
+
+### The second half of the deficit is coverage, not accuracy
+
+| | cases scored |
+|---|---|
+| on MP-BioPath's networks | **845 of 847** |
+| on our networks | **564 of 847** |
+
+283 cases are scoreable on their networks and not on ours. The breakdown of
+why, on our side, is not what "our networks are worse" would predict:
+
+- **204 are `proxy_available_not_enabled`** — the readout *is* reachable
+  through a producing-reaction proxy and the benchmark is configured not to
+  use it. That is a harness flag, not a network defect, and it is the single
+  largest bucket.
+- **76 are `exact`** — the readout mapped fine, so the loss is upstream: no
+  perturbable root input, or no path.
+- **3 are `absent_from_network`.**
+
+So a third of the case set is being discarded before the propagator is
+consulted, and most of that is a switch. This needs measuring before any
+more effort goes into loop interventions.
+
+## What this does to the plan
+
+- **US1 is answered and the answer is unambiguous.** Do not spend further
+  effort attributing; spend it on the network.
+- **Loops are implicated but are not the whole story.** They own the
+  convergence difference outright (179 → 0). Whether they own accuracy is
+  still US3's question, and the control does not settle it, because their
+  networks differ from ours in more than acyclicity: they are also a third
+  the size, carry only 1.8% negative edges, and resolve readouts our harness
+  declines to resolve.
+- **A new candidate has appeared that is cheaper than any loop
+  intervention**: the 204-case proxy bucket. It belongs in this feature's
+  reporting because it changes the denominator of every comparison, but the
+  decision to enable proxies is a benchmark-methodology change and is Adam's
+  call, not one to make silently mid-feature.

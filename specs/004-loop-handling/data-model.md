@@ -24,13 +24,15 @@ Current catalog: 34 components larger than one node, holding 4,561 nodes.
 
 | class | rule | current count |
 |---|---|---|
-| `recycling_artifact` | `nodes_per_reaction >= 15` | the six largest, holding 3,339 nodes |
-| `candidate_feedback` | `nodes_per_reaction < 15` | the remainder |
+| `recycling_artifact` | `nodes_per_reaction >= 15` | 12 components holding 4,205 of the 4,561 cycle-resident nodes (92%) |
+| `candidate_feedback` | `nodes_per_reaction < 15` | 22 components holding 356 nodes (8%) |
 
-**The threshold is a reported parameter, not a constant to hide.** The
-observed distribution is bimodal with a wide gap — large components sit at
-20.9–160.8 and the rest at 3.0–9.3 — so any cut in 10–20 gives the same
-partition. Every result that depends on it must state the value used and
+**The threshold is a reported parameter, not a constant to hide.** Measured
+sensitivity: thresholds 10 and 15 give an identical partition (12 / 4,205);
+at 20 two components move across, giving 10 / 4,078. So the partition is
+stable across 10–15 and mildly sensitive above that — it is **not**
+threshold-independent, and any result depending on it must state the value
+and this sensitivity. Every result that depends on it must state the value used and
 show the sensitivity across that range. Polarity is recorded but is NOT part
 of the rule: 21 of 34 components have no negative edge, yet ERBB2's 465-node
 artifact has 121, so polarity alone misclassifies.
