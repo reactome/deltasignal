@@ -83,6 +83,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--up-cutoff", type=float, default=1.15)
     parser.add_argument("--output-aggregation", choices=("max", "mean", "min", "extreme"), default="max")
     parser.add_argument(
+        "--perturb-all-occurrences",
+        action="store_true",
+        help=(
+            "Pin every node the gene occurs in, not just its root inputs. "
+            "Pre-2026-09 behaviour, kept for comparison only: it clamps a "
+            "median of 17 nodes per case, some a single hop from the readout, "
+            "so the signal never has to traverse the path the case exists to "
+            "test. Inflates accuracy substantially."
+        ),
+    )
+    parser.add_argument(
         "--allow-output-proxies",
         action="store_true",
         help="Score missing key-output entities through LNG's explicit entity-to-reaction proxy export",
@@ -326,6 +337,25 @@ def load_network_adjacency(pathway_dir: Path) -> dict[str, list[tuple[str, int]]
                 (normalize_cell(row["target_id"]), sign)
             )
     return adjacency
+
+
+def load_root_input_nodes(pathway_dir: Path) -> set[str]:
+    """Nodes with no incoming edge — the network's root inputs.
+
+    Every MP-BioPath case perturbs a root input and reads a terminal output,
+    and the path between them is normally several reactions long. But a gene
+    maps to every node it occurs in, so a single-gene perturbation was pinning
+    a median of 17 nodes scattered through the network — only 22% of them root
+    inputs, and some of them one hop from the readout. Pinning a mid-pathway
+    occurrence clamps the middle of the very chain the case is testing.
+    """
+    targets: set[str] = set()
+    sources: set[str] = set()
+    with (pathway_dir / "logic_network.csv").open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            sources.add(normalize_cell(row["source_id"]))
+            targets.add(normalize_cell(row["target_id"]))
+    return (sources | targets) - targets
 
 
 def reachable_path_signs(
@@ -617,6 +647,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         for pathway_id, path in pathway_dirs.items()
         if path
     }
+    root_inputs = {
+        pathway_id: load_root_input_nodes(path)
+        for pathway_id, path in pathway_dirs.items()
+        if path
+    }
 
     process, log_path = start_server(args)
     base = f"http://127.0.0.1:{args.port}"
@@ -663,6 +698,38 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             else:
                 output_uuids = []
                 output_mapping_mode = "absent_from_network"
+            # The perturbation must not pin the readout. load_dbid_to_uuids
+            # registers a node under its own stable id AND every member_leaves
+            # entry, so a Complex containing gene X is a "gene-X node" — and
+            # every MP-BioPath case is a root-input gene perturbation read at a
+            # terminal output, so a readout that sits inside the pinned set is
+            # this mapping over-reaching, not the experiment's design.
+            #
+            # Concretely: "knock out CDKN1B, does Cyclin E:CDK2:CDKN1A,CDKN1B
+            # still form?" is a real test of the assembly logic. Pinning the
+            # complex to 0 because it contains CDKN1B answers it by fiat — max
+            # aggregation returns the pinned value verbatim and the case scores
+            # correct with no model content. 61 of 627 cases did this, 60 of
+            # them "correct".
+            #
+            # Drop readout nodes from the pinned set. Verified not to cost
+            # coverage: in all 61 affected cases the gene also maps to nodes
+            # outside the readout, so every case stays scoreable.
+            pinned_readout_uuids = sorted(set(gene_uuids) & set(output_uuids))
+            if pinned_readout_uuids:
+                gene_uuids = [u for u in gene_uuids if u not in set(output_uuids)]
+
+            # Restrict the perturbation to the gene's ROOT-INPUT occurrences.
+            # Excluding the readout (above) only fixes the degenerate case
+            # where the path length is zero. The general problem is that a
+            # gene maps to every node it appears in, so the perturbation was
+            # pinning a median of 17 nodes per case — 78% of them non-root,
+            # and 113 of them a single hop from the readout — clamping the
+            # middle of the chain the case exists to test.
+            all_gene_uuids = list(gene_uuids)
+            roots = root_inputs.get(case.pathway_id, set())
+            gene_uuids = [u for u in gene_uuids if u in roots]
+
             all_path_signs = (
                 reachable_path_signs(
                     adjacencies[case.pathway_id],
@@ -694,6 +761,21 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     ),
                     "gene_dbid_count": len(gene_dbids.get(case.gene, ())),
                     "gene_uuid_count": len(gene_uuids),
+                    "gene_uuid_count_all_occurrences": len(all_gene_uuids),
+                    # Readout nodes dropped from the pinned set (see above).
+                    # load_dbid_to_uuids registers a node under its own stable
+                    # id and every member_leaves entry, so a complex containing
+                    # gene X is a "gene-X node" and gets pinned. Where the
+                    # pinned set and the readout set intersect, max aggregation
+                    # can return the pinned value verbatim (UI 80 -> always UP,
+                    # 0 -> always DOWN) and the case is scored with zero model
+                    # content. 21 of 223 development cases intersect and 14 are
+                    # trivially "correct" that way. Recorded per case so the
+                    # affected stratum is visible; scoring is unchanged.
+                    "pinned_readout_uuids_excluded": len(pinned_readout_uuids),
+                    "readout_was_fully_pinned": bool(
+                        output_uuids and set(output_uuids) <= set(pinned_readout_uuids)
+                    ),
                     "exact_output_uuid_count": len(exact_output_uuids),
                     "proxy_output_uuid_count": len(proxy_output_uuids),
                     "output_uuid_count": len(output_uuids),
@@ -737,6 +819,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             )
             if not gene_dbids.get(case.gene):
                 row["mapping_status"] = "gene_absent_from_legacy_id_map"
+            elif all_gene_uuids and not gene_uuids:
+                # The gene occurs in the network but never as a root input, so
+                # the case cannot be run as the paper designed it. Reported as
+                # unscored rather than approximated by pinning a mid-pathway
+                # occurrence.
+                row["mapping_status"] = "gene_has_no_root_input_node"
             elif not gene_uuids:
                 if reactome_id_audit and not (
                     set(gene_dbids[case.gene]) & set(reactome_id_audit)
@@ -808,10 +896,26 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         row["class_frequency_prediction"] = class_frequency_prediction
 
     summary = metric_summary(rows)
+    # NOT an out-of-sample holdout. `bench/tune_phase1.sh` grid-searches
+    # {geomean, min, signed} x three threshold pairs — one of which is exactly
+    # this harness's default 0.85/1.15 cutoffs — over the pathways that pass
+    # its MAX_EDGES=80000 filter, which its own comment names as PIP3, ERBB2,
+    # Cell_Cycle_Checkpoints, Transcriptional_Regulation_by_TP53 and
+    # Signaling_by_WNT. Three of those (TP53, WNT, ERBB2) are in
+    # HELD_OUT_PATHWAYS and account for 313 of the 404 held-out scored cases.
+    # `bench/phase2_holdout.sh` states outright that the ten were the tuning
+    # set. This field previously asserted False, which was not true.
     summary["evaluation_split"] = {
         "development_pathways": list(DEVELOPMENT_PATHWAYS),
         "held_out_pathways": list(HELD_OUT_PATHWAYS),
-        "held_out_was_used_for_configuration": False,
+        "held_out_was_used_for_configuration": True,
+        "split_kind": "replication",
+        "configuration_exposure": (
+            "Solver configuration was tuned by bench/tune_phase1.sh over a grid "
+            "that included TP53, WNT and ERBB2, which are listed as held out. "
+            "Treat the held-out figures as a replication split, not an "
+            "out-of-sample estimate."
+        ),
     }
     summary["by_split"] = split_summaries(rows)
     summary["by_pathway"] = grouped_summaries(rows)
@@ -905,6 +1009,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "thresholds": {"down": args.down_cutoff, "up": args.up_cutoff},
         "output_aggregation": args.output_aggregation,
         "allow_output_proxies": args.allow_output_proxies,
+        "perturb_all_occurrences": args.perturb_all_occurrences,
         "prefer_output_proxies": args.prefer_output_proxies,
         "derive_output_proxies": args.derive_output_proxies,
         "perturbation_up": args.perturbation_up,
