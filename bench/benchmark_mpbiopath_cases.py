@@ -83,6 +83,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--up-cutoff", type=float, default=1.15)
     parser.add_argument("--output-aggregation", choices=("max", "mean", "min", "extreme"), default="max")
     parser.add_argument(
+        "--perturb-all-occurrences",
+        action="store_true",
+        help=(
+            "Pin every node the gene occurs in, not just its root inputs. "
+            "Pre-2026-09 behaviour, kept for comparison only: it clamps a "
+            "median of 17 nodes per case, some a single hop from the readout, "
+            "so the signal never has to traverse the path the case exists to "
+            "test. Inflates accuracy substantially."
+        ),
+    )
+    parser.add_argument(
         "--allow-output-proxies",
         action="store_true",
         help="Score missing key-output entities through LNG's explicit entity-to-reaction proxy export",
@@ -326,6 +337,25 @@ def load_network_adjacency(pathway_dir: Path) -> dict[str, list[tuple[str, int]]
                 (normalize_cell(row["target_id"]), sign)
             )
     return adjacency
+
+
+def load_root_input_nodes(pathway_dir: Path) -> set[str]:
+    """Nodes with no incoming edge — the network's root inputs.
+
+    Every MP-BioPath case perturbs a root input and reads a terminal output,
+    and the path between them is normally several reactions long. But a gene
+    maps to every node it occurs in, so a single-gene perturbation was pinning
+    a median of 17 nodes scattered through the network — only 22% of them root
+    inputs, and some of them one hop from the readout. Pinning a mid-pathway
+    occurrence clamps the middle of the very chain the case is testing.
+    """
+    targets: set[str] = set()
+    sources: set[str] = set()
+    with (pathway_dir / "logic_network.csv").open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            sources.add(normalize_cell(row["source_id"]))
+            targets.add(normalize_cell(row["target_id"]))
+    return (sources | targets) - targets
 
 
 def reachable_path_signs(
@@ -617,6 +647,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         for pathway_id, path in pathway_dirs.items()
         if path
     }
+    root_inputs = {
+        pathway_id: load_root_input_nodes(path)
+        for pathway_id, path in pathway_dirs.items()
+        if path
+    }
 
     process, log_path = start_server(args)
     base = f"http://127.0.0.1:{args.port}"
@@ -684,6 +719,17 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             if pinned_readout_uuids:
                 gene_uuids = [u for u in gene_uuids if u not in set(output_uuids)]
 
+            # Restrict the perturbation to the gene's ROOT-INPUT occurrences.
+            # Excluding the readout (above) only fixes the degenerate case
+            # where the path length is zero. The general problem is that a
+            # gene maps to every node it appears in, so the perturbation was
+            # pinning a median of 17 nodes per case — 78% of them non-root,
+            # and 113 of them a single hop from the readout — clamping the
+            # middle of the chain the case exists to test.
+            all_gene_uuids = list(gene_uuids)
+            roots = root_inputs.get(case.pathway_id, set())
+            gene_uuids = [u for u in gene_uuids if u in roots]
+
             all_path_signs = (
                 reachable_path_signs(
                     adjacencies[case.pathway_id],
@@ -715,6 +761,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     ),
                     "gene_dbid_count": len(gene_dbids.get(case.gene, ())),
                     "gene_uuid_count": len(gene_uuids),
+                    "gene_uuid_count_all_occurrences": len(all_gene_uuids),
                     # Readout nodes dropped from the pinned set (see above).
                     # load_dbid_to_uuids registers a node under its own stable
                     # id and every member_leaves entry, so a complex containing
@@ -772,6 +819,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             )
             if not gene_dbids.get(case.gene):
                 row["mapping_status"] = "gene_absent_from_legacy_id_map"
+            elif all_gene_uuids and not gene_uuids:
+                # The gene occurs in the network but never as a root input, so
+                # the case cannot be run as the paper designed it. Reported as
+                # unscored rather than approximated by pinning a mid-pathway
+                # occurrence.
+                row["mapping_status"] = "gene_has_no_root_input_node"
             elif not gene_uuids:
                 if reactome_id_audit and not (
                     set(gene_dbids[case.gene]) & set(reactome_id_audit)
@@ -956,6 +1009,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "thresholds": {"down": args.down_cutoff, "up": args.up_cutoff},
         "output_aggregation": args.output_aggregation,
         "allow_output_proxies": args.allow_output_proxies,
+        "perturb_all_occurrences": args.perturb_all_occurrences,
         "prefer_output_proxies": args.prefer_output_proxies,
         "derive_output_proxies": args.derive_output_proxies,
         "perturbation_up": args.perturbation_up,
