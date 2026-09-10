@@ -192,8 +192,12 @@ reported with macro-F1 and a per-pathway breakdown.
 
 ### Edge Cases
 
-- **Cycles in set membership.** Reactome's set graph can contain them;
-  recursion without a visited-set does not terminate.
+- **Cycles in set membership.** This spec originally asserted these exist.
+  **They do not** — measured on Release97, zero self-membership and zero
+  cycles at length 2, 3 or 4, with maximum nesting depth 5 (research.md R1).
+  Nesting is real and deep enough that single-hop resolution is wrong, which
+  is the substantive point; a visited-set guard stays as cheap insurance
+  against future curation error, not as a response to observed cycles.
 - **A set with one member.** Must behave identically to the member itself.
 - **A member unreachable from the perturbation.** It sits at baseline and
   drags an averaged set value toward "no change" — the recorded TP53
@@ -223,8 +227,9 @@ reported with macro-F1 and a per-pathway breakdown.
   which it was reached.
 - **FR-002**: For any generated node, the system MUST return every entity it
   represents, with the same labelling.
-- **FR-003**: Set resolution MUST recurse through nested sets to leaves, and
-  MUST terminate on a cyclic membership graph.
+- **FR-003**: Set resolution MUST recurse through nested sets to leaves
+  (observed maximum depth 5), and MUST terminate even if a future membership
+  graph became cyclic.
 - **FR-004**: Where a node derives from something drawn in a diagram, the
   system MUST record which glyph, so that a glyph resolves to its nodes and
   a node resolves back to its glyphs.
