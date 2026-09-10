@@ -104,6 +104,70 @@ do not gate Stage 2 on it. Prior work characterises the giant SCC as Type II
 catalytic recycling rather than genuine feedback, which makes it a
 network-structure question for a separate feature.
 
+## R5 — Two departures from the design, not one; together worth +31
+
+Adam identified the AND design intent: multiply the fold-changes with a
+Hill-like curve, constrained to 0-100, and "if it is near 1 I want it to be
+extremely close to pure multiplication" — 0.5*0.5=0.25, 1*1=1, 2*0.5=1, and
+sig(100)*sig(100)=100 rather than 10,000.
+
+Checked against the two implemented curves:
+
+| UI folds | pure x (clamped) | `hill_log` (default) | `hill_sat` |
+|---|---|---|---|
+| 0.5 x 0.5 | 0.25 | 0.252 | 0.250 |
+| 1 x 1 | 1.0 | 1.0 | 1.0 |
+| 2 x 0.5 | 1.0 | 1.0 | 1.0 |
+| 10 x 10 | 100 | **74.06** | 99.98 |
+| **[100] alone** | **100** | **74.07** | **99.99** |
+| **[50] alone** | **50** | **41.43** | **50.00** |
+
+`hill_log` tanh-squashes the summed log-fold with `z_max=10`, and e^10 is far
+outside the UI range, so the squashing is active THROUGHOUT the operating
+range rather than only near the ceiling. A lone node at UI 50 reads 41.4.
+`hill_sat` implements the stated intent — its own docstring says "exact
+multiplication through the common operating range, with sigmoid transitions
+ONLY at the UI=0 and UI=100 boundaries".
+
+**Decision**: `DS_AND_MODE=hill_sat` with `DS_HILL_SAT_EPS=1e-5`, and
+`DS_ASSEMBLY_LIMITING=0`. Measured, same catalog build:
+
+| arm | correct | macro-F1 | UP 246 | DOWN 247 | pred UP | non-conv |
+|---|---|---|---|---|---|---|
+| defaults | 334 | 0.5601 | 119 | 169 | 159 | 122 |
+| `hill_sat` only | 339 | 0.5671 | 122 | 171 | 163 | 132 |
+| clamp OFF only | 355 | 0.5653 | 161 | 166 | 222 | 164 |
+| **both** | **365** | **0.5781** | **168** | **169** | 230 | 179 |
+
+Both-converged subset (362 cases, the comparison immune to non-convergence):
+199 -> 216, MP-BioPath 253.
+
+Verified genuine rather than a bias: median predicted UI stays at exactly
+1.000, predicted-UP moves toward the true distribution (159 -> 230 against 246
+expected) rather than past it, DOWN is unchanged, and macro-F1 improves.
+
+The two effects compose slightly better than they add (+5 and +21 separately,
++31 together), consistent with the mechanism: the clamp destroyed increases
+before they grew large enough for the compression to matter, so each masked
+the other's cost.
+
+## R6 — NEGATIVE, and a caught false positive: the default `hill_sat` epsilon
+
+`DS_HILL_SAT_EPS` defaults to 0.001, which is LARGER than the internal values
+where knockouts live (~0.0006), so it acts as a floor and lifts the whole
+network upward. Measured: `hill_sat` at the default epsilon predicts UP on
+**317 of 564** cases against 246 actually UP, with median output 1.587 rather
+than 1.000. Accuracy 310, macro-F1 0.4848 — the worst arm tested.
+
+I initially reported that arm's UP score (170/246, the best of any arm) as
+evidence the curve worked. It was not: it was over-prediction. The tell was in
+the same table — DOWN collapsing 169 -> 119 while UP rose. A genuine
+improvement does not usually gut the other half. Macro-F1 flagged it
+correctly and I quoted the number without letting it inform the conclusion.
+
+**This is a live defect independent of this feature**: anyone selecting
+`hill_sat` today gets a systematically upward-biased model.
+
 ## Open questions carried into Stage 2
 
 1. What soft-minimum form satisfies FR2 and FR3 together? Untested.
