@@ -727,8 +727,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             # and 113 of them a single hop from the readout — clamping the
             # middle of the chain the case exists to test.
             all_gene_uuids = list(gene_uuids)
-            roots = root_inputs.get(case.pathway_id, set())
-            gene_uuids = [u for u in gene_uuids if u in roots]
+            if not args.perturb_all_occurrences:
+                roots = root_inputs.get(case.pathway_id, set())
+                gene_uuids = [u for u in gene_uuids if u in roots]
 
             all_path_signs = (
                 reachable_path_signs(
