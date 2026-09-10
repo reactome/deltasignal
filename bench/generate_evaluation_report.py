@@ -144,6 +144,35 @@ def percent(value: float) -> str:
     return f"{100.0 * value:.1f}%"
 
 
+
+BASELINE_LABELS = {
+    "no_change": "Always predict NO CHANGE",
+    "development_class_frequency": "Development class frequency",
+    "signed_reachability": "Signed reachability",
+    "shortest_signed_path": "Sign of shortest signed path",
+}
+
+
+def baseline_table(summary, scope="all"):
+    """Rows for the structural baselines the harness computes on the same cases.
+
+    These were computed and written to the summary JSON but appeared in no
+    section, table or figure, so the report named only MP-BioPath and curator
+    as comparators. `shortest_signed_path` is the relevant one: it scores the
+    SAME cases DeltaSignal does, and a reader who opens the JSON will find it.
+    """
+    lines = []
+    for key, label in BASELINE_LABELS.items():
+        entry = (summary.get("baselines", {}).get(key) or {}).get(scope)
+        if not entry:
+            continue
+        lines.append(
+            f"| {label} | {entry['scored_cases']} | {entry['correct']} | "
+            f"{percent(float(entry['accuracy']))} | {float(entry['macro_f1']):.3f} |"
+        )
+    return "\n".join(lines)
+
+
 def write_tsv(path: Path, rows: list[dict[str, object]]) -> None:
     if not rows:
         return
@@ -229,6 +258,39 @@ def main() -> None:
     losses = sum(not is_correct(on_by_key[key]) and is_correct(off_by_key[key]) for key in paired)
     changed = [key for key in paired if on_by_key[key]["prediction"] != off_by_key[key]["prediction"]]
     mcnemar_p = exact_mcnemar_p(gains, losses)
+
+    # Cases are NOT independent: the harness caches one solve per
+    # (pathway, gene, direction) and fans it out to every readout of that
+    # perturbation, so 847 cases come from ~194 unique solves. Pairing at case
+    # level treats correlated readouts of one experiment as separate evidence
+    # and makes the p anti-conservative. Recompute at the unit of
+    # randomisation — the perturbation solve — and report both.
+    def _solve_key(row):
+        return (row["pathway_id"], row["gene"], row["direction"])
+
+    solve_gains, solve_losses = set(), set()
+    for key in paired:
+        on_ok, off_ok = is_correct(on_by_key[key]), is_correct(off_by_key[key])
+        if on_ok and not off_ok:
+            solve_gains.add(_solve_key(on_by_key[key]))
+        elif off_ok and not on_ok:
+            solve_losses.add(_solve_key(on_by_key[key]))
+    mixed = solve_gains & solve_losses          # solve helped some readouts, hurt others
+    solve_gains -= mixed
+    solve_losses -= mixed
+    solve_mcnemar_p = exact_mcnemar_p(len(solve_gains), len(solve_losses))
+
+    # Both arms converged: the Convergence Gate section warns that
+    # non-converged outputs are not equally reliable evidence, so report the
+    # effect restricted to pairs where neither arm reported a failure.
+    conv_paired = [
+        key for key in paired
+        if str(on_by_key[key].get("converged")) == "True"
+        and str(off_by_key[key].get("converged")) == "True"
+    ]
+    conv_gains = sum(is_correct(on_by_key[k]) and not is_correct(off_by_key[k]) for k in conv_paired)
+    conv_losses = sum(not is_correct(on_by_key[k]) and is_correct(off_by_key[k]) for k in conv_paired)
+    conv_mcnemar_p = exact_mcnemar_p(conv_gains, conv_losses)
 
     scorecard = []
     convergence = {}
@@ -362,6 +424,36 @@ def main() -> None:
         f"{int(row['net_correct']):+d} |\n"
         for row in pathway_rows
     )
+    # Cases whose readout node set is entirely inside the set the
+    # perturbation pins: the "prediction" is the intervention read back.
+    def _pinned(rows_):
+        return [r for r in rows_ if str(r.get("readout_fully_pinned")) == "True"]
+
+    def _acc(rows_, column="prediction"):
+        vals = [r for r in rows_ if r.get(column)]
+        hit = sum(1 for r in vals if r[column] == r["expected"])
+        return hit, len(vals)
+
+    on_scored = [r for r in on_rows if r.get("prediction")]
+    pinned_rows = _pinned(on_scored)
+    unpinned_rows = [r for r in on_scored if r not in pinned_rows]
+    pin_hit, pin_n = _acc(pinned_rows)
+    unpin_hit, unpin_n = _acc(unpinned_rows)
+    held_scored = [r for r in on_scored if r.get("evaluation_split") == "held_out"]
+    held_unpinned = [r for r in held_scored if str(r.get("readout_fully_pinned")) != "True"]
+    held_hit, held_n = _acc(held_scored)
+    held_u_hit, held_u_n = _acc(held_unpinned)
+
+    # Structural baselines: computed by the harness on the same cases, but
+    # previously written only to the summary JSON and shown nowhere.
+    baseline_table_all = baseline_table(on_summary)
+    ssp = (on_summary.get("baselines", {}).get("shortest_signed_path") or {})
+    ssp_all = ssp.get("all", {})
+    ssp_held = ssp.get("by_split", {}).get("held_out", {})
+    on_held = on_summary.get("by_split", {}).get("held_out", {})
+    ssp_margin_all = int(on_summary["correct"]) - int(ssp_all.get("correct", 0))
+    ssp_margin_held = int(on_held.get("correct", 0)) - int(ssp_held.get("correct", 0))
+
     report = f"""# DeltaSignal Evaluation Report
 
 ## Executive Result
@@ -387,9 +479,22 @@ On the seven held-out pathways, diagram-on accuracy was
 ({percent(float(held_off['accuracy']))}) diagram-off. Across the
 {len(paired)} paired scored cases, diagram edges changed {len(changed)}
 classifications: {gains} changed wrong-to-correct and {losses}
-correct-to-wrong (exact McNemar p = {mcnemar_p:.4g}). This is evidence that
-diagram topology contributes useful signal, but it is not evidence that a
-DeltaSignal internal change caused the gain.
+correct-to-wrong (exact McNemar p = {mcnemar_p:.4g}).
+
+That p is computed per case, and cases are not independent — the harness
+caches one solve per (pathway, gene, direction) and fans it out to every
+readout of that perturbation. Clustered at the perturbation solve, the unit
+that was actually randomised, the effect is {len(solve_gains)} gains and
+{len(solve_losses)} losses (exact McNemar p = {solve_mcnemar_p:.4g}).
+Restricted to pairs where BOTH arms converged — the Convergence Gate below
+warns that non-converged outputs are not equally reliable evidence — it is
+{conv_gains} gains and {conv_losses} losses (p = {conv_mcnemar_p:.4g}) over
+{len(conv_paired)} pairs.
+
+Read together: the case-level p overstates the strength of this evidence.
+Whether diagram topology contributes signal is not settled by these data, and
+in either case it is not evidence that a DeltaSignal internal change caused
+the difference.
 
 ![Overall scorecard](overall_scorecard.svg)
 
@@ -436,6 +541,52 @@ accuracy describes the end-to-end system over all eligible cases.
 | --- | --- | ---: | ---: | ---: | ---: |
 {pathway_table}
 
+## Readout-Is-Intervention Stratum
+
+`load_dbid_to_uuids` registers a node under its own stable id and every
+`member_leaves` entry, so a complex containing gene X counts as a "gene-X
+node" and the perturbation pins it. Where the pinned set covers the whole
+readout set, `max` aggregation returns the pinned value verbatim — UI 80
+always classifies UP, UI 0 always DOWN — and the case is scored with no model
+content.
+
+| Subset | Cases | Correct | Accuracy |
+| --- | ---: | ---: | ---: |
+| Readout entirely pinned | {pin_n} | {pin_hit} | {percent(pin_hit / pin_n) if pin_n else 'n/a'} |
+| All other scored cases | {unpin_n} | {unpin_hit} | {percent(unpin_hit / unpin_n) if unpin_n else 'n/a'} |
+| Held out, excluding pinned | {held_u_n} | {held_u_hit} | {percent(held_u_hit / held_u_n) if held_u_n else 'n/a'} |
+
+Held-out accuracy is {percent(held_hit / held_n) if held_n else 'n/a'} as
+reported and {percent(held_u_hit / held_u_n) if held_u_n else 'n/a'} with this
+stratum removed.
+
+Every method is inflated by it to about the same degree — MP-BioPath, the
+curator predictions and the shortest-signed-path baseline all score in the
+high nineties here — so it does not distort the comparisons between them. It
+does inflate the absolute figures, which is why the stratum is reported rather
+than silently included. Scoring is unchanged; whether to exclude these cases
+is a methodological decision, not a defect fix.
+
+## Structural Baselines
+
+Computed by the harness alongside DeltaSignal. The two structural baselines
+score exactly the cases DeltaSignal scores, so their accuracies are directly
+comparable to it. The two trivial baselines are projected over all 847
+eligible cases — a different denominator — because they need no network path;
+their accuracies are NOT comparable to the rows below them, and are shown to
+bound the floor.
+
+| Baseline | Scored | Correct | Accuracy | Macro-F1 |
+| --- | ---: | ---: | ---: | ---: |
+{baseline_table_all}
+| **DeltaSignal (diagram on)** | **{on_summary['scored_cases']}** | **{on_summary['correct']}** | **{percent(float(on_summary['accuracy']))}** | **{float(on_summary['macro_f1']):.3f}** |
+
+The comparison that matters is `Sign of shortest signed path` — a graph
+traversal with no propagation model at all. DeltaSignal's margin over it is
+{ssp_margin_all} cases overall and {ssp_margin_held} on the held-out split
+({on_held.get('correct', 0)} vs {ssp_held.get('correct', 0)} of {on_held.get('scored_cases', 0)}). No paired test
+is reported for this comparison; it should not be read as an established win.
+
 ## Comparator Context
 
 On the {on_summary['scored_cases']} cases scored by diagram-on DeltaSignal,
@@ -447,7 +598,13 @@ paired bootstrap interval versus MP-BioPath was
 [{100*float(on_summary['paired_bootstrap_vs_mpbiopath']['ci95_low']):.1f},
 {100*float(on_summary['paired_bootstrap_vs_mpbiopath']['ci95_high']):.1f}]
 percentage points. The result supports approximate paired performance, not a
-statistically established win. MP-BioPath and curator predictions cover all
+statistically established win. The paired interval versus the curator
+predictions is
+[{100*float(on_summary['paired_bootstrap_vs_curator']['ci95_low']):.1f},
+{100*float(on_summary['paired_bootstrap_vs_curator']['ci95_high']):.1f}]
+percentage points, which excludes zero: on these paired cases DeltaSignal is
+significantly worse than the curator predictions. Both intervals are computed
+and stored; quoting only the favourable one would misrepresent the comparison. MP-BioPath and curator predictions cover all
 847 eligible cases, while exact-output DeltaSignal covers
 {on_summary['scored_cases']}.
 

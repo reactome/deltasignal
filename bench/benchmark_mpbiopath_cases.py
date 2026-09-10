@@ -694,6 +694,22 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     ),
                     "gene_dbid_count": len(gene_dbids.get(case.gene, ())),
                     "gene_uuid_count": len(gene_uuids),
+                    # Readout nodes that the perturbation itself PINS.
+                    # load_dbid_to_uuids registers a node under its own stable
+                    # id and every member_leaves entry, so a complex containing
+                    # gene X is a "gene-X node" and gets pinned. Where the
+                    # pinned set and the readout set intersect, max aggregation
+                    # can return the pinned value verbatim (UI 80 -> always UP,
+                    # 0 -> always DOWN) and the case is scored with zero model
+                    # content. 21 of 223 development cases intersect and 14 are
+                    # trivially "correct" that way. Recorded per case so the
+                    # affected stratum is visible; scoring is unchanged.
+                    "pinned_readout_uuid_count": len(
+                        set(output_uuids) & set(gene_uuids)
+                    ),
+                    "readout_fully_pinned": bool(
+                        output_uuids and set(output_uuids) <= set(gene_uuids)
+                    ),
                     "exact_output_uuid_count": len(exact_output_uuids),
                     "proxy_output_uuid_count": len(proxy_output_uuids),
                     "output_uuid_count": len(output_uuids),
@@ -808,10 +824,26 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         row["class_frequency_prediction"] = class_frequency_prediction
 
     summary = metric_summary(rows)
+    # NOT an out-of-sample holdout. `bench/tune_phase1.sh` grid-searches
+    # {geomean, min, signed} x three threshold pairs — one of which is exactly
+    # this harness's default 0.85/1.15 cutoffs — over the pathways that pass
+    # its MAX_EDGES=80000 filter, which its own comment names as PIP3, ERBB2,
+    # Cell_Cycle_Checkpoints, Transcriptional_Regulation_by_TP53 and
+    # Signaling_by_WNT. Three of those (TP53, WNT, ERBB2) are in
+    # HELD_OUT_PATHWAYS and account for 313 of the 404 held-out scored cases.
+    # `bench/phase2_holdout.sh` states outright that the ten were the tuning
+    # set. This field previously asserted False, which was not true.
     summary["evaluation_split"] = {
         "development_pathways": list(DEVELOPMENT_PATHWAYS),
         "held_out_pathways": list(HELD_OUT_PATHWAYS),
-        "held_out_was_used_for_configuration": False,
+        "held_out_was_used_for_configuration": True,
+        "split_kind": "replication",
+        "configuration_exposure": (
+            "Solver configuration was tuned by bench/tune_phase1.sh over a grid "
+            "that included TP53, WNT and ERBB2, which are listed as held out. "
+            "Treat the held-out figures as a replication split, not an "
+            "out-of-sample estimate."
+        ),
     }
     summary["by_split"] = split_summaries(rows)
     summary["by_pathway"] = grouped_summaries(rows)
