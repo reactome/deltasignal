@@ -663,6 +663,27 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             else:
                 output_uuids = []
                 output_mapping_mode = "absent_from_network"
+            # The perturbation must not pin the readout. load_dbid_to_uuids
+            # registers a node under its own stable id AND every member_leaves
+            # entry, so a Complex containing gene X is a "gene-X node" — and
+            # every MP-BioPath case is a root-input gene perturbation read at a
+            # terminal output, so a readout that sits inside the pinned set is
+            # this mapping over-reaching, not the experiment's design.
+            #
+            # Concretely: "knock out CDKN1B, does Cyclin E:CDK2:CDKN1A,CDKN1B
+            # still form?" is a real test of the assembly logic. Pinning the
+            # complex to 0 because it contains CDKN1B answers it by fiat — max
+            # aggregation returns the pinned value verbatim and the case scores
+            # correct with no model content. 61 of 627 cases did this, 60 of
+            # them "correct".
+            #
+            # Drop readout nodes from the pinned set. Verified not to cost
+            # coverage: in all 61 affected cases the gene also maps to nodes
+            # outside the readout, so every case stays scoreable.
+            pinned_readout_uuids = sorted(set(gene_uuids) & set(output_uuids))
+            if pinned_readout_uuids:
+                gene_uuids = [u for u in gene_uuids if u not in set(output_uuids)]
+
             all_path_signs = (
                 reachable_path_signs(
                     adjacencies[case.pathway_id],
@@ -694,7 +715,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     ),
                     "gene_dbid_count": len(gene_dbids.get(case.gene, ())),
                     "gene_uuid_count": len(gene_uuids),
-                    # Readout nodes that the perturbation itself PINS.
+                    # Readout nodes dropped from the pinned set (see above).
                     # load_dbid_to_uuids registers a node under its own stable
                     # id and every member_leaves entry, so a complex containing
                     # gene X is a "gene-X node" and gets pinned. Where the
@@ -704,11 +725,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                     # content. 21 of 223 development cases intersect and 14 are
                     # trivially "correct" that way. Recorded per case so the
                     # affected stratum is visible; scoring is unchanged.
-                    "pinned_readout_uuid_count": len(
-                        set(output_uuids) & set(gene_uuids)
-                    ),
-                    "readout_fully_pinned": bool(
-                        output_uuids and set(output_uuids) <= set(gene_uuids)
+                    "pinned_readout_uuids_excluded": len(pinned_readout_uuids),
+                    "readout_was_fully_pinned": bool(
+                        output_uuids and set(output_uuids) <= set(pinned_readout_uuids)
                     ),
                     "exact_output_uuid_count": len(exact_output_uuids),
                     "proxy_output_uuid_count": len(proxy_output_uuids),

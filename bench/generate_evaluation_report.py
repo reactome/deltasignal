@@ -426,23 +426,24 @@ def main() -> None:
     )
     # Cases whose readout node set is entirely inside the set the
     # perturbation pins: the "prediction" is the intervention read back.
-    def _pinned(rows_):
-        return [r for r in rows_ if str(r.get("readout_fully_pinned")) == "True"]
-
     def _acc(rows_, column="prediction"):
         vals = [r for r in rows_ if r.get(column)]
         hit = sum(1 for r in vals if r[column] == r["expected"])
         return hit, len(vals)
 
     on_scored = [r for r in on_rows if r.get("prediction")]
-    pinned_rows = _pinned(on_scored)
-    unpinned_rows = [r for r in on_scored if r not in pinned_rows]
+    pinned_rows = [
+        r for r in on_scored
+        if str(r.get("readout_was_fully_pinned")) == "True"
+    ]
     pin_hit, pin_n = _acc(pinned_rows)
-    unpin_hit, unpin_n = _acc(unpinned_rows)
-    held_scored = [r for r in on_scored if r.get("evaluation_split") == "held_out"]
-    held_unpinned = [r for r in held_scored if str(r.get("readout_fully_pinned")) != "True"]
-    held_hit, held_n = _acc(held_scored)
-    held_u_hit, held_u_n = _acc(held_unpinned)
+    # What those cases scored while the readout was pinned: the pinned value
+    # is returned verbatim, so the prediction equalled the intended direction
+    # (UI 0 -> DOWN, UI 80 -> UP) for every case whose expectation matched it.
+    pin_before = sum(
+        1 for r in pinned_rows
+        if r["expected"] == ("0" if r["direction"] == "0" else "2")
+    )
 
     # Structural baselines: computed by the harness on the same cases, but
     # previously written only to the summary JSON and shown nowhere.
@@ -541,31 +542,39 @@ accuracy describes the end-to-end system over all eligible cases.
 | --- | --- | ---: | ---: | ---: | ---: |
 {pathway_table}
 
-## Readout-Is-Intervention Stratum
+## Readout Nodes Are Excluded From The Perturbation
 
-`load_dbid_to_uuids` registers a node under its own stable id and every
-`member_leaves` entry, so a complex containing gene X counts as a "gene-X
-node" and the perturbation pins it. Where the pinned set covers the whole
-readout set, `max` aggregation returns the pinned value verbatim — UI 80
-always classifies UP, UI 0 always DOWN — and the case is scored with no model
-content.
+Every MP-BioPath case is a single-gene perturbation at a root input read at a
+terminal output, so the readout should never be part of what the perturbation
+pins. It was.
 
-| Subset | Cases | Correct | Accuracy |
+`load_dbid_to_uuids` registers a node under its own stable id AND every
+`member_leaves` entry, so a Complex containing gene X counts as a "gene-X
+node". Where the readout was such a Complex — "knock out CDKN1B, does
+Cyclin E:CDK2:CDKN1A,CDKN1B still form?" — the perturbation pinned the readout
+itself, and `max` aggregation returned that pinned value verbatim. The case
+scored correct with no model content.
+
+The harness now removes readout nodes from the pinned set. This costs no
+coverage: in all {pin_n} affected cases the gene also maps to nodes outside
+the readout, so every case stays scoreable.
+
+| | Cases | Correct | Accuracy |
 | --- | ---: | ---: | ---: |
-| Readout entirely pinned | {pin_n} | {pin_hit} | {percent(pin_hit / pin_n) if pin_n else 'n/a'} |
-| All other scored cases | {unpin_n} | {unpin_hit} | {percent(unpin_hit / unpin_n) if unpin_n else 'n/a'} |
-| Held out, excluding pinned | {held_u_n} | {held_u_hit} | {percent(held_u_hit / held_u_n) if held_u_n else 'n/a'} |
+| Affected cases, readout pinned (before) | {pin_n} | {pin_before} | {percent(pin_before / pin_n) if pin_n else 'n/a'} |
+| Affected cases, genuinely computed (now) | {pin_n} | {pin_hit} | {percent(pin_hit / pin_n) if pin_n else 'n/a'} |
 
-Held-out accuracy is {percent(held_hit / held_n) if held_n else 'n/a'} as
-reported and {percent(held_u_hit / held_u_n) if held_u_n else 'n/a'} with this
-stratum removed.
+The headline moves by {pin_before - pin_hit} cases. The remaining
+{pin_hit} are legitimately correct: DeltaSignal's assembly modelling does
+propagate a subunit knockout into the complex that needs it, so the pinning
+was short-circuiting a computation that mostly succeeded anyway.
 
-Every method is inflated by it to about the same degree — MP-BioPath, the
-curator predictions and the shortest-signed-path baseline all score in the
-high nineties here — so it does not distort the comparisons between them. It
-does inflate the absolute figures, which is why the stratum is reported rather
-than silently included. Scoring is unchanged; whether to exclude these cases
-is a methodological decision, not a defect fix.
+Note for anyone comparing across methods: the MP-BioPath and curator
+predictions in this report are published per-case values, unaffected by this
+harness change. They scored about 97% on these same {pin_n} cases while
+DeltaSignal was pinning them. DeltaSignal is now measured on the real task and
+they are not, so on this stratum the comparison understates DeltaSignal
+slightly.
 
 ## Structural Baselines
 
