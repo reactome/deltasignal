@@ -472,3 +472,73 @@ have an advantage.
 3. **Do not chase the no-path subset with more edges.** Every past attempt
    regressed the benchmark, and the curator result now explains why: the
    edges are not missing, the effect is not directed-causal.
+
+## R15 — Found it: de-repression is the single biggest systematic error
+
+Decomposing the 142 errors on path-having cases:
+
+| error | n |
+|---|---|
+| outright sign flip (UP↔DOWN) | **85 (60%)** |
+| called a change on a NO_CHANGE readout | 50 |
+| called NO_CHANGE on a real change | 7 |
+
+**78% of path-having cases have both a positive and a negative route** to the
+readout, so the network is usually ambiguous about direction and the model
+has to weigh routes rather than follow one. 79 of the 85 sign flips are in
+that ambiguous group.
+
+The outlier that gave it away — accuracy split by the signs available:
+
+| routes available | n | accuracy |
+|---|---|---|
+| positive only | 106 | 0.896 |
+| both (ambiguous) | 472 | 0.758 |
+| **negative only** | **25** | **0.320** |
+
+Sixteen of those 25 are knockouts in `Mitotic_G1` whose truth is NO_CHANGE
+and where we answer UP with values of 1.43, 9.997, 25.66 and 100.0 —
+confidently wrong. MP-BioPath scores 21 of 25 on the same cases.
+
+### It is systematic, not a 25-case curiosity
+
+Across **all** knockout cases:
+
+| our call | n | correct | |
+|---|---|---|---|
+| knockout → DOWN | 241 | 213 | **0.884** |
+| **knockout → UP (de-repression)** | **78** | **28** | **0.359** |
+
+MP-BioPath on those same 78: **60 correct (0.769)**, more than twice our
+rate, and it calls them UP only 37 times against our 78. Truth on the 78 is
+UP 28 / NO_CHANGE 22 / DOWN 28 — so the answer is not "never de-repress"
+either; it is that the magnitude is not being graded.
+
+**This is ~32 of the 46-case actionable gap in one error mode**, and it
+spreads across six pathways (TP53 24, Mitotic_G1 20, PIP3 19, WNT 6, ERBB2 3,
+RAF 3), so it survives the concentration risk that R13 flagged.
+
+### Mechanism, confirmed in the code
+
+`reaction_model.jl:1247` — `h_k = (bl + eps) / (x_inh + eps)` with baseline
+`bl = 0.01` and `DS_INHIBITOR_EPS` defaulting to **0.001**. A knockout sets
+`x_inh = 0`, giving `0.011 / 0.001 = 11×` de-repression from removing one
+inhibitor, clamped to 10× per reaction but **compounding across a path** —
+which is where the 25.66 and 100.0 values come from.
+
+That 10× is an assumption that every inhibitor was suppressing its target
+tenfold at baseline. Nothing measures it, and `DS_INHIBITOR_FLOOR` caps how
+far an inhibitor can *suppress* while nothing caps how far removing one can
+*raise*.
+
+The principled statement: de-repression should be bounded by what the
+activators can supply. With activators at baseline, removing an inhibitor
+should return the target to its uninhibited baseline — not to ten times it.
+
+### Status
+
+Probing `DS_INHIBITOR_EPS` (0.01 gives ~2× maximum de-repression, 0.003 gives
+~4.3×) as a single-parameter test of the mechanism. **This is a probe of the
+diagnosis, not a tuning exercise**: per R13, anything adopted must be
+validated on the curator axis and the 92-pathway catalog rather than chosen
+on these 742 cases.
