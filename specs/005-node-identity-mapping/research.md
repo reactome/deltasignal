@@ -128,3 +128,81 @@ rather than a category to accept. That makes SC-001 a real gate.
 2. Does the 89% projected glyph coverage materialise once #67 is fixed, and
    what are the residual 17 input/output misses?
 3. Which set-combining rule wins? Unmeasured by design; US4.
+
+---
+
+# Phase 3 findings (T008)
+
+## R6 — Recursion resolves all 20 blocked readouts
+
+Validated against the real blocked readouts rather than fixtures:
+
+| | one hop | recursive |
+|---|---|---|
+| fully resolved | 15 | **18** |
+| partially resolved | 2 | 2 |
+| unresolvable | **3** | **0** |
+
+Depth distribution 15×1, 4×2, 1×3 — recursion is load-bearing for 5 of 20,
+which is exactly the nested-set count predicted in R1.
+
+Of the 204 blocked cases, **194 are fully resolvable**; the remaining 10 sit
+in the two partial sets and, under FR-009, are not scored by combining over
+the members that happened to resolve.
+
+## R7 — "227 dropped set members" is 80% by design. Nearly reported as a bug.
+
+Across the catalog, **227 of 841 set-member leaves (27%) have no node**, in
+every pathway, 0% to 66.7%. That reads as a large generation defect, and the
+granularity hypothesis — that a phospho-form leaf is represented by its base
+protein — was tested and **failed completely: 0 of 227 have a same-gene node
+present.** With both of those in hand the obvious conclusion was a serious
+bug.
+
+**The tell was in the counts.** Almost every pathway showed exactly 14 or 28,
+which is not what scattered losses look like. They are the same entities
+everywhere: `R-HSA-68524` "Ub" and `R-HSA-113595` "Ub [cytosol]", whose
+members are the individual UBB/UBC/UBA52/RPS27A repeat units —
+`UBB(1-76)`, `UBC(153-228)` and so on. Those are the **deliberately atomic
+modifier sets** from the modifier-collapse work, and the generator publishes
+the authoritative list as `get_modifier_isoform_entity_set_ids()` (46 sets).
+
+Splitting on it:
+
+| pathway | missing | intentionally atomic | genuine |
+|---|---|---|---|
+| Cell_Cycle_Checkpoints | 28 | 28 | **0** |
+| PIP3_activates_AKT_signaling | 50 | 28 | **22** |
+| Signaling_by_ERBB2 | 26 | 14 | **12** |
+| Mitotic_G1_phase_and_G1_S_transition | 18 | 14 | 4 |
+| Transcriptional_Regulation_by_TP53 | 17 | 14 | 3 |
+| Signaling_by_WNT | 30 | 28 | 2 |
+| HDR / RAF | 15 each | 14 each | 1 each |
+| S_Phase | 28 | 28 | **0** |
+| Mitotic_Prophase | 0 | 0 | **0** |
+| **TOTAL** | **227** | **182 (80%)** | **45** |
+
+**The real gap is 45, not 227**, concentrated in PIP3 (22) and ERBB2 (12).
+Those are Complexes that reach their reactions only *via an EntitySet
+participant* — never as a direct input or output — and structurally
+identical siblings differ in whether they got a node (`R-HSA-1963593` and
+`R-HSA-1248703` have nodes; `R-HSA-1963583` and `R-HSA-1250316` do not).
+That inconsistency is a genuine defect and it is what makes the two partial
+readouts partial.
+
+**Consequences for the plan:**
+
+1. `node_exclusions.csv` will **not** be empty, contradicting R5's
+   expectation. R5 measured *direct* input and output participants and was
+   right about those; set members are a layer it never looked at. Roughly
+   182 entries are the intentional modifier sets and need the reason
+   `atomic_modifier_set`; about 45 need investigating.
+2. An exclusion reason is doing real work here rather than being a
+   formality — it is the only thing separating a design decision from a bug
+   in the same list.
+3. The 45 are a separate defect from this feature. File, do not absorb.
+
+**Method note.** Two hypotheses were tested and rejected (granularity, 0 of
+227) before the right one was found, and the right one was found by looking
+at the *shape* of the numbers rather than their size. A count alone would
+have shipped "227 members are being dropped", which is true and useless.

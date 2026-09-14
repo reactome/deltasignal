@@ -142,10 +142,13 @@ unexplained absences in either direction, and a set readout scores.
       defect to surface, not an `other` bucket. `stable_id` is primary; a
       database id may be a separate column but never the key.
 - [ ] T010 [US2] Emit `node_exclusions.csv` with `stable_id, reason,
-      release`, `reason` required and non-empty. **Expect it empty**: every
-      unresolved entity measured is an EntitySet (29 of 29 in PIP3, 9 of 9
-      in Cell Cycle Checkpoints), so a non-empty list is a finding to
-      investigate rather than a category to accept.
+      release`, `reason` required and non-empty. **It will NOT be empty** —
+      research.md R7 supersedes R5's expectation. Expect ~182 entries with
+      reason `atomic_modifier_set` (the ubiquitin and modifier-isoform sets
+      listed by `get_modifier_isoform_entity_set_ids()`, deliberately not
+      expanded) and ~45 needing investigation. The reason column is what
+      separates a design decision from a bug in the same list, so it carries
+      real weight here rather than being a formality.
 - [ ] T011 [US2] Add the bidirectional completeness check to
       `logic-network-generator/scripts/validate_logic_network.py`: forward
       (every entity participating as input or output of any reaction appears
