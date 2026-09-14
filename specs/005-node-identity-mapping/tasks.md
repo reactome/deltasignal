@@ -104,7 +104,7 @@ resolving as a consequence.
 **Independent Test**: a completeness report over the ten pathways shows zero
 unexplained absences in either direction, and a set readout scores.
 
-- [ ] T008 [US2] Create `logic-network-generator/src/set_resolution.py`
+- [x] T008 [US2] Create `logic-network-generator/src/set_resolution.py`
       resolving an EntitySet to its leaf members through
       `hasMember|hasCandidate`, recursing through nested sets. Carry `depth`
       (0 for self, incrementing per hop; **observed maximum is 5**). Keep a
@@ -112,6 +112,26 @@ unexplained absences in either direction, and a set readout scores.
       has no membership cycles** (0 self-membership, 0 at lengths 2/3/4
       across 5,440 nested sets) and the guard is insurance against future
       curation error, not a response to an observed cycle.
+> **T008 result (measured against all 20 real blocked readouts, not
+> fixtures):** every one resolves — 18 fully, 2 partially, **0
+> unresolvable**, against 3 unresolvable at one hop. Depth distribution 15×1,
+> 4×2, 1×3, so recursion is load-bearing for 5 of 20.
+>
+> **New defect found, and it changes T010's expectation.** The 2 partial sets
+> (ERBB2 `R-HSA-1963585`, `R-HSA-1963588`, 10 cases) are partial because some
+> of their leaf Complexes have no node. Those leaves are **not** direct
+> reaction inputs or outputs — each reaches its reactions only *via an
+> EntitySet participant* (9–12 reactions each) — and structurally identical
+> siblings differ: `R-HSA-1963593` and `R-HSA-1248703` got nodes while
+> `R-HSA-1963583` and `R-HSA-1250316` did not. So **set expansion drops some
+> members**, which is a generation bug distinct from this mapping.
+>
+> This does **not** falsify research.md R5, which measured *direct* input and
+> output participants and found every gap to be an EntitySet. It adds a layer
+> R5 did not look at. `node_exclusions.csv` will therefore **not** be empty,
+> and T010 should treat a non-empty list as the finding it is rather than
+> forcing it to zero.
+
 - [ ] T009 [US2] Emit `node_resolution.csv` per pathway from
       `logic_network_generator.py` with exactly the columns in
       `data-model.md`: `stable_id, uuid, relation, depth, role,
