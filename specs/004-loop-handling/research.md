@@ -415,3 +415,60 @@ exists and was used for the 2026-07 holdout (13,429/16,696 on 71 pathways).
 Any change motivated by the path-accuracy finding should be validated there,
 not on these ten — particularly since the finding is now known to be
 concentrated in two of them.
+
+## R14 — The "no-path wall" is an EXPERIMENTAL-ground-truth phenomenon, not a model failure
+
+R12 called the no-path subset "a hard ceiling for any directed causal model".
+That is right about the experimental axis and **wrong as a general claim**,
+and the correction matters because it changes what is worth building.
+
+Checked at 8.5× scale on the 92-pathway catalog, against curator ground
+truth (72 pathways with both a network and a truth table, **19,984 scoreable
+cases**). With no path the model answers NO_CHANGE deterministically, so
+accuracy there is exactly the share of no-path cases whose truth is also "no
+change" — computable without the solver, which is what made this cheap.
+
+| ground truth | pathways | cases | no-path rate | truth is NO_CHANGE on those |
+|---|---|---|---|---|
+| curator, 92-catalog | 72 | 19,984 | **61.6%** | **11,050/12,304 = 0.898** |
+| curator, 10-catalog | 8 | 3,418 | 45.8% | 1,377/1,564 = 0.880 |
+| **experimental**, 10-catalog | 10 | 742 | 18.7% | **30/139 = 0.216** |
+
+**On the curator axis the directed model and the curators agree ~90% of the
+time when no path exists.** There is no wall. The 0.216 is specific to
+experimental data: in a real cell the readout moves in ~78% of cases where
+Reactome has no directed route from the perturbation.
+
+So the no-path subset does not measure a deficiency of our propagator, or of
+MP-BioPath's. It measures the distance between Reactome's curated directed
+causality and what a cell actually does — compensation, indirect regulation,
+off-pathway effects, and whatever experimental confounding is in the 2019
+measurements. MP-BioPath scores 0.281 on the same 139 cases, which is the
+same wall from the other side.
+
+### The apples-to-apples comparison, on our own path-having subset
+
+| model | path-having (603) | no-path (139) |
+|---|---|---|
+| DeltaSignal | 461 = **0.7645** | 30 = 0.2158 |
+| shortest signed path | 488 = 0.8093 | — |
+| MP-BioPath | 507 = **0.8408** | 39 = 0.2806 |
+
+Stated on identical cases, the gap where a path exists is **46 cases, 7.6
+points** — larger than the 5.1 points R12 inferred from unequal subsets, and
+it is the whole of the actionable deficit. We also lose to the model-free
+traversal here (488 vs 461), on the subset where our model is supposed to
+have an advantage.
+
+### What to do with this
+
+1. **Report the two subsets separately and say why.** A single accuracy
+   figure over the experimental benchmark averages a tractable modelling
+   problem with an intractable one, and 18.7% of it is not about the model at
+   all. This is a manuscript framing point, not a metric trick — the curator
+   numbers are the evidence that the split is principled.
+2. **The target is 0.7645 → 0.8408 on path-having cases.** That is where
+   every remaining winnable case lives.
+3. **Do not chase the no-path subset with more edges.** Every past attempt
+   regressed the benchmark, and the curator result now explains why: the
+   edges are not missing, the effect is not directed-causal.
