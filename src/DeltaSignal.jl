@@ -18,6 +18,7 @@ include("io/reactome_mapper.jl")
 include("core/sensitivity.jl")
 include("core/aggregators.jl")
 include("core/hill_functions.jl")
+include("core/cofactors.jl")
 include("core/reaction_model.jl")
 
 # Solvers
