@@ -47,7 +47,7 @@ comparison below means anything.
       inhibitor raises its target by at most 2× **at one reaction**; with
       ceiling 11 and eps 1e-3 the value matches the current formula to
       floating-point equality.
-- [ ] T008 Record the value in force in the solve provenance so a result can
+- [x] T008 Record the value in force in the solve provenance so a result can
       be traced to the assumption that produced it (constitution V).
 
 **Checkpoint**: the two concepts are separable and the default still
@@ -74,7 +74,7 @@ and the reported cause names the effect responsible.
 - [x] T012 [US1] Arm **D** — `DS_INHIBITOR_EPS=1e-2` with the ceiling
       effectively inactive, into `$S/r_D`. Reproduces the original probe for
       continuity; expect ≈506/742.
-- [ ] T013 [US1] Repeat T009–T012 against `--ground-truth curator`. One arm
+- [x] T013 [US1] Repeat T009–T012 against `--ground-truth curator`. One arm
       at a time on a fresh port, killing the Julia server between arms.
 - [x] T014 [US1] Report all arms through
       `bench/analysis/compare_set_rules.py` — macro-F1, coverage delta,
@@ -103,7 +103,7 @@ and the reported cause names the effect responsible.
 - [x] T018 [US2] Assert the four case tables are **identical** (FR-002). Any
       difference means ε is still doing modelling work and the separation is
       nominal rather than real.
-- [ ] T019 [US2] Document in `contracts/inhibition-bounds.md` the ε value
+- [x] T019 [US2] Document in `contracts/inhibition-bounds.md` the ε value
       below which only division-by-zero protection remains, so the next
       reader knows what the guard is for.
 
@@ -113,7 +113,7 @@ and the reported cause names the effect responsible.
 
 ## Phase 5: US3 — decide the default on the wider sample (P2)
 
-- [ ] T020 [US3] Run the surviving candidate ceilings on **`$S/cat92`**
+- [x] T020 [US3] Run the surviving candidate ceilings on **`$S/cat92`**
       against both ground truths. This is the primary evidence; the 742-case
       set is secondary (FR-007), because 60% of it is two pathways and the
       candidate came from sweeping it.
@@ -121,7 +121,7 @@ and the reported cause names the effect responsible.
       (SC-006): re-score each candidate at 0.80/1.20, 0.85/1.15 and
       0.90/1.10. A gain that disappears under a small cutoff shift is a
       threshold artifact, not a modelling win.
-- [ ] T022 [US3] Adopt a default only if it improves macro-F1 on the
+- [x] T022 [US3] Adopt a default only if it improves macro-F1 on the
       92-pathway catalog against **both** ground truths. A candidate that
       improves the small set and not the large one is **not** adopted and the
       discrepancy is recorded.
@@ -133,7 +133,7 @@ and the reported cause names the effect responsible.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T024 [P] Record every arm in `research.md` including the neutral and
+- [x] T024 [P] Record every arm in `research.md` including the neutral and
       negative ones, per constitution III.
 - [ ] T025 [P] Update `quickstart.md` with the commands and the numbers
       actually observed.

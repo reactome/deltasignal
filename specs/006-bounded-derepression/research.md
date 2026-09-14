@@ -256,3 +256,66 @@ change in isolation at −8 cases. So this is a deliberate behaviour change
 requiring validation before merge, not a no-op, and the contract's
 "default reproduces today" guarantee applies only to the parameter split, not
 to the formula replacement. Nothing merges until the wider validation lands.
+
+---
+
+# Phase 5 — the wider validation (US3)
+
+## R8 — The 742-case set was wrong about BOTH changes, in opposite directions
+
+89 pathways, **23,788 curator cases**, same catalog (`cat92`):
+
+| arm | correct | accuracy | macro-F1 | false_positive_change | propagator_missed |
+|---|---|---|---|---|---|
+| old formula (ε=1e-3, implicit 11×) | 19,431 | 81.68% | 0.7814 | 1,825 | 709 |
+| **epsilon-free, ceiling 11** | **19,456** | **81.79%** | **0.7834** | **1,819** | **690** |
+| epsilon-free, ceiling 2 | 19,417 | 81.63% | 0.7807 | 1,826 | 722 |
+
+Two separate verdicts:
+
+**The formula change is POSITIVE at scale: +25 cases, +0.0020 macro-F1**, and
+it has the lowest count in *both* relevant failure categories. On the
+742-case set the same change measured **−8**. The small set had the sign
+wrong.
+
+**Tightening the ceiling to 2 is NEGATIVE at scale: −39 cases against the
+matched baseline, −0.0027 macro-F1**, and the failure bucket it was designed
+to fix — `false_positive_change` — gets marginally *worse* (1,819 → 1,826)
+while `propagator_missed` rises by 32. On the 742-case set it measured
+**+6**. The small set had that sign wrong too.
+
+**So the ten-pathway set mispredicted both decisions, in opposite
+directions.** This is the clearest evidence yet for R13's warning, and it
+retroactively justifies FR-007 having been written into the spec before any
+of these numbers existed.
+
+**Decision: the ceiling stays at 11.0. Not adopted, per SC-004.** The
+de-repression weakness is real — 78 knockout→UP calls at 0.359 against
+MP-BioPath's 0.769 — but a single global ceiling is not its fix. Whatever
+the answer is, it is not one number applied to every inhibitor edge.
+
+## R9 — The formula change: the axes disagree, and it is a judgement call
+
+| axis | cases | result |
+|---|---|---|
+| curator (`cat92`) | 23,788 | **+25 cases, macro-F1 +0.0020** |
+| experimental (`cat7`) | 742 | **−5 cases** among both-arms-converged |
+
+The experimental figure is not noise and should not be dismissed as such: of
+16 changed predictions, 5 converged in both arms and **all 5 went the wrong
+way**. The headline −8 rests on 11 non-converged cases, but the converged
+core is a real −5.
+
+SC-004 requires improvement on both, so **this is raised rather than
+resolved**. The asymmetry to weigh: the curator evidence is 32× the sample
+and spans 89 pathways; the experimental set is 742 cases of which 60% come
+from two pathways, and carries a known ~19% subset with no directed path that
+no propagator change can move.
+
+**Recommendation — adopt the formula change, reject the ceiling change.** The
+epsilon removal is a correctness fix that stands independent of score: a
+constant documented as a divide-by-zero guard was sized at 10% of the scale
+it guarded and was silently setting the de-repression ceiling, compressing
+the interior of the response curve, and shifting maximum suppression. That is
+wrong whatever it scores, and at scale it also happens to score better. But
+the −5 is Adam's call to accept, not mine to absorb.
