@@ -259,7 +259,7 @@ end
     # The list is the feature; pin its shape and its size so an edit that
     # silently widens it fails here rather than in a benchmark six steps later.
     @test "R-ALL-113592" in DeltaSignal.COFACTOR_STIDS      # ATP [cytosol]
-    @test length(DeltaSignal.COFACTOR_STIDS) == 260         # stated in the docstring
+    @test length(DeltaSignal.COFACTOR_STIDS) == 264         # stated in the docstring
     @test all(id -> occursin(r"^R-(ALL|HSA)-\d+$", id), DeltaSignal.COFACTOR_STIDS)
 end
 

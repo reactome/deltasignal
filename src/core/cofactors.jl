@@ -51,7 +51,7 @@ messengers and are the signal in a signalling pathway — an earlier attempt to
 exclude the SimpleEntity class cost 163 cases by deleting exactly those. It
 also excludes ubiquitin and SUMO, whose transfer IS the regulatory event.
 
-260 stable ids across 28 molecules.
+264 stable ids across 29 molecules.
 """
 
 const COFACTOR_STIDS = Set([
@@ -127,14 +127,18 @@ const COFACTOR_STIDS = Set([
     "R-ALL-1132064", "R-ALL-113526", "R-ALL-192307", "R-ALL-194653",
     "R-ALL-29360", "R-ALL-352330", "R-ALL-427523", "R-ALL-5688282",
     "R-ALL-9912885",
+    # NAD+
+    "R-ALL-29986",
     # NADH
     "R-ALL-1130844", "R-ALL-192305", "R-ALL-194697", "R-ALL-29362",
     "R-ALL-73473",
     # NADP+
+    "R-ALL-217093",
     "R-ALL-1130860", "R-ALL-113563", "R-ALL-113564", "R-ALL-194668",
     "R-ALL-2000348", "R-ALL-29366", "R-ALL-351628", "R-ALL-389556",
     "R-ALL-5623650", "R-ALL-9749714", "R-ALL-9861421",
     # NADPH
+    "R-ALL-110114",
     "R-ALL-1132417", "R-ALL-113600", "R-ALL-113601", "R-ALL-113602",
     "R-ALL-194725", "R-ALL-2000347", "R-ALL-29364", "R-ALL-351627",
     "R-ALL-5623644", "R-ALL-9749712",
@@ -151,6 +155,7 @@ const COFACTOR_STIDS = Set([
     "R-ALL-111294", "R-ALL-113541", "R-ALL-113542", "R-ALL-114654",
     "R-ALL-159450", "R-ALL-2046049", "R-ALL-389593", "R-ALL-6806656",
     # Pi
+    "R-ALL-29390",
     "R-ALL-109277", "R-ALL-113548", "R-ALL-113550", "R-ALL-113551",
     "R-ALL-114640", "R-ALL-2255331", "R-ALL-29372", "R-ALL-5228339",
     "R-ALL-8851226", "R-ALL-8851513", "R-ALL-947590", "R-ALL-9839058",
