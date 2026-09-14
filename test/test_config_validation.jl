@@ -139,37 +139,20 @@ end
     @test config.or_mode == "mean"
     @test config.assembly_limiting == false
     @test config.hill_sat_eps == 1e-5
-    # 11.0 reproduces the ceiling that DS_INHIBITOR_EPS used to set implicitly:
-    # (0.01 + 0.001)/0.001 = 11. Changing this default is a modelling decision
-    # and belongs to specs/006-bounded-derepression, not to a sweep.
-    @test config.derepression_max == 11.0
+    # A divide-by-zero guard, and nothing else. Baseline is 0.01, so this
+    # must stay orders of magnitude below it — at the old 1e-3 it was 10% of
+    # baseline and silently set the de-repression ceiling, compressed the
+    # response curve and shifted maximum suppression.
+    @test config.inhibitor_eps == 1e-12
+    @test config.inhibitor_eps < 0.01 / 1000
     @test config.or_combine == "max"
     @test config.inhibitor_or == false
     @test config.or_redundancy == 1.0
 end
 
-@testset "de-repression ceiling is explicit and validated" begin
-    for name in ("DS_DEREPRESSION_MAX", "DS_INHIBITOR_EPS")
-        haskey(ENV, name) && delete!(ENV, name)
-    end
-
-    # The defect this guards: the ceiling used to be an arithmetic consequence
-    # of a division guard, so nobody could see it, question it or change it.
-    with_env("DS_DEREPRESSION_MAX", "not-a-number") do
-        err = try resolve_reaction_eval_config() catch e; e end
-        @test err isa ArgumentError
-        @test occursin("DS_DEREPRESSION_MAX", err.msg)
-    end
-
-    with_env("DS_DEREPRESSION_MAX", "2.5") do
-        @test resolve_reaction_eval_config().derepression_max == 2.5
-    end
-end
-
-@testset "de-repression ceiling actually bounds the output" begin
-    # A lone inhibitor, knocked out. Under the old formula this raised the
-    # target elevenfold and nothing said so; the ceiling must bind, and at
-    # 11.0 must reproduce the old behaviour.
+@testset "the inhibition epsilon is a guard, not a model parameter" begin
+    # The defect this pins: at 1e-3 the epsilon was 10% of baseline and did
+    # three things nobody chose. At a true guard size it does one.
     bl = 0.01
     network = DeltaSignal.ReactionNetwork(
         Dict(
@@ -179,23 +162,27 @@ end
         [DeltaSignal.LogicNetworkEdge("I", "T", true, false, 1.0, "regulator")],
         Dict{String, DeltaSignal.SetExpansionMapping}(),
     )
-    function target_fold(ceiling)
-        prev = get(ENV, "DS_DEREPRESSION_MAX", nothing)
-        ENV["DS_DEREPRESSION_MAX"] = string(ceiling)
+    function target_fold(eps, inhibitor_ui)
+        prev = get(ENV, "DS_INHIBITOR_EPS", nothing)
+        ENV["DS_INHIBITOR_EPS"] = string(eps)
         try
-            obs = Dict("I" => (0.0, 1.0))   # knock the inhibitor out
             params = DeltaSignal.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty")
-            result = DeltaSignal.solve_steady_state(network, obs, params)
+            result = DeltaSignal.solve_steady_state(network, Dict("I" => (inhibitor_ui, 1.0)), params)
             return result.node_activities["T"] / bl
         finally
-            prev === nothing ? delete!(ENV, "DS_DEREPRESSION_MAX") : (ENV["DS_DEREPRESSION_MAX"] = prev)
+            prev === nothing ? delete!(ENV, "DS_INHIBITOR_EPS") : (ENV["DS_INHIBITOR_EPS"] = prev)
         end
     end
-    tight = target_fold(2.0)
-    loose = target_fold(11.0)
-    @test tight < loose            # the ceiling is load-bearing, not decorative
-    @test tight <= 2.0 + 1e-6      # and it binds at the value stated
-    @test loose <= 11.0 + 1e-6
+
+    # Halving the inhibitor should double its target: h = bl/x exactly.
+    # The old default returned 1.833 here — an 8% error from a "guard".
+    @test target_fold(1e-12, 0.5) ≈ 2.0 atol=0.01
+    @test target_fold(1e-3, 0.5) < 1.9        # the defect, pinned
+
+    # A full knockout is bounded by the per-reaction clamp, not by epsilon,
+    # so shrinking epsilon by nine orders of magnitude must not change it.
+    @test target_fold(1e-12, 0.0) ≈ target_fold(1e-9, 0.0) atol=1e-6
+    @test target_fold(1e-12, 0.0) <= 10.0 + 1e-6
 end
 
 @testset "damping is range-checked" begin

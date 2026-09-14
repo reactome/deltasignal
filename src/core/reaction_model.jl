@@ -690,7 +690,6 @@ struct ReactionEvalConfig
     inhibitor_k::Float64
     inhibitor_eps::Float64
     inhibitor_floor::Float64
-    derepression_max::Float64
     floor_scope::String
     devspec_beta_raw::String
     spec_beta_raw::String
@@ -833,21 +832,29 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         _float_env("DS_HILL_SAT_H_MAX", 10.0),
         _float_env("DS_HILL_LOG_ZMAX", 10.0),
         _float_env("DS_INHIBITOR_K", 0.1),
-        _float_env("DS_INHIBITOR_EPS", 0.001),
-        _float_env("DS_INHIBITOR_FLOOR", 0.0),
-        # The most a single inhibitor's REMOVAL may raise its target.
+        # 1e-12, not 1e-3. This is a divide-by-zero guard and nothing else,
+        # so it must be orders of magnitude below the scale it guards.
+        # Baseline is 0.01, so the old default was TEN PERCENT of that, and at
+        # that size it was not guarding — it was doing three jobs nobody wrote
+        # down: setting the de-repression ceiling ((bl+eps)/eps = 11x from a
+        # single inhibitor knockout), compressing the whole interior of the
+        # response (x = bl/2 read 1.833 instead of 2.0), and shifting maximum
+        # suppression (0.0110 instead of 0.0100).
         #
-        # 11.0 reproduces current behaviour exactly: with the divide form
-        # h = (bl + eps)/(x + eps), a knockout gives (0.01 + 0.001)/0.001 = 11,
-        # so until now the ceiling was set by a constant whose job is
-        # preventing division by zero. Nobody chose eleven — it is arithmetic.
+        # The blow-up as x -> 0 was never unhandled: clamp(result, 0, 10) below
+        # is the real de-repression ceiling. Shrinking eps just stops it
+        # distorting everything above zero.
         #
-        # DS_INHIBITOR_FLOOR bounds how far an inhibitor may SUPPRESS its
-        # target, and the depletion path has DS_DEPLETION_H_MAX for exactly
-        # this. Inhibitor edges had no equivalent, so suppression was bounded
-        # by choice and de-repression by accident. See
+        # DS_HILL_SAT_EPS had the identical defect at the identical value and
+        # was fixed in specs/002-upregulation-propagation without anyone
+        # checking the sibling. Any epsilon here must stay << 0.01.
+        #
+        # Measured, 89 pathways / 23,788 curator cases: 19,431 -> 19,459
+        # correct, macro-F1 0.7814 -> 0.7835, and the lowest
+        # false_positive_change of any arm tested. See
         # specs/006-bounded-derepression.
-        _float_env("DS_DEREPRESSION_MAX", 11.0),
+        _float_env("DS_INHIBITOR_EPS", 1e-12),
+        _float_env("DS_INHIBITOR_FLOOR", 0.0),
         _mode_env("DS_INHIBITOR_FLOOR_SCOPE", "loops"),
         get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
@@ -1203,7 +1210,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     #               EXACTLY 1 at x=baseline (no spurious drift through signed
     #               AND), >1 for knockout (de-repression), <1 for upregulation.
     #               Matches "doubling the inhibitor halves the target." ε
-    #               controlled by DS_INHIBITOR_EPS (default 1e-3, small vs
+    #               controlled by DS_INHIBITOR_EPS (default 1e-12, tiny vs
     #               baseline 0.01). The H factor is bounded by the output
     #               clamping later.
     #
@@ -1225,8 +1232,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         end
         clamp(result, zero(T), one(T))
     elseif inhibition_mode == "divide"
-        # DS_INHIBITOR_EPS is deliberately NOT read here any more: the
-        # ceiling below is the divide-by-zero guard. Other modes still use it.
+        eps_T = T(config.inhibitor_eps)
         # DS_INHIBITOR_FLOOR caps how strongly an inhibitor edge can suppress
         # its target. DS_INHIBITOR_FLOOR_SCOPE selects which edges it applies to:
         #   "all"           — every inhibitor (global variant, for comparison)
@@ -1238,7 +1244,6 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #                     weaken self-regulating gene transcription, leave
         #                     protein-level feedback at full divide strength.
         h_floor = T(config.inhibitor_floor)
-        derep_max = T(config.derepression_max)
         floor_scope = config.floor_scope
         # DS_INHIBITOR_OR: honor the per-edge inhibitor AND/OR flag. AND-clustered
         # repressors act cooperatively, so their suppression factors multiply
@@ -1254,29 +1259,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         have_or = false
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
-            # h = bl/x, bounded above by the de-repression ceiling — and the
-            # CEILING is what prevents the division by zero, so no epsilon
-            # appears in the interior of the curve at all.
-            #
-            # The old form was (bl + eps)/(x + eps), where eps was documented
-            # as a divide-by-zero guard but defaulted to 1e-3 against a
-            # baseline of 0.01 — TEN PERCENT of the scale it guarded. At that
-            # size it was not a guard: it set the de-repression ceiling
-            # (11x), compressed the whole interior (bl/2 read 1.833 instead
-            # of 2.0) and shifted maximum suppression (0.0110 instead of
-            # 0.0100). Three modelling decisions nobody wrote down.
-            #
-            # DS_HILL_SAT_EPS had the identical defect at the identical value
-            # and was fixed in specs/002-upregulation-propagation; this is
-            # the same bug in the sibling parameter. See
-            # specs/006-bounded-derepression.
-            #
-            # Bounded PER INHIBITOR, before the AND product and the OR
-            # minimum, so the claim it encodes — "removing this one edge can
-            # raise its target at most k-fold" — is about a single edge and
-            # is checkable in isolation. The per-reaction clamp below bounds
-            # a different thing and stays.
-            h_k = min(derep_max, bl / max(x_inh, bl / derep_max))
+            h_k = (bl + eps_T) / (x_inh + eps_T)
             apply_floor = floor_scope == "all" ||
                           (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k]) ||
                           (floor_scope == "transcription" && rxn.inhibitor_transcriptional[k])
@@ -1291,9 +1274,12 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             end
         end
         have_or && (result *= or_h)
-        # Cap H to prevent catastrophic de-repression from multiple knockouts.
-        # The output is also clamped later, but keeping H bounded keeps signed
-        # AND propagation well-behaved upstream.
+        # THIS is the de-repression ceiling: the most that removing inhibitors
+        # can raise a target at one reaction. It is also what makes the
+        # division safe as x_inh -> 0, which is why DS_INHIBITOR_EPS can be
+        # numerically tiny. Ten is an assumption, not a measurement — a
+        # tighter value was tried and rejected (2x cost 39 cases on 23,788),
+        # but it has never been justified from data either.
         clamp(result, zero(T), T(10.0))
     elseif inhibition_mode == "devspec"
         beta_env = config.devspec_beta_raw

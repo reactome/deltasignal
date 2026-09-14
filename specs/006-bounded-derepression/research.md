@@ -319,3 +319,60 @@ it guarded and was silently setting the de-repression ceiling, compressing
 the interior of the response curve, and shifting maximum suppression. That is
 wrong whatever it scores, and at scale it also happens to score better. But
 the −5 is Adam's call to accept, not mine to absorb.
+
+
+---
+
+# R10 — Adam was right: the fix is one line, and my rewrite earned nothing
+
+Adam, on the proposed formula change: *"I thought that we needed it to avoid
+divide by zero and I thought the solution would just be to make it really
+really small."*
+
+That is correct, and I should have tested it before building anything. The
+blow-up as x → 0 was **never unhandled** — `clamp(result, 0, 10.0)` already
+sat at the end of the branch. So a tiny epsilon gives an exact `bl/x` curve
+in the interior, and the existing clamp handles the division.
+
+Measured, 89 pathways / 23,788 curator cases:
+
+| arm | correct | accuracy | macro-F1 | false_positive_change |
+|---|---|---|---|---|
+| current (ε=1e-3) | 19,431 | 81.68% | 0.7814 | 1,825 |
+| **ε=1e-12, formula unchanged** | **19,459** | **81.80%** | **0.7835** | **1,814** |
+| rewrite, ceiling 11 | 19,456 | 81.79% | 0.7834 | 1,819 |
+| rewrite, ceiling 2 | 19,417 | 81.63% | 0.7807 | 1,826 |
+
+**Shrinking epsilon captures the entire gain and then some** — +28 cases,
+three better than the rewrite, with the lowest false-positive count of any
+arm. The formula restructuring and `DS_DEREPRESSION_MAX` contributed
+*nothing*, so both are dropped. A parameter that earns nothing is worse than
+no parameter.
+
+## What the feature becomes
+
+One line — `DS_INHIBITOR_EPS` from `0.001` to `1e-12` — plus two comments:
+one saying why an epsilon here must stay orders of magnitude below baseline,
+and one on `clamp(result, 0, 10.0)` naming it as the de-repression ceiling.
+That comment is the knowledge that was actually missing; its absence is why
+nobody noticed the identical defect in `DS_HILL_SAT_EPS`.
+
+## The process failure, recorded because it is the useful part
+
+I built a 2×2 attribution experiment **specifically** to avoid mis-attributing
+a gain, and then did not run the simplest arm until Adam asked for it. The
+2×2 tested my proposal against itself; it never tested it against doing less.
+
+Every arm in it was a variant of "restructure the formula and add a
+parameter". The null hypothesis — "change the constant and touch nothing
+else" — was not among them, because by the time I designed the experiment I
+had already decided what the fix was. Finding a real defect is not the same
+as knowing the smallest thing that fixes it, and an attribution design
+inherits the blind spots of whoever chose its arms.
+
+## Still standing
+
+The de-repression weakness is unchanged by any of this: 78 knockout→UP calls
+at 0.359 accuracy against MP-BioPath's 0.769 on the same cases. A global
+ceiling is falsified as the fix (2× cost 39 cases). The `10.0` clamp remains
+an assumption nobody has justified from data — now at least it is labelled.
