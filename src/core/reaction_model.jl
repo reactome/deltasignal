@@ -1225,7 +1225,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         end
         clamp(result, zero(T), one(T))
     elseif inhibition_mode == "divide"
-        eps_T = T(config.inhibitor_eps)
+        # DS_INHIBITOR_EPS is deliberately NOT read here any more: the
+        # ceiling below is the divide-by-zero guard. Other modes still use it.
         # DS_INHIBITOR_FLOOR caps how strongly an inhibitor edge can suppress
         # its target. DS_INHIBITOR_FLOOR_SCOPE selects which edges it applies to:
         #   "all"           — every inhibitor (global variant, for comparison)
@@ -1253,13 +1254,29 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         have_or = false
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
-            h_k = (bl + eps_T) / (x_inh + eps_T)
-            # Bound de-repression PER INHIBITOR, before the AND product and
-            # the OR minimum, so the claim it encodes — "removing this one
-            # edge can raise its target at most k-fold" — is about a single
-            # edge and is checkable in isolation. The per-reaction clamp
-            # below bounds a different thing and stays.
-            h_k = min(h_k, derep_max)
+            # h = bl/x, bounded above by the de-repression ceiling — and the
+            # CEILING is what prevents the division by zero, so no epsilon
+            # appears in the interior of the curve at all.
+            #
+            # The old form was (bl + eps)/(x + eps), where eps was documented
+            # as a divide-by-zero guard but defaulted to 1e-3 against a
+            # baseline of 0.01 — TEN PERCENT of the scale it guarded. At that
+            # size it was not a guard: it set the de-repression ceiling
+            # (11x), compressed the whole interior (bl/2 read 1.833 instead
+            # of 2.0) and shifted maximum suppression (0.0110 instead of
+            # 0.0100). Three modelling decisions nobody wrote down.
+            #
+            # DS_HILL_SAT_EPS had the identical defect at the identical value
+            # and was fixed in specs/002-upregulation-propagation; this is
+            # the same bug in the sibling parameter. See
+            # specs/006-bounded-derepression.
+            #
+            # Bounded PER INHIBITOR, before the AND product and the OR
+            # minimum, so the claim it encodes — "removing this one edge can
+            # raise its target at most k-fold" — is about a single edge and
+            # is checkable in isolation. The per-reaction clamp below bounds
+            # a different thing and stays.
+            h_k = min(derep_max, bl / max(x_inh, bl / derep_max))
             apply_floor = floor_scope == "all" ||
                           (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k]) ||
                           (floor_scope == "transcription" && rxn.inhibitor_transcriptional[k])

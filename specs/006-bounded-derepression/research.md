@@ -187,3 +187,72 @@ was one of three things it was silently deciding.
 2. Whether any of it survives the 92-pathway catalog. Unrun, and per FR-007
    nothing is adopted until it is.
 3. Whether the gain is threshold-adjacent (SC-006). Unrun.
+
+## R7 — The best solution is no epsilon at all, and this is the same bug twice
+
+Adam, on being shown the attribution: *"I thought epsilon was just supposed
+to avoid divide by zero errors."* It was. It wasn't doing that.
+
+A divide-by-zero guard has to be small enough to be invisible. Internal
+activities live in [0,1] and Float64 handles 1e-300, so a real guard could be
+1e-12. At **1e-3 it is ten percent of baseline** — a model parameter wearing
+a guard's name, silently deciding three things: the de-repression ceiling,
+the shape of the whole interior curve, and the maximum suppression.
+
+### This is the same defect as feature 002's, in the sibling parameter
+
+`specs/002-upregulation-propagation/research.md` R6 said of the *other*
+epsilon:
+
+> `DS_HILL_SAT_EPS` defaults to 0.001, which is LARGER than the internal
+> values where knockouts live (~0.0006), so it acts as a floor and lifts the
+> whole network upward.
+
+Same value, same diagnosis, different parameter. Commit 17bc6be changed
+`DS_HILL_SAT_EPS` from `0.001` to `1e-5` and **never checked whether 0.001
+appeared anywhere else doing the same damage.** It did.
+
+| parameter | default | share of baseline | status |
+|---|---|---|---|
+| `DS_HILL_SAT_EPS` | 1e-5 | 0.1% | fixed in feature 002 |
+| `DS_INHIBITOR_EPS` | 1e-3 | **10%** | the defect here |
+
+The general lesson, worth more than either fix: **a constant whose name
+claims numerical safety needs a stated relationship to the scale it guards.**
+Both of these were 1e-3 against a baseline of 0.01, almost certainly by
+copying, and both quietly became model parameters.
+
+### The fix: remove epsilon from the interior entirely
+
+    h = min(ceiling, baseline / max(x, baseline / ceiling))
+
+The **ceiling is the divide-by-zero guard** — `max(x, baseline/ceiling)` can
+never be zero — so no epsilon appears anywhere. Above `baseline/ceiling` the
+value is exactly `baseline/x` with no distortion; below it, the bound binds.
+
+| x | exact `bl/x` | old (ε=1e-3) | new (ceiling 2) |
+|---|---|---|---|
+| 0 | ∞ | 11.0000 | 2.0000 |
+| 0.005 (bl/2) | 2.0000 | 1.8333 | **2.0000** |
+| 0.01 (bl) | 1.0000 | 1.0000 | 1.0000 |
+| 1.0 | 0.0100 | 0.0110 | **0.0100** |
+
+One parameter, one stated meaning, no side effects. Rejected alternatives:
+a smaller epsilon — it shrinks the distortion without removing it, and leaves
+a number in the code whose size is load-bearing for reasons its name denies;
+and clamping only the final result — that is the existing per-reaction cap,
+which does not stop a single edge asserting an eleven-fold rise.
+
+**Implementation verified against the measured arm C** (ε=1e-9 + ceiling 2,
+which is the ε→0 limit of the old form): 3 differing predictions of 847,
+**0 of the 3 converged in both arms**, so the difference is the known
+stopping-point artifact and the new form is the same model.
+
+### Consequence for the default
+
+The default ceiling of 11.0 **no longer reproduces old behaviour exactly**,
+because the interior of the curve is now undistorted. Arm B measured that
+change in isolation at −8 cases. So this is a deliberate behaviour change
+requiring validation before merge, not a no-op, and the contract's
+"default reproduces today" guarantee applies only to the parameter split, not
+to the formula replacement. Nothing merges until the wider validation lands.
