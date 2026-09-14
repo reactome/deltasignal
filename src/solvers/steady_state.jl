@@ -78,8 +78,14 @@ function solve_steady_state(
         # still contributes its fold of 1.0 to every AND it belongs to, and
         # every reaction keeps the same input set, but its value never moves
         # so no perturbation can travel through it.
-        observations = merge(observations,
-            Dict(u => (network.nodes[u].baseline * 100.0, 1.0) for u in cofactors))
+        #
+        # An explicit observation always wins. Someone measuring an ATP
+        # depletion is not making the modelling assumption this mode encodes,
+        # and silently overwriting their input would be the same silent
+        # substitution the config guard rails exist to prevent.
+        pins = Dict(u => (network.nodes[u].baseline * 100.0, 1.0)
+                    for u in cofactors if !haskey(observations, u))
+        observations = merge(observations, pins)
     end
 
     # Initial guess: use observations where available, baseline elsewhere

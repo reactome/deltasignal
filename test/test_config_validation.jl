@@ -262,3 +262,31 @@ end
     @test length(DeltaSignal.COFACTOR_STIDS) == 260         # stated in the docstring
     @test all(id -> occursin(r"^R-(ALL|HSA)-\d+$", id), DeltaSignal.COFACTOR_STIDS)
 end
+
+@testset "an explicit observation beats the cofactor pin" begin
+    # Someone measuring an ATP depletion is not making the modelling
+    # assumption `inert` encodes. Overwriting their input would be the silent
+    # substitution the rest of this file exists to prevent.
+    nodes = Dict(
+        "atp" => DeltaSignal.NetworkNode("atp", "R-ALL-113592", "unknown",
+                                         nothing, "ATP", 0.01),
+        "out" => DeltaSignal.NetworkNode("out", "R-HSA-69541", "unknown",
+                                         nothing, "OUT", 0.01),
+    )
+    edges = [DeltaSignal.LogicNetworkEdge("atp", "out", false, true, 1.0, "input")]
+    network = DeltaSignal.ReactionNetwork(
+        nodes, edges, Dict{String, DeltaSignal.SetExpansionMapping}())
+    params = DeltaSignal.SteadyStateParams(1.0, 0.1, 100, 1e-6, "penalty")
+
+    with_env("DS_COFACTOR_MODE", "inert") do
+        # Unobserved: pinned at baseline (UI 1.0 -> internal 0.01).
+        quiet = DeltaSignal.solve_steady_state(
+            network, Dict{String, Tuple{Float64, Float64}}(), params)
+        @test isapprox(quiet.node_activities["atp"], 0.01, atol = 1e-9)
+
+        # Observed: the observation stands, pin or no pin.
+        depleted = DeltaSignal.solve_steady_state(
+            network, Dict("atp" => (0.0, 1.0)), params)
+        @test isapprox(depleted.node_activities["atp"], 0.0, atol = 1e-9)
+    end
+end
