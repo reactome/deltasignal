@@ -239,3 +239,350 @@ more effort goes into loop interventions.
   reporting because it changes the denominator of every comparison, but the
   decision to enable proxies is a benchmark-methodology change and is Adam's
   call, not one to make silently mid-feature.
+
+---
+
+# Why the accuracy is low — the decomposition (post-005)
+
+Measured on the corrected 742-case set, same propagator on both network sets.
+
+## R10 — RETRACTION first: connectivity is 18.7% vs 15.9%, not 41% vs 16%
+
+An earlier pass in this analysis reported that our networks fail to connect
+41% of perturbation–readout pairs against MP-BioPath's 16%, and that 215
+cases had no path in ours but did in theirs. **That was an artifact of the
+analysis script, not of the networks**: it resolved a readout only through
+`nodes.csv`, so every set-valued readout counted as "readout absent" and
+inflated our no-path rate by the whole 178-case set population. Corrected,
+with set members resolved:
+
+| | has a directed path | no path |
+|---|---|---|
+| our networks | 603 / 742 (**81.3%**) | 139 (18.7%) |
+| MP-BioPath's | 711 / 845 (**84.1%**) | 134 (15.9%) |
+
+Connectivity is **comparable**. The tell I should have caught immediately:
+178, the inflation, is exactly the number of set-resolved cases recovered in
+feature 005.
+
+## R11 — Loops are NOT the cause of the accuracy gap
+
+Feature 004's hypothesis is answered, and the answer is no.
+
+| | cases we get wrong that their networks get right | cases both get right |
+|---|---|---|
+| readout is cycle-resident | **7.5%** | 9.7% |
+| solve did not converge | **20.6%** | 33.4% |
+
+The cases we lose are **less** cyclic and **less** often non-converged than
+the cases we win. Loops demonstrably cause the non-convergence — 179 of 564
+on our networks against 0 of 845 on their acyclic ones — but non-convergence
+is not what costs accuracy. Accuracy by convergence makes the same point
+backwards: non-converged cases score 0.796 and converged ones 0.614.
+
+So the loop interventions in US3 should not be expected to move accuracy.
+They remain worth doing for correctness and to make the solver honest; they
+are not the accuracy lever.
+
+## R12 — The two real causes
+
+**Cause 1, the no-path wall — 139 cases (18.7%), and we get 30 of them.**
+
+| | DOWN | NO_CHANGE | UP |
+|---|---|---|---|
+| ground truth says | 50 | 30 | 59 |
+| we predict | 0 | **139** | 0 |
+
+With no directed path the model correctly answers "no change" on every one,
+and the ground truth says the readout moved in **109 of them**. This is a
+hard ceiling for any directed causal model, not a modelling error:
+MP-BioPath scores **0.281** on these same 139 cases and also answers
+NO_CHANGE 105 times. It is the co-regulation wall — perturbation and readout
+are co-descendants of a shared hub, or the truth reflects feedback and
+indirect regulation a directed model does not produce.
+
+**Cause 2, accuracy where a path does exist — 0.765 against their 0.816.**
+
+Here we over-call change badly: on 603 path-having cases we predict
+NO_CHANGE **7 times** against 50 actual. Nearly every path is treated as a
+conduit that must transmit.
+
+**Decomposition of the 0.6617 → 0.7358 gap:**
+
+| counterfactual | accuracy | gain |
+|---|---|---|
+| ours as measured | 0.6617 | — |
+| give us their **path-accuracy**, keep our connectivity | 0.7038 | **+4.2 pts** |
+| give us their **connectivity**, keep our accuracies | 0.6777 | +1.6 pts |
+| their measured | 0.7358 | — |
+
+**Path-accuracy is ~2.6× the lever connectivity is**, and connectivity is
+where nearly all the effort has historically gone.
+
+## What this says to do next
+
+1. **Stop treating no-path cases as losses to fix by adding edges.** 18.7% of
+   the case set is unreachable and MP-BioPath is barely better there. Past
+   attempts to close it by adding connectivity regressed the benchmark
+   (cross-pathway stitching, diagram descend). The honest move is to report
+   this subset separately as the directed-causal ceiling.
+2. **The lever is discrimination on path-having cases**, specifically the
+   refusal to ever say NO_CHANGE when a path exists (7 of 603). A path is
+   not an obligation to transmit. This is where the remaining ~31 cases are.
+3. **004's loop interventions are correctness work, not accuracy work**, and
+   should be framed and measured as such.
+
+## R13 — Overfitting audit (Adam: "make sure we are not overfitting")
+
+Three checks passed, one correction to R12, and three risks that stand.
+
+### PASSED: feature 002's defaults generalise
+
+The AND/clamp default change was chosen by A/B on this case set, so it is
+the most exposed decision. Split by the pre-declared pathway split:
+
+| axis | development | held out |
+|---|---|---|
+| experimental | +8 cases, macro-F1 **+0.0045** | **+23 cases, macro-F1 +0.0375** |
+| curator | +125 cases, +0.1275 | +24 cases, +0.0297 |
+
+The experimental gain is **five times larger on held-out than on
+development**, and the curator axis — a different ground truth — moves the
+same way. That is the opposite of the overfitting signature.
+
+### PASSED: the classification cutoffs are not tuned to this data
+
+| cutoffs | correct | accuracy | macro-F1 |
+|---|---|---|---|
+| 0.60 / 1.40 | 481 | 0.6482 | 0.5720 |
+| 0.80 / 1.20 | 487 | 0.6563 | 0.5747 |
+| **0.85 / 1.15 (default)** | **491** | 0.6617 | 0.5771 |
+| 0.90 / 1.10 | 492 | 0.6631 | 0.5782 |
+| 0.95 / 1.05 | 494 | 0.6658 | **0.5803** |
+
+The curve is smooth and monotonic toward tighter cutoffs and **our default is
+not the peak**. A tuned threshold would sit on the maximum; ours sits below
+it, because it is inherited from MP-BioPath's published convention rather
+than fitted. The available gain is +3 cases, inside noise — do not chase it.
+
+### PASSED: the decomposition survives leave-one-pathway-out
+
+| dropped | n | accuracy | % with path | acc on path | acc no-path |
+|---|---|---|---|---|---|
+| (full set) | 742 | 0.662 | 0.813 | 0.765 | 0.216 |
+| TP53 | 493 | 0.688 | 0.854 | 0.765 | 0.236 |
+| PIP3 | 542 | **0.605** | 0.744 | 0.739 | 0.216 |
+| Mitotic_G1 | 667 | **0.702** | 0.850 | 0.787 | 0.220 |
+| …the rest | | 0.653–0.667 | | 0.756–0.774 | 0.202–0.224 |
+
+**Accuracy on no-path cases is 0.202–0.236 whichever pathway you remove, and
+on path-having cases 0.739–0.787.** The R12 mechanism is not an artifact of
+one pathway. The *headline rate*, by contrast, swings 0.605–0.702 purely on
+composition — so the decomposition is trustworthy and the single number is
+not.
+
+### CORRECTION to R12
+
+R12 said we "over-call change" and predict NO_CHANGE only 7 times in 603.
+That figure is right for path-having cases, but the framing was too broad.
+Across all 742 cases we predict NO_CHANGE **146 times against 80 actual** —
+we **over**-predict it overall, because every one of the 139 no-path cases
+gets NO_CHANGE by construction.
+
+And it is not a uniform property. Predicted vs true NO_CHANGE per pathway:
+PIP3 **0 vs 7**, HDR **0 vs 3**, Mitotic_Prophase 1 vs 1, RAF 1 vs 1, ERBB2
+4 vs 4, WNT 6 vs 2, CCC 11 vs 4, S_Phase 14 vs 2, Mitotic_G1 40 vs 28, TP53
+69 vs 28. So "a path is treated as an obligation to transmit" is a **PIP3 and
+HDR** property, not a global one, and the proposed lever is narrower than
+R12 claimed.
+
+### RISKS THAT STAND
+
+1. **Two pathways are 60.5% of the case set** — TP53 249 cases (33.6%) and
+   PIP3 200 (27.0%). Every headline number is essentially a weighted average
+   of two pathways, which is why leave-one-out moves it by ±5 points.
+2. **The held-out split is not clean**, and the manifest now says so:
+   `held_out_was_used_for_configuration: True`. Held-out results are
+   therefore better than development results at establishing generalisation,
+   but they are not a virgin test set.
+3. **Accumulated researcher degrees of freedom.** Dozens of configurations
+   have been A/B'd against this same 10-pathway set across the project. No
+   individual A/B accounts for that multiplicity, and a +3-case result on
+   this set means very little on its own.
+
+**Mitigation to take before acting on R12:** the 92-pathway catalog already
+exists and was used for the 2026-07 holdout (13,429/16,696 on 71 pathways).
+Any change motivated by the path-accuracy finding should be validated there,
+not on these ten — particularly since the finding is now known to be
+concentrated in two of them.
+
+## R14 — The "no-path wall" is an EXPERIMENTAL-ground-truth phenomenon, not a model failure
+
+R12 called the no-path subset "a hard ceiling for any directed causal model".
+That is right about the experimental axis and **wrong as a general claim**,
+and the correction matters because it changes what is worth building.
+
+Checked at 8.5× scale on the 92-pathway catalog, against curator ground
+truth (72 pathways with both a network and a truth table, **19,984 scoreable
+cases**). With no path the model answers NO_CHANGE deterministically, so
+accuracy there is exactly the share of no-path cases whose truth is also "no
+change" — computable without the solver, which is what made this cheap.
+
+| ground truth | pathways | cases | no-path rate | truth is NO_CHANGE on those |
+|---|---|---|---|---|
+| curator, 92-catalog | 72 | 19,984 | **61.6%** | **11,050/12,304 = 0.898** |
+| curator, 10-catalog | 8 | 3,418 | 45.8% | 1,377/1,564 = 0.880 |
+| **experimental**, 10-catalog | 10 | 742 | 18.7% | **30/139 = 0.216** |
+
+**On the curator axis the directed model and the curators agree ~90% of the
+time when no path exists.** There is no wall. The 0.216 is specific to
+experimental data: in a real cell the readout moves in ~78% of cases where
+Reactome has no directed route from the perturbation.
+
+So the no-path subset does not measure a deficiency of our propagator, or of
+MP-BioPath's. It measures the distance between Reactome's curated directed
+causality and what a cell actually does — compensation, indirect regulation,
+off-pathway effects, and whatever experimental confounding is in the 2019
+measurements. MP-BioPath scores 0.281 on the same 139 cases, which is the
+same wall from the other side.
+
+### The apples-to-apples comparison, on our own path-having subset
+
+| model | path-having (603) | no-path (139) |
+|---|---|---|
+| DeltaSignal | 461 = **0.7645** | 30 = 0.2158 |
+| shortest signed path | 488 = 0.8093 | — |
+| MP-BioPath | 507 = **0.8408** | 39 = 0.2806 |
+
+Stated on identical cases, the gap where a path exists is **46 cases, 7.6
+points** — larger than the 5.1 points R12 inferred from unequal subsets, and
+it is the whole of the actionable deficit. We also lose to the model-free
+traversal here (488 vs 461), on the subset where our model is supposed to
+have an advantage.
+
+### What to do with this
+
+1. **Report the two subsets separately and say why.** A single accuracy
+   figure over the experimental benchmark averages a tractable modelling
+   problem with an intractable one, and 18.7% of it is not about the model at
+   all. This is a manuscript framing point, not a metric trick — the curator
+   numbers are the evidence that the split is principled.
+2. **The target is 0.7645 → 0.8408 on path-having cases.** That is where
+   every remaining winnable case lives.
+3. **Do not chase the no-path subset with more edges.** Every past attempt
+   regressed the benchmark, and the curator result now explains why: the
+   edges are not missing, the effect is not directed-causal.
+
+## R15 — Found it: de-repression is the single biggest systematic error
+
+Decomposing the 142 errors on path-having cases:
+
+| error | n |
+|---|---|
+| outright sign flip (UP↔DOWN) | **85 (60%)** |
+| called a change on a NO_CHANGE readout | 50 |
+| called NO_CHANGE on a real change | 7 |
+
+**78% of path-having cases have both a positive and a negative route** to the
+readout, so the network is usually ambiguous about direction and the model
+has to weigh routes rather than follow one. 79 of the 85 sign flips are in
+that ambiguous group.
+
+The outlier that gave it away — accuracy split by the signs available:
+
+| routes available | n | accuracy |
+|---|---|---|
+| positive only | 106 | 0.896 |
+| both (ambiguous) | 472 | 0.758 |
+| **negative only** | **25** | **0.320** |
+
+Sixteen of those 25 are knockouts in `Mitotic_G1` whose truth is NO_CHANGE
+and where we answer UP with values of 1.43, 9.997, 25.66 and 100.0 —
+confidently wrong. MP-BioPath scores 21 of 25 on the same cases.
+
+### It is systematic, not a 25-case curiosity
+
+Across **all** knockout cases:
+
+| our call | n | correct | |
+|---|---|---|---|
+| knockout → DOWN | 241 | 213 | **0.884** |
+| **knockout → UP (de-repression)** | **78** | **28** | **0.359** |
+
+MP-BioPath on those same 78: **60 correct (0.769)**, more than twice our
+rate, and it calls them UP only 37 times against our 78. Truth on the 78 is
+UP 28 / NO_CHANGE 22 / DOWN 28 — so the answer is not "never de-repress"
+either; it is that the magnitude is not being graded.
+
+**This is ~32 of the 46-case actionable gap in one error mode**, and it
+spreads across six pathways (TP53 24, Mitotic_G1 20, PIP3 19, WNT 6, ERBB2 3,
+RAF 3), so it survives the concentration risk that R13 flagged.
+
+### Mechanism, confirmed in the code
+
+`reaction_model.jl:1247` — `h_k = (bl + eps) / (x_inh + eps)` with baseline
+`bl = 0.01` and `DS_INHIBITOR_EPS` defaulting to **0.001**. A knockout sets
+`x_inh = 0`, giving `0.011 / 0.001 = 11×` de-repression from removing one
+inhibitor, clamped to 10× per reaction but **compounding across a path** —
+which is where the 25.66 and 100.0 values come from.
+
+That 10× is an assumption that every inhibitor was suppressing its target
+tenfold at baseline. Nothing measures it, and `DS_INHIBITOR_FLOOR` caps how
+far an inhibitor can *suppress* while nothing caps how far removing one can
+*raise*.
+
+The principled statement: de-repression should be bounded by what the
+activators can supply. With activators at baseline, removing an inhibitor
+should return the target to its uninhibited baseline — not to ten times it.
+
+### Status
+
+Probing `DS_INHIBITOR_EPS` (0.01 gives ~2× maximum de-repression, 0.003 gives
+~4.3×) as a single-parameter test of the mechanism. **This is a probe of the
+diagnosis, not a tuning exercise**: per R13, anything adopted must be
+validated on the curator axis and the 92-pathway catalog rather than chosen
+on these 742 cases.
+
+## R16 — The de-repression probe is confirmed on BOTH ground truths
+
+| axis | baseline (ε=0.001, 11×) | ε=0.01 (2×) | delta |
+|---|---|---|---|
+| experimental (742) | 491, macro-F1 0.5771 | **506, 0.5986** | **+15 cases, +0.0215** |
+| **curator (4,346)** | 3,016, macro-F1 0.6711 | **3,075, 0.6867** | **+59 cases, +0.0156** |
+
+Two independent ground truths, both positive. On the experimental axis the
+held-out gain (+9 cases, +0.0259) **exceeds** the development gain (+6,
++0.0150), which is the generalisation direction, not the overfitting one.
+
+Per-pathway on curator: TP53 +30, PIP3 +14, WNT +11, Cell Cycle Checkpoints
++6, Mitotic_G1 −2. Four pathways up, one marginally down.
+
+And the targeted error mode behaves exactly as the diagnosis predicts:
+spurious knockout→UP calls fall **78 → 68** while the correct ones hold at
+**28**, so accuracy on that subgroup goes 0.359 → 0.412. It is removing wrong
+calls, not trading them.
+
+**Honest caveat on magnitude**: only 9 of 29 changed experimental predictions
+and 34 of 239 curator ones converged in both arms, so some of the delta is
+the known TP53 sweep-order noise. The *direction* is supported by two ground
+truths, a monotonic ε sweep (11× → 4.3× → 2× giving 491 → 495 → 506) and a
+mechanism confirmed in the code. The *exact magnitude* is not yet established.
+
+### Recommendation — and what NOT to do
+
+Do **not** simply move `DS_INHIBITOR_EPS` to 0.01 and call it done. ε is a
+tuning constant, this sweep was run on the evaluation set, and R13 says
+precisely that is the thing not to trust. Two things follow:
+
+1. **Spec the principled version.** The defect is that de-repression is
+   unbounded above while suppression is bounded below. The fix is to bound
+   de-repression by what the activators can actually supply — removing an
+   inhibitor should return a target to its uninhibited level, not to ten
+   times baseline. ε=0.01 approximates that by accident, at 2×.
+2. **Validate on the 92-pathway catalog**, which now carries the resolution
+   exports, before any default changes. The finding spans six pathways, which
+   is encouraging, but 60% of this case set is still two pathways.
+
+Also unanswered deliberately: whether the optimum is beyond ε=0.01. Sweeping
+further on these 742 cases is exactly the move R13 warns against; answer it
+on the larger catalog or not at all.

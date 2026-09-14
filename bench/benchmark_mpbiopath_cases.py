@@ -108,6 +108,27 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Derive producing/consuming reaction proxies from graph adjacency for exact-entity proxy validation",
     )
+    parser.add_argument(
+        "--resolve-set-readouts",
+        action="store_true",
+        help="Score a set-valued readout through node_resolution.csv's member "
+             "nodes. Off by default: it recovers ~194 cases and therefore "
+             "MOVES THE DENOMINATOR, so results are not comparable with runs "
+             "without it unless both denominators are stated.",
+    )
+    parser.add_argument(
+        "--set-aggregation",
+        choices=["mean", "max", "min", "extreme", "mean_reachable"],
+        default="max",
+        help="How a set's member values combine. Defaults to max, matching "
+             "the existing multi-uuid behaviour, until the arms are measured.",
+    )
+    parser.add_argument(
+        "--allow-release-mismatch",
+        action="store_true",
+        help="Use a resolution table whose Reactome release differs from the "
+             "networks'. Version skew has produced a false finding here before.",
+    )
     parser.add_argument("--perturbation-up", type=float, default=80.0)
     parser.add_argument("--port", type=int, default=18080)
     parser.add_argument("--bootstrap", type=int, default=2000)
@@ -457,6 +478,115 @@ def stop_server(process: subprocess.Popen) -> None:
         log_handle.close()
 
 
+def load_node_resolution(pathway_dir: Path) -> dict:
+    """Load the generator's entity-to-node mapping, if it emitted one.
+
+    EntitySets are split into member species, so a set has no node of its own.
+    That silently discarded 204 of 847 cases as unscoreable — every one of the
+    20 blocked readouts is a set, and they are the canonical set-shaped
+    readouts of the best-known pathways (phospho-AKT, p-S9/21-GSK3,
+    phospho-FOXO, phospho-MAPK dimers), 116 of them in PIP3 alone.
+
+    Returns the set -> member -> uuids grouping the two-level combine needs,
+    plus the release and the exclusions, or an empty mapping when the catalog
+    predates the export.
+    """
+    resolution_file = pathway_dir / "node_resolution.csv"
+    if not resolution_file.exists():
+        return {"present": False, "sets": {}, "release": None, "excluded": {}}
+
+    self_stid: dict[str, str] = {}
+    set_uuids: dict[str, set[str]] = defaultdict(set)
+    releases: set[str] = set()
+    with resolution_file.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            release = normalize_cell(row.get("release"))
+            if release:
+                releases.add(release)
+            relation = normalize_cell(row.get("relation"))
+            uuid = normalize_cell(row.get("uuid"))
+            stable_id = normalize_cell(row.get("stable_id"))
+            if relation == "self":
+                self_stid[uuid] = stable_id
+            elif relation == "set_member":
+                set_uuids[stable_id].add(uuid)
+
+    # Group a set's uuids BY MEMBER. Without this, a member split into three
+    # positional occurrences outweighs one split into two purely by how finely
+    # decomposition happened to cut it, which is an artifact and not biology.
+    sets: dict[str, dict[str, list[str]]] = {}
+    for stable_id, uuids in set_uuids.items():
+        by_member: dict[str, list[str]] = defaultdict(list)
+        for uuid in sorted(uuids):
+            by_member[self_stid.get(uuid, uuid)].append(uuid)
+        sets[stable_id] = dict(by_member)
+
+    excluded: dict[str, str] = {}
+    exclusions_file = pathway_dir / "node_exclusions.csv"
+    if exclusions_file.exists():
+        with exclusions_file.open(newline="") as handle:
+            for row in csv.DictReader(handle):
+                excluded[normalize_cell(row.get("stable_id"))] = normalize_cell(
+                    row.get("reason"))
+
+    return {
+        "present": True,
+        "sets": sets,
+        "release": sorted(releases)[0] if len(releases) == 1 else None,
+        "mixed_release": len(releases) > 1,
+        "excluded": excluded,
+    }
+
+
+def reachable_nodes(adjacency: dict[str, list[tuple[str, int]]],
+                    sources: list[str]) -> set[str]:
+    """Plain forward reachability, ignoring sign.
+
+    Used by the ``mean_reachable`` set rule: a member the perturbation cannot
+    reach sits at baseline and drags an averaged set value toward "no change".
+    That dilution is a recorded failure mode on TP53, so the rule exists to be
+    measured against plain ``mean`` rather than assumed better.
+    """
+    seen: set[str] = set(sources)
+    queue = deque(sources)
+    while queue:
+        node = queue.popleft()
+        for target, _sign in adjacency.get(node, ()):
+            if target not in seen:
+                seen.add(target)
+                queue.append(target)
+    return seen
+
+
+def aggregate_set(members: dict[str, list[float]], mode: str) -> float:
+    """Combine a set's member values into one value for the set.
+
+    Two levels, member-first (see load_node_resolution).
+
+    ``mean`` is the pool reading and the default this project's design intent
+    points at: every node shares baseline x0, so a set's fold is
+    sum(xi) / (n * x0) = mean(xi) / x0 — mean IS sum-of-abundances, and Adam's
+    stated rule is that OR configurations average. ``max`` means "up if any
+    member is up", which over-calls UP; it is kept because it is the existing
+    multi-uuid behaviour and the arms have to be measured, not asserted.
+    """
+    per_member = [sum(values) / len(values) for values in members.values() if values]
+    if not per_member:
+        raise ValueError("set has no member values")
+    if mode == "mean_reachable":
+        # Caller has already restricted `members` to the reachable ones where
+        # any were reachable; if none were, fall back to the full mean rather
+        # than failing, and the row records which happened.
+        return sum(per_member) / len(per_member)
+    if mode == "max":
+        return max(per_member)
+    if mode == "min":
+        return min(per_member)
+    if mode == "extreme":
+        return max(per_member, key=lambda value: abs(value - 1.0))
+    return sum(per_member) / len(per_member)
+
+
 def aggregate(values: list[float], mode: str) -> float:
     if mode == "mean":
         return sum(values) / len(values)
@@ -642,6 +772,24 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         for pathway_id, path in pathway_dirs.items()
         if path
     }
+    resolutions = {
+        pathway_id: load_node_resolution(path)
+        for pathway_id, path in pathway_dirs.items()
+        if path
+    }
+    if args.resolve_set_readouts:
+        absent = sorted(p for p, r in resolutions.items() if not r["present"])
+        if absent:
+            raise FileNotFoundError(
+                "--resolve-set-readouts needs node_resolution.csv, which these "
+                f"pathways do not have: {absent}. Regenerate the catalog."
+            )
+        mixed = sorted(p for p, r in resolutions.items() if r.get("mixed_release"))
+        if mixed and not args.allow_release_mismatch:
+            raise ValueError(
+                f"resolution tables mix Reactome releases in {mixed}; refusing "
+                "to use them (pass --allow-release-mismatch to override)."
+            )
     adjacencies = {
         pathway_id: load_network_adjacency(path)
         for pathway_id, path in pathway_dirs.items()
@@ -683,6 +831,24 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 if preferred_proxy_role is not None
                 else []
             )
+            # A set-valued readout has no node of its own; resolve it to the
+            # member nodes it was split into. A set the generator reports as
+            # only PARTIALLY resolved is deliberately NOT scored: combining
+            # over the members that happened to resolve yields a plausible
+            # wrong number instead of a visible failure.
+            resolution = resolutions.get(case.pathway_id) or {}
+            set_members: dict[str, list[str]] = {}
+            set_partial_reason = ""
+            if args.resolve_set_readouts:
+                stable_id = f"R-HSA-{case.key_output_dbid}"
+                reason = (resolution.get("excluded") or {}).get(stable_id, "")
+                if reason.startswith("partially resolved"):
+                    set_partial_reason = reason
+                else:
+                    set_members = (resolution.get("sets") or {}).get(stable_id, {})
+            set_member_uuids = sorted(
+                {uuid for uuids in set_members.values() for uuid in uuids})
+
             if proxy_output_uuids and args.prefer_output_proxies:
                 output_uuids = proxy_output_uuids
                 output_mapping_mode = f"proxy_{preferred_proxy_role}_preferred"
@@ -692,6 +858,12 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             elif proxy_output_uuids and args.allow_output_proxies:
                 output_uuids = proxy_output_uuids
                 output_mapping_mode = f"proxy_{preferred_proxy_role}"
+            elif set_member_uuids:
+                output_uuids = set_member_uuids
+                output_mapping_mode = "set_members"
+            elif set_partial_reason:
+                output_uuids = []
+                output_mapping_mode = "set_partially_resolved"
             elif proxy_output_uuids:
                 output_uuids = []
                 output_mapping_mode = "proxy_available_not_enabled"
@@ -753,6 +925,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             )
             reactome_output = reactome_id_audit.get(case.key_output_dbid, {})
             row = asdict(case)
+            row["set_member_count"] = len(set_members)
+            row["set_partial_reason"] = set_partial_reason
+            # Initialised on every row: a column present on only some rows
+            # makes the DictWriter throw at the very end of a long run.
+            row["set_members_unreachable"] = ""
             row.update(
                 {
                     "evaluation_split": (
@@ -867,7 +1044,36 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                             float(result["node_activities"][uuid]) * 100.0
                             for uuid in output_uuids
                         ]
-                        predicted_ui = aggregate(values, args.output_aggregation)
+                        scoring_members = set_members
+                        if (args.set_aggregation == "mean_reachable"
+                                and output_mapping_mode == "set_members"):
+                            reach = reachable_nodes(
+                                adjacencies[case.pathway_id], gene_uuids)
+                            restricted = {
+                                member: uuids for member, uuids in set_members.items()
+                                if any(u in reach for u in uuids)
+                            }
+                            # All-unreachable means the perturbation reaches no
+                            # member at all; averaging the lot is the honest
+                            # answer there, and the row says so.
+                            if restricted:
+                                scoring_members = restricted
+                            row["set_members_unreachable"] = len(set_members) - len(restricted)
+                        if output_mapping_mode == "set_members":
+                            # Member-first, so that how finely a member was
+                            # decomposed does not change its weight.
+                            predicted_ui = aggregate_set(
+                                {
+                                    member: [
+                                        float(result["node_activities"][uuid]) * 100.0
+                                        for uuid in uuids
+                                    ]
+                                    for member, uuids in scoring_members.items()
+                                },
+                                args.set_aggregation,
+                            )
+                        else:
+                            predicted_ui = aggregate(values, args.output_aggregation)
                         row.update(
                             {
                                 "prediction": classify(
@@ -1009,6 +1215,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "thresholds": {"down": args.down_cutoff, "up": args.up_cutoff},
         "output_aggregation": args.output_aggregation,
+        "resolve_set_readouts": args.resolve_set_readouts,
+        "set_aggregation": args.set_aggregation,
         "allow_output_proxies": args.allow_output_proxies,
         "perturb_all_occurrences": args.perturb_all_occurrences,
         "prefer_output_proxies": args.prefer_output_proxies,
