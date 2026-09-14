@@ -42,7 +42,10 @@ GENERATOR_ROOT = Path(os.environ.get(
 MPBIO_ROOT = Path(os.environ.get(
     "MPBIO_PATHWAYS",
     str(Path.home() / "gitroot" / "mp-biopath-pathways")))
-CATALOG_ROOT = GENERATOR_ROOT / "output"
+# The generator's own output/ by default, but overridable: a validation run
+# needs to point at a specific catalog build, and symlinking around a
+# hard-coded path is how you end up scoring the wrong networks.
+CATALOG_ROOT = Path(os.environ.get("DS_CATALOG_ROOT", str(GENERATOR_ROOT / "output")))
 CURATOR_DIR = MPBIO_ROOT / "reactome_curator_predictions"
 EXPERIMENTAL_DIR = MPBIO_ROOT / "experimental_results"
 

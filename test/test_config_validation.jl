@@ -139,9 +139,50 @@ end
     @test config.or_mode == "mean"
     @test config.assembly_limiting == false
     @test config.hill_sat_eps == 1e-5
+    # A divide-by-zero guard, and nothing else. Baseline is 0.01, so this
+    # must stay orders of magnitude below it — at the old 1e-3 it was 10% of
+    # baseline and silently set the de-repression ceiling, compressed the
+    # response curve and shifted maximum suppression.
+    @test config.inhibitor_eps == 1e-12
+    @test config.inhibitor_eps < 0.01 / 1000
     @test config.or_combine == "max"
     @test config.inhibitor_or == false
     @test config.or_redundancy == 1.0
+end
+
+@testset "the inhibition epsilon is a guard, not a model parameter" begin
+    # The defect this pins: at 1e-3 the epsilon was 10% of baseline and did
+    # three things nobody chose. At a true guard size it does one.
+    bl = 0.01
+    network = DeltaSignal.ReactionNetwork(
+        Dict(
+            "T" => DeltaSignal.NetworkNode("T", "T", "protein", nothing, "T", bl),
+            "I" => DeltaSignal.NetworkNode("I", "I", "protein", nothing, "I", bl),
+        ),
+        [DeltaSignal.LogicNetworkEdge("I", "T", true, false, 1.0, "regulator")],
+        Dict{String, DeltaSignal.SetExpansionMapping}(),
+    )
+    function target_fold(eps, inhibitor_ui)
+        prev = get(ENV, "DS_INHIBITOR_EPS", nothing)
+        ENV["DS_INHIBITOR_EPS"] = string(eps)
+        try
+            params = DeltaSignal.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty")
+            result = DeltaSignal.solve_steady_state(network, Dict("I" => (inhibitor_ui, 1.0)), params)
+            return result.node_activities["T"] / bl
+        finally
+            prev === nothing ? delete!(ENV, "DS_INHIBITOR_EPS") : (ENV["DS_INHIBITOR_EPS"] = prev)
+        end
+    end
+
+    # Halving the inhibitor should double its target: h = bl/x exactly.
+    # The old default returned 1.833 here — an 8% error from a "guard".
+    @test target_fold(1e-12, 0.5) ≈ 2.0 atol=0.01
+    @test target_fold(1e-3, 0.5) < 1.9        # the defect, pinned
+
+    # A full knockout is bounded by the per-reaction clamp, not by epsilon,
+    # so shrinking epsilon by nine orders of magnitude must not change it.
+    @test target_fold(1e-12, 0.0) ≈ target_fold(1e-9, 0.0) atol=1e-6
+    @test target_fold(1e-12, 0.0) <= 10.0 + 1e-6
 end
 
 @testset "damping is range-checked" begin
