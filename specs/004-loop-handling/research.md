@@ -331,3 +331,87 @@ where nearly all the effort has historically gone.
    not an obligation to transmit. This is where the remaining ~31 cases are.
 3. **004's loop interventions are correctness work, not accuracy work**, and
    should be framed and measured as such.
+
+## R13 — Overfitting audit (Adam: "make sure we are not overfitting")
+
+Three checks passed, one correction to R12, and three risks that stand.
+
+### PASSED: feature 002's defaults generalise
+
+The AND/clamp default change was chosen by A/B on this case set, so it is
+the most exposed decision. Split by the pre-declared pathway split:
+
+| axis | development | held out |
+|---|---|---|
+| experimental | +8 cases, macro-F1 **+0.0045** | **+23 cases, macro-F1 +0.0375** |
+| curator | +125 cases, +0.1275 | +24 cases, +0.0297 |
+
+The experimental gain is **five times larger on held-out than on
+development**, and the curator axis — a different ground truth — moves the
+same way. That is the opposite of the overfitting signature.
+
+### PASSED: the classification cutoffs are not tuned to this data
+
+| cutoffs | correct | accuracy | macro-F1 |
+|---|---|---|---|
+| 0.60 / 1.40 | 481 | 0.6482 | 0.5720 |
+| 0.80 / 1.20 | 487 | 0.6563 | 0.5747 |
+| **0.85 / 1.15 (default)** | **491** | 0.6617 | 0.5771 |
+| 0.90 / 1.10 | 492 | 0.6631 | 0.5782 |
+| 0.95 / 1.05 | 494 | 0.6658 | **0.5803** |
+
+The curve is smooth and monotonic toward tighter cutoffs and **our default is
+not the peak**. A tuned threshold would sit on the maximum; ours sits below
+it, because it is inherited from MP-BioPath's published convention rather
+than fitted. The available gain is +3 cases, inside noise — do not chase it.
+
+### PASSED: the decomposition survives leave-one-pathway-out
+
+| dropped | n | accuracy | % with path | acc on path | acc no-path |
+|---|---|---|---|---|---|
+| (full set) | 742 | 0.662 | 0.813 | 0.765 | 0.216 |
+| TP53 | 493 | 0.688 | 0.854 | 0.765 | 0.236 |
+| PIP3 | 542 | **0.605** | 0.744 | 0.739 | 0.216 |
+| Mitotic_G1 | 667 | **0.702** | 0.850 | 0.787 | 0.220 |
+| …the rest | | 0.653–0.667 | | 0.756–0.774 | 0.202–0.224 |
+
+**Accuracy on no-path cases is 0.202–0.236 whichever pathway you remove, and
+on path-having cases 0.739–0.787.** The R12 mechanism is not an artifact of
+one pathway. The *headline rate*, by contrast, swings 0.605–0.702 purely on
+composition — so the decomposition is trustworthy and the single number is
+not.
+
+### CORRECTION to R12
+
+R12 said we "over-call change" and predict NO_CHANGE only 7 times in 603.
+That figure is right for path-having cases, but the framing was too broad.
+Across all 742 cases we predict NO_CHANGE **146 times against 80 actual** —
+we **over**-predict it overall, because every one of the 139 no-path cases
+gets NO_CHANGE by construction.
+
+And it is not a uniform property. Predicted vs true NO_CHANGE per pathway:
+PIP3 **0 vs 7**, HDR **0 vs 3**, Mitotic_Prophase 1 vs 1, RAF 1 vs 1, ERBB2
+4 vs 4, WNT 6 vs 2, CCC 11 vs 4, S_Phase 14 vs 2, Mitotic_G1 40 vs 28, TP53
+69 vs 28. So "a path is treated as an obligation to transmit" is a **PIP3 and
+HDR** property, not a global one, and the proposed lever is narrower than
+R12 claimed.
+
+### RISKS THAT STAND
+
+1. **Two pathways are 60.5% of the case set** — TP53 249 cases (33.6%) and
+   PIP3 200 (27.0%). Every headline number is essentially a weighted average
+   of two pathways, which is why leave-one-out moves it by ±5 points.
+2. **The held-out split is not clean**, and the manifest now says so:
+   `held_out_was_used_for_configuration: True`. Held-out results are
+   therefore better than development results at establishing generalisation,
+   but they are not a virgin test set.
+3. **Accumulated researcher degrees of freedom.** Dozens of configurations
+   have been A/B'd against this same 10-pathway set across the project. No
+   individual A/B accounts for that multiplicity, and a +3-case result on
+   this set means very little on its own.
+
+**Mitigation to take before acting on R12:** the 92-pathway catalog already
+exists and was used for the 2026-07 holdout (13,429/16,696 on 71 pathways).
+Any change motivated by the path-accuracy finding should be validated there,
+not on these ten — particularly since the finding is now known to be
+concentrated in two of them.
