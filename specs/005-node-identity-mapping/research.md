@@ -206,3 +206,72 @@ readouts partial.
 227) before the right one was found, and the right one was found by looking
 at the *shape* of the numbers rather than their size. A count alone would
 have shipped "227 members are being dropped", which is true and useless.
+
+## R8 — Set readouts recovered: a validity win, not an accuracy win (T013–T017)
+
+Coverage on the ten-pathway catalog, same networks (cat7 is structurally
+identical to the original catalog, 10/10 on edge counts, node counts and the
+edge_type/sign/and_or/stoichiometry signature):
+
+| | scored | of 847 |
+|---|---|---|
+| baseline | 564 | 66.6% |
+| **with set resolution** | **742** | **87.6%** |
+
+Remaining unscored: 10 `set_partially_resolved`, 3 `absent_from_network` —
+13 against the SC-003 target of ≤27. 194 cases resolve through `set_members`.
+
+**Scores, and the denominators are different so the rates are not
+comparable:**
+
+| arm | correct | accuracy | macro-F1 |
+|---|---|---|---|
+| baseline | 365/**564** | 0.6472 | **0.5781** |
+| with set resolution | 491/**742** | 0.6617 | **0.5771** |
+
+**Macro-F1 is flat — 0.5781 to 0.5771.** On the metric this project
+optimises, recovering 178 cases changes nothing. The accuracy rise is a
+coverage effect, not better prediction, and quoting it as an improvement
+would be the denominator mistake the plan warned about.
+
+The recovered cases are not harder than the ones we were already scoring —
+**123 of 178, 69.1%**, against the baseline's 64.7% — and their class
+balance is even (84 UP, 85 DOWN, 9 NO_CHANGE). 116 of the 178 are PIP3.
+
+**What this actually fixes is validity, and that matters more than the
+score.** Every number this project has published was computed on 564 of 847
+cases, and the discarded third was not random: it was systematically the
+set-shaped readouts — phospho-AKT, phospho-ERK, phospho-FOXO — of the
+best-characterised pathways in the benchmark. That is a selection effect in
+every published figure, and it is now closed.
+
+**Noise check.** 20 previously-scored cases changed prediction. All 20 are
+`exact`-mode cases that set resolution cannot touch, **0 of 20 converged in
+both arms**, and they sit in TP53 (17) and ERBB2 (3). That is the known
+uuid4 sweep-order signature, seen twice before with the same shape, arising
+from regeneration rather than from this change. Net +3, i.e. noise.
+
+### Restated comparison on the corrected case set (742 cases)
+
+| model | correct | accuracy | macro-F1 |
+|---|---|---|---|
+| DeltaSignal on our networks | 491/742 | 0.6617 | 0.5771 |
+| shortest signed path | 518/742 | 0.6981 | 0.6060 |
+| **MP-BioPath published** | **546/742** | **0.7358** | **0.6682** |
+
+And on the 740 the control also scores:
+
+| model | correct | accuracy | macro-F1 |
+|---|---|---|---|
+| DeltaSignal on our networks | 490/740 | 0.6622 | 0.5776 |
+| **DeltaSignal on MP-BioPath's networks** | **538/740** | **0.7270** | 0.6448 |
+| MP-BioPath published | 544/740 | 0.7351 | 0.6678 |
+
+**Feature 004's control survives the bigger case set intact**: given the same
+networks DeltaSignal is 6 cases behind MP-BioPath (538 vs 544) and 48 ahead
+of itself on our networks (538 vs 490). The propagator is still exonerated
+and the gap is still network structure — now measured on 740 cases instead
+of 562, so it is no longer resting on the narrower set.
+
+DeltaSignal still loses to a model-free signed traversal (491 vs 518), which
+remains the sharpest statement of what is unfixed.

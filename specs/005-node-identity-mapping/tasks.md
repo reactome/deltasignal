@@ -132,7 +132,7 @@ unexplained absences in either direction, and a set readout scores.
 > and T010 should treat a non-empty list as the finding it is rather than
 > forcing it to zero.
 
-- [ ] T009 [US2] Emit `node_resolution.csv` per pathway from
+- [x] T009 [US2] Emit `node_resolution.csv` per pathway from
       `logic_network_generator.py` with exactly the columns in
       `data-model.md`: `stable_id, uuid, relation, depth, role,
       reaction_stid, glyph_id, diagram_stid, release`. `relation` is one of
@@ -141,7 +141,7 @@ unexplained absences in either direction, and a set readout scores.
       catch-all value**; a node whose relation cannot be determined is a
       defect to surface, not an `other` bucket. `stable_id` is primary; a
       database id may be a separate column but never the key.
-- [ ] T010 [US2] Emit `node_exclusions.csv` with `stable_id, reason,
+- [x] T010 [US2] Emit `node_exclusions.csv` with `stable_id, reason,
       release`, `reason` required and non-empty. **It will NOT be empty** —
       research.md R7 supersedes R5's expectation. Expect ~182 entries with
       reason `atomic_modifier_set` (the ubiquitin and modifier-isoform sets
@@ -149,34 +149,34 @@ unexplained absences in either direction, and a set readout scores.
       expanded) and ~45 needing investigation. The reason column is what
       separates a design decision from a bug in the same list, so it carries
       real weight here rather than being a formality.
-- [ ] T011 [US2] Add the bidirectional completeness check to
+- [x] T011 [US2] Add the bidirectional completeness check to
       `logic-network-generator/scripts/validate_logic_network.py`: forward
       (every entity participating as input or output of any reaction appears
       in the resolution table or the exclusion list with a reason), reverse
       (every uuid in `logic_network.csv` appears in the resolution table),
       and referential (every uuid in the resolution table exists in the
       network).
-- [ ] T012 [US2] Add `logic-network-generator/tests/test_resolution_negative_control.py`
+- [x] T012 [US2] Add `logic-network-generator/tests/test_resolution_negative_control.py`
       building a fixture with rows deliberately removed and asserting the
       T011 checks **FAIL**. Run it against a correct mapping too, to prove
       it passes when it should. This is the task that stops T011 becoming
       another check that cannot fail.
-- [ ] T013 [US1] In `deltasignal/bench/benchmark_mpbiopath_cases.py`,
+- [x] T013 [US1] In `deltasignal/bench/benchmark_mpbiopath_cases.py`,
       resolve a set-valued readout through `node_resolution.csv` to its
       `set_member` leaves instead of returning `absent_from_network` or
       `proxy_available_not_enabled`.
-- [ ] T014 [US1] Implement the two-level combine: collapse the positional
+- [x] T014 [US1] Implement the two-level combine: collapse the positional
       uuids of the **same member first**, then combine across members.
       Without the first level a member split into three positions outweighs
       one split into two purely by decomposition (`R-HSA-202074`'s members
       map to 3, 2 and 2 uuids).
-- [ ] T015 [US1] Report a partially resolved set as **partial**, naming the
+- [x] T015 [US1] Report a partially resolved set as **partial**, naming the
       missing members, and do not combine over the members that happened to
       resolve (FR-009).
-- [ ] T016 [US1] Refuse to use a resolution table whose `release` differs
+- [x] T016 [US1] Refuse to use a resolution table whose `release` differs
       from the networks' without an explicit override (FR-005). Version skew
       has produced a false finding on this project already.
-- [ ] T017 [US1] Re-run the benchmark and report the discarded-case count.
+- [x] T017 [US1] Re-run the benchmark and report the discarded-case count.
       Expect **204 → ≤27**. Report the count alongside any accuracy figure
       (FR-012), because it sets the denominator.
 - [ ] T018 [US2] Populate or remove `source_sets`, `chosen_members` and
