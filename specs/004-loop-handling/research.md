@@ -586,3 +586,61 @@ precisely that is the thing not to trust. Two things follow:
 Also unanswered deliberately: whether the optimum is beyond ε=0.01. Sweeping
 further on these 742 cases is exactly the move R13 warns against; answer it
 on the larger catalog or not at all.
+
+## R17 — De-repression fails in two distinct ways, and neither is a ceiling
+
+Diagnosing the 81 knockout→UP calls on current `main` (ε=1e-12) **before**
+proposing a fix this time, having learned that lesson on 006.
+
+| routes available | n | true UP | true DOWN | true NO_CHANGE | accuracy |
+|---|---|---|---|---|---|
+| **negative only** | 19 | 3 | 0 | **16** | **0.158** |
+| **both signs** | 62 | 26 | 30 | 6 | 0.419 |
+
+### Failure 1 — spurious de-repression where no activating route exists (19 cases)
+
+When the *only* route to the readout is inhibitory, the truth is
+**NO_CHANGE 16 times out of 19** and we answer UP. Removing an inhibitor from
+a target that nothing else is driving does not raise it, and the model says
+otherwise.
+
+Magnitude separates this cleanly, and **only for knockouts**:
+
+| band | n | accuracy |
+|---|---|---|
+| weak DOWN (0.5–0.85), knockout | 21 | 0.810 |
+| weak UP (1.15–2), **overexpression** | 5 | 0.800 |
+| weak UP (1.15–2), **knockout** | 14 | **0.000** |
+
+So weak predictions are *not* generally unreliable — this is specific to weak
+de-repression. A rule reporting NO_CHANGE below a de-repression threshold is
+worth **+6 to +10 cases** on 742 depending on the threshold, and its ceiling
+is the NO_CHANGE count in the affected band, because where the truth is DOWN
+it swaps one wrong answer for another.
+
+### Failure 2 — losing the conflict when both routes exist (62 cases)
+
+Truth is UP 26 / DOWN 30 / NO_CHANGE 6, and we answer UP on **all 62**.
+Accuracy 0.419.
+
+**The model-free shortest signed path scores 39 of those 62 against our 26.**
+It predicts UP 41, DOWN 18, NO_CHANGE 3 — so it is not simply agreeing with
+us less often; it is correctly calling DOWN on cases where a *proximal*
+activating route should outweigh a *distant* de-repressing one.
+
+Our aggregation multiplies route contributions with no notion of distance, so
+a long chain of de-repression can outweigh a short direct activation. The
+shortest-path heuristic weights by proximity implicitly, and beats us because
+of it.
+
+**This is the larger half — 62 cases against 19 — and it is not a
+de-repression bug at all.** It is how competing routes are combined. That
+also explains the earlier finding that we lose to a model-free traversal on
+exactly the subset where a model should have an advantage.
+
+### Consequence
+
+A global de-repression ceiling was the wrong shape of fix for both, which is
+why it failed (2× cost 39 cases on 23,788). The two candidates now are a
+de-repression floor for Failure 1 and distance-aware route combination for
+Failure 2 — and the second is where the cases are.
