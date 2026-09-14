@@ -275,3 +275,46 @@ of 562, so it is no longer resting on the narrower set.
 
 DeltaSignal still loses to a model-free signed traversal (491 vs 518), which
 remains the sharpest statement of what is unfixed.
+
+## R9 — NEGATIVE: the set-combining rule does not matter, and mean is slightly worse
+
+Three arms, identical catalog, identical 742 scored cases:
+
+| rule | correct | accuracy | macro-F1 | F1_DOWN | F1_NC | F1_UP |
+|---|---|---|---|---|---|---|
+| **`max`** (default, current behaviour) | **491/742** | 0.6617 | **0.5771** | 0.748 | 0.265 | 0.718 |
+| `mean` | 488/742 | 0.6577 | 0.5740 | 0.748 | 0.259 | 0.716 |
+| `mean_reachable` | 488/742 | 0.6577 | 0.5740 | 0.748 | 0.259 | 0.716 |
+
+**I predicted mean would win and it does not.** The arithmetic argument in
+data-model.md is still sound — with uniform baseline x₀, a set's pool fold is
+`Σxᵢ/(n·x₀) = mean(xᵢ)/x₀`, so mean *is* the sum-of-abundances reading, and it
+matches Adam's stated rule that OR configurations average. The data simply
+does not support acting on it.
+
+**Why the rule barely matters — the mechanism, not just the null.** Of the
+178 scored set cases, **131 (73.6%) have `max` exactly equal to `mean`**,
+because every member carries an identical value. Set members are typically
+paralogs sitting at structurally symmetric positions receiving the same
+upstream signal, so they land on the same number and there is nothing for a
+combining rule to choose between. 44 cases differ by more than 10% in value,
+but only **6 cross a classification cutoff** — all in RAF_MAP_kinase_cascade,
+all converged in both arms, net **−3**.
+
+`mean_reachable` is **byte-identical to `mean`**. It restricted the member
+set on 13 cases (S_Phase 8, TP53 4, WNT 1) and changed **no** prediction, so
+the dilution failure it was designed to guard against — inert members
+dragging an average toward no-change — **does not occur on this case set**.
+That hypothesis is answered, not merely untested.
+
+**Decision: keep `max`.** Not because it is more principled — it is less so —
+but because changing a default requires evidence and there is none. Six
+discriminating cases cannot separate two rules, and what little signal exists
+points the other way. `mean` and `mean_reachable` stay available as flags,
+and this is recorded so the next person does not re-run it blind.
+
+**What would change this.** A case set where set members genuinely diverge.
+If OR-cluster loss is ever modelled (the constitution's open worked example,
+where a set-valued catalyst marked OR costs 51 of 223 cases because
+`max(and, or)` discards the loss entirely), members would stop moving in
+lockstep and the rule would start to matter. Re-run then, not before.

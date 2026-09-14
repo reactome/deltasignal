@@ -225,18 +225,18 @@ resolves back to the glyph to highlight.
 
 ## Phase 5: US4 — how a set's members combine (P2)
 
-- [ ] T025 [US4] Implement `mean`, `max` and `mean_reachable` as selectable
+- [x] T025 [US4] Implement `mean`, `max` and `mean_reachable` as selectable
       level-2 rules in `deltasignal/bench/benchmark_mpbiopath_cases.py`,
       **defaulting to current behaviour** until measured (FR-010).
-- [ ] T026 [US4] Benchmark each arm separately on the same catalog, one at a
+- [x] T026 [US4] Benchmark each arm separately on the same catalog, one at a
       time, killing the Julia server between arms. Report macro-F1,
       per-pathway net change, both-arms-converged count and coverage delta.
-- [ ] T027 [US4] Record the arithmetic for whichever rule is adopted, not
+- [x] T027 [US4] Record the arithmetic for whichever rule is adopted, not
       only its score: with uniform baseline x₀, `Σxᵢ/(n·x₀) = mean(xᵢ)/x₀`,
       so `mean` is the sum-of-abundances reading and matches Adam's stated
       rule that OR configurations average. Record the losing arms too
       (constitution III).
-- [ ] T028 [US4] Check the dilution failure explicitly: report how often
+- [x] T028 [US4] Check the dilution failure explicitly: report how often
       `mean` and `mean_reachable` differ, and whether the difference is
       concentrated in TP53, where signal dilution is a recorded failure.
 

@@ -118,7 +118,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--set-aggregation",
-        choices=["mean", "max", "min", "extreme"],
+        choices=["mean", "max", "min", "extreme", "mean_reachable"],
         default="max",
         help="How a set's member values combine. Defaults to max, matching "
              "the existing multi-uuid behaviour, until the arms are measured.",
@@ -538,6 +538,26 @@ def load_node_resolution(pathway_dir: Path) -> dict:
     }
 
 
+def reachable_nodes(adjacency: dict[str, list[tuple[str, int]]],
+                    sources: list[str]) -> set[str]:
+    """Plain forward reachability, ignoring sign.
+
+    Used by the ``mean_reachable`` set rule: a member the perturbation cannot
+    reach sits at baseline and drags an averaged set value toward "no change".
+    That dilution is a recorded failure mode on TP53, so the rule exists to be
+    measured against plain ``mean`` rather than assumed better.
+    """
+    seen: set[str] = set(sources)
+    queue = deque(sources)
+    while queue:
+        node = queue.popleft()
+        for target, _sign in adjacency.get(node, ()):
+            if target not in seen:
+                seen.add(target)
+                queue.append(target)
+    return seen
+
+
 def aggregate_set(members: dict[str, list[float]], mode: str) -> float:
     """Combine a set's member values into one value for the set.
 
@@ -553,6 +573,11 @@ def aggregate_set(members: dict[str, list[float]], mode: str) -> float:
     per_member = [sum(values) / len(values) for values in members.values() if values]
     if not per_member:
         raise ValueError("set has no member values")
+    if mode == "mean_reachable":
+        # Caller has already restricted `members` to the reachable ones where
+        # any were reachable; if none were, fall back to the full mean rather
+        # than failing, and the row records which happened.
+        return sum(per_member) / len(per_member)
     if mode == "max":
         return max(per_member)
     if mode == "min":
@@ -902,6 +927,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             row = asdict(case)
             row["set_member_count"] = len(set_members)
             row["set_partial_reason"] = set_partial_reason
+            # Initialised on every row: a column present on only some rows
+            # makes the DictWriter throw at the very end of a long run.
+            row["set_members_unreachable"] = ""
             row.update(
                 {
                     "evaluation_split": (
@@ -1016,6 +1044,21 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                             float(result["node_activities"][uuid]) * 100.0
                             for uuid in output_uuids
                         ]
+                        scoring_members = set_members
+                        if (args.set_aggregation == "mean_reachable"
+                                and output_mapping_mode == "set_members"):
+                            reach = reachable_nodes(
+                                adjacencies[case.pathway_id], gene_uuids)
+                            restricted = {
+                                member: uuids for member, uuids in set_members.items()
+                                if any(u in reach for u in uuids)
+                            }
+                            # All-unreachable means the perturbation reaches no
+                            # member at all; averaging the lot is the honest
+                            # answer there, and the row says so.
+                            if restricted:
+                                scoring_members = restricted
+                            row["set_members_unreachable"] = len(set_members) - len(restricted)
                         if output_mapping_mode == "set_members":
                             # Member-first, so that how finely a member was
                             # decomposed does not change its weight.
@@ -1025,7 +1068,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                                         float(result["node_activities"][uuid]) * 100.0
                                         for uuid in uuids
                                     ]
-                                    for member, uuids in set_members.items()
+                                    for member, uuids in scoring_members.items()
                                 },
                                 args.set_aggregation,
                             )
