@@ -239,3 +239,95 @@ more effort goes into loop interventions.
   reporting because it changes the denominator of every comparison, but the
   decision to enable proxies is a benchmark-methodology change and is Adam's
   call, not one to make silently mid-feature.
+
+---
+
+# Why the accuracy is low — the decomposition (post-005)
+
+Measured on the corrected 742-case set, same propagator on both network sets.
+
+## R10 — RETRACTION first: connectivity is 18.7% vs 15.9%, not 41% vs 16%
+
+An earlier pass in this analysis reported that our networks fail to connect
+41% of perturbation–readout pairs against MP-BioPath's 16%, and that 215
+cases had no path in ours but did in theirs. **That was an artifact of the
+analysis script, not of the networks**: it resolved a readout only through
+`nodes.csv`, so every set-valued readout counted as "readout absent" and
+inflated our no-path rate by the whole 178-case set population. Corrected,
+with set members resolved:
+
+| | has a directed path | no path |
+|---|---|---|
+| our networks | 603 / 742 (**81.3%**) | 139 (18.7%) |
+| MP-BioPath's | 711 / 845 (**84.1%**) | 134 (15.9%) |
+
+Connectivity is **comparable**. The tell I should have caught immediately:
+178, the inflation, is exactly the number of set-resolved cases recovered in
+feature 005.
+
+## R11 — Loops are NOT the cause of the accuracy gap
+
+Feature 004's hypothesis is answered, and the answer is no.
+
+| | cases we get wrong that their networks get right | cases both get right |
+|---|---|---|
+| readout is cycle-resident | **7.5%** | 9.7% |
+| solve did not converge | **20.6%** | 33.4% |
+
+The cases we lose are **less** cyclic and **less** often non-converged than
+the cases we win. Loops demonstrably cause the non-convergence — 179 of 564
+on our networks against 0 of 845 on their acyclic ones — but non-convergence
+is not what costs accuracy. Accuracy by convergence makes the same point
+backwards: non-converged cases score 0.796 and converged ones 0.614.
+
+So the loop interventions in US3 should not be expected to move accuracy.
+They remain worth doing for correctness and to make the solver honest; they
+are not the accuracy lever.
+
+## R12 — The two real causes
+
+**Cause 1, the no-path wall — 139 cases (18.7%), and we get 30 of them.**
+
+| | DOWN | NO_CHANGE | UP |
+|---|---|---|---|
+| ground truth says | 50 | 30 | 59 |
+| we predict | 0 | **139** | 0 |
+
+With no directed path the model correctly answers "no change" on every one,
+and the ground truth says the readout moved in **109 of them**. This is a
+hard ceiling for any directed causal model, not a modelling error:
+MP-BioPath scores **0.281** on these same 139 cases and also answers
+NO_CHANGE 105 times. It is the co-regulation wall — perturbation and readout
+are co-descendants of a shared hub, or the truth reflects feedback and
+indirect regulation a directed model does not produce.
+
+**Cause 2, accuracy where a path does exist — 0.765 against their 0.816.**
+
+Here we over-call change badly: on 603 path-having cases we predict
+NO_CHANGE **7 times** against 50 actual. Nearly every path is treated as a
+conduit that must transmit.
+
+**Decomposition of the 0.6617 → 0.7358 gap:**
+
+| counterfactual | accuracy | gain |
+|---|---|---|
+| ours as measured | 0.6617 | — |
+| give us their **path-accuracy**, keep our connectivity | 0.7038 | **+4.2 pts** |
+| give us their **connectivity**, keep our accuracies | 0.6777 | +1.6 pts |
+| their measured | 0.7358 | — |
+
+**Path-accuracy is ~2.6× the lever connectivity is**, and connectivity is
+where nearly all the effort has historically gone.
+
+## What this says to do next
+
+1. **Stop treating no-path cases as losses to fix by adding edges.** 18.7% of
+   the case set is unreachable and MP-BioPath is barely better there. Past
+   attempts to close it by adding connectivity regressed the benchmark
+   (cross-pathway stitching, diagram descend). The honest move is to report
+   this subset separately as the directed-causal ceiling.
+2. **The lever is discrimination on path-having cases**, specifically the
+   refusal to ever say NO_CHANGE when a path exists (7 of 603). A path is
+   not an obligation to transmit. This is where the remaining ~31 cases are.
+3. **004's loop interventions are correctness work, not accuracy work**, and
+   should be framed and measured as such.
