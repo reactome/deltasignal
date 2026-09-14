@@ -256,9 +256,39 @@ Per-pathway, against cofactor share of edges:
 | Intrinsic_Pathway_for_Apoptosis | 33/433 = 7.6% | +3 |
 | Signaling_by_ROBO_receptors | 20/668 = 3.0% | +6 |
 
-Cofactor density predicts the **magnitude** of the effect, not its sign: GPVI
-is the densest network in the set and is the one that regresses (PIK3CA and
-PTPN11 into two readouts). Per the non-goals this is recorded, not patched.
+Cofactor density predicts the **magnitude** of the effect, not its sign.
+
+### Why GPVI regresses: it is the UUID silo bug, not a cofactor problem
+
+Root-caused rather than patched, per the non-goals. The readouts are
+`VAV2_Rho/Rac_effectors:GTP` and `VAV3_...:GTP`. Under `inert` they sit at
+**exactly 1.0000 for every perturbation** — PIK3CA, PTPN11 and SYK alike — so
+the readout is not merely losing a route, it is losing every route.
+
+The catalyst of the producing reaction, `R-HSA-442307`, is split into two
+**disconnected** uuids:
+
+| uuid | in-degree | out-degree | |
+|---|---|---|---|
+| `0f995db5…` | 0 | 5 | feeds reaction `442291`; nothing feeds it |
+| `22fd0285…` | 1 | 0 | receives `SYK:p-VAV`; goes nowhere |
+
+The signal arrives at one copy of the catalyst and the reaction reads the
+other. So the perturbed genes have no working route to the readout through the
+catalyst at all, and none of this is caused by cofactor handling — the split
+predates it.
+
+The only surviving route ran through the shared nucleotide: knockout → GDP
+falls → `VAV2_Rho/Rac_effectors:GDP` falls (GDP is an `assembly` component of
+that substrate complex) → the `:GTP` readout falls → DOWN, which matches the
+truth. That is the **right answer for the wrong reason**: knocking out SYK does
+not deplete cytosolic GDP. Pinning the nucleotides removes the accidental
+compensation and exposes the pre-existing silo.
+
+Confirmed by removing GTP and GDP from the list entirely: GPVI recovers
+exactly (+12) and the overall net collapses from +37 to +3, because the same
+pinning is worth +18 in MET, +12 in DAP12, +12 in SCF-KIT and +6 in ROBO.
+The nucleotides stay in the list; the defect to fix is the silo.
 
 **Ten-pathway experimental set: neutral and not evidence.** 13 predicted values
 move; no case crosses a class boundary; macro-F1 identical to four decimals.
