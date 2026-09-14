@@ -542,3 +542,47 @@ Probing `DS_INHIBITOR_EPS` (0.01 gives ~2× maximum de-repression, 0.003 gives
 diagnosis, not a tuning exercise**: per R13, anything adopted must be
 validated on the curator axis and the 92-pathway catalog rather than chosen
 on these 742 cases.
+
+## R16 — The de-repression probe is confirmed on BOTH ground truths
+
+| axis | baseline (ε=0.001, 11×) | ε=0.01 (2×) | delta |
+|---|---|---|---|
+| experimental (742) | 491, macro-F1 0.5771 | **506, 0.5986** | **+15 cases, +0.0215** |
+| **curator (4,346)** | 3,016, macro-F1 0.6711 | **3,075, 0.6867** | **+59 cases, +0.0156** |
+
+Two independent ground truths, both positive. On the experimental axis the
+held-out gain (+9 cases, +0.0259) **exceeds** the development gain (+6,
++0.0150), which is the generalisation direction, not the overfitting one.
+
+Per-pathway on curator: TP53 +30, PIP3 +14, WNT +11, Cell Cycle Checkpoints
++6, Mitotic_G1 −2. Four pathways up, one marginally down.
+
+And the targeted error mode behaves exactly as the diagnosis predicts:
+spurious knockout→UP calls fall **78 → 68** while the correct ones hold at
+**28**, so accuracy on that subgroup goes 0.359 → 0.412. It is removing wrong
+calls, not trading them.
+
+**Honest caveat on magnitude**: only 9 of 29 changed experimental predictions
+and 34 of 239 curator ones converged in both arms, so some of the delta is
+the known TP53 sweep-order noise. The *direction* is supported by two ground
+truths, a monotonic ε sweep (11× → 4.3× → 2× giving 491 → 495 → 506) and a
+mechanism confirmed in the code. The *exact magnitude* is not yet established.
+
+### Recommendation — and what NOT to do
+
+Do **not** simply move `DS_INHIBITOR_EPS` to 0.01 and call it done. ε is a
+tuning constant, this sweep was run on the evaluation set, and R13 says
+precisely that is the thing not to trust. Two things follow:
+
+1. **Spec the principled version.** The defect is that de-repression is
+   unbounded above while suppression is bounded below. The fix is to bound
+   de-repression by what the activators can actually supply — removing an
+   inhibitor should return a target to its uninhibited level, not to ten
+   times baseline. ε=0.01 approximates that by accident, at 2×.
+2. **Validate on the 92-pathway catalog**, which now carries the resolution
+   exports, before any default changes. The finding spans six pathways, which
+   is encouraging, but 60% of this case set is still two pathways.
+
+Also unanswered deliberately: whether the optimum is beyond ε=0.01. Sweeping
+further on these 742 cases is exactly the move R13 warns against; answer it
+on the larger catalog or not at all.
