@@ -27,7 +27,12 @@ def load(path: Path) -> dict:
 
 
 def macro_f1(rows) -> float:
-    labels = {"-1", "0", "1"}
+    # Derive the classes from the data rather than hard-coding them: this dump
+    # encodes DOWN/NORMAL/UP as 0/1/2 while the ten-pathway one uses -1/0/1,
+    # and a hard-coded set silently drops a whole class from the average.
+    labels = {r["expected"] for r in rows} | {r["predicted"] for r in rows}
+    if not labels:
+        return 0.0
     total = 0.0
     for label in labels:
         tp = sum(1 for r in rows if r["predicted"] == label and r["expected"] == label)
