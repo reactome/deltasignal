@@ -216,3 +216,49 @@ end
         end
     end
 end
+
+@testset "DS_COFACTOR_MODE" begin
+    # `inert` is the default: +37 cases on 21,450 curator cases. Deleting the
+    # nodes instead cost 84, so there is no "drop" mode to select.
+    with_env("DS_COFACTOR_MODE", nothing) do
+        @test DeltaSignal.cofactor_mode() == "inert"
+    end
+    for mode in ("propagate", "inert")
+        with_env("DS_COFACTOR_MODE", mode) do
+            @test DeltaSignal.cofactor_mode() == mode
+        end
+    end
+    # A typo must fail loudly rather than silently selecting a different
+    # model — the defect DS #13 was filed for. "drop" is in this list on
+    # purpose: it was a real mode that did nothing, and must not come back
+    # as a silent no-op.
+    for bad in ("Inert", "drop", "none", "off", "")
+        with_env("DS_COFACTOR_MODE", bad) do
+            @test_throws ArgumentError DeltaSignal.cofactor_mode()
+        end
+    end
+
+    # The list is keyed off Reactome stable ids, so it must survive a network
+    # whose nodes carry none, and must not match on a prefix.
+    @testset "cofactor_uuids" begin
+        nodes = Dict(
+            "atp" => DeltaSignal.NetworkNode("atp", "R-ALL-113592", "unknown",
+                                             nothing, "ATP", 0.01),
+            "gene" => DeltaSignal.NetworkNode("gene", "R-HSA-69541", "unknown",
+                                              nothing, "TP53", 0.01),
+            "none" => DeltaSignal.NetworkNode("none", nothing, "unknown",
+                                              nothing, "none", 0.01),
+        )
+        network = DeltaSignal.ReactionNetwork(
+            nodes, DeltaSignal.LogicNetworkEdge[],
+            Dict{String, DeltaSignal.SetExpansionMapping}())
+        found = DeltaSignal.cofactor_uuids(network)
+        @test found == Set(["atp"])
+    end
+
+    # The list is the feature; pin its shape and its size so an edit that
+    # silently widens it fails here rather than in a benchmark six steps later.
+    @test "R-ALL-113592" in DeltaSignal.COFACTOR_STIDS      # ATP [cytosol]
+    @test length(DeltaSignal.COFACTOR_STIDS) == 260         # stated in the docstring
+    @test all(id -> occursin(r"^R-(ALL|HSA)-\d+$", id), DeltaSignal.COFACTOR_STIDS)
+end
