@@ -169,34 +169,66 @@ The system implements a biologically-realistic reaction model with the following
 
 ## Important Implementation Notes
 
-### Biological Realism Enhancements
-The system includes pathway-specific parameter tuning based on biological context:
-- **Signaling pathways**: Fast dynamics, sensitive activation
-- **Metabolic pathways**: Balanced kinetics, substrate availability
-- **Transcriptional networks**: Slow dynamics, strong cooperativity
-- **Stress response**: Rapid activation, strong feedback
-- **Cell cycle**: Bistable switches, checkpoint dynamics
+### No pathway-specific parameter tuning
+Earlier versions of this file described per-context parameter tuning
+(signalling vs metabolic vs transcriptional, bistable cell-cycle switches).
+**That code is in `attic/` and is not reachable from the live parse/solve
+path** — a call-graph audit confirmed it. Every solve uses the same
+`ReactionEvalConfig`. Per-edge-type parameters are a design direction, not a
+current behaviour.
 
 ### Solver Configuration
 The reaction model is driven by `DS_*` environment variables, resolved once per
 solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
-`reaction_model.jl`). The **code defaults are the validated winning config**
-(commit c9805b2) — env vars only override for benchmark sweeps:
-- `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_log`, `DS_OR_MODE=mean`,
-  `DS_ASSEMBLY_LIMITING=1`, `DS_HILL_LOG_ZMAX=10.0`
+`reaction_model.jl`). The **code defaults are the validated winning config** —
+env vars only override for benchmark sweeps:
+- `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_sat`, `DS_OR_MODE=mean`,
+  `DS_ASSEMBLY_LIMITING=0`, `DS_HILL_SAT_EPS=1e-5`, `DS_HILL_LOG_ZMAX=10.0`
+  Behaviour is pinned by `test/test_and_curves.jl`; the rationale and the
+  A/B that set them is `specs/002-upregulation-propagation/`.
 - SCC-condensation solve is on by default (`DS_SCC_SOLVE=1`); the legacy flat
   iteration and the `"fixed_point"` `SteadyStateParams.method` are not used by
   the CLI or API (both use the penalty/SCC path).
 - Export aggregation default: `stoichiometry_weighted`.
 
+### Where design decisions live
+
+This repo uses spec-kit. **`specs/NNN-name/` is the record of why**; CLAUDE.md
+carries only current state. Before changing solver behaviour, read the spec
+for the last feature that touched it rather than re-deriving from the code.
+
+- `specs/002-upregulation-propagation/` — the AND/assembly defaults above.
+  `research.md` holds the measured A/B including the negative results.
+- `specs/003-solver-objective/` — the solver runs a damped fixed-point
+  iteration, not the specified minimisation; `mu` and `gamma` are reported
+  but read by nothing. Open.
+- `.specify/memory/constitution.md` — project principles the specs are
+  checked against.
+
+Per-feature numbers belong in that feature's `research.md`, not here.
+
 ### Testing Strategy
-Tests are organized by functionality:
-- Basic parsing and I/O validation
-- Mathematical correctness of transformations
-- Solver convergence and accuracy
-- Biological realism validation
-- Feedback loop handling
-- Signal propagation through pathways
+**Most of the test suite cannot fail.** Only three files contain assertions:
+
+| file | `@test`s |
+|---|---|
+| `test/test_config_validation.jl` | 42 |
+| `test/test_and_curves.jl` | 22 |
+| `test/test_worked_example.jl` | 8 |
+| the other seven | **0** |
+
+`test_basic.jl`, `test_steady_state.jl`, `test_hill_function.jl`,
+`test_feedback_loops.jl`, `test_inhibition_focused.jl`,
+`test_pathway_propagation.jl` and `test_biological_fixes.jl` execute code and
+print output; they pass whatever the code does. Treat a green run of those as
+"it did not throw", nothing more.
+
+The documented docker runner is also broken: `docker-compose.dev.yml`'s
+`test-runner` chains `test/test_full_pipeline.jl`, which does not exist.
+
+When adding behaviour, add assertions to one of the three real files or start
+a new one — do not extend a file from the zero-assertion list and assume it is
+covering anything.
 
 ## Project Dependencies
 - Julia 1.10+ (LTS required)
