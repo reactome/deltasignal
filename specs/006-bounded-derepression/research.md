@@ -97,3 +97,93 @@ evidence supports.
 3. Does the `DS_DEPLETION_H_MAX` default of 10 deserve the same scrutiny?
    Out of scope here, but the same argument applies to it and it should be
    recorded as a follow-on rather than quietly changed alongside.
+
+---
+
+# Phase 3–4 results
+
+## R5 — The attribution succeeded, and the answer is two-part
+
+The gate first: **arm A is behaviour-preserving**. Every prediction,
+`predicted_ui`, convergence flag and iteration count is identical to the
+pre-change run across all 847 rows, so the arms below are interpretable.
+
+| arm | ε | ceiling | correct | macro-F1 | vs A |
+|---|---|---|---|---|---|
+| **A** | 1e-3 | 11 | 491/742 | 0.5771 | — (current) |
+| **B** | 1e-9 | 11 | **483** | 0.5687 | **−8** |
+| **C** | 1e-9 | 2 | 497 | 0.5833 | **+6** |
+| **D** | 1e-2 | none | **506** | 0.5986 | **+15** |
+
+Reading the design:
+
+- **A → B is −8.** Tightening ε with the ceiling held *hurts*. That isolates
+  ε's non-ceiling effects — a sharper curve at intermediate values and
+  stronger suppression — and they are **negative**.
+- **B → C is +14.** Adding the ceiling with ε held is the largest single
+  effect measured, and it is unambiguously the de-repression bound.
+- **C → D is +9.** Same effective 2× ceiling, looser ε. That is ε's
+  non-ceiling effects again, in the *helpful* direction.
+
+**So both halves contribute and they are separable: the ceiling is worth
+about +14, and a looser ε is worth about +8–9 independently of it.** The
+original +15 probe was getting both at once, which is why it could not be
+attributed. FR-004 is satisfied and the answer is not the single-cause story
+R15 implied.
+
+**This partially corrects R15/R16 in `specs/004-loop-handling`**, as FR-010
+requires. Those entries attributed the whole gain to de-repression. The
+de-repression ceiling is real and is the larger effect, but roughly 60% of
+the probe's improvement came from it and the rest from ε's effect on the
+curve and on suppression strength — a separate mechanism that was not
+identified at all.
+
+### The targeted subgroup — arm C is the cleanest result
+
+| arm | KO→UP calls | correct | accuracy | wrong removed | right lost |
+|---|---|---|---|---|---|
+| A | 78 | 28 | 0.359 | — | — |
+| B | 81 | 29 | 0.358 | 3 | 0 |
+| **C** | **70** | **29** | **0.414** | **10** | **0** |
+| D | 68 | 28 | 0.412 | 12 | **1** |
+
+**Arm C removes ten wrong de-repression calls and loses none.** That is
+precisely the behaviour the bound was designed for, and it is a better
+outcome than arm D, which scores higher overall but pays one correct call for
+its twelve. The subgroup view is the only place that distinction is visible —
+FR-009 earning its place.
+
+## R6 — FR-002 is met, and it exposes what ε actually was
+
+With the ceiling fixed at 2 and ε swept 1e-6 → 1e-9: **zero differing
+predictions** across all four arms. The guard is a guard over that range.
+
+But the internal values differ on ~340 of 742 cases even there, and at the
+**current default** the effect is large enough to move 8 predictions (A→B).
+The reason is arithmetic:
+
+| ε | ε as a share of baseline | h at x = bl/2 |
+|---|---|---|
+| **1e-3 (current default)** | **10%** | 1.833 |
+| 1e-4 | 1% | 1.980 |
+| 1e-6 | 0.01% | 1.9998 |
+| 1e-9 | 0.00001% | 2.0000 |
+
+**At the current default, ε is ten percent of baseline.** It was never a
+guard at that value; it was shaping the entire interior of the response
+curve, and the ceiling was only its most visible side effect. Below about
+1e-6 it is genuinely only preventing division by zero.
+
+That reframes the defect. It is not merely "a guard accidentally set the
+ceiling" — it is "a guard was sized like a model parameter", and the ceiling
+was one of three things it was silently deciding.
+
+## Open, carried to US3
+
+1. Which combination to adopt. Arm D scores best on this set but costs a
+   correct call and leaves the ceiling implicit again. Arm C is the clean
+   mechanism. A fifth arm — loose-ish ε with an explicit ceiling — is the
+   obvious candidate and has not been run.
+2. Whether any of it survives the 92-pathway catalog. Unrun, and per FR-007
+   nothing is adopted until it is.
+3. Whether the gain is threshold-adjacent (SC-006). Unrun.

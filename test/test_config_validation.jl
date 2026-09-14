@@ -139,9 +139,63 @@ end
     @test config.or_mode == "mean"
     @test config.assembly_limiting == false
     @test config.hill_sat_eps == 1e-5
+    # 11.0 reproduces the ceiling that DS_INHIBITOR_EPS used to set implicitly:
+    # (0.01 + 0.001)/0.001 = 11. Changing this default is a modelling decision
+    # and belongs to specs/006-bounded-derepression, not to a sweep.
+    @test config.derepression_max == 11.0
     @test config.or_combine == "max"
     @test config.inhibitor_or == false
     @test config.or_redundancy == 1.0
+end
+
+@testset "de-repression ceiling is explicit and validated" begin
+    for name in ("DS_DEREPRESSION_MAX", "DS_INHIBITOR_EPS")
+        haskey(ENV, name) && delete!(ENV, name)
+    end
+
+    # The defect this guards: the ceiling used to be an arithmetic consequence
+    # of a division guard, so nobody could see it, question it or change it.
+    with_env("DS_DEREPRESSION_MAX", "not-a-number") do
+        err = try resolve_reaction_eval_config() catch e; e end
+        @test err isa ArgumentError
+        @test occursin("DS_DEREPRESSION_MAX", err.msg)
+    end
+
+    with_env("DS_DEREPRESSION_MAX", "2.5") do
+        @test resolve_reaction_eval_config().derepression_max == 2.5
+    end
+end
+
+@testset "de-repression ceiling actually bounds the output" begin
+    # A lone inhibitor, knocked out. Under the old formula this raised the
+    # target elevenfold and nothing said so; the ceiling must bind, and at
+    # 11.0 must reproduce the old behaviour.
+    bl = 0.01
+    network = DeltaSignal.ReactionNetwork(
+        Dict(
+            "T" => DeltaSignal.NetworkNode("T", "T", "protein", nothing, "T", bl),
+            "I" => DeltaSignal.NetworkNode("I", "I", "protein", nothing, "I", bl),
+        ),
+        [DeltaSignal.LogicNetworkEdge("I", "T", true, false, 1.0, "regulator")],
+        Dict{String, DeltaSignal.SetExpansionMapping}(),
+    )
+    function target_fold(ceiling)
+        prev = get(ENV, "DS_DEREPRESSION_MAX", nothing)
+        ENV["DS_DEREPRESSION_MAX"] = string(ceiling)
+        try
+            obs = Dict("I" => (0.0, 1.0))   # knock the inhibitor out
+            params = DeltaSignal.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty")
+            result = DeltaSignal.solve_steady_state(network, obs, params)
+            return result.node_activities["T"] / bl
+        finally
+            prev === nothing ? delete!(ENV, "DS_DEREPRESSION_MAX") : (ENV["DS_DEREPRESSION_MAX"] = prev)
+        end
+    end
+    tight = target_fold(2.0)
+    loose = target_fold(11.0)
+    @test tight < loose            # the ceiling is load-bearing, not decorative
+    @test tight <= 2.0 + 1e-6      # and it binds at the value stated
+    @test loose <= 11.0 + 1e-6
 end
 
 @testset "damping is range-checked" begin

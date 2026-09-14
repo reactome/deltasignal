@@ -690,6 +690,7 @@ struct ReactionEvalConfig
     inhibitor_k::Float64
     inhibitor_eps::Float64
     inhibitor_floor::Float64
+    derepression_max::Float64
     floor_scope::String
     devspec_beta_raw::String
     spec_beta_raw::String
@@ -834,6 +835,19 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         _float_env("DS_INHIBITOR_K", 0.1),
         _float_env("DS_INHIBITOR_EPS", 0.001),
         _float_env("DS_INHIBITOR_FLOOR", 0.0),
+        # The most a single inhibitor's REMOVAL may raise its target.
+        #
+        # 11.0 reproduces current behaviour exactly: with the divide form
+        # h = (bl + eps)/(x + eps), a knockout gives (0.01 + 0.001)/0.001 = 11,
+        # so until now the ceiling was set by a constant whose job is
+        # preventing division by zero. Nobody chose eleven — it is arithmetic.
+        #
+        # DS_INHIBITOR_FLOOR bounds how far an inhibitor may SUPPRESS its
+        # target, and the depletion path has DS_DEPLETION_H_MAX for exactly
+        # this. Inhibitor edges had no equivalent, so suppression was bounded
+        # by choice and de-repression by accident. See
+        # specs/006-bounded-derepression.
+        _float_env("DS_DEREPRESSION_MAX", 11.0),
         _mode_env("DS_INHIBITOR_FLOOR_SCOPE", "loops"),
         get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
@@ -1223,6 +1237,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #                     weaken self-regulating gene transcription, leave
         #                     protein-level feedback at full divide strength.
         h_floor = T(config.inhibitor_floor)
+        derep_max = T(config.derepression_max)
         floor_scope = config.floor_scope
         # DS_INHIBITOR_OR: honor the per-edge inhibitor AND/OR flag. AND-clustered
         # repressors act cooperatively, so their suppression factors multiply
@@ -1239,6 +1254,12 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
             h_k = (bl + eps_T) / (x_inh + eps_T)
+            # Bound de-repression PER INHIBITOR, before the AND product and
+            # the OR minimum, so the claim it encodes — "removing this one
+            # edge can raise its target at most k-fold" — is about a single
+            # edge and is checkable in isolation. The per-reaction clamp
+            # below bounds a different thing and stays.
+            h_k = min(h_k, derep_max)
             apply_floor = floor_scope == "all" ||
                           (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k]) ||
                           (floor_scope == "transcription" && rxn.inhibitor_transcriptional[k])
