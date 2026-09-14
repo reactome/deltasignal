@@ -49,9 +49,16 @@ bulk ions, every compartment variant in Release97. It deliberately EXCLUDES
 Ca2+, PI(3,4,5)P3, PI(4,5)P2, cAMP, cGMP, DAG and I(1,4,5)P3, which are second
 messengers and are the signal in a signalling pathway — an earlier attempt to
 exclude the SimpleEntity class cost 163 cases by deleting exactly those. It
-also excludes ubiquitin and SUMO, whose transfer IS the regulatory event.
+also excludes ubiquitin and SUMO, whose transfer IS the regulatory event, and
+GTP and GDP for the same reason: a small GTPase's nucleotide loading is its
+activation state, not its fuel. `RAC1:GTP` and `RAC1:GDP` are different curated
+entities and which one exists is the biological answer. Across 21,986 scored
+curator cases, GTP or GDP is named as a component of the READOUT ENTITY itself
+in 784 of them (3.57%) spanning 23 pathways, against 20 (0.09%) for ATP or ADP
+and zero for NAD or ubiquitin. That 39-fold difference is a fact about how
+Reactome curates, not about this benchmark.
 
-264 stable ids across 29 molecules.
+253 stable ids across 28 molecules, derived from Reactome Release97 by ChEBI identity.
 """
 
 const COFACTOR_STIDS = Set([
@@ -60,16 +67,18 @@ const COFACTOR_STIDS = Set([
     "R-ALL-196180", "R-ALL-211606", "R-ALL-29370", "R-ALL-5632457",
     "R-ALL-5696026", "R-ALL-8931884",
     # AMP
-    "R-ALL-109275", "R-ALL-159448", "R-ALL-164121", "R-ALL-389620",
-    "R-ALL-76577", "R-ALL-9931265",
+    "R-ALL-109275", "R-ALL-159448", "R-ALL-164121", "R-ALL-2046064",
+    "R-ALL-389620", "R-ALL-76577", "R-ALL-8953493", "R-ALL-9931265",
     # ATP
     "R-ALL-113592", "R-ALL-113593", "R-ALL-114570", "R-ALL-114571",
     "R-ALL-139836", "R-ALL-211579", "R-ALL-29358", "R-ALL-389573",
     "R-ALL-5632460", "R-ALL-5696069", "R-ALL-8931885", "R-ALL-9935785",
     # AdoHcy
     "R-ALL-2162252", "R-ALL-5278409", "R-ALL-71285", "R-ALL-77502",
+    "R-ALL-9639443", "R-ALL-9854312",
     # AdoMet
     "R-ALL-2162265", "R-ALL-5279190", "R-ALL-71284", "R-ALL-77087",
+    "R-ALL-9639461", "R-ALL-9854319",
     # CDP
     "R-ALL-110094", "R-ALL-110638", "R-ALL-111809", "R-ALL-8851220",
     "R-ALL-8851368", "R-ALL-8851506",
@@ -94,18 +103,14 @@ const COFACTOR_STIDS = Set([
     # FADH2
     "R-ALL-164934", "R-ALL-31649",
     # GDP
-    "R-ALL-111349", "R-ALL-113525", "R-ALL-114549", "R-ALL-114622",
-    "R-ALL-114623", "R-ALL-1467290", "R-ALL-1996292", "R-ALL-205689",
-    "R-ALL-29420", "R-ALL-5617810", "R-ALL-8851528", "R-ALL-9628545",
-    "R-ALL-9942379",
+    "R-ALL-113525", "R-ALL-114623", "R-ALL-205689", "R-ALL-29420",
+    "R-ALL-8851528", "R-ALL-9942379",
     # GMP
-    "R-ALL-113578", "R-ALL-113579", "R-ALL-29626", "R-ALL-5696194",
-    "R-ALL-744239",
+    "R-ALL-113578", "R-ALL-113579", "R-ALL-29626", "R-ALL-3221703",
+    "R-ALL-5696194", "R-ALL-744239",
     # GTP
-    "R-ALL-113571", "R-ALL-113573", "R-ALL-114625", "R-ALL-114626",
-    "R-ALL-1806221", "R-ALL-1996291", "R-ALL-2130170", "R-ALL-2213216",
-    "R-ALL-29438", "R-ALL-5617813", "R-ALL-8851242", "R-ALL-8851508",
-    "R-ALL-983318",
+    "R-ALL-113571", "R-ALL-113573", "R-ALL-114626", "R-ALL-29438",
+    "R-ALL-8851242", "R-ALL-8851508",
     # H+
     "R-ALL-1132304", "R-ALL-113529", "R-ALL-1470067", "R-ALL-156540",
     "R-ALL-1614597", "R-ALL-163953", "R-ALL-193465", "R-ALL-194688",
@@ -127,18 +132,14 @@ const COFACTOR_STIDS = Set([
     "R-ALL-1132064", "R-ALL-113526", "R-ALL-192307", "R-ALL-194653",
     "R-ALL-29360", "R-ALL-352330", "R-ALL-427523", "R-ALL-5688282",
     "R-ALL-9912885",
-    # NAD+
-    "R-ALL-29986",
     # NADH
     "R-ALL-1130844", "R-ALL-192305", "R-ALL-194697", "R-ALL-29362",
     "R-ALL-73473",
     # NADP+
-    "R-ALL-217093",
     "R-ALL-1130860", "R-ALL-113563", "R-ALL-113564", "R-ALL-194668",
     "R-ALL-2000348", "R-ALL-29366", "R-ALL-351628", "R-ALL-389556",
     "R-ALL-5623650", "R-ALL-9749714", "R-ALL-9861421",
     # NADPH
-    "R-ALL-110114",
     "R-ALL-1132417", "R-ALL-113600", "R-ALL-113601", "R-ALL-113602",
     "R-ALL-194725", "R-ALL-2000347", "R-ALL-29364", "R-ALL-351627",
     "R-ALL-5623644", "R-ALL-9749712",
@@ -155,7 +156,6 @@ const COFACTOR_STIDS = Set([
     "R-ALL-111294", "R-ALL-113541", "R-ALL-113542", "R-ALL-114654",
     "R-ALL-159450", "R-ALL-2046049", "R-ALL-389593", "R-ALL-6806656",
     # Pi
-    "R-ALL-29390",
     "R-ALL-109277", "R-ALL-113548", "R-ALL-113550", "R-ALL-113551",
     "R-ALL-114640", "R-ALL-2255331", "R-ALL-29372", "R-ALL-5228339",
     "R-ALL-8851226", "R-ALL-8851513", "R-ALL-947590", "R-ALL-9839058",
@@ -181,10 +181,17 @@ end
 
 """uuids in this network that are metabolic cofactors."""
 function cofactor_uuids(network)::Set{String}
+    # The list that shipped with the network wins. It was derived from the same
+    # release the network was generated from, so it cannot drift from it; the
+    # built-in list can, and did — see the module docstring.
+    declared = hasproperty(network, :cofactor_stids) ? network.cofactor_stids :
+               Set{String}()
+    stids = isempty(declared) ? COFACTOR_STIDS : declared
+
     out = Set{String}()
     for (uuid, node) in network.nodes
         rid = node.reactome_id
-        if rid !== nothing && rid in COFACTOR_STIDS
+        if rid !== nothing && rid in stids
             push!(out, uuid)
         end
     end

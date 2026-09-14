@@ -296,20 +296,33 @@ class-based or degree-based rule.
   declaring ATP inert would have silently discarded an ATP-depletion
   measurement. Fixed, with an assertion that fails against the previous code
   (FR-004).
-- **The two repositories' lists had silently diverged.** The generator has
-  carried `_COFACTOR_STIDS` since 2026-09-09, used to keep the diagram-bridge
-  pass from asserting that a producer of ATP feeds a consumer of ATP. The
-  solver's list was built independently from a Neo4j query by molecule name and
-  omitted 4 of the generator's 13 identifiers — including **NAD+ as an entire
-  molecule**, which the name query silently missed. Nothing caught it because
-  each list is only read by its own repository. The solver's list is now a
-  strict superset (264 ids, 29 molecules) and
-  `bench/analysis/cofactor_list_audit.py` checks that property; it skips
-  cleanly when only one checkout is present, so it does not break CI. The four
-  added identifiers appear in 0 of the 92 catalog pathways — they are metabolic
-  species and these are signalling pathways — so the measured outcome above is
-  byte-identical before and after the correction. The fix is a correctness fix,
-  not an accuracy one.
+- **The two repositories' lists had silently diverged, and BOTH were wrong.**
+  The generator has carried `_COFACTOR_STIDS` since 2026-09-09, used to keep
+  the diagram-bridge pass from asserting that a producer of ATP feeds a
+  consumer of ATP. Audited against Release97, **6 of its 13 entries** are stale
+  or mislabelled: `R-ALL-29438` commented "PPi" is GTP, `R-ALL-29390`
+  commented "Pi variant" is PXLP (pyridoxal 5'-phosphate), `R-ALL-29360`
+  commented "ADP variant" is NAD+, and three ids do not exist in the release at
+  all. The solver's list, built independently from a Neo4j query by molecule
+  name, was correct but incomplete: it silently missed compartment variants
+  because the name match does not enumerate them.
+
+  **Correction to an earlier claim in this record:** it was reported that the
+  solver's list "omitted NAD+ as an entire molecule". That was wrong — the
+  omission was an artefact of a `grep` for `# NAD` that did not match the
+  `# NAD+` header. The solver's list always carried NAD+'s nine compartment
+  variants. The real finding is the opposite of the one first reported: the
+  generator's list contributed nothing valid the solver lacked, and the
+  "superset of the generator's list" requirement briefly adopted here was
+  itself wrong, because it would have imported four defective entries.
+
+  Both lists are now **derived** rather than typed: every `SimpleEntity` whose
+  `ReferenceMolecule` carries one of 28 curated ChEBI identifiers, resolved
+  against the connected release. 253 species at Release97. ChEBI identity is
+  the only stable handle — names miss compartment variants and match by
+  substring, stable ids go stale between releases, and this list hit every one
+  of those failure modes.
+
 - The wide-set comparison tool computed macro-F1 over a hard-coded label set
   that matched the ten-pathway dump but not the wide one, silently dropping the
   UP class from the average and reporting 0.5522 where the correct figure is

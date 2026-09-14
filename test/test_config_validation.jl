@@ -259,7 +259,7 @@ end
     # The list is the feature; pin its shape and its size so an edit that
     # silently widens it fails here rather than in a benchmark six steps later.
     @test "R-ALL-113592" in DeltaSignal.COFACTOR_STIDS      # ATP [cytosol]
-    @test length(DeltaSignal.COFACTOR_STIDS) == 264         # stated in the docstring
+    @test length(DeltaSignal.COFACTOR_STIDS) == 253         # stated in the docstring
     @test all(id -> occursin(r"^R-(ALL|HSA)-\d+$", id), DeltaSignal.COFACTOR_STIDS)
 end
 
@@ -289,4 +289,43 @@ end
             network, Dict("atp" => (0.0, 1.0)), params)
         @test isapprox(depleted.node_activities["atp"], 0.0, atol = 1e-9)
     end
+end
+
+@testset "the cofactor list that ships with a bundle wins" begin
+    # The generator derives the list from the same release it generated the
+    # network from, so it cannot drift from it. The built-in list can, and did.
+    mktempdir() do dir
+        logic = joinpath(dir, "logic_network.csv")
+        write(logic, "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n" *
+                     "u-atp,u-out,pos,and,input,1\n")
+        write(joinpath(dir, "stid_to_uuid_mapping.csv"),
+              "uuid,stable_id\nu-atp,R-ALL-113592\nu-out,R-HSA-69541\n")
+
+        # No cofactors.csv: fall back to the built-in list, do NOT treat the
+        # bundle as cofactor-free.
+        bare = DeltaSignal.parse_complete_network(
+            logic, joinpath(dir, "stid_to_uuid_mapping.csv"))
+        @test isempty(bare.cofactor_stids)
+        @test DeltaSignal.cofactor_uuids(bare) == Set(["u-atp"])
+
+        # A bundle that declares its own list is believed, including when it
+        # declares something the built-in list has never heard of.
+        write(joinpath(dir, "cofactors.csv"),
+              "stable_id,molecule,chebi_id,name,in_network,reactome_release\n" *
+              "R-HSA-69541,Invented,1,Invented [cytosol],1,97\n" *
+              "R-ALL-113592,ATP,30616,ATP [cytosol],0,97\n")
+        bundled = DeltaSignal.parse_complete_network(
+            logic, joinpath(dir, "stid_to_uuid_mapping.csv"))
+        # in_network=0 rows are listed for completeness but cannot match here.
+        @test bundled.cofactor_stids == Set(["R-HSA-69541"])
+        @test DeltaSignal.cofactor_uuids(bundled) == Set(["u-out"])
+    end
+
+    # A file that is not a cofactor list must fail loudly, not read as empty.
+    mktempdir() do dir
+        bad = joinpath(dir, "cofactors.csv")
+        write(bad, "something_else\n1\n")
+        @test_throws ArgumentError DeltaSignal.parse_cofactor_list(bad)
+    end
+    @test DeltaSignal.parse_cofactor_list(nothing) == Set{String}()
 end
