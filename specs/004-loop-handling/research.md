@@ -473,6 +473,19 @@ have an advantage.
    regressed the benchmark, and the curator result now explains why: the
    edges are not missing, the effect is not directed-causal.
 
+> ## ⚠️ R15 and R17 ARE SUPERSEDED — read R18 first
+>
+> Both were measured on the ten-pathway / 742-case experimental set, and the
+> 89-pathway curator set contradicts their central premise. **Knockout→UP
+> calls are 498 of 665 correct (0.749) at scale, against the 0.358 reported
+> below.** De-repression is one of the model's *better*-performing behaviours,
+> not its worst. The de-repression floor those sections motivated was
+> measured at scale and is worth **+4 cases of 23,788** at best, non-monotonic
+> across thresholds — noise.
+>
+> The mechanism descriptions below are still accurate about what the code
+> does. The claim that it is the dominant error source is not.
+
 ## R15 — Found it: de-repression is the single biggest systematic error
 
 Decomposing the 142 errors on path-having cases:
@@ -586,3 +599,120 @@ precisely that is the thing not to trust. Two things follow:
 Also unanswered deliberately: whether the optimum is beyond ε=0.01. Sweeping
 further on these 742 cases is exactly the move R13 warns against; answer it
 on the larger catalog or not at all.
+
+## R17 — De-repression fails in two distinct ways, and neither is a ceiling
+
+Diagnosing the 81 knockout→UP calls on current `main` (ε=1e-12) **before**
+proposing a fix this time, having learned that lesson on 006.
+
+| routes available | n | true UP | true DOWN | true NO_CHANGE | accuracy |
+|---|---|---|---|---|---|
+| **negative only** | 19 | 3 | 0 | **16** | **0.158** |
+| **both signs** | 62 | 26 | 30 | 6 | 0.419 |
+
+### Failure 1 — spurious de-repression where no activating route exists (19 cases)
+
+When the *only* route to the readout is inhibitory, the truth is
+**NO_CHANGE 16 times out of 19** and we answer UP. Removing an inhibitor from
+a target that nothing else is driving does not raise it, and the model says
+otherwise.
+
+Magnitude separates this cleanly, and **only for knockouts**:
+
+| band | n | accuracy |
+|---|---|---|
+| weak DOWN (0.5–0.85), knockout | 21 | 0.810 |
+| weak UP (1.15–2), **overexpression** | 5 | 0.800 |
+| weak UP (1.15–2), **knockout** | 14 | **0.000** |
+
+So weak predictions are *not* generally unreliable — this is specific to weak
+de-repression. A rule reporting NO_CHANGE below a de-repression threshold is
+worth **+6 to +10 cases** on 742 depending on the threshold, and its ceiling
+is the NO_CHANGE count in the affected band, because where the truth is DOWN
+it swaps one wrong answer for another.
+
+### Failure 2 — losing the conflict when both routes exist (62 cases)
+
+Truth is UP 26 / DOWN 30 / NO_CHANGE 6, and we answer UP on **all 62**.
+Accuracy 0.419.
+
+**The model-free shortest signed path scores 39 of those 62 against our 26.**
+It predicts UP 41, DOWN 18, NO_CHANGE 3 — so it is not simply agreeing with
+us less often; it is correctly calling DOWN on cases where a *proximal*
+activating route should outweigh a *distant* de-repressing one.
+
+Our aggregation multiplies route contributions with no notion of distance, so
+a long chain of de-repression can outweigh a short direct activation. The
+shortest-path heuristic weights by proximity implicitly, and beats us because
+of it.
+
+**This is the larger half — 62 cases against 19 — and it is not a
+de-repression bug at all.** It is how competing routes are combined. That
+also explains the earlier finding that we lose to a model-free traversal on
+exactly the subset where a model should have an advantage.
+
+### Consequence
+
+A global de-repression ceiling was the wrong shape of fix for both, which is
+why it failed (2× cost 39 cases on 23,788). The two candidates now are a
+de-repression floor for Failure 1 and distance-aware route combination for
+Failure 2 — and the second is where the cases are.
+
+
+## R18 — Where the errors actually are, at 89-pathway scale
+
+The ten-pathway set produced a false diagnosis that two features were then
+built around. This is the same decomposition on **23,788 curator cases**,
+4,329 of them wrong (18.2%).
+
+| category | n | share of errors |
+|---|---|---|
+| **false_positive_change** | 1,814 | **41.9%** |
+| **no_path** | 1,466 | **33.9%** |
+| propagator_missed | 692 | 16.0% |
+| keyoutput_not_in_network | 191 | 4.4% |
+| gene_not_in_network | 166 | 3.8% |
+
+| error | n | share |
+|---|---|---|
+| DOWN → NO_CHANGE | 1,094 | 25.3% |
+| UP → NO_CHANGE | 1,021 | 23.6% |
+| NO_CHANGE → UP | 961 | 22.2% |
+| NO_CHANGE → DOWN | 853 | 19.7% |
+| **outright sign flips** | **400** | **9.3%** |
+
+**Sign flips are 9.3% of errors at scale.** On the ten-pathway set they were
+**60%** of path-having errors, which is what sent this investigation toward
+de-repression and route conflicts. Both were ten-pathway artifacts.
+
+The real shape is symmetric and unglamorous: **48.9% of errors are calling no
+change when something changed** (2,115 cases), and **41.9% are calling a
+change when nothing did** (1,814). The model is poorly calibrated about
+*whether* a perturbation propagates at all, in both directions, roughly
+equally. Knockouts and overexpressions fail at nearly identical rates (0.178
+vs 0.186), so it is not direction-specific either.
+
+Precision by predicted class: DOWN 0.766, NO_CHANGE 0.857, UP 0.745.
+
+### What this retires
+
+- "De-repression is the biggest systematic error" — it is 0.749 correct at
+  scale.
+- "60% of errors are sign flips" — 9.3%.
+- "The fix is per-edge de-repression bounds" — there is no de-repression
+  problem of that size to fix.
+
+### What survives, because it was measured at scale
+
+The control (propagator exonerated), the no-path ceiling (~90% curator
+agreement where no path exists), the epsilon fix (+28), and set-readout
+coverage. Note that `no_path` is still **33.9% of all errors** — consistent
+with R14, and still not addressable by a directed model.
+
+### The methodological conclusion
+
+**The ten-pathway experimental set is not safe for generating hypotheses**,
+not merely for confirming them. I had been treating it as adequate for
+diagnosis and suspect only for decisions. Four hypotheses died on contact
+with the wider set: loops-as-cause, 41% connectivity, distance-weighting, and
+de-repression-as-dominant-error. Every one looked solid on 742 cases.

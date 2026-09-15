@@ -57,6 +57,14 @@ function solve_steady_state(
     
     start_time = time()
     
+    # Cofactor handling is a MODELLING choice made here, not upstream: the
+    # networks stay faithful to the curated data and this decides whether a
+    # small molecule may carry a perturbation. See src/core/cofactors.jl.
+    #
+    # Deleting them instead was measured at -84 cases; pinning them gains +37.
+    mode = cofactor_mode()
+    cofactors = mode == "inert" ? cofactor_uuids(network) : Set{String}()
+
     # Convert network to reactions
     reactions = convert_to_reaction_network(network)
     
@@ -65,6 +73,21 @@ function solve_steady_state(
     n_nodes = length(all_nodes)
     node_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
     
+    if !isempty(cofactors)
+        # Pinning at baseline is exactly "participant, not conduit": the node
+        # still contributes its fold of 1.0 to every AND it belongs to, and
+        # every reaction keeps the same input set, but its value never moves
+        # so no perturbation can travel through it.
+        #
+        # An explicit observation always wins. Someone measuring an ATP
+        # depletion is not making the modelling assumption this mode encodes,
+        # and silently overwriting their input would be the same silent
+        # substitution the config guard rails exist to prevent.
+        pins = Dict(u => (network.nodes[u].baseline * 100.0, 1.0)
+                    for u in cofactors if !haskey(observations, u))
+        observations = merge(observations, pins)
+    end
+
     # Initial guess: use observations where available, baseline elsewhere
     x0 = Dict{String, Float64}()
     baseline_activities = Dict{String, Float64}()

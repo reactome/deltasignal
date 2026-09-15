@@ -30,6 +30,16 @@ struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
     edges::Vector{LogicNetworkEdge}
     set_mappings::Dict{String, SetExpansionMapping}
+    # Cofactor stable ids that shipped WITH this network, from the generator's
+    # `cofactors.csv`. Empty when the bundle predates that file, in which case
+    # the solver falls back to its own built-in list. Carrying it here is what
+    # lets an artifact bundle pulled from S3 answer "which of these nodes is
+    # ATP" without a second, separately-versioned copy of the answer.
+    cofactor_stids::Set{String}
+
+    ReactionNetwork(nodes, edges, set_mappings,
+                    cofactor_stids = Set{String}()) =
+        new(nodes, edges, set_mappings, cofactor_stids)
 end
 
 """
@@ -248,7 +258,8 @@ Main parsing function that combines all inputs.
 function parse_complete_network(
     logic_network_path::String,
     uuid_mapping_path::String,
-    set_mapping_path::Union{String, Nothing} = nothing
+    set_mapping_path::Union{String, Nothing} = nothing,
+    cofactor_path::Union{String, Nothing} = nothing
 )::ReactionNetwork
     
     println("Parsing logic network...")
@@ -266,5 +277,53 @@ function parse_complete_network(
         println("Found $(length(set_mappings)) set expansions")
     end
     
-    return create_reaction_network(edges, nodes, set_mappings)
+    network = create_reaction_network(edges, nodes, set_mappings)
+
+    # Prefer the list that shipped with the networks; see parse_cofactor_list.
+    resolved = cofactor_path === nothing ?
+        default_cofactor_path(logic_network_path) : cofactor_path
+    stids = parse_cofactor_list(resolved)
+    isempty(stids) && return network
+    println("Found $(length(stids)) cofactor species declared by the bundle")
+    return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids)
+end
+
+"""
+Path to the `cofactors.csv` the generator writes beside a logic network, or
+`nothing` when there is none. The artifacts travel together, so the list is
+found the same way the network was.
+"""
+function default_cofactor_path(logic_network_path::String)::Union{String, Nothing}
+    candidate = joinpath(dirname(logic_network_path), "cofactors.csv")
+    return isfile(candidate) ? candidate : nothing
+end
+
+"""
+Read the cofactor stable ids a generated bundle declares.
+
+Returns an empty set when there is no file — bundles generated before the
+generator emitted one are the common case, and the solver falls back to its
+built-in list rather than silently treating the pathway as cofactor-free.
+
+Only rows flagged `in_network` are returned: the file lists every cofactor the
+release defines so that an empty intersection is distinguishable from a missing
+file, but only the ones actually present here can match a node.
+"""
+function parse_cofactor_list(path::Union{String, Nothing})::Set{String}
+    path === nothing && return Set{String}()
+    isfile(path) || return Set{String}()
+    out = Set{String}()
+    df = CSV.read(path, DataFrame)
+    cols = Set(Symbol.(names(df)))
+    (:stable_id in cols) || throw(ArgumentError(
+        "$(path) has no `stable_id` column; it is not a generator cofactor list"))
+    has_flag = :in_network in cols
+    for row in eachrow(df)
+        ismissing(row.stable_id) && continue
+        if has_flag && !ismissing(row.in_network) && Int(row.in_network) == 0
+            continue
+        end
+        push!(out, String(row.stable_id))
+    end
+    return out
 end

@@ -76,6 +76,35 @@ def main() -> int:
                                       and x["prediction"]), None))
         print(f"  coverage: +{only_arm} scored only here, -{only_base} scored only in baseline")
 
+        # CONDITIONED VIEW, reported first and by default.
+        #
+        # Any change that adds or removes edges also changes which nodes have
+        # no incoming edge — and the benchmark perturbs only root inputs. So
+        # the two arms can end up pinning different nodes, and the comparison
+        # then measures a different experiment rather than a different model.
+        #
+        # Measured on the cofactor-exclusion A/B: the pinned set changed in
+        # 3.5% of cases, in 0 of the 34 cases won, and in 26 of the 62 LOST.
+        # Conditioning on an unchanged experiment took that arm from -28 to
+        # -2, i.e. from "clearly harmful" to "neutral". Holding the root set
+        # fixed instead was tried and is worse — carried by uuid it matches
+        # nothing (uuids are minted per build), and by stable id it
+        # over-expands (5,232 nodes against the catalog's own 2,798).
+        same_experiment = [
+            r for r in shared
+            if r.get("gene_uuid_count") == base_by_key[key(r)].get("gene_uuid_count")
+            and r.get("output_uuid_count") == base_by_key[key(r)].get("output_uuid_count")
+        ]
+        moved = len(shared) - len(same_experiment)
+        if moved:
+            cb = sum(1 for r in same_experiment
+                     if base_by_key[key(r)]["prediction"] == r["expected"])
+            ca = sum(1 for r in same_experiment if r["prediction"] == r["expected"])
+            print(f"  SAME EXPERIMENT ({len(same_experiment)} of {len(shared)}): "
+                  f"baseline {cb} -> arm {ca} = {ca-cb:+d}")
+            print(f"  experiment MOVED in {moved} cases (different nodes pinned or "
+                  f"read) — excluded above, and the usual cause of a large delta")
+
         changed = [r for r in shared if r["prediction"] != base_by_key[key(r)]["prediction"]]
         both_conv = sum(1 for r in changed
                         if r["converged"] == "True"

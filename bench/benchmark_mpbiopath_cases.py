@@ -343,6 +343,50 @@ def load_reactome_id_audit(path: Path | None) -> dict[str, dict[str, str]]:
     return audit
 
 
+
+def set_membership_map(pathway_dir: Path) -> dict[str, set[str]]:
+    """set stable id -> the member node uuids it was split into."""
+    mapping: dict[str, set[str]] = defaultdict(set)
+    resolution = pathway_dir / "node_resolution.csv"
+    if not resolution.exists():
+        return {}
+    with resolution.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row["relation"] == "set_member":
+                mapping[row["stable_id"]].add(row["uuid"])
+    return dict(mapping)
+
+
+def set_coverage(perturbed: set[str], sets: dict[str, set[str]]) -> tuple[float, str]:
+    """How much of the most-diluted set a perturbation covers, plus a label.
+
+    The ground truth perturbs an entity as curators wrote it. Where that
+    entity is an EntitySet we split into members, a single-gene perturbation
+    hits ONE member and the family's other paralogs keep signalling — the
+    readout barely moves and we answer "no change", which is arguably the more
+    faithful answer and is scored wrong against a set-level expectation.
+
+    Measured on the ten-pathway set: 18 cases are marked wrong for exactly
+    that. Reporting the class separates the mismatch from model error.
+    Note it is NOT monotonic — quarter_of_set scores 0.773 against a 0.655
+    baseline — so this is a category to report, not a correction to apply.
+
+    Returns (1.0, "not_in_split_set") when no split set is touched.
+    """
+    fractions = [len(members & perturbed) / len(members)
+                 for members in sets.values() if members & perturbed]
+    if not fractions:
+        return 1.0, "not_in_split_set"
+    worst = min(fractions)
+    if worst >= 1.0:
+        return worst, "whole_set"
+    if worst >= 0.5:
+        return worst, "half_of_set"
+    if worst >= 0.25:
+        return worst, "quarter_of_set"
+    return worst, "minority_of_set"
+
+
 def load_network_adjacency(pathway_dir: Path) -> dict[str, list[tuple[str, int]]]:
     """Load the signed directed graph used by the structural baselines."""
     adjacency: dict[str, list[tuple[str, int]]] = defaultdict(list)
@@ -772,6 +816,10 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         for pathway_id, path in pathway_dirs.items()
         if path
     }
+    set_maps = {
+        pathway_id: set_membership_map(path)
+        for pathway_id, path in pathway_dirs.items() if path
+    }
     resolutions = {
         pathway_id: load_node_resolution(path)
         for pathway_id, path in pathway_dirs.items()
@@ -925,6 +973,10 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             )
             reactome_output = reactome_id_audit.get(case.key_output_dbid, {})
             row = asdict(case)
+            coverage, coverage_class = set_coverage(
+                set(gene_uuids), set_maps.get(case.pathway_id, {}))
+            row["perturbed_set_coverage"] = f"{coverage:.3f}"
+            row["perturbed_set_coverage_class"] = coverage_class
             row["set_member_count"] = len(set_members)
             row["set_partial_reason"] = set_partial_reason
             # Initialised on every row: a column present on only some rows

@@ -189,6 +189,12 @@ env vars only override for benchmark sweeps:
 - SCC-condensation solve is on by default (`DS_SCC_SOLVE=1`); the legacy flat
   iteration and the `"fixed_point"` `SteadyStateParams.method` are not used by
   the CLI or API (both use the penalty/SCC path).
+- `DS_COFACTOR_MODE=inert` — metabolic cofactors (ATP, ADP, NAD+, H2O, Pi …)
+  are pinned at baseline, so they remain AND inputs but cannot carry a
+  perturbation. The networks still contain them: the generator represents what
+  curators recorded, and this is the propagator declining to route through it.
+  Set `propagate` for the previous behaviour. The list and the measured A/B are
+  in `src/core/cofactors.jl`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
