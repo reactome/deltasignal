@@ -368,3 +368,48 @@ end
         @test DeltaSignal.cofactor_uuids(net) == Set(["u-atp"])
     end
 end
+
+@testset "US1: a perturbation does not travel through a cofactor" begin
+    # The feature's whole purpose, previously untested. The existing fixtures
+    # all make the cofactor a ROOT input, which is the one topology where
+    # pinning is a guaranteed no-op — so they would pass with the cofactor
+    # block deleted. Here ATP sits BETWEEN the perturbation and the readout.
+    #
+    #     up --> atp --> out
+    #
+    # Under `propagate` the knockout must reach `out`; under `inert` it must
+    # not, because ATP cannot carry it.
+    nodes = Dict(
+        "up"  => DeltaSignal.NetworkNode("up", "R-HSA-111", "unknown", nothing, "UP", 0.01),
+        "atp" => DeltaSignal.NetworkNode("atp", "R-ALL-113592", "unknown", nothing, "ATP", 0.01),
+        "out" => DeltaSignal.NetworkNode("out", "R-HSA-222", "unknown", nothing, "OUT", 0.01),
+    )
+    edges = [
+        DeltaSignal.LogicNetworkEdge("up", "atp", false, true, 1.0, "input"),
+        DeltaSignal.LogicNetworkEdge("atp", "out", false, true, 1.0, "input"),
+    ]
+    network = DeltaSignal.ReactionNetwork(
+        nodes, edges, Dict{String, DeltaSignal.SetExpansionMapping}())
+    params = DeltaSignal.SteadyStateParams(1.0, 0.1, 100, 1e-6, "penalty")
+    knockout = Dict("up" => (0.0, 1.0))
+
+    local propagated, pinned
+    with_env("DS_COFACTOR_MODE", "propagate") do
+        propagated = DeltaSignal.solve_steady_state(network, knockout, params)
+    end
+    with_env("DS_COFACTOR_MODE", "inert") do
+        pinned = DeltaSignal.solve_steady_state(network, knockout, params)
+    end
+
+    # The knockout reaches ATP, and through it the readout, when propagating.
+    @test propagated.node_activities["atp"] < 0.01
+    @test propagated.node_activities["out"] < 0.01
+
+    # Pinned, ATP holds at baseline and the readout never moves.
+    @test isapprox(pinned.node_activities["atp"], 0.01, atol = 1e-9)
+    @test isapprox(pinned.node_activities["out"], 0.01, atol = 1e-6)
+
+    # And the two modes genuinely disagree — the guard against a fixture where
+    # both arms happen to give the same answer.
+    @test pinned.node_activities["out"] > propagated.node_activities["out"]
+end

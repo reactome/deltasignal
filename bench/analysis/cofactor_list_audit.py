@@ -39,6 +39,43 @@ KNOWN_DIFFERENCES = {
 }
 
 
+def compare_molecules(generator_src: str, solver_src: str) -> int:
+    """Compare the molecule sets behind the two derived lists.
+
+    The generator names molecules as `_COFACTOR_CHEBI` keys; the solver groups
+    its baked stable ids under `# Molecule` comment headers. If the generator
+    gains or loses a molecule, every freshly generated bundle starts declaring
+    a different set, and because the bundle overrides the solver's built-in
+    list, the solver's own copy silently becomes the stale fallback for older
+    bundles only. That is the drift this feature introduced.
+    """
+    gen = re.search(r"_COFACTOR_CHEBI: Dict\[str, List\[str\]\] = \{(.*?)\n\}",
+                    generator_src, re.S)
+    if not gen:
+        print("\ngenerator has no _COFACTOR_CHEBI (pre-dates the derived list); "
+              "skipping the molecule audit")
+        return 0
+    gen_molecules = set(re.findall(r'"([^"]+)":\s*\[', gen.group(1)))
+
+    block = re.search(r"const COFACTOR_STIDS = Set\(\[(.*?)\]\)", solver_src, re.S)
+    sol_molecules = set(re.findall(r"^\s*#\s*(.+?)\s*$", block.group(1), re.M))
+
+    print(f"\ngenerator ChEBI molecules: {len(gen_molecules)}   "
+          f"solver molecule groups: {len(sol_molecules)}")
+    only_gen = sorted(gen_molecules - sol_molecules)
+    only_sol = sorted(sol_molecules - gen_molecules)
+    if not only_gen and not only_sol:
+        print("  the two derived lists cover the same molecules")
+        return 0
+    for name in only_gen:
+        print(f"  ONLY the generator derives: {name}  "
+              f"(new bundles will declare it; the solver's fallback will not)")
+    for name in only_sol:
+        print(f"  ONLY the solver carries: {name}  "
+              f"(new bundles will NOT declare it, so it stops being pinned)")
+    return 1
+
+
 def extract(text: str, pattern: str, what: str) -> set[str]:
     match = re.search(pattern, text, re.S)
     if not match:
@@ -66,7 +103,16 @@ def main() -> int:
                          r"const COFACTOR_STIDS = Set\(\[(.*?)\]\)",
                          "solver")
 
-    print(f"generator list: {len(upstream)}   solver list: {len(downstream)}")
+    print(f"generator bridge list: {len(upstream)}   solver list: {len(downstream)}")
+
+    # The list that can actually change a solve is the generator's ChEBI set,
+    # because it is what `get_cofactor_species` derives and `cofactors.csv`
+    # ships, and a bundled list OVERRIDES the solver's own. Comparing only the
+    # 13-id bridge list audits the pair that no longer matters most.
+    chebi_src = args.generator_root / "src" / "neo4j_connector.py"
+    rc = compare_molecules(
+        chebi_src.read_text() if chebi_src.exists() else "",
+        solver.read_text())
 
     only_upstream = sorted(upstream - downstream)
     explained = [s for s in only_upstream if s in KNOWN_DIFFERENCES]
@@ -87,9 +133,11 @@ def main() -> int:
               "generator has gained a new entry. Check which before changing "
               "either list.")
         return 1
+    if rc:
+        return rc
 
-    print("\nno unexplained differences")
-    return 0
+    print("\nno unexplained differences in the bridge list")
+    return rc
 
 
 if __name__ == "__main__":

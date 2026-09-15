@@ -26,11 +26,17 @@ def load(path: Path) -> dict:
         return {key(r): r for r in csv.DictReader(fh, delimiter="\t")}
 
 
-def macro_f1(rows) -> float:
+def macro_f1(rows, labels=None) -> float:
     # Derive the classes from the data rather than hard-coding them: this dump
     # encodes DOWN/NORMAL/UP as 0/1/2 while the ten-pathway one uses -1/0/1,
     # and a hard-coded set silently drops a whole class from the average.
-    labels = {r["expected"] for r in rows} | {r["predicted"] for r in rows}
+    #
+    # `labels` must be passed when comparing two arms. Derived per-arm, an arm
+    # that emits one stray prediction of a class the other never emits divides
+    # its F1 sum by a larger denominator and is penalised for it — in a tool
+    # whose only job is a paired comparison, that is the wrong denominator.
+    if labels is None:
+        labels = {r["expected"] for r in rows} | {r["predicted"] for r in rows}
     if not labels:
         return 0.0
     total = 0.0
@@ -47,10 +53,11 @@ def scored(rows):
     return [r for r in rows if r.get("valid") == "1"]
 
 
-def summarise(name: str, rows) -> None:
+def summarise(name: str, rows, labels=None) -> None:
     ok = sum(1 for r in rows if r["predicted"] == r["expected"])
     print(f"{name:<14} scored {len(rows):>6}  correct {ok:>6}  "
-          f"acc {ok / len(rows) if rows else 0:.4f}  macro-F1 {macro_f1(rows):.4f}")
+          f"acc {ok / len(rows) if rows else 0:.4f}  "
+          f"macro-F1 {macro_f1(rows, labels):.4f}")
 
 
 def main() -> None:
@@ -80,8 +87,10 @@ def main() -> None:
     print(f"SAME EXPERIMENT: {len(same)} of {len(shared)}"
           + (f"   (experiment MOVED in {moved})" if moved else ""))
     print(f"scored in both: {len(valid_keys)}\n")
-    summarise("baseline", base_rows)
-    summarise("arm", arm_rows)
+    labels = ({r["expected"] for r in base_rows} | {r["predicted"] for r in base_rows}
+              | {r["expected"] for r in arm_rows} | {r["predicted"] for r in arm_rows})
+    summarise("baseline", base_rows, labels)
+    summarise("arm", arm_rows, labels)
 
     by_key = {key(r): r for r in arm_rows}
     gained = lost = 0
@@ -109,8 +118,11 @@ def main() -> None:
 
     if args.all_cases:
         print("\n--- unconditioned (experiment may differ) ---")
-        summarise("baseline", scored([base[k] for k in shared]))
-        summarise("arm", scored([arm[k] for k in shared]))
+        b_all, a_all = scored([base[k] for k in shared]), scored([arm[k] for k in shared])
+        all_labels = ({r["expected"] for r in b_all} | {r["predicted"] for r in b_all}
+                      | {r["expected"] for r in a_all} | {r["predicted"] for r in a_all})
+        summarise("baseline", b_all, all_labels)
+        summarise("arm", a_all, all_labels)
 
 
 if __name__ == "__main__":

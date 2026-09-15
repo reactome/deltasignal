@@ -23,17 +23,19 @@ MEASURED 2026-09-15 over the 92-pathway catalog at Release97:
 
   4,415 stable ids carry a disconnected sink/source pair, in 91 of 92 pathways.
   Bridging all of them makes 160,090 nodes newly reachable from signals that
-  currently die at a sink.
+  currently die at a sink (that figure adds every bridge at once and walks from
+  all sinks, so overlapping reach is counted once; the per-bridge figures below
+  are each measured against the unbridged graph and do not sum to it).
 
 That is not a targeted repair, and it explains why one-bridge-per-silo lost:
 the marginal downstream reach of a single bridge is wildly skewed —
 
-  min 2   p25 23   median 83   p75 450   p90 2,779   max 39,315
+  min 2   p25 24   median 88   p75 452   p90 2,779   max 39,374
 
-In `Transcriptional_regulation_by_RUNX1` eight bridges each connect 39,302 of
-the network's 39,773 nodes. That is the hub-flooding signature that also cost
-macro-F1 0.663 -> 0.479 in the cross-pathway stitch. But 40% of bridges reach
-50 nodes or fewer and 54% reach 100 or fewer, and the GPVI catalyst that
+In `Transcriptional_regulation_by_RUNX1` eight bridges each connect roughly
+39,300 of the network's 39,773 nodes. That is the hub-flooding signature that also cost
+macro-F1 0.663 -> 0.479 in the cross-pathway stitch. But 38.9% of bridges reach
+50 nodes or fewer and 52.8% reach 100 or fewer, and the GPVI catalyst that
 surfaced all of this (`R-HSA-442307`) reaches 36 — a genuinely local repair.
 
 So the untested hypothesis is a REACH-CAPPED bridge: restore the route only
@@ -156,15 +158,28 @@ def report_reach(rows, catalog: Path) -> None:
             sources = [u for u in us if indeg[u] == 0 and outdeg[u] > 0]
             if not (sinks and sources):
                 continue
-            start = max(sources, key=lambda u: outdeg[u])
-            seen, q = {start}, [start]
-            while q:
-                u = q.pop()
-                for v in adj.get(u, ()):
-                    if v not in seen:
-                        seen.add(v)
-                        q.append(v)
-            gains.append(len(seen) - 1)
+            # TRUE marginal gain: what the SINK can newly reach once bridged,
+            # not everything downstream of one source. The first version
+            # measured the latter and overstated the local-repair fraction by
+            # about a point (40.1% -> 38.9% at <=50 nodes); it also ignored all
+            # but one source per stable id.
+            sink = max(sinks, key=lambda u: indeg[u])
+
+            def walk(start):
+                seen, q = {start}, [start]
+                while q:
+                    u = q.pop()
+                    for v in adj.get(u, ()):
+                        if v not in seen:
+                            seen.add(v)
+                            q.append(v)
+                return seen
+
+            before = walk(sink)
+            adj[sink].extend(sources)
+            after = walk(sink)
+            del adj[sink][-len(sources):]
+            gains.append(len(after - before))
 
     if not gains:
         return

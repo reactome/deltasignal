@@ -244,7 +244,11 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
         end
     end
 
-    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings)
+    # A client that round-trips /api/parse's nodes+edges into /api/solve must
+    # not silently lose the list that shipped with the bundle.
+    cofactor_stids = haskey(network_json, "cofactor_stids") ?
+        Set(String.(network_json["cofactor_stids"])) : Set{String}()
+    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids)
 end
 
 """

@@ -282,8 +282,28 @@ function parse_complete_network(
     # Prefer the list that shipped with the networks; see parse_cofactor_list.
     resolved = cofactor_path === nothing ?
         default_cofactor_path(logic_network_path) : cofactor_path
-    stids = parse_cofactor_list(resolved)
-    isempty(stids) && return network
+    stids = parse_cofactor_list(resolved; required = cofactor_path !== nothing)
+
+    if isempty(stids)
+        # A file that declares nothing in-network is NOT the same as no file,
+        # and the generator writes every known cofactor precisely so the two
+        # are distinguishable. Falling straight through to the built-in list
+        # collapses that distinction and skips the disagreement check below,
+        # so the 0-of-N case — the shape a wholly mis-written file takes — was
+        # the one case that could never warn.
+        if resolved !== nothing
+            builtin_here = count(node -> node.reactome_id !== nothing &&
+                                 node.reactome_id in COFACTOR_STIDS,
+                                 values(network.nodes))
+            if builtin_here > 0
+                @warn("The bundled cofactor list declares nothing present in " *
+                      "this network, but the built-in list matches nodes here. " *
+                      "Falling back to the built-in list.",
+                      file = resolved, builtin_would_match = builtin_here)
+            end
+        end
+        return network
+    end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
     # A truncated, stale or partially-written cofactors.csv silently narrows the
@@ -334,9 +354,16 @@ Only rows flagged `in_network` are returned: the file lists every cofactor the
 release defines so that an empty intersection is distinguishable from a missing
 file, but only the ones actually present here can match a node.
 """
-function parse_cofactor_list(path::Union{String, Nothing})::Set{String}
+function parse_cofactor_list(path::Union{String, Nothing};
+                            required::Bool = false)::Set{String}
     path === nothing && return Set{String}()
-    isfile(path) || return Set{String}()
+    if !isfile(path)
+        # Absent is the norm for DISCOVERY — most bundles predate the file.
+        # But a caller who named a path expressed intent, and silently handing
+        # them the built-in list instead is the wrong kind of forgiving.
+        required && throw(ArgumentError("cofactor list not found: $(path)"))
+        return Set{String}()
+    end
     out = Set{String}()
     df = CSV.read(path, DataFrame)
     cols = Set(Symbol.(names(df)))

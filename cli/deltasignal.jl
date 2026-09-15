@@ -192,6 +192,10 @@ function execute_parse_command(args)
                 "stoichiometry" => edge.stoichiometry,
                 "edge_type" => edge.edge_type
             ) for edge in network.edges],
+            # Without this the documented parse -> solve pipeline silently
+            # drops the bundled cofactor list and falls back to the built-in
+            # one, so the CLI and the API disagree about the model.
+            "cofactor_stids" => collect(network.cofactor_stids),
             "set_mappings" => Dict(set_id => Dict(
                 "original_set_id" => mapping.original_set_id,
                 "original_name" => mapping.original_name,
@@ -258,7 +262,9 @@ function execute_solve_command(args)
             end
         end
 
-        network = ReactionNetwork(nodes, edges, set_mappings)
+        cofactor_stids = haskey(network_json, "cofactor_stids") ?
+            Set(String.(network_json["cofactor_stids"])) : Set{String}()
+        network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids)
         println("✓ Network loaded: $(length(nodes)) nodes, $(length(edges)) edges")
 
         # Load observations CSV
