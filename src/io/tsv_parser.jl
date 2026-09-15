@@ -285,6 +285,31 @@ function parse_complete_network(
     stids = parse_cofactor_list(resolved)
     isempty(stids) && return network
     println("Found $(length(stids)) cofactor species declared by the bundle")
+
+    # A truncated, stale or partially-written cofactors.csv silently narrows the
+    # model: the bundle wins, so declaring one cofactor where the network holds
+    # seven just quietly stops treating the other six as cofactors. Nothing
+    # else would ever notice, which is the silent-substitution failure the DS_*
+    # guard rails exist to prevent. Compare against what the built-in list
+    # would have matched and say so once, at load.
+    declared_nodes = Set(uuid for (uuid, node) in network.nodes
+                         if node.reactome_id !== nothing && node.reactome_id in stids)
+    builtin_nodes = Set(uuid for (uuid, node) in network.nodes
+                        if node.reactome_id !== nothing &&
+                           node.reactome_id in COFACTOR_STIDS)
+    missed = setdiff(builtin_nodes, declared_nodes)
+    if !isempty(missed)
+        examples = sort([string(network.nodes[u].reactome_id) for u in missed])
+        @warn("The bundled cofactor list matches fewer nodes than the built-in " *
+              "list would. The bundle is authoritative, so these are NOT being " *
+              "treated as cofactors. Expected if the bundle predates a list " *
+              "change; a truncated or partly-written file looks the same.",
+              file = resolved,
+              declared = length(declared_nodes),
+              builtin_would_match = length(builtin_nodes),
+              not_treated_as_cofactors = first(unique(examples), 5))
+    end
+
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids)
 end
 
@@ -320,10 +345,40 @@ function parse_cofactor_list(path::Union{String, Nothing})::Set{String}
     has_flag = :in_network in cols
     for row in eachrow(df)
         ismissing(row.stable_id) && continue
-        if has_flag && !ismissing(row.in_network) && Int(row.in_network) == 0
+        if has_flag && !_in_network_flag(row.in_network, path)
             continue
         end
         push!(out, String(row.stable_id))
     end
     return out
+end
+
+"""
+Interpret one `in_network` cell.
+
+CSV.jl types the column from its contents, so the same generated file can
+arrive as Int, Float64, Bool or String depending on what else is in it, and a
+round-trip through another tool can quote it. An unrecognised value used to
+reach `Int(...)` and die with a bare `MethodError` naming neither the file nor
+the column; a corrupt artifact should say which artifact and which field.
+
+A MISSING flag counts as in-network: the column is an optimisation that lets a
+consumer skip rows, and a row present in the file is a cofactor either way.
+"""
+function _in_network_flag(value, path::String)::Bool
+    ismissing(value) && return true
+    value isa Bool && return value
+    value isa Real && return value != 0
+    if value isa AbstractString
+        text = strip(value)
+        isempty(text) && return true
+        parsed = tryparse(Float64, text)
+        parsed === nothing || return parsed != 0
+        lowered = lowercase(text)
+        lowered in ("true", "yes") && return true
+        lowered in ("false", "no") && return false
+    end
+    throw(ArgumentError(
+        "$(path): could not read `in_network` value $(repr(value)); " *
+        "expected 0/1, true/false, or empty"))
 end

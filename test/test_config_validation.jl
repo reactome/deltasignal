@@ -329,3 +329,42 @@ end
     end
     @test DeltaSignal.parse_cofactor_list(nothing) == Set{String}()
 end
+
+@testset "a corrupt cofactor bundle is never silent" begin
+    # CSV.jl types the in_network column from its contents, so the same
+    # generated file arrives as Int, Float64, Bool or String depending on what
+    # else is in it, and a round-trip through another tool can quote it.
+    for truthy in (1, 1.0, true, "1", "1.0", "true", "yes", "", missing)
+        @test DeltaSignal._in_network_flag(truthy, "x.csv") === true
+    end
+    for falsy in (0, 0.0, false, "0", "0.0", "false", "no")
+        @test DeltaSignal._in_network_flag(falsy, "x.csv") === false
+    end
+    # An unreadable value used to die with a bare MethodError naming neither
+    # the file nor the column.
+    err = try
+        DeltaSignal._in_network_flag("maybe", "bundle.csv"); nothing
+    catch e; e end
+    @test err isa ArgumentError
+    @test occursin("bundle.csv", err.msg) && occursin("in_network", err.msg)
+
+    # A truncated or partly-written bundle narrows the model silently: the
+    # bundle is authoritative, so declaring one cofactor where the network
+    # holds several quietly stops treating the rest as cofactors. It must warn.
+    mktempdir() do dir
+        logic = joinpath(dir, "logic_network.csv")
+        write(logic, "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n" *
+                     "u-atp,u-rxn,pos,and,input,1\nu-h2o,u-rxn,pos,and,input,1\n")
+        write(joinpath(dir, "stid_to_uuid_mapping.csv"),
+              "uuid,stable_id\nu-atp,R-ALL-113592\nu-h2o,R-ALL-29356\nu-rxn,R-HSA-1\n")
+        # Declares ATP but not H2O, which the built-in list does carry.
+        write(joinpath(dir, "cofactors.csv"),
+              "stable_id,molecule,chebi_id,name,in_network,reactome_release\n" *
+              "R-ALL-113592,ATP,30616,ATP [cytosol],1,97\n")
+        net = @test_logs (:warn,) match_mode = :any DeltaSignal.parse_complete_network(
+            logic, joinpath(dir, "stid_to_uuid_mapping.csv"))
+        # The bundle still wins — this is a warning, not an override.
+        @test net.cofactor_stids == Set(["R-ALL-113592"])
+        @test DeltaSignal.cofactor_uuids(net) == Set(["u-atp"])
+    end
+end
