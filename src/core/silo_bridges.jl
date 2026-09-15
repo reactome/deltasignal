@@ -32,9 +32,42 @@ asserts that one entity's arrival point feeds everything, which the curation
 does not say. 38.9% of bridges reach 50 nodes or fewer; the GPVI catalyst
 reaches 36.
 
+MEASURED, AND IT LOSES. On 71 pathways / 17,466 scored curator cases at
+Release97, one shared catalog, conditioned on the experiment being unchanged
+(it was, in all 17,966 shared cases — this adds edges but perturbs the same
+genes):
+
+    cap 0 -> cap 50   14,960 -> 14,887 correct   net -73   (+73 / -146)
+                      accuracy 0.8565 -> 0.8523
+                      macro-F1 0.8277 -> 0.8240
+
+The mechanism check passed and the aggregate still lost, which is the useful
+part. GPVI recovers exactly as predicted (+12): with the bridge, a SYK knockout
+drives `VAV2_Rho/Rac_effectors:GTP` to 0.0005 instead of sitting at 1.0000, and
+it does so through the catalyst route the curation implies rather than through
+GDP depletion. The fix is right about the case that motivated it.
+
+It is wrong about everything else, and the error has one shape: 126 of the 146
+losses are NO_CHANGE turning into a change call. The gains have that shape too
+(63 of 73), so the bridge is simply a machine for producing change calls, and
+roughly two in three are wrong. The cap reduced the flooding — RUNX1 contributes
+55 bridges instead of 106, and its hub bridges are excluded — but it did not
+invert that ratio. Worst: RHO_GTPases_activate_CIT -22, ROBO -20,
+RHO_GTPases_activate_IQGAPs -14. Best: NODAL +16, GPVI +12.
+
+This is the fourth silo fix to fail and the most carefully targeted one. Taken
+with the other three it is fair to say the positional silo is NOT an accuracy
+lever, even when the bridging is restricted to genuinely local repairs. Note
+the contrast with cofactor conduction, which won (+37) by REMOVING 53 spurious
+change calls; this loses by adding 126. Over-coupling, not under-connection, is
+what this benchmark punishes.
+
 OFF by default. `DS_SILO_BRIDGE_MAX_REACH=0` disables it entirely, which is the
-shipped behaviour; set it to a node count to enable bridges at or below that
-marginal reach.
+shipped behaviour and what the evidence supports; set it to a node count to
+enable bridges at or below that marginal reach. It is retained as a measurement
+instrument, not as a recommendation. Do not sweep the cap looking for a
+positive value — that is tuning a constant on the evaluation set, and the error
+shape says the ratio is structural rather than a threshold artifact.
 """
 
 """Maximum marginal reach a silo bridge may have, or 0 to add none."""
