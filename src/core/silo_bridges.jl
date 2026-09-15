@@ -55,6 +55,18 @@ roughly two in three are wrong. The cap reduced the flooding — RUNX1 contribut
 invert that ratio. Worst: RHO_GTPases_activate_CIT -22, ROBO -20,
 RHO_GTPases_activate_IQGAPs -14. Best: NODAL +16, GPVI +12.
 
+REPLICATED on an independently regenerated catalog (2026-09-15). The first
+measurement used a catalog built 2026-07-16, which predates additive diagram
+bridges and 21 other commits to the generator. Rebuilt from current main and
+re-run:
+
+    stale catalog   14,960 -> 14,887   net -73   (+73 / -146)   GPVI +12
+    fresh catalog   18,083 -> 18,006   net -77   (+63 / -140)   GPVI +12
+
+Same sign, same magnitude, same worst offenders (RHO_GTPases_activate_CIT,
+ROBO), and GPVI recovers by exactly +12 in both. The conclusion does not depend
+on which catalog it was measured on.
+
 This is the fourth silo fix to fail and the most carefully targeted one. Taken
 with the other three it is fair to say the positional silo is NOT an accuracy
 lever, even when the bridging is restricted to genuinely local repairs. Note
