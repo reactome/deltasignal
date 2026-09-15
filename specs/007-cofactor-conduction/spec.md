@@ -133,7 +133,12 @@ excluded (see Edge Cases).
   moves, so the behaviour is a no-op there; the change only bites where a
   cofactor is produced by a reaction inside the pathway.
 - **A cofactor that is the perturbed entity or the readout.** US3 covers the
-  first. A cofactor readout is out of scope and untested.
+  first. For the second: holding a cofactor at baseline would pin a scored
+  readout flat, so this was left as a stated risk — then measured. Across all
+  1,006 distinct curator readouts, **0 are themselves a listed cofactor** (all
+  1,006 dbIds resolved, so this is not a lookup artifact). The risk does not
+  arise on this ground truth. It would arise on a metabolic pathway, where the
+  readout may well be ATP or NADH, and nothing currently detects that.
 - **A network where cofactors carry much of the routing.** The effect is
   proportionally larger, in either direction — see Outcome.
 
