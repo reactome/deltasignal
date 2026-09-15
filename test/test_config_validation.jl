@@ -413,3 +413,54 @@ end
     # both arms happen to give the same answer.
     @test pinned.node_activities["out"] > propagated.node_activities["out"]
 end
+
+@testset "DS_SILO_BRIDGE_MAX_REACH" begin
+    with_env("DS_SILO_BRIDGE_MAX_REACH", nothing) do
+        @test DeltaSignal.silo_bridge_max_reach() == 0   # off by default
+    end
+    for good in ("0", "50", "1000")
+        with_env("DS_SILO_BRIDGE_MAX_REACH", good) do
+            @test DeltaSignal.silo_bridge_max_reach() == parse(Int, good)
+        end
+    end
+    for bad in ("-1", "50.5", "lots", "")
+        with_env("DS_SILO_BRIDGE_MAX_REACH", bad) do
+            @test_throws ArgumentError DeltaSignal.silo_bridge_max_reach()
+        end
+    end
+
+    # sink --(no route)--> source, both the same curated entity.
+    #   up -> sink        (sink receives signal, has no outgoing edge)
+    #   source -> out     (source feeds a reaction, has no incoming edge)
+    nodes = Dict(
+        "up"     => DeltaSignal.NetworkNode("up", "R-HSA-1", "unknown", nothing, "UP", 0.01),
+        "sink"   => DeltaSignal.NetworkNode("sink", "R-HSA-SPLIT", "unknown", nothing, "S", 0.01),
+        "source" => DeltaSignal.NetworkNode("source", "R-HSA-SPLIT", "unknown", nothing, "S", 0.01),
+        "out"    => DeltaSignal.NetworkNode("out", "R-HSA-2", "unknown", nothing, "OUT", 0.01),
+    )
+    edges = [
+        DeltaSignal.LogicNetworkEdge("up", "sink", false, true, 1.0, "input"),
+        DeltaSignal.LogicNetworkEdge("source", "out", false, true, 1.0, "input"),
+    ]
+    net = DeltaSignal.ReactionNetwork(
+        nodes, edges, Dict{String, DeltaSignal.SetExpansionMapping}())
+
+    @test isempty(DeltaSignal.silo_bridge_edges(net, 0))      # off
+    made = DeltaSignal.silo_bridge_edges(net, 50)
+    @test length(made) == 1
+    @test made[1].parent_uuid == "sink" && made[1].child_uuid == "source"
+    @test made[1].edge_type == "silo_bridge"
+    @test !made[1].is_and    # must not impose AND-completeness on the target
+
+    # The cap is the whole idea: a bridge reaching more than the cap is refused.
+    # This one reaches `source` and `out`, a gain of 2.
+    @test length(DeltaSignal.silo_bridge_edges(net, 2)) == 1
+    @test isempty(DeltaSignal.silo_bridge_edges(net, 1))
+
+    # An entity split into two uuids that ALREADY have a route is not bridged.
+    linked = DeltaSignal.ReactionNetwork(
+        nodes,
+        vcat(edges, DeltaSignal.LogicNetworkEdge("sink", "source", false, true, 1.0, "input")),
+        Dict{String, DeltaSignal.SetExpansionMapping}())
+    @test isempty(DeltaSignal.silo_bridge_edges(linked, 50))
+end

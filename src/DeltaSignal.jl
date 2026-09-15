@@ -19,6 +19,7 @@ include("core/sensitivity.jl")
 include("core/aggregators.jl")
 include("core/hill_functions.jl")
 include("core/cofactors.jl")
+include("core/silo_bridges.jl")
 include("core/reaction_model.jl")
 
 # Solvers
