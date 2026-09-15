@@ -65,6 +65,18 @@ function solve_steady_state(
     mode = cofactor_mode()
     cofactors = mode == "inert" ? cofactor_uuids(network) : Set{String}()
 
+    # Whether to traverse a positional-decomposition silo is a PROCESSING
+    # decision, like the one above: the generator faithfully records that a
+    # curated entity occurs in two places, and this decides whether a signal
+    # reaching one occurrence is available at the other. Off by default; see
+    # src/core/silo_bridges.jl for why it is capped.
+    bridges = silo_bridge_edges(network)
+    if !isempty(bridges)
+        @info "Adding $(length(bridges)) silo bridge edge(s)" max_reach=silo_bridge_max_reach()
+        network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
+                                  network.set_mappings, network.cofactor_stids)
+    end
+
     # Convert network to reactions
     reactions = convert_to_reaction_network(network)
     
@@ -83,8 +95,13 @@ function solve_steady_state(
         # depletion is not making the modelling assumption this mode encodes,
         # and silently overwriting their input would be the same silent
         # substitution the config guard rails exist to prevent.
-        pins = Dict(u => (network.nodes[u].baseline * 100.0, 1.0)
-                    for u in cofactors if !haskey(observations, u))
+        # Annotate the type: when every cofactor is already observed this
+        # comprehension is empty, which Julia infers as Dict{Any, Any}, and the
+        # merge then widens `observations` away from the signature the solver
+        # is dispatched on.
+        pins = Dict{String, Tuple{Float64, Float64}}(
+            u => (network.nodes[u].baseline * 100.0, 1.0)
+            for u in cofactors if !haskey(observations, u))
         observations = merge(observations, pins)
     end
 
