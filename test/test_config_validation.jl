@@ -329,3 +329,87 @@ end
     end
     @test DeltaSignal.parse_cofactor_list(nothing) == Set{String}()
 end
+
+@testset "a corrupt cofactor bundle is never silent" begin
+    # CSV.jl types the in_network column from its contents, so the same
+    # generated file arrives as Int, Float64, Bool or String depending on what
+    # else is in it, and a round-trip through another tool can quote it.
+    for truthy in (1, 1.0, true, "1", "1.0", "true", "yes", "", missing)
+        @test DeltaSignal._in_network_flag(truthy, "x.csv") === true
+    end
+    for falsy in (0, 0.0, false, "0", "0.0", "false", "no")
+        @test DeltaSignal._in_network_flag(falsy, "x.csv") === false
+    end
+    # An unreadable value used to die with a bare MethodError naming neither
+    # the file nor the column.
+    err = try
+        DeltaSignal._in_network_flag("maybe", "bundle.csv"); nothing
+    catch e; e end
+    @test err isa ArgumentError
+    @test occursin("bundle.csv", err.msg) && occursin("in_network", err.msg)
+
+    # A truncated or partly-written bundle narrows the model silently: the
+    # bundle is authoritative, so declaring one cofactor where the network
+    # holds several quietly stops treating the rest as cofactors. It must warn.
+    mktempdir() do dir
+        logic = joinpath(dir, "logic_network.csv")
+        write(logic, "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n" *
+                     "u-atp,u-rxn,pos,and,input,1\nu-h2o,u-rxn,pos,and,input,1\n")
+        write(joinpath(dir, "stid_to_uuid_mapping.csv"),
+              "uuid,stable_id\nu-atp,R-ALL-113592\nu-h2o,R-ALL-29356\nu-rxn,R-HSA-1\n")
+        # Declares ATP but not H2O, which the built-in list does carry.
+        write(joinpath(dir, "cofactors.csv"),
+              "stable_id,molecule,chebi_id,name,in_network,reactome_release\n" *
+              "R-ALL-113592,ATP,30616,ATP [cytosol],1,97\n")
+        net = @test_logs (:warn,) match_mode = :any DeltaSignal.parse_complete_network(
+            logic, joinpath(dir, "stid_to_uuid_mapping.csv"))
+        # The bundle still wins — this is a warning, not an override.
+        @test net.cofactor_stids == Set(["R-ALL-113592"])
+        @test DeltaSignal.cofactor_uuids(net) == Set(["u-atp"])
+    end
+end
+
+@testset "US1: a perturbation does not travel through a cofactor" begin
+    # The feature's whole purpose, previously untested. The existing fixtures
+    # all make the cofactor a ROOT input, which is the one topology where
+    # pinning is a guaranteed no-op — so they would pass with the cofactor
+    # block deleted. Here ATP sits BETWEEN the perturbation and the readout.
+    #
+    #     up --> atp --> out
+    #
+    # Under `propagate` the knockout must reach `out`; under `inert` it must
+    # not, because ATP cannot carry it.
+    nodes = Dict(
+        "up"  => DeltaSignal.NetworkNode("up", "R-HSA-111", "unknown", nothing, "UP", 0.01),
+        "atp" => DeltaSignal.NetworkNode("atp", "R-ALL-113592", "unknown", nothing, "ATP", 0.01),
+        "out" => DeltaSignal.NetworkNode("out", "R-HSA-222", "unknown", nothing, "OUT", 0.01),
+    )
+    edges = [
+        DeltaSignal.LogicNetworkEdge("up", "atp", false, true, 1.0, "input"),
+        DeltaSignal.LogicNetworkEdge("atp", "out", false, true, 1.0, "input"),
+    ]
+    network = DeltaSignal.ReactionNetwork(
+        nodes, edges, Dict{String, DeltaSignal.SetExpansionMapping}())
+    params = DeltaSignal.SteadyStateParams(1.0, 0.1, 100, 1e-6, "penalty")
+    knockout = Dict("up" => (0.0, 1.0))
+
+    local propagated, pinned
+    with_env("DS_COFACTOR_MODE", "propagate") do
+        propagated = DeltaSignal.solve_steady_state(network, knockout, params)
+    end
+    with_env("DS_COFACTOR_MODE", "inert") do
+        pinned = DeltaSignal.solve_steady_state(network, knockout, params)
+    end
+
+    # The knockout reaches ATP, and through it the readout, when propagating.
+    @test propagated.node_activities["atp"] < 0.01
+    @test propagated.node_activities["out"] < 0.01
+
+    # Pinned, ATP holds at baseline and the readout never moves.
+    @test isapprox(pinned.node_activities["atp"], 0.01, atol = 1e-9)
+    @test isapprox(pinned.node_activities["out"], 0.01, atol = 1e-6)
+
+    # And the two modes genuinely disagree — the guard against a fixture where
+    # both arms happen to give the same answer.
+    @test pinned.node_activities["out"] > propagated.node_activities["out"]
+end

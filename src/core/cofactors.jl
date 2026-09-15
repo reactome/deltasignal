@@ -49,14 +49,24 @@ bulk ions, every compartment variant in Release97. It deliberately EXCLUDES
 Ca2+, PI(3,4,5)P3, PI(4,5)P2, cAMP, cGMP, DAG and I(1,4,5)P3, which are second
 messengers and are the signal in a signalling pathway — an earlier attempt to
 exclude the SimpleEntity class cost 163 cases by deleting exactly those. It
-also excludes ubiquitin and SUMO, whose transfer IS the regulatory event, and
-GTP and GDP for the same reason: a small GTPase's nucleotide loading is its
-activation state, not its fuel. `RAC1:GTP` and `RAC1:GDP` are different curated
-entities and which one exists is the biological answer. Across 21,986 scored
-curator cases, GTP or GDP is named as a component of the READOUT ENTITY itself
-in 784 of them (3.57%) spanning 23 pathways, against 20 (0.09%) for ATP or ADP
-and zero for NAD or ubiquitin. That 39-fold difference is a fact about how
-Reactome curates, not about this benchmark.
+also excludes ubiquitin and SUMO, whose transfer IS the regulatory event.
+
+GTP AND GDP ARE INCLUDED, against that same argument, and the tension is real
+rather than resolved. A small GTPase's nucleotide loading is its activation
+state, not its fuel: `RAC1:GTP` and `RAC1:GDP` are different curated entities
+and which one exists is the biological answer. Across 21,986 scored curator
+cases the nucleotide is named as a component of the READOUT ENTITY itself in
+784 of them (3.57%) spanning 23 pathways, against 20 (0.09%) for ATP or ADP and
+zero for NAD or ubiquitin — a 39-fold difference that is a fact about how
+Reactome curates, not about this benchmark. On that reasoning they should be
+excluded.
+
+They are not, because it was measured. Removing them recovers GPVI exactly
+(+12) and collapses the overall net from +37 to +3, since the same pinning is
+worth +18 in MET, +12 in DAP12, +12 in SCF-KIT and +6 in ROBO. GPVI's loss
+turned out to be the UUID silo — its catalyst is split into two disconnected
+uuids, so the nucleotide was the only surviving route and was producing correct
+calls for a reason that is not true. See specs/007-cofactor-conduction.
 
 253 stable ids across 28 molecules, derived from Reactome Release97 by ChEBI identity.
 """
@@ -180,13 +190,11 @@ function cofactor_mode()::String
 end
 
 """uuids in this network that are metabolic cofactors."""
-function cofactor_uuids(network)::Set{String}
+function cofactor_uuids(network::ReactionNetwork)::Set{String}
     # The list that shipped with the network wins. It was derived from the same
     # release the network was generated from, so it cannot drift from it; the
     # built-in list can, and did — see the module docstring.
-    declared = hasproperty(network, :cofactor_stids) ? network.cofactor_stids :
-               Set{String}()
-    stids = isempty(declared) ? COFACTOR_STIDS : declared
+    stids = isempty(network.cofactor_stids) ? COFACTOR_STIDS : network.cofactor_stids
 
     out = Set{String}()
     for (uuid, node) in network.nodes

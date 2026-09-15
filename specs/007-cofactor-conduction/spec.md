@@ -133,7 +133,12 @@ excluded (see Edge Cases).
   moves, so the behaviour is a no-op there; the change only bites where a
   cofactor is produced by a reaction inside the pathway.
 - **A cofactor that is the perturbed entity or the readout.** US3 covers the
-  first. A cofactor readout is out of scope and untested.
+  first. For the second: holding a cofactor at baseline would pin a scored
+  readout flat, so this was left as a stated risk — then measured. Across all
+  1,006 distinct curator readouts, **0 are themselves a listed cofactor** (all
+  1,006 dbIds resolved, so this is not a lookup artifact). The risk does not
+  arise on this ground truth. It would arise on a metabolic pathway, where the
+  readout may well be ATP or NADH, and nothing currently detects that.
 - **A network where cofactors carry much of the routing.** The effect is
   proportionally larger, in either direction — see Outcome.
 
@@ -157,10 +162,15 @@ excluded (see Edge Cases).
 - **FR-007**: The cofactor set MUST be identified by Reactome stable
   identifier, pinned to a stated release, and MUST cover every compartment
   variant of each listed molecule.
-- **FR-008**: The list MUST be a superset of the generator's own
-  `_COFACTOR_STIDS`, which exists for a different purpose (suppressing diagram
-  bridges) but encodes the same claim: a molecule too shared for a bridge to
-  mean anything is too shared to conduct through.
+- **FR-008**: The list MUST be derived from the connected release rather than
+  typed, keyed by a chemical identifier (ChEBI) rather than by name or by
+  stable id, so that a new compartment variant appears by itself and a retired
+  stable id disappears by itself. Neither this list nor the generator's
+  `_COFACTOR_STIDS` is required to contain the other: they answer different
+  questions (may a perturbation travel through this node, versus may a diagram
+  bridge be drawn across it), and the generator's copy is independently known
+  to carry stale and mislabelled entries. An audit MUST be able to report the
+  difference between them and explain each one.
 - **FR-009**: The list MUST exclude second messengers (Ca2+, PI(3,4,5)P3,
   PI(4,5)P2, cAMP, cGMP, DAG, I(1,4,5)P3) and modifier tags whose transfer is
   the regulatory event (ubiquitin, SUMO), and MUST record that these exclusions
