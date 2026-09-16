@@ -482,6 +482,27 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     parsed = parse_pathway_via_ds_api(pathway_dir.name)
     if parsed.get("status") != "success":
         return {"status": "parse_failed", "name": pathway_name, "error": parsed.get("message")}
+    # The server resolves `pathway_id` against ITS OWN catalog mount, while
+    # every uuid below comes from DS_CATALOG_ROOT. Nothing checks that those two
+    # point at the same catalog build, and uuids are regenerated per build — two
+    # builds of the same pathway share NONE. When they diverge, every
+    # observation silently matches no node, nothing is perturbed, and every
+    # readout reports baseline: a full run of 23,908 cases with a single
+    # distinct predicted value, scored and reported as if it meant something.
+    # Cost two benchmark runs before it was spotted. Fail loudly instead.
+    server_uuids = {str(n["uuid"]) for n in parsed["nodes"]}
+    local_uuids = {u for uus in stid_to_uuids.values() for u in uus}
+    if local_uuids and not (server_uuids & local_uuids):
+        raise SystemExit(
+            f"\nCATALOG MISMATCH on {pathway_dir.name}:\n"
+            f"  the API server's network has {len(server_uuids)} uuids, this "
+            f"script resolved {len(local_uuids)} from\n"
+            f"  DS_CATALOG_ROOT={CATALOG_ROOT}, and they share NONE.\n"
+            f"  The server loads pathway_id from its own mount — set "
+            f"PATHWAY_CATALOG to the same\n"
+            f"  catalog and recreate the container, or every prediction will "
+            f"be baseline.\n")
+
     edges = parsed["edges"]
     # Diagnostic A/B: drop synthetic boundary edges (assembly/dissociation) of a
     # given type at solve time, to isolate their effect without regenerating.
