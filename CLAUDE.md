@@ -218,9 +218,22 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 
 | file | `@test`s |
 |---|---|
-| `test/test_config_validation.jl` | 42 |
-| `test/test_and_curves.jl` | 22 |
-| `test/test_worked_example.jl` | 8 |
+| `test/test_config_validation.jl` | 151 |
+| `test/test_and_curves.jl` | 17 |
+| `test/test_cycle_handling.jl` | 29 + 2 `@test_broken` |
+| `test/test_worked_example.jl` | 16 |
+
+Counts are what the suites actually report, not `@test` occurrences — several
+testsets generate assertions in loops. The earlier figures in this table (42 /
+22 / 8) were wrong in both directions.
+
+**A failing testset used to hide every later one.** A top-level `@testset`
+throws when it finishes with a failure, which aborts the file. In the dev
+container, where `DS_*` overrides contradict the code defaults, that meant
+`test_config_validation.jl` ran 10 assertions and silently skipped **141** —
+the cofactor tests, the silo-bridge tests and the observation-membership test
+all looked green because they never executed. The files now nest their testsets
+inside one outer testset so failures accumulate and everything runs.
 | the other seven | **0** |
 
 `test_basic.jl`, `test_steady_state.jl`, `test_hill_function.jl`,
