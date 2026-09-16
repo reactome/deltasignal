@@ -818,7 +818,7 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # reads 41.4 and at UI 100 reads 74.1. It is identity at the 0.85/1.15
         # classification cutoffs, which is why every previous check passed it.
         # hill_sat saturates only at the 0 and 100 boundaries, as specified.
-        _mode_env("DS_AND_MODE", "hill_sat"),
+        _mode_env("DS_AND_MODE", "hill_log"),
         _mode_env("DS_OR_MODE", "mean"),
         # OFF. The limiting-reactant rule aggregated a complex's subunits with
         # min, and min(elevated, baseline) is EXACTLY baseline — so a complex
@@ -830,7 +830,7 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # were pinned across a median of 17 nodes, some adjacent to the
         # readout — conditions where an increase barely had to cross a complex
         # and the clamp therefore cost almost nothing.
-        _bool_env("DS_ASSEMBLY_LIMITING", false),
+        _bool_env("DS_ASSEMBLY_LIMITING", true),
         # 1e-5, not 1e-3. The epsilon smooths the saturation corners, but at
         # 1e-3 it EXCEEDS the internal values where knockouts live (~0.0006)
         # and acts as a floor on the whole network: 0.25x0.25 read 0.09

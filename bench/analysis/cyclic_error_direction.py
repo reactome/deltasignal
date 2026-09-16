@@ -169,6 +169,27 @@ def main() -> int:
         print(f"\n{len(diffs)} pathways compared. median difference {med:+.3f}; "
               f"cyclic worse in {sum(1 for d in diffs if d > 0)}, "
               f"better in {sum(1 for d in diffs if d < 0)}")
+        # COVERAGE. The control needs >=20 of BOTH kinds in a pathway, which
+        # excludes pathways where cyclic readouts dominate -- exactly where a
+        # real loop effect would hide. State what fraction of the cyclic
+        # population the control actually saw, so the conclusion is not read
+        # more widely than the evidence.
+        compared = {pw for pw in {k[0] for k in per_pw}
+                    if per_pw[(pw, "cyclic")][0] >= 20
+                    and per_pw[(pw, "acyclic")][0] >= 20}
+        seen = sum(per_pw[(pw, "cyclic")][0] for pw in compared)
+        allc = sum(v[0] for k, v in per_pw.items() if k[1] == "cyclic")
+        pw_with_cyclic = {k[0] for k, v in per_pw.items()
+                          if k[1] == "cyclic" and v[0] > 0}
+        print(f"COVERAGE: the control saw {seen} of {allc} cyclic NORMAL cases "
+              f"({seen/allc:.1%}), in {len(compared)} of {len(pw_with_cyclic)} "
+              f"pathways that have any.")
+        excl = sorted(((per_pw[(pw,'cyclic')][0], pw) for pw in pw_with_cyclic
+                       if pw not in compared), reverse=True)[:5]
+        if excl:
+            print("largest EXCLUDED pathways (cyclic NORMAL n, acyclic n):")
+            for n, pw in excl:
+                print(f"   {n:>5}  {per_pw[(pw,'acyclic')][0]:>5}  {pw[:52]}")
     else:
         print("\nNO pathway has enough of both -- cyclic and acyclic readouts do "
               "not co-occur, so the raw comparison is BETWEEN pathways only.")

@@ -104,14 +104,35 @@ end
     @test and_fold([0.0, 1.0]; mode="hill_sat", eps="1e-5") < 0.01
 end
 
-@testset "defaults implement the design intent" begin
+@testset "defaults are what measured best, which is NOT the design intent" begin
+    # An honest name, because these two disagree and the tension is real.
+    #
+    # specs/002 R5 argued `hill_sat` implements Adam's stated AND intent --
+    # "if it is near 1 I want it to be extremely close to pure multiplication"
+    # -- and it does: 10x10 reads 99.98 under hill_sat against 74.06 under
+    # hill_log, and a lone node at UI 50 reads 50.00 against 41.43. By that
+    # argument hill_log is wrong, and the testsets above still pin those
+    # curve shapes because the argument has not been withdrawn.
+    #
+    # But specs/002 chose on +31 over 564 experimental cases. Re-measured
+    # 2026-09-16 on 23,022 wide-curator cases, one catalog build, one variable
+    # at a time: `hill_sat` costs -90 and `assembly_limiting=false` costs -196.
+    # FR-008 makes the wide set the decision basis, so the defaults follow the
+    # measurement and this test records that they are not the design intent.
+    #
+    # What that means: the compression hill_log applies inside the operating
+    # range is apparently doing useful work that "correct" multiplication does
+    # not. Nobody has explained why. Until someone does, this is an empirical
+    # default, not a principled one -- see specs/009-solver-defaults.
     for name in ("DS_AND_MODE", "DS_HILL_SAT_EPS", "DS_ASSEMBLY_LIMITING")
         haskey(ENV, name) && delete!(ENV, name)
     end
     config = resolve_reaction_eval_config()
-    @test config.and_mode == "hill_sat"
+    @test config.and_mode == "hill_log"
+    @test config.assembly_limiting == true
+    # Inert while and_mode is hill_log; kept correctly sized so switching the
+    # AND mode cannot silently restore a 10%-of-baseline epsilon.
     @test config.hill_sat_eps ≈ 1e-5
-    @test config.assembly_limiting == false
 end
 
 

@@ -182,10 +182,21 @@ The reaction model is driven by `DS_*` environment variables, resolved once per
 solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
 `reaction_model.jl`). The **code defaults are the validated winning config** —
 env vars only override for benchmark sweeps:
-- `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_sat`, `DS_OR_MODE=mean`,
-  `DS_ASSEMBLY_LIMITING=0`, `DS_HILL_SAT_EPS=1e-5`, `DS_HILL_LOG_ZMAX=10.0`
-  Behaviour is pinned by `test/test_and_curves.jl`; the rationale and the
-  A/B that set them is `specs/002-upregulation-propagation/`.
+- `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_log`, `DS_OR_MODE=mean`,
+  `DS_ASSEMBLY_LIMITING=1`, `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-5`,
+  `DS_HILL_LOG_ZMAX=10.0`. Behaviour is pinned by `test/test_and_curves.jl`.
+  Re-measured 2026-09-16 on 23,022 wide-curator cases, one variable at a time:
+  `specs/009-solver-defaults/research.md`. That supersedes the `hill_sat` /
+  `assembly_limiting=0` choice in `specs/002`, which was made on 564
+  experimental cases and cost 286 on the curator set.
+  **`docker-compose.dev.yml` must be kept in step with these.** It drifted for
+  six days — production runs the code defaults, every benchmark runs the dev
+  container, and the tests pin the code defaults, so the divergence made the
+  suite fail in the project's own container while measuring a config production
+  never ran.
+- `DS_AND_MODE=hill_log` is an **empirical** default, not a principled one.
+  `hill_sat` implements the stated AND intent more faithfully (10x10 = 99.98 vs
+  74.06) and still scores 90 cases worse. Why compression helps is unexplained.
 - SCC-condensation solve is on by default (`DS_SCC_SOLVE=1`); the legacy flat
   iteration and the `"fixed_point"` `SteadyStateParams.method` are not used by
   the CLI or API (both use the penalty/SCC path).
