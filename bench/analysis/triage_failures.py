@@ -129,7 +129,9 @@ def main() -> None:
 
     if args.out:
         with args.out.open("w", newline="") as fh:
-            w = csv.writer(fh, delimiter="\t")
+            # csv.writer defaults to CRLF, which silently breaks awk/grep
+            # filters on the last column.
+            w = csv.writer(fh, delimiter="\t", lineterminator="\n")
             w.writerow(["pathway", "gene", "direction", "key_output",
                         "predicted", "expected", "verdict"])
             for r, v in verdicts:
