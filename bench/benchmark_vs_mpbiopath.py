@@ -490,14 +490,22 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # readout reports baseline: a full run of 23,908 cases with a single
     # distinct predicted value, scored and reported as if it meant something.
     # Cost two benchmark runs before it was spotted. Fail loudly instead.
+    # Checked as a FRACTION, not "is the intersection empty". A partial
+    # mismatch -- two builds that happen to share some uuids -- would sail past
+    # an emptiness test and mis-measure exactly the cases that diverged, which
+    # is harder to notice than a total failure. Same build overlaps ~100% (the
+    # server's nodes all come from this mapping file); a different build
+    # overlaps ~0%. Nothing lands near 50%.
     server_uuids = {str(n["uuid"]) for n in parsed["nodes"]}
     local_uuids = {u for uus in stid_to_uuids.values() for u in uus}
-    if local_uuids and not (server_uuids & local_uuids):
+    overlap = len(server_uuids & local_uuids)
+    if local_uuids and server_uuids and overlap < 0.5 * len(server_uuids):
         raise SystemExit(
             f"\nCATALOG MISMATCH on {pathway_dir.name}:\n"
             f"  the API server's network has {len(server_uuids)} uuids, this "
             f"script resolved {len(local_uuids)} from\n"
-            f"  DS_CATALOG_ROOT={CATALOG_ROOT}, and they share NONE.\n"
+            f"  DS_CATALOG_ROOT={CATALOG_ROOT}, and they share only {overlap} "
+            f"({overlap / len(server_uuids):.1%} of the server's).\n"
             f"  The server loads pathway_id from its own mount — set "
             f"PATHWAY_CATALOG to the same\n"
             f"  catalog and recreate the container, or every prediction will "
