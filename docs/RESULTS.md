@@ -162,6 +162,22 @@ A ratio of **1 : 3.9 against**. Any future attempt needs a rule that admits the
 1,094 while rejecting most of the 4,316; a blanket bridge cannot win, and the
 recorded failures (-73, -204, -4pp) are consistent with this ratio.
 
+**Path length does not provide that rule** (`--separate`):
+
+| | n | median hops | quartiles |
+|---|---|---|---|
+| recoverable | 1,094 | 12.0 | 9 / 18 |
+| at risk | 4,316 | 11.0 | 8 / 14 |
+
+Controlled within pathway across the 16 pathways with at least 5 of each, the
+median difference is **−0.5 hops**, closer in 9 and further in 6. And the
+intuitive rule — reconnect only short paths — makes the ratio *worse*: 1:5.0 at
+4 hops, 1:7.9 at 6, 1:5.6 at 8, against 1:3.9 unrestricted.
+
+So the silo is closed unless someone finds a discriminator that is not distance.
+The next candidate worth an A/B is the kinase depletion asymmetry above, not
+this.
+
 ---
 
 ## Reproducing
