@@ -4,9 +4,11 @@
 
 **Created**: 2026-09-16
 
-**Status**: Draft — REVISED 2026-09-16. Two of the three original premises did
-not survive re-measurement; see "Prior Findings" for what replaced them. Read
-that section before US1/US2, which are kept for the record but superseded.
+**Status**: **CLOSED — NOT PROCEEDING**, 2026-09-16. All three premises failed
+re-measurement on the same day the spec was written. The cyclic-readout accuracy
+gap is a between-pathway confound, not a loop effect. Kept in full as a negative
+result per constitution III. Do not restart this without new evidence that
+survives a within-pathway control.
 
 **Input**: User description: "we need deltasignal to do the right thing with
 these sorts of things where two reactions are connected by inputs and outputs
@@ -362,3 +364,65 @@ UP (1,165) over false DOWN (883) — and the cyclic subset has not been split ou
 that way. The mechanism is reproduced; its contribution to the gap is not
 measured. That measurement is the next task, replacing the 4e-6 as the feature'"'"'s
 starting point.
+
+
+## Why this feature is closed
+
+Six independent checks, all on the wide curator set at Release97 or on
+fixtures, all pointing the same way:
+
+1. **The floor does not act on cycles.** `DS_INHIBITOR_FLOOR=0.1` gains +17
+   overall but lands on acyclic readouts (net +9) not cyclic ones (net +1).
+2. **The convergence defect does not reproduce.** Residual tracks tolerance;
+   values differ between tolerances; every failure clears with more iterations.
+3. **There is no spurious root.** Seven starting states, one fixed point.
+4. **Cycles do not amplify.** Log-log gain through a 2-cycle is 0.995 versus
+   0.997 through an acyclic chain of the same length — if anything slightly
+   *less* responsive.
+5. **OR-joined cycles already behave correctly** on every US1 scenario.
+6. **The cyclic penalty is a between-pathway confound.** This is the one that
+   closes it.
+
+### The confound, stated exactly
+
+Raw, the gap replicates: cyclic readouts score 0.7192 over 2,678 cases against
+0.8580 acyclic over 19,080. On truly-NORMAL cases cyclic readouts call a change
+42% of the time versus 8.4% acyclic.
+
+Reach explains most of it. False-change rate on NORMAL cases by the fraction of
+the pathway that can reach the readout:
+
+| reach | cyclic n | cyclic FC | acyclic n | acyclic FC |
+|---|---|---|---|---|
+| 0–20% | 160 | 0.194 | 8,484 | **0.023** |
+| 20–40% | 992 | 0.461 | 1,893 | **0.116** |
+| 40–60% | 126 | 0.294 | 1,552 | **0.285** |
+| 60–80% | 76 | 0.355 | 344 | **0.483** |
+
+The acyclic column alone rises monotonically from 0.023 to 0.483. Over-coupling
+is the axis.
+
+Controlled **within pathway** — 11 pathways with at least 20 cyclic and 20
+acyclic NORMAL cases — the cyclic effect vanishes:
+
+    median difference -0.013; cyclic worse in 5, better in 6
+
+That is the same signature as readout in-degree, which looked like a 4x effect
+raw and gave a within-pathway median of +0.0. Cyclic readouts concentrate in
+hard pathways; they are not themselves harder.
+
+Two pathways do show a large positive difference — DNA_Double-Strand_Break_
+Repair (+0.346) and Transcriptional_regulation_of_pluripotent_stem_cells
+(+0.195). If loop work ever restarts, it starts there, on those two, not on a
+catalog-wide mechanism.
+
+### What survives
+
+The **AND-on-a-recycled-input collapse is real as behaviour** — the fixture
+proves an external input 50x above baseline cannot hold a cycle up — but it is
+not measurably costing accuracy. It stays pinned by `@test_broken` in
+`test/test_cycle_handling.jl` so that if it is ever fixed for another reason,
+the change is visible.
+
+The tool is `bench/analysis/cyclic_error_direction.py`. It takes an existing
+case dump and a catalog; it does not re-solve anything.
