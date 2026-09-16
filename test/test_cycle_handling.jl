@@ -141,4 +141,29 @@ ko(u) = Dict(u => (0.0, 1.0))
             prev = r.final_residual
         end
     end
+    @testset "substrate edges are visible to cycle detection" begin
+        # compute_reaction_output_vec reads x[substrate_indices] into the
+        # availability factor L, so a substrate is a real dependency of the
+        # target. It must therefore appear in the graph Tarjan runs on: an edge
+        # missing there is a cycle the SCC solver cannot see, and a singleton
+        # component is evaluated exactly once with no iteration to correct a
+        # stale input.
+        #
+        # Nothing populates `substrate_uuids` today, so this is a latent
+        # landmine rather than a live bug — which is exactly why it needs a
+        # test rather than a measurement.
+        params(ns) = DS.create_default_reaction_params(0, 0, ns)
+        rxn(target, substrate) = DS.Reaction(
+            target, String[], String[], String[], [substrate], String[],
+            params(1), true, Bool[], Bool[])
+
+        # Two reactions closing a cycle ONLY through substrate edges.
+        reactions = [rxn("B", "A"), rxn("A", "B")]
+        u2i = Dict("A" => 1, "B" => 2)
+        bl = Dict("A" => 0.01, "B" => 0.01)
+        _, comp_id, _ = DS.index_reactions(reactions, u2i, bl, Set{String}())
+
+        @test comp_id[u2i["A"]] == comp_id[u2i["B"]]   # one component, not two
+        @test count(==(comp_id[u2i["A"]]), comp_id) == 2
+    end
 end

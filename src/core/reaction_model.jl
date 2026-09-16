@@ -476,9 +476,16 @@ function index_reactions(
         # behaviour-preserving for well-formed networks.
         params = compact_reaction_params(r.params, act_orig, inh_orig, sub_orig)
 
-        # Forward adjacency: every activator AND inhibitor source points to this
-        # reaction's target (both define how the target's value depends on
-        # upstream nodes for short-loop reachability).
+        # Forward adjacency: every input the target's value actually depends on
+        # points at the target. This graph is what Tarjan runs on, so an edge
+        # missing here is a cycle the SCC solver cannot see and a topological
+        # order that can be wrong — a singleton component is evaluated exactly
+        # once, with no iteration to correct a stale input.
+        #
+        # Substrates are included for that reason: compute_reaction_output_vec
+        # reads x[substrate_indices] into the availability factor L, so they are
+        # a real dependency. Nothing populates `substrate_uuids` today, which is
+        # the only reason their absence was harmless.
         for a in act_indices
             push!(fwd_adj[a], target_idx)
         end
@@ -487,6 +494,9 @@ function index_reactions(
         end
         for d in dep_indices
             push!(fwd_adj[d], target_idx)
+        end
+        for sb in sub_indices
+            push!(fwd_adj[sb], target_idx)
         end
 
         # Per-inhibitor AND/OR flag, compacted in lockstep with inh_indices via
