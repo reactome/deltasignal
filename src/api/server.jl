@@ -97,6 +97,13 @@ const JSON_HEADERS = ["Content-Type" => "application/json"]
 # client-controlled, so it is logged server-side rather than echoed back.
 const OBS_SHAPE_ERROR = "Each observation must be a 2-element numeric array [activity, confidence]."
 const OBS_RANGE_ERROR = "Observation activity must be within 0-100 and confidence within 0-1."
+# Every observation named a node this network does not contain, so nothing was
+# perturbed and the solve would return the unperturbed baseline with HTTP 200 —
+# the same "confident, plausible, wrong answer" class as the shape and range
+# checks above. The usual cause is solving against a different catalog build
+# than the uuids came from; uuids are regenerated per build and two builds of
+# the same pathway share none.
+const OBS_UNKNOWN_ERROR = "No observation matched a node in this network. Check that the uuids come from the same catalog build as the network."
 const NODE_BASELINE_ERROR = "Each network node baseline must be a finite number in (0, 1]."
 const UPLOAD_ERROR = "Upload requires both a 'logic_network' and a 'uuid_mapping' file part."
 const UNKNOWN_NETWORK_ERROR = "Unknown network_id. The server cache is per-process and is cleared on restart; call /api/parse again."
@@ -678,6 +685,20 @@ function solve_handler(req)
             end
         end
         
+        # Membership. The solver drops observations whose uuid is not in the
+        # network (`haskey(uuid_to_idx, uuid) || continue`), silently — so a
+        # stale or mistyped uuid perturbs nothing and still returns 200. Report
+        # partial misses; reject a total miss, which cannot be intentional.
+        unknown_observations = sort([u for u in keys(observations)
+                                     if !haskey(network.nodes, u)])
+        if !isempty(observations) && length(unknown_observations) == length(observations)
+            @warn "No observation matched a node in this network" count=length(observations)
+            throw(ArgumentError(OBS_UNKNOWN_ERROR))
+        end
+        if !isempty(unknown_observations)
+            @warn "Some observations name nodes not in this network" unknown=length(unknown_observations) total=length(observations)
+        end
+
         println("Solving with ", length(observations), " observations")
         
         # Solve the steady state
@@ -697,6 +718,9 @@ function solve_handler(req)
             "status" => "success",
             "message" => "Steady-state solved successfully",
             "node_activities" => node_activities_display,
+            # Named explicitly so a caller can tell "perturbation had no effect"
+            # from "perturbation was never applied".
+            "unknown_observations" => unknown_observations,
             "influence_scores" => influence_scores,
             "converged" => solver_result.converged,
             "iterations" => solver_result.iterations,

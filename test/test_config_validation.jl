@@ -464,3 +464,36 @@ end
         Dict{String, DeltaSignal.SetExpansionMapping}())
     @test isempty(DeltaSignal.silo_bridge_edges(linked, 50))
 end
+
+@testset "the solver silently drops observations for nodes it does not have" begin
+    # This is WHY src/api/server.jl checks observation membership. The solver's
+    # pinning loop does `haskey(uuid_to_idx, uuid) || continue`, so an
+    # observation naming a uuid the network does not contain is discarded
+    # without an error: the caller asked for a perturbation, got HTTP 200, and
+    # received the unperturbed baseline. The usual cause is solving against a
+    # different catalog build than the uuids came from — uuids are regenerated
+    # per build, and two builds of one pathway share none.
+    #
+    # Pinned here so that if the solver ever starts rejecting unknown
+    # observations itself, whoever makes that change learns the API-layer guard
+    # has become redundant rather than leaving two checks to drift.
+    N(id) = DeltaSignal.NetworkNode(id, id, "protein", nothing, id, 0.01)
+    net = DeltaSignal.ReactionNetwork(
+        Dict(id => N(id) for id in ("A", "r", "B")),
+        [DeltaSignal.LogicNetworkEdge("A", "r", true, true, 1.0, "input"),
+         DeltaSignal.LogicNetworkEdge("r", "B", false, true, 1.0, "output")],
+        Dict{String, DeltaSignal.SetExpansionMapping}())
+    params = DeltaSignal.SteadyStateParams(1.0, 0.1, 500, 1e-8, "penalty")
+
+    base = DeltaSignal.solve_steady_state(
+        net, Dict{String, Tuple{Float64, Float64}}(), params)
+    # A real knockout moves the readout; this is the control.
+    real_ko = DeltaSignal.solve_steady_state(net, Dict("A" => (0.0, 1.0)), params)
+    @test real_ko.node_activities["B"] < base.node_activities["B"] / 10
+
+    # An observation for a uuid that is not in the network: no error, no effect.
+    ghost = DeltaSignal.solve_steady_state(
+        net, Dict("not-a-node-in-this-network" => (0.0, 1.0)), params)
+    @test ghost.node_activities["B"] == base.node_activities["B"]
+    @test ghost.converged == base.converged
+end
