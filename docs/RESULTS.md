@@ -124,6 +124,34 @@ Of the 1,484 `no_path` failures (`bench/analysis/nopath_anatomy.py`):
 So `no_path` is mostly **not** missing biology — it is our node identity
 splitting one curated entity across positional variants.
 
+### The 87 "MP-BioPath connects it" cases are not lost curator edges
+
+Traced one end to end (AKT1 → NR5A2 in *Regulation of beta-cell development*).
+MP-BioPath routes AKT directly into the PDX1-synthesis reaction R-HSA-211272.
+**That edge does not exist in Release97**: the reaction's participants are input
+PDX1 gene, output PDX1, and regulators FOXA2, FOXO1, PAX6, MAFA. Their 2019
+network carries a link the current database does not support, so this bucket is
+evidence our networks are *more* faithful, not less.
+
+The trace did expose a real gap of ours, though. The genuine route is
+AKT ⊣ FOXO1: R-HSA-211164 "AKT phosphorylates FOXO1A" consumes FOXO1 and
+produces p-FOXO1, and it is unphosphorylated FOXO1 that regulates PDX1
+synthesis. We model AKT → reaction → p-FOXO1 correctly but nothing represents
+FOXO1 being **depleted**, so no signal reaches the readout.
+
+The generator's rule is explicit — `PI_STID = "R-ALL-29372"`, *"emit
+catalyst→input depletion edges for PHOSPHATASE reactions only"*. A phosphatase
+outputs Pi and gets depletion edges; a kinase outputs ADP and gets none, though
+it consumes its substrate just as completely. That asymmetry has no biological
+justification.
+
+**Before anyone acts on it**: extending depletion to kinases is 2,267 catalysed
+reactions in nucleoplasm alone (9,048 more in cytosol) against the current
+rule's 3,446 — a 3-4x increase in the depletion footprint, not a small targeted
+fix. Blanket substrate consumption has been tested twice and regressed hard
+(-14pp; macro-F1 0.663 -> 0.529). Worth one careful A/B, not a confident
+prediction.
+
 **But collapsing them is measured net-negative, and this is why four attempts
 have failed:**
 

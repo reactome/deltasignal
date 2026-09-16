@@ -65,6 +65,28 @@ def adjacency(edges, collapse: dict[str, str] | None):
     return adj
 
 
+def hops(adj, sources: set[str], targets: set[str]) -> int | None:
+    """Shortest number of hops from any source to any target, or None."""
+    if not sources or not targets:
+        return None
+    if sources & targets:
+        return 0
+    seen = set(sources)
+    frontier = list(sources)
+    d = 0
+    while frontier:
+        d += 1
+        nxt = []
+        for node in frontier:
+            for n in adj.get(node, ()):
+                if n in targets:
+                    return d
+                if n not in seen:
+                    seen.add(n); nxt.append(n)
+        frontier = nxt
+    return None
+
+
 def reaches(adj, sources: set[str], targets: set[str]) -> bool:
     if not sources or not targets:
         return False
@@ -93,6 +115,12 @@ def main() -> int:
                          "(a comma, a trailing underscore, a rename) -- matching "
                          "on name silently drops whole pathways.")
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--separate", action="store_true",
+                    help="Can the cases collapsing WOULD FIX be told apart from "
+                         "the ones it would break? Reports the collapsed-path "
+                         "length for each group, raw and controlled per pathway "
+                         "-- a raw difference is usually a between-pathway "
+                         "confound (it was for readout in-degree).")
     ap.add_argument("--exposure", action="store_true",
                     help="Score EVERY case, not just failures, and report what "
                          "collapsing variants would gain against what it puts "
@@ -101,7 +129,9 @@ def main() -> int:
     a = ap.parse_args()
 
     allrows = list(csv.DictReader(a.cases.open(newline=""), delimiter="\t"))
-    if a.exposure:
+    if a.exposure or a.separate:
+        # BOTH groups are needed: the RISK cases are currently CORRECT, so the
+        # failures-only filter would silently leave the comparison one-sided.
         rows = [r for r in allrows if r["expected"] in ("0", "1", "2")]
         print(f"{len(rows)} scored cases, measuring silo exposure", flush=True)
     else:
@@ -183,6 +213,16 @@ def main() -> int:
         by_stid = reaches(adj_stid, g_stids, {k_stid})
         by_mpb = reaches(adj_mpb, g_stids, {k_stid}) if adj_mpb is not None else None
 
+        if a.separate:
+            if by_uuid or not by_stid:
+                continue
+            d = hops(adj_stid, g_stids, {k_stid})
+            grp = ("GAIN" if r["expected"] != "1" and r["predicted"] == "1"
+                   else "RISK" if r["expected"] == "1" and r["predicted"] == "1"
+                   else None)
+            if grp and d is not None:
+                detail.append({"pathway": pw, "group": grp, "hops": d})
+            continue
         if a.exposure:
             # Only cases the silo currently BLOCKS can be changed by collapsing.
             if by_uuid or not by_stid:
@@ -209,6 +249,43 @@ def main() -> int:
         verdicts[v] += 1
         detail.append({**{k: r[k] for k in ("pathway", "gene", "key_output", "expected")},
                        "verdict": v})
+
+    if a.separate:
+        import statistics
+        by = collections.defaultdict(list)
+        for d in detail:
+            by[d["group"]].append(d["hops"])
+        print()
+        for g in ("GAIN", "RISK"):
+            v = sorted(by[g])
+            print(f"{g:<5} n={len(v):<6} median hops {statistics.median(v):>4.1f}  "
+                  f"quartiles {v[len(v)//4]}/{v[3*len(v)//4]}  max {max(v)}")
+        print("\nWITHIN PATHWAY (the control that killed readout in-degree):")
+        per = collections.defaultdict(lambda: collections.defaultdict(list))
+        for d in detail:
+            per[d["pathway"]][d["group"]].append(d["hops"])
+        diffs = []
+        for pw, g in per.items():
+            if len(g["GAIN"]) >= 5 and len(g["RISK"]) >= 5:
+                diffs.append(statistics.median(g["GAIN"]) - statistics.median(g["RISK"]))
+        if diffs:
+            diffs.sort()
+            m = diffs[len(diffs)//2]
+            print(f"  {len(diffs)} pathways with >=5 of each. median difference "
+                  f"in hops (GAIN - RISK): {m:+.1f}")
+            print(f"  GAIN closer in {sum(1 for d in diffs if d < 0)}, "
+                  f"further in {sum(1 for d in diffs if d > 0)}, "
+                  f"equal in {sum(1 for d in diffs if d == 0)}")
+        else:
+            print("  no pathway has >=5 of each -- cannot control")
+        # Would a hop cap actually help?
+        print("\nIf we only reconnected paths within N hops:")
+        for cap in (1, 2, 3, 4, 6, 8):
+            g = sum(1 for d in detail if d["group"] == "GAIN" and d["hops"] <= cap)
+            rk = sum(1 for d in detail if d["group"] == "RISK" and d["hops"] <= cap)
+            print(f"  <= {cap:>2} hops: gain {g:>5}, risk {rk:>5}, ratio 1:{rk/g:.1f}" if g
+                  else f"  <= {cap:>2} hops: gain     0")
+        return 0
 
     print()
     total = sum(verdicts.values())
