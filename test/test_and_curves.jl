@@ -56,6 +56,17 @@ function and_fold(folds::Vector{Float64}; mode::String, eps::String="1e-5")
     end
 end
 
+# A top-level `@testset` THROWS when it finishes with any failure, which
+# aborts the file and silently skips every testset below it. That is how a
+# config mismatch in the dev container hid 61 assertions here -- the cofactor
+# tests, the silo-bridge tests and the observation-membership test all looked
+# green because they never ran at all.
+#
+# Nesting them inside one outer testset makes failures accumulate: every
+# testset executes, and the outer one reports the full tally at the end. A
+# failing run still exits non-zero, it just stops lying about coverage.
+@testset "AND curve behaviour" begin
+
 @testset "AND is multiplication near baseline" begin
     # "extremely close to pure multiplication" where signals usually sit.
     @test and_fold([0.5, 0.5]; mode="hill_sat") ≈ 0.25 atol=0.01
@@ -102,3 +113,6 @@ end
     @test config.hill_sat_eps ≈ 1e-5
     @test config.assembly_limiting == false
 end
+
+
+end  # outer testset

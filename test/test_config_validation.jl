@@ -27,6 +27,17 @@ function with_env(f, name::String, value)
     end
 end
 
+# A top-level `@testset` THROWS when it finishes with any failure, which
+# aborts the file and silently skips every testset below it. That is how a
+# config mismatch in the dev container hid 61 assertions here -- the cofactor
+# tests, the silo-bridge tests and the observation-membership test all looked
+# green because they never ran at all.
+#
+# Nesting them inside one outer testset makes failures accumulate: every
+# testset executes, and the outer one reports the full tally at the end. A
+# failing run still exits non-zero, it just stops lying about coverage.
+@testset "configuration guard rails" begin
+
 @testset "DS_* mode validation" begin
     # Every value the dispatch actually implements must still be accepted.
     # This is the half that matters: an over-tight allowlist breaks working
@@ -497,3 +508,6 @@ end
     @test ghost.node_activities["B"] == base.node_activities["B"]
     @test ghost.converged == base.converged
 end
+
+
+end  # outer testset
