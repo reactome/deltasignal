@@ -39,9 +39,34 @@ elsewhere); DeltaSignal holds 92–94% across both groups.
 
 Worth stating plainly because a reviewer will find it: the *aggregate* margin is
 concentrated. Excluding the 8 pathways most favourable to DeltaSignal it falls
-to +2.95pp, and the median per-pathway difference is +0.008. The defensible
-claim is **"comparable on signalling, decisively better on transcriptional
-regulation"** — not a uniform +8.8pp.
+to +2.95pp, and the median per-pathway difference is +0.008.
+
+**That concentration has a known cause.** MP-BioPath solves a non-convex
+optimisation — products for AND, reciprocals for inhibition — with a local
+solver (Ipopt) from a fixed start, so it is not guaranteed to reach the
+biologically correct root. Its own stored per-node output shows it landing on
+**direction-inverted** solutions: in the pluripotency pathway a `FOXP1`
+knockout drives targets to 23.03 and `FOXP1` over-expression drives them to
+0.37, the reverse of the curator calls, on a network that is 98.6% activating
+edges.
+
+Measuring that inversion rate across the 66 pathways where both its raw output
+and its published accuracy exist:
+
+| direction-inversion rate | pathways | mean MP-BioPath accuracy |
+|---|---|---|
+| ≥ 25% | 10 | **64.2%** |
+| < 10% | 38 | **93.0%** |
+
+Pearson r = **−0.579**. The pathways where MP-BioPath scores badly are the
+pathways where its optimiser inverts, and that is where our margin comes from.
+DeltaSignal propagates causally in topological order (SCC condensation), so a
+knockout cannot raise a downstream node across an activating edge; on the same
+pluripotency network it called 156/164 knockdowns and 156/164 over-expressions
+correctly.
+
+So the defensible claim is **"comparable where MP-BioPath's solver converges,
+decisively better where it does not"** — a mechanism, not a uniform +8.8pp.
 
 ### Failure profile on the same networks
 
