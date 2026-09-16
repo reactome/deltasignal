@@ -4,7 +4,9 @@
 
 **Created**: 2026-09-16
 
-**Status**: Draft — measurement complete, intervention not yet chosen
+**Status**: Draft — REVISED 2026-09-16. Two of the three original premises did
+not survive re-measurement; see "Prior Findings" for what replaced them. Read
+that section before US1/US2, which are kept for the record but superseded.
 
 **Input**: User description: "we need deltasignal to do the right thing with
 these sorts of things where two reactions are connected by inputs and outputs
@@ -55,12 +57,14 @@ Someone solves a pathway containing a cycle whose external inputs sit at or
 above baseline. Every node in the cycle reports a value consistent with those
 inputs, not zero.
 
-**Why this priority**: this is the defect in its own terms. All-zero is a
-self-consistent fixed point — every node computes zero from its zero
-loop-inputs, the residual is zero, the math is satisfied — but it is the wrong
-root when the inputs feeding the loop are ≥ baseline. The iteration can simply
-land in the wrong basin. It is a numerical problem with a numerical answer, not
-a modelling judgement about mass balance.
+**Why this priority**: this is the defect in its own terms — a cycle whose
+inputs are at or above baseline should not read zero.
+
+> **REVISED 2026-09-16.** The stated *cause* was wrong. Iterating the same map
+> from seven starting states between 0.0 and 1.0 converges to one identical
+> root, so there is no second basin to land in and nothing spurious to exclude.
+> The outcome this story wants is still right, and OR-joined cycles already
+> deliver it; AND-joined cycles do not. See "What the real defect is".
 
 **Independent Test**: a synthetic cycle with external inputs pinned at baseline
 or above must not report any cycle member at or near zero, from any starting
@@ -83,10 +87,10 @@ state.
 
 Someone reads the convergence flag and it means what it says.
 
-**Why this priority**: equal-first, because the reported non-convergence rate is
-the evidence anyone would use to size the loop problem, and part of it is a
-measurement artifact. Reported figures currently overstate the dynamics problem
-and understate how much is reporting.
+**Why this priority**: WITHDRAWN 2026-09-16 — the defect does not reproduce.
+At stock config the residual tracks the tolerance, values differ between
+tolerances, and every non-converged case clears with more iterations. Kept as a
+regression property (FR-003, FR-004), not as work to do.
 
 **Independent Test**: a solve whose node values are bit-identical across
 iteration budgets must report converged.
@@ -160,8 +164,13 @@ cyclic-readout and acyclic-readout cases narrows, with no loss on acyclic cases.
 - **Cycle (reaction level)**: a strongly connected component of the
   reaction graph, where reaction A precedes B when A outputs an entity B
   consumes. 30 exist across the catalog.
-- **Spurious root**: the all-zero assignment, self-consistent but excluded by
-  the cycle's external inputs.
+- **Spurious root**: ~~the all-zero assignment, self-consistent but excluded by
+  the cycle's external inputs~~ — RETIRED. Measurement found a unique fixed
+  point, so this entity does not exist.
+- **Recycled co-input**: a cycle member consumed by the reaction that
+  regenerates it. Under AND aggregation it becomes a required co-input, so no
+  external input can compensate for a knockout elsewhere in the cycle. This is
+  the mechanism that replaces the spurious root.
 - **Convergence verdict**: the reported claim that the solve reached a fixed
   point, which must agree with the stopping rule that ended it.
 
@@ -172,8 +181,8 @@ cyclic-readout and acyclic-readout cases narrows, with no loss on acyclic cases.
 - **SC-001**: No synthetic cycle with inputs at or above baseline reports a
   member at or near zero.
 - **SC-002**: A cycle with genuinely zero inputs still reaches zero.
-- **SC-003**: The two-reaction fixture driven 80× reports converged, with values
-  unchanged from today.
+- **SC-003**: ~~The two-reaction fixture driven 80× reports converged, with
+  values unchanged from today.~~ WITHDRAWN — it already reports converged.
 - **SC-004**: On the wide curator set, the cyclic-versus-acyclic accuracy gap
   narrows from its current 17 points.
 - **SC-005**: Accuracy on acyclic-readout cases does not fall.
@@ -232,18 +241,124 @@ and left off — on the nine-pathway experimental set, which is precisely where
 cyclic readouts barely exist. That is the same trap that has now reversed five
 separate results in this project, and is why FR-008 exists.
 
-### The convergence defect, stated exactly
+**Measured at scale, 2026-09-16, and NOT adopted.** `DS_INHIBITOR_FLOOR=0.1` on
+the wide curator set, paired and conditioned on one catalog build:
 
-On a minimal two-reaction loop driven 80× above baseline the solver reports
+| arm | scored | correct | accuracy | macro-F1 |
+|---|---|---|---|---|
+| floor 0.0 (default) | 21,450 | 18,083 | 0.8430 | 0.8079 |
+| floor 0.1 | 21,450 | 18,100 | 0.8438 | 0.8090 |
+
+93 predictions changed, net **+17** (+29 / −12); per pathway −9
+Transcriptional_regulation_by_RUNX2, −1 Signaling_by_Insulin_receptor, +2
+Signaling_by_ERBB2. So the nine-pathway rejection does not survive at scale, as
+FR-008 anticipated.
+
+**But the mechanism check fails.** If the floor works by excluding the spurious
+all-zero root, the gain must land on cyclic readouts. Splitting the 93 changes:
+
+| readout | gained | lost | net |
+|---|---|---|---|
+| cyclic | 2 | 1 | **+1** |
+| acyclic | 19 | 10 | **+9** |
+
+The gain is on acyclic readouts, where anti-collapse should not act. An acyclic
+readout can sit downstream of a loop, so this is not proof against the
+mechanism — but +1 where the mechanism is supposed to operate does not
+demonstrate it either. Per US1, the requirement is to show the spurious root is
+excluded, not to bank a +17 of unknown origin.
+
+**This is why FR-001 is stated as a root-selection property and not as an
+accuracy target**, and why "tuning the anti-collapse magnitude against the
+evaluation set" is a non-goal. One magnitude has been measured and recorded;
+sweeping for a larger number would be fitting a constant to the benchmark with
+no mechanism behind it. The +17 stays on file as an unexplained general
+inhibition effect to be revisited once the dynamics are understood.
+
+### The convergence defect — DOES NOT REPRODUCE (2026-09-16)
+
+Recorded earlier: a minimal two-reaction loop driven 80x reports
 `converged=false` with residual `4.045534594765421e-6` against a `1e-6`
-tolerance. That residual is **identical** at tolerances 1e-6, 1e-8, 1e-10 and
-1e-12, and at iteration caps of 50, 100, 200, 400, 1000 and 5000, with node
-values bit-identical throughout. The sweep has stopped moving and the final
-global check disagrees with it by 4×.
+tolerance, that residual **identical** across tolerances 1e-6 to 1e-12 and
+iteration caps 50 to 5000, with node values bit-identical throughout.
 
-Ruled out while diagnosing: multiple reactions per target (each node has exactly
-one), `DS_SCC_BREAK_CATALYST` supply freezing (defaults off), iteration budget,
-and damping (λ=0.1 is strictly worse, matching the existing code comment).
+**Re-run at stock config on clean `src`, that is not what happens.** The same
+fixture script, same parameters, DS_* env verified inside the container:
 
-**The 4e-6 is not yet explained.** This spec does not claim otherwise, and the
-first task of the feature is to explain it.
+| cap | tol 1e-6 | tol 1e-8 | tol 1e-12 |
+|---|---|---|---|
+| 50 | false, 1.15e-5 | false, 1.15e-5 | false, 1.15e-5 |
+| 100 | **true, 7.00e-7** | **true, 7.01e-9** | false, 5.19e-10 |
+| 200+ | **true, 7.00e-7** | **true, 7.01e-9** | **true, 7.01e-13** |
+
+The residual **tracks the tolerance** (~0.7x it, as expected from a rule that
+stops on the first sweep below tol), node values **differ** between tolerances
+(0.6019277… / 0.6019291… / 0.60192915…), and every non-converged cell is an
+honest iteration-budget shortfall that clears with more iterations. Per-node
+attribution puts the whole residual inside the 4-node SCC, correctly detected
+and correctly ordered, with the acyclic nodes exactly consistent.
+
+The recorded numbers also disagree with a verbatim re-run in the values
+themselves (A=79.98 recorded, A=60.19 now), so **that run carried an
+unrecorded configuration**. The measurement cannot be reproduced and nothing
+should be built on it.
+
+**US2 and SC-003 are therefore withdrawn** pending a reproducible case. FR-003
+and FR-004 remain as regression properties worth asserting — they are just not
+currently violated.
+
+### The spurious root — the framing is WRONG (2026-09-16)
+
+The spec was built on "all-zero is self-consistent and the iteration lands in
+the wrong basin". Tested directly on a two-supply cycle with one supply knocked
+out and the other raised 50x, iterating the identical map from starting states
+0.0, 0.01, 0.1, 0.3, 0.5, 0.8 and 1.0:
+
+    every start converges to the SAME state (A=0.00026, B=0.07756)
+
+There is **one fixed point, not two**. The solver is not selecting the wrong
+root — the low value *is* the unique root. A floor that pushes the iterate away
+from zero is therefore not "excluding a spurious root"; it is displacing the
+only root the model has. That is consistent with the floor's +17 landing on
+acyclic readouts: it was never acting on a basin problem, because there is no
+basin problem.
+
+### What the real defect is: AND semantics on a recycled input
+
+The OR-joined cycle already satisfies all three US1 acceptance scenarios today
+(baseline = 1.0 throughout):
+
+| case | A | B |
+|---|---|---|
+| both supplies | 1.0 | 1.0 |
+| one supply out | 0.334 | 0.668 |
+| both out | 0.0022 | 0.0022 |
+| one out, other 50x | 13.8 | 31.5 |
+
+Held up by the survivor, scales with it, still reaches zero when the inputs
+genuinely go. Nothing to fix.
+
+The **AND-joined** cycle, same topology, is where it breaks:
+
+| case | A | B |
+|---|---|---|
+| both supplies | 1.0 | 1.0 |
+| one supply out | 0.00013 | 0.00278 |
+| one out, other **50x** | 0.00026 | 0.078 |
+
+One external input 50x above baseline, and the cycle still sits ~13x *below*
+baseline. This is the behaviour Adam described, and it is a property of the AND
+semantics, not of root selection: the cycle's own recycled product is treated
+as a required co-input, so a knockout anywhere in the cycle cannot be
+compensated by any other input.
+
+This matters because cycle-internal positive edges **are** AND in the generated
+networks (`and_or` is a function of edge sign), so the artificial-looking
+fixture is the common real case, not a corner.
+
+**Not yet established**: that this is what drives the 17-point cyclic gap. The
+whole-set error structure does not obviously support it — errors skew to false
+UP (1,165) over false DOWN (883) — and the cyclic subset has not been split out
+that way. The mechanism is reproduced; its contribution to the gap is not
+measured. That measurement is the next task, replacing the 4e-6 as the feature'"'"'s
+starting point.
