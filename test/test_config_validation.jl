@@ -146,14 +146,29 @@ end
     # hill_sat / clamp-off / eps 1e-5 as of specs/002-upregulation-propagation.
     # test/test_and_curves.jl covers why; this only pins that the defaults are
     # what that feature measured.
-    @test config.and_mode == "hill_sat"
+    # Re-measured 2026-09-16 on 23,022 wide-curator cases at Release97, one
+    # catalog build, each arm changing ONE variable and paired against the
+    # others. specs/002 set `hill_sat` and `assembly_limiting=false` on +31
+    # over 564 experimental cases; on the curator set those same two choices
+    # cost -90 and -196 respectively. The wide set decides (FR-008), so they
+    # are reverted here. Attribution and numbers: specs/009-solver-defaults.
+    @test config.and_mode == "hill_log"
     @test config.or_mode == "mean"
-    @test config.assembly_limiting == false
+    @test config.assembly_limiting == true
+    # Only consulted when and_mode is hill_sat, so inert at the current
+    # default. Kept sized correctly so switching AND mode does not also
+    # silently re-introduce a 10%-of-baseline epsilon.
     @test config.hill_sat_eps == 1e-5
     # A divide-by-zero guard, and nothing else. Baseline is 0.01, so this
     # must stay orders of magnitude below it — at the old 1e-3 it was 10% of
     # baseline and silently set the de-repression ceiling, compressed the
     # response curve and shifted maximum suppression.
+    # Swept 2026-09-16: 1e-6 and 1e-12 give BIT-IDENTICAL predictions (same
+    # 269 changes, same +109/-98), so at or below 1e-6 this is a pure
+    # divide-by-zero guard -- exactly what specs/006 FR-002 required and
+    # nobody had confirmed. 1e-4 scores 3 cases better in 23,022 but still
+    # changes results, i.e. still acts as a model parameter; taking it would
+    # be tuning a guard against the evaluation set.
     @test config.inhibitor_eps == 1e-12
     @test config.inhibitor_eps < 0.01 / 1000
     @test config.or_combine == "max"
