@@ -242,7 +242,7 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 | `test/test_cycle_handling.jl` | 29 + 2 `@test_broken` |
 | `test/test_worked_example.jl` | 9 |
 | `test/test_observation_pinning.jl` | 23 |
-| `test/test_propagator_invariants.jl` | 48 |
+| `test/test_propagator_invariants.jl` | 52 |
 | `test/test_cli_observations.jl` | 20 |
 | `test/test_api_errors.jl` | 26 |
 

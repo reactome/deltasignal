@@ -21,6 +21,7 @@ using Test
 
 include(joinpath(@__DIR__, "..", "src", "DeltaSignal.jl"))
 using .DeltaSignal
+using .DeltaSignal: resolve_reaction_eval_config
 
 const BL = 0.01
 const PARAMS = DeltaSignal.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty")
@@ -45,6 +46,29 @@ function chain_fold(depth::Int, f::Float64)
 end
 
 @testset "propagator invariants" begin
+
+    @testset "the config these numbers describe" begin
+        # Fail FAST and by name if the resolved config is not the one these
+        # magic numbers were measured under. Without this the suite fails with
+        # bare assertion errors -- 74.07 became something else -- and reads as
+        # "the propagator broke" rather than "DS_AND_MODE is overridden in this
+        # shell". That is the exact confusion CLAUDE.md records from the six
+        # days docker-compose.dev.yml drifted from the code defaults.
+        #
+        # This deliberately does NOT set the environment itself: these are
+        # characterization tests for the SHIPPED default, so an accidental
+        # change to that default should surface here, not be masked.
+        cfg = DeltaSignal.resolve_reaction_eval_config()
+        @test cfg.and_mode == "hill_log"
+        @test cfg.inhibition_mode == "divide"
+        @test cfg.or_mode == "mean"
+        @test cfg.assembly_limiting
+        if cfg.and_mode != "hill_log" || cfg.inhibition_mode != "divide"
+            @warn "Propagator invariants describe and_mode=hill_log / " *
+                  "inhibition_mode=divide. The resolved config differs, so the " *
+                  "magnitudes below WILL fail. Check DS_* in this environment." cfg
+        end
+    end
 
     @testset "inhibition is exactly reciprocal" begin
         # The `divide` form: H = (b+eps)/(x+eps). With one activator at
