@@ -4,7 +4,8 @@ Loads pathway networks from the upstream logic-network-generator catalog,
 resolves gene → stids via a cached Neo4j lookup, and provides BFS / shortest-
 path primitives on the logic network DAG.
 """
-import csv, json, os
+import csv
+import re, json, os
 from collections import defaultdict, deque
 from pathlib import Path
 
@@ -177,3 +178,41 @@ def resolve_readout_uuids(key_output, rev_stids, proxies):
 def read_case_dump(path):
     """Read a per-case TSV dump (produced by DS_DUMP_CASES in the benchmark)."""
     return list(csv.DictReader(open(path), delimiter="\t"))
+
+def pathway_dir_index(root: Path) -> dict[str, Path]:
+    """Map Reactome numeric id -> catalog directory.
+
+    Keyed by ID, never by pathway name. Names are data: they gain commas, lose
+    trailing underscores and get recurated, and three of them differed between
+    the curator files and the catalog on Release97 -- which silently moved 438
+    of 1,484 cases into a bogus bucket before it was noticed.
+
+    Accepts both the historical `Some_Pathway_Name_R-HSA-12345` layout and a
+    bare `R-HSA-12345`, so it keeps working across the naming change.
+    """
+    out: dict[str, Path] = {}
+    for d in root.iterdir():
+        if not d.is_dir():
+            continue
+        m = re.search(r"R-HSA-(\d+)$", d.name)
+        if m:
+            out[m.group(1)] = d
+    return out
+
+
+def name_to_id_map(pathway_list: Path) -> dict[str, str]:
+    """Curator pathway NAME -> numeric id, tolerating the known spelling drift.
+
+    Only for reading legacy case dumps, which record a name and not an id.
+    Anything writing new data should carry the id.
+    """
+    raw: dict[str, str] = {}
+    with pathway_list.open(newline="") as fh:
+        for r in csv.DictReader(fh, delimiter="\t"):
+            raw[r["pathway_name"]] = r["pathway_id"]
+    norm = {k.replace(",", "").rstrip("_"): v for k, v in raw.items()}
+
+    def lookup(name: str) -> str | None:
+        return raw.get(name) or norm.get(name.replace(",", "").rstrip("_"))
+
+    return type("M", (), {"get": staticmethod(lambda n, d=None: lookup(n) or d)})()

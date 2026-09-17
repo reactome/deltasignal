@@ -139,29 +139,15 @@ def main() -> int:
                 if r["category"] == a.category and r["expected"] != r["predicted"]]
         print(f"{len(rows)} {a.category} failures to explain", flush=True)
 
-    # Resolve by pathway ID, the way the benchmark does. Name matching dropped
-    # 438 of 1,484 cases into a bogus "no network" bucket on the first run.
-    name_to_id = {}
-    with a.pathway_list.open(newline="") as fh:
-        for r in csv.DictReader(fh, delimiter="\t"):
-            name_to_id[r["pathway_name"]] = r["pathway_id"]
-
-    def index(root: Path):
-        by_id = {}
-        for d in root.iterdir():
-            if d.is_dir() and "_R-HSA-" in d.name:
-                by_id[d.name.rsplit("_R-HSA-", 1)[1]] = d
-        return by_id
-
-    ours_by_id, mpb_by_id = index(a.ours), index(a.mpb)
+    # Resolve by pathway ID, never by name. See pathway_dir_index() for why:
+    # three names differed between the curator files and the catalog, which
+    # silently moved 438 of 1,484 cases into a bogus bucket on the first run.
+    from _common import pathway_dir_index, name_to_id_map
+    name_to_id = name_to_id_map(a.pathway_list)
+    ours_by_id, mpb_by_id = pathway_dir_index(a.ours), pathway_dir_index(a.mpb)
 
     def resolve(by_id, name):
-        pid = name_to_id.get(name) or name_to_id.get(name.rstrip("_"))
-        if pid is None:
-            for k, v in name_to_id.items():
-                if k.replace(",", "") == name.replace(",", "").rstrip("_"):
-                    pid = v
-                    break
+        pid = name_to_id.get(name)
         return by_id.get(pid) if pid else None
 
     ours_dirs = type("D", (), {"get": lambda self, n: resolve(ours_by_id, n)})()
