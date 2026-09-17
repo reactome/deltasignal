@@ -86,11 +86,44 @@ decisively better where it does not"** — a mechanism, not a uniform +8.8pp.
 
 ## 2. On our own networks
 
+**Report the held-out split.** The MP-BioPath paper tuned on ten pathways and
+reported on the rest. This project drifted off that protocol — the ten-pathway
+set kept reversing decisions that held at scale, so decisions moved to the wide
+curator set, which is the set we then report on. `bench/analysis/holdout_report.py`
+restores the split at reporting time, over an existing dump.
+
+| split | pathways | cases | accuracy | macro-F1 |
+|---|---|---|---|---|
+| tuning (the paper's ten) | 11 | 5,100 | 0.7322 | 0.7185 |
+| **held-out — quote this** | 70 | 18,808 | **0.8552** | **0.8155** |
+| all pathways | 81 | 23,908 | 0.8289 | 0.7919 |
+
+The all-pathways figure is dragged down by the tuning ten (TP53, WNT, PIP3, cell
+cycle), which are hard for both tools. **That is why the naive headline looks
+like a loss**: all-pathways DeltaSignal 82.89% against MP-BioPath's published
+83.61%. On held-out pathways the same comparison is:
+
+| held-out | DeltaSignal | MP-BioPath | margin |
+|---|---|---|---|
+| each on its **own** networks (70 pathways) | **85.52%** | 85.28% | **+0.24pp** |
+| **same** networks, MP-BioPath's (63 pathways) | **93.92%** | 84.90% | **+9.03pp** |
+
+Other ground truths, all pathways:
+
 | ground truth | result | macro-F1 |
 |---|---|---|
-| Reactome curator, end-to-end | 19,818/23,908 = **82.89%** | 0.7919 |
-| Reactome curator, valid-only | 19,289/23,022 = **83.79%** | — |
-| experimental evidence | 616/846 = **72.81%** | 0.6521 |
+| Reactome curator, valid-only | 19,289/23,022 = 83.79% | — |
+| experimental evidence | 616/846 = 72.81% | 0.6521 |
+
+### The tuning caveat, stated
+
+Today's solver defaults (`specs/009`) were chosen by measuring on the wide
+curator set, so the 70 "held-out" pathways were not held out from *that*
+decision, even though they were from the paper's. Tested directly: the chosen
+config wins **+31 on the tuning ten and +228 on the held-out rest**, so tuning
+on the ten alone would have produced the identical choice. The bias is real,
+small, and points the right way — but future decisions should be made on the
+tuning set and reported on the rest.
 
 For reference: MP-BioPath vs curator 83.61%, vs experimental 75.74%; curator vs
 experimental (the human ceiling) 81.98%.
@@ -185,6 +218,53 @@ The next candidate worth an A/B is the kinase depletion asymmetry above, not
 this.
 
 ---
+
+## Generator changes: measured, and re-read on the held-out split
+
+Two real generator defects, found while tracing the `no_path` bucket. Measured
+first across all pathways, where all three arms looked negative — then re-read
+on the held-out split, which reverses the reading.
+
+| arm | all pathways | tuning ten | **held-out (70)** |
+|---|---|---|---|
+| phosphatase detection in all compartments | −9 | −7 | **−2** |
+| depletion edges excluded from root detection | −54 | **−55** | **+2** |
+| both together | −26 | −19 | −6 |
+
+**The root fix's entire −54 is the tuning ten, and almost all of it is TP53.**
+On the 70 pathways outside the tuning set it is **+2 — neutral**. Rejecting a
+correctness fix on that evidence would have been precisely the overfitting the
+paper's protocol exists to prevent.
+
+### The defects
+
+*Phosphatase detection* keyed on `R-ALL-29372`, Pi **[cytosol]** alone, while
+the rule's stated criterion is "the outputs include Pi". Nucleoplasmic (475
+reactions), mitochondrial (343) and extracellular (186) phosphatases were
+invisible. Derived by ChEBI now, 12 species at R97.
+
+*Root detection* computed `sources - targets` **after** depletion edges were
+appended, and counted them. A root is "produced by no reaction in this pathway";
+a depletion edge is not production, it is our own inference. So a depletion edge
+landing on a boundary complex silently deleted its curator-derived subunit
+decomposition. The fix restores 46 assembly edges, among them
+`p-MAPK1 → MAPK1 dimer` and the MAPK3/MAPK7 equivalents.
+
+### What TP53 was doing
+
+The root fix changes 312 predictions there, 239 with a decidable truth, and they
+are direction flips between UP and DOWN landing on the truth 41.1% of the time —
+worse than a coin toss. TP53 is dense enough that direction is unstable to a
+small structural change, and it is a tuning pathway, so that instability should
+not veto a fix that is neutral everywhere else.
+
+### Two method errors, recorded
+
+- "+28 for the compartment fix" was inferred by subtracting arms. Wrong —
+  effects are not additive and the scored denominators differ (23,022 vs
+  22,910). **Measure each arm.**
+- The three arms were first reported as clear negatives from the all-pathways
+  figure alone, before the held-out split was applied. **Split first.**
 
 ## Reproducing
 
