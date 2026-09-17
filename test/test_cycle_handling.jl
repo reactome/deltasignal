@@ -70,6 +70,33 @@ ko(u) = Dict(u => (0.0, 1.0))
         @test vz["B"] < 0.01
     end
 
+    @testset "AND with a zero input is unrescuable" begin
+        # The arithmetic behind FR-001 being unsatisfiable, measured directly
+        # rather than asserted in a comment. A zero AND input cannot be
+        # compensated by ANY co-input magnitude.
+        N(id) = DS.NetworkNode(id, "R-HSA-" * id, "unknown", nothing, id, 0.01)
+        two_input(is_and) = DS.ReactionNetwork(
+            Dict(id => N(id) for id in ("P1", "P2", "T")),
+            [DS.LogicNetworkEdge("P1", "T", is_and, true, 1.0, "input"),
+             DS.LogicNetworkEdge("P2", "T", is_and, true, 1.0, "input")],
+            Dict{String, DS.SetExpansionMapping}())
+        out(is_and, a, b) = solve_ui(two_input(is_and),
+                                     Dict("P1" => (a, 1.0), "P2" => (b, 1.0)))[1]["T"]
+
+        # Monotone in the co-input, yet never reaches baseline.
+        prev = -Inf
+        for co in (1.0, 10.0, 50.0, 100.0)
+            v = out(true, 0.0, co)
+            @test v < 1.0          # cannot be held up to baseline
+            @test v > prev         # but the co-input does lift it
+            prev = v
+        end
+        @test out(true, 0.0, 100.0) < 0.02
+
+        # OR is rescued, which is why the OR-joined cycle satisfies US1.
+        @test out(false, 0.0, 100.0) > 1.0
+    end
+
     @testset "AND-joined cycle collapses (the real defect)" begin
         # One external input 50x above baseline, yet the cycle sits far BELOW
         # baseline: the cycle's own recycled product is a required co-input, so
@@ -80,7 +107,29 @@ ko(u) = Dict(u => (0.0, 1.0))
         @test r.converged                      # it converges — this is not a
                                                # convergence bug
         @test v["A"] < 0.01                    # current behaviour: collapsed
-        @test_broken v["A"] > 1.0              # FR-001: should be held up
+
+        # WHY NO PROPAGATOR FIX CAN SATISFY FR-001.
+        #
+        # U1 is pinned at 0 and is an AND input to A, so A = AND(0, r2). AND
+        # with a zero input is arithmetically unrescuable: measured on a
+        # two-input reaction, AND(0, co) reads 0.00070 / 0.00252 / 0.00781 /
+        # 0.01350 in UI fold for co = 1 / 10 / 50 / 100. It rises with the
+        # co-input but is still ~74x BELOW baseline at co = 100, and cannot
+        # reach 1.0 for any finite co-input. So A < 1.0 is forced, not chosen:
+        # this is NOT a basin, convergence or damping bug, and looking for one
+        # is wasted effort. The assertions below pin that arithmetic.
+        #
+        # Satisfying FR-001 requires a SEMANTICS change, one of:
+        #   (a) AND stops zeroing on a zero input -- the clamp question
+        #       specs/002 settled the other way, and re-opening it moves every
+        #       number in the benchmark; or
+        #   (b) a recycled cycle product stops being a limiting AND co-input.
+        #       Physically it is regenerated, not consumed, so treating it as
+        #       required is the actual modelling error -- the Type II
+        #       catalytic-recycling artifact from the loop taxonomy.
+        #
+        # (b) is the honest target and it lives in the generator, not here.
+        @test_broken v["A"] > 1.0              # FR-001: needs (a) or (b) above
         @test_broken v["B"] > 1.0
     end
 
