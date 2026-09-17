@@ -121,8 +121,16 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
             # interpolate the requested pathway_id, reflecting arbitrary input
             # into the response body.
             return 400, "Unknown or unusable pathway id."
+        # Every *_ERROR constant defined above must appear here, or the
+        # specific message written for it is thrown, discarded, and replaced
+        # by the generic "Invalid input." below. OBS_UNKNOWN_ERROR was
+        # stranded exactly that way: it names the catalog-mismatch failure
+        # mode, which is the hardest one in this project to diagnose from the
+        # outside, and the client never saw it.
+        # test_api_errors.jl asserts this list covers them all.
         elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR || msg == NODE_BASELINE_ERROR ||
-               msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR
+               msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR ||
+               msg == OBS_UNKNOWN_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
             return 400, "Required input not found."
