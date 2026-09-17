@@ -60,13 +60,21 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cases", type=Path, required=True)
     ap.add_argument("--catalog", type=Path, required=True)
+    ap.add_argument("--pathway-list", type=Path,
+                    default=Path.home() / "gitroot/mp-biopath-pathways/pathway_list.tsv",
+                    help="Maps the curator pathway NAME recorded in a case dump "
+                         "to its id, so directories are found by id.")
     ap.add_argument("--min-scc", type=int, default=2,
                     help="Smallest SCC counted as cyclic (default 2)")
     a = ap.parse_args()
 
     rows = list(csv.DictReader(a.cases.open(newline=""), delimiter="\t"))
-    dirs = {d.name.rsplit("_R-HSA-", 1)[0]: d
-            for d in a.catalog.iterdir() if d.is_dir()}
+    # Keyed by ID, not by name -- see pathway_dir_index().
+    from _common import pathway_dir_index, name_to_id_map
+    by_id = pathway_dir_index(a.catalog)
+    name_to_id = name_to_id_map(a.pathway_list)
+    dirs = type("D", (), {"get": staticmethod(
+        lambda n: by_id.get(name_to_id.get(n) or ""))})()
 
     # Resolve every key_output once, via the same path the benchmark uses.
     kos = {r["key_output"] for r in rows if r.get("key_output")}
