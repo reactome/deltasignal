@@ -39,6 +39,15 @@ function default_steady_state_params()
 end
 
 """
+Confidence below this is treated as "no observation at all".
+
+Shared by the initial guess and the pinning step. They were two separate
+literals, and the initial guess did not apply the gate — which made it
+inoperative for root nodes, the case the benchmark almost always exercises.
+"""
+const OBS_CONFIDENCE_TOL = 1e-6
+
+"""
 Solve steady-state network given observations.
 Implements the penalty formulation:
 
@@ -115,7 +124,13 @@ function solve_steady_state(
     gene_stids = gene_stid_set()
     gene_uuids = Set{String}()
     for (uuid, node) in network.nodes
-        if haskey(observations, uuid)
+        # Seed from an observation ONLY if it clears the same confidence gate
+        # the pinning step applies. Seeding an unpinned observation silently
+        # defeated that gate: a ROOT node has no incoming reaction, so nothing
+        # ever overwrites its initial value and a confidence-0 observation was
+        # applied exactly as hard as a confidence-1 one. Non-root nodes hid the
+        # bug, because the forward model overwrote them on the first sweep.
+        if haskey(observations, uuid) && observations[uuid][2] > OBS_CONFIDENCE_TOL
             x0[uuid] = observations[uuid][1] / 100.0  # Convert from UI scale 0-100 to internal 0-1
         else
             x0[uuid] = node.baseline
@@ -353,7 +368,7 @@ function solve_steady_state_penalty(
     obs_values = Float64[]
     for (uuid, (val, conf)) in observations
         haskey(uuid_to_idx, uuid) || continue
-        conf > 1e-6 || continue
+        conf > OBS_CONFIDENCE_TOL || continue
         push!(obs_indices, uuid_to_idx[uuid])
         push!(obs_values, val / 100.0)  # UI 0-100 → internal 0-1
     end
