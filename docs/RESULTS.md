@@ -84,6 +84,46 @@ decisively better where it does not"** — a mechanism, not a uniform +8.8pp.
 
 ---
 
+## 1b. The experimental axis, where the advantage does NOT hold
+
+Everything above is **curator** ground truth — what a curator expects the
+pathway to do. The other axis is **experimental evidence** — what actually
+happened in a cell — and it tells a different story.
+
+Same networks (MP-BioPath's), same 712 cases, the 8 pathways present in both
+network sets:
+
+| | cases | accuracy |
+|---|---|---|
+| MP-BioPath | 564/712 | **79.21%** |
+| DeltaSignal | 555/712 | **77.95%** |
+
+A 9-case difference: **level, not better.** DeltaSignal wins 5 of the 8 pathways
+(RAF 100% vs 91.8%, Cell Cycle, Prophase, S Phase, WNT) and loses on PIP3, which
+is 200 of the 712 cases and where it is 7.5 points down.
+
+| axis | same networks | verdict |
+|---|---|---|
+| curator reasoning | **+9.03pp** | decisively better |
+| experimental evidence | **−1.26pp** | level |
+
+**This is the most important caveat in this document.** DeltaSignal reproduces
+curator *reasoning* far better than its predecessor and is no better at
+predicting experimental *outcomes*. A model that tracks the representation
+better than the biology is exactly what a reviewer will suspect, and the honest
+answer is that on this evidence we cannot rule it out.
+
+Two structural limits on ever settling it:
+
+- **Experimental truth exists for ten pathways only — the tuning ten.** There is
+  no held-out empirical test available in this dataset, for either tool. That is
+  a data-collection problem, not an analysis one.
+- 712 cases across 8 pathways is small, and one pathway (PIP3) carries the
+  difference.
+
+On our own networks against experimental evidence: 627/849 = 73.85%, macro-F1
+0.6599, against MP-BioPath's published 643/849 = 75.74%.
+
 ## 2. On our own networks
 
 **Report the held-out split.** The MP-BioPath paper tuned on ten pathways and
