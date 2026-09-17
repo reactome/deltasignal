@@ -186,6 +186,51 @@ this.
 
 ---
 
+## Generator changes measured and NOT adopted (2026-09-16)
+
+Two real defects were found in the generator while tracing the `no_path`
+bucket. Both are correctness fixes. **All three arms measure negative**, so
+neither has been adopted.
+
+| arm | net vs main | macro-F1 |
+|---|---|---|
+| main | — | 0.8102 / 0.8108 |
+| phosphatase detection in all compartments | **−9** | 0.8104 |
+| depletion edges excluded from root detection | **−54** | 0.8063 |
+| both together | **−26** | 0.8087 |
+
+Do not infer one arm from the others: "+28 for the compartment fix" was derived
+by subtracting arms and was wrong. The effects are not additive and the scored
+denominators differ (23,022 vs 22,910) because coverage shifts with the
+networks. Measure each arm.
+
+**The defects are real regardless of the score.**
+
+*Phosphatase detection* keyed on `R-ALL-29372`, which is Pi **[cytosol]** alone,
+while the rule's stated criterion is "the outputs include Pi". Nucleoplasmic
+(475 reactions), mitochondrial (343) and extracellular (186) phosphatases were
+invisible to it.
+
+*Root detection* computes `sources - targets` **after** depletion edges are
+appended, and counts them. A root is "produced by no reaction in this pathway",
+and a depletion edge is not production — it is our own inference. So a depletion
+edge landing on a boundary complex silently removes its subunit decomposition.
+Live on main today: the fix restores 46 assembly edges, among them
+p-MAPK1 → MAPK1 dimer and the MAPK3/MAPK7 equivalents.
+
+**Why the root fix loses.** It changes 312 predictions, 239 of which have a
+decidable truth, and they are direction flips between UP and DOWN. The flips
+land on the truth **41.1%** of the time — worse than a coin toss — with the
+regression concentrated almost entirely in `Transcriptional_Regulation_by_TP53`
+(−55). So restoring the edges does not merely shuffle an unstable pathway; the
+added coupling moves direction away from truth more often than toward it. The
+fair caveat is that the baseline sat at a local optimum without those edges.
+
+**Unresolved, and a judgement call rather than a measurement:** complex
+composition is curator data, and our own inference deleting it is a defect by
+the constitution's first principle. Keeping a defect because it scores better is
+also not defensible. Recorded here so the choice is made deliberately.
+
 ## Reproducing
 
 ```bash
