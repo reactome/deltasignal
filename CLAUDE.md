@@ -229,12 +229,13 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 
 | file | `@test`s |
 |---|---|
-| `test/test_config_validation.jl` | 151 |
+| `test/test_config_validation.jl` | 156 |
 | `test/test_and_curves.jl` | 17 |
 | `test/test_cycle_handling.jl` | 29 + 2 `@test_broken` |
-| `test/test_worked_example.jl` | 16 |
+| `test/test_worked_example.jl` | 9 |
 
-Counts are what the suites actually report, not `@test` occurrences — several
+Counts are CI-verified (`.github/workflows/test.yml` runs these four by name
+and prints each `Test Summary`), not `@test` occurrences — several
 testsets generate assertions in loops. The earlier figures in this table (42 /
 22 / 8) were wrong in both directions.
 
