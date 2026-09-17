@@ -27,8 +27,11 @@ include(joinpath(@__DIR__, "..", "src", "DeltaSignal.jl"))
 using .DeltaSignal
 using .DeltaSignal: resolve_reaction_eval_config
 
-"""Evaluate the configured AND mode on a set of fold-changes, in fold units."""
-function and_fold(folds::Vector{Float64}; mode::String, eps::String="1e-5")
+"""Evaluate an AND mode on fold-changes. `eps` defaults to the SHIPPED
+DS_HILL_SAT_EPS so callers that omit it exercise real behaviour; it was
+pinned at "1e-5" after the code default moved, which made every test that
+omitted it measure a configuration the code no longer ships."""
+function and_fold(folds::Vector{Float64}; mode::String, eps::String="1e-9")
     prev_mode = get(ENV, "DS_AND_MODE", nothing)
     prev_eps = get(ENV, "DS_HILL_SAT_EPS", nothing)
     ENV["DS_AND_MODE"] = mode
@@ -132,8 +135,118 @@ end
     @test config.assembly_limiting == true
     # Inert while and_mode is hill_log; kept correctly sized so switching the
     # AND mode cannot silently restore a 10%-of-baseline epsilon.
-    @test config.hill_sat_eps ≈ 1e-5
+    @test config.hill_sat_eps ≈ 1e-9
 end
 
+@testset "hill_log_asym multiplies faithfully below baseline" begin
+    # AND is specified as multiplication of fold-changes. hill_log applies
+    # z_max*tanh(log_fold/z_max) SYMMETRICALLY, so it compresses downward as
+    # hard as upward -- but there is nothing to saturate against downward.
+    # The internal domain is [0,1] with baseline 0.01, so an upward fold is
+    # genuinely capped at 100x (a real ceiling, which tanh models), while a
+    # downward fold of 0.01 is perfectly representable. Compressing it is not
+    # modelling a floor, it is error.
+    #
+    # Measured error of hill_log against the product it should compute:
+    #   0.5 x 2.0 -> 0.0%   |  0.25 x 0.25 ->  +7.2%
+    #   2.0 x 2.0 -> -0.9%  |  0.1  x 0.1  -> +35.2%
+    #   0.5 x 0.5 -> +0.9%  |  0.001 x 1.0 -> +167.6%
+    # Accurate above baseline, unbounded and systematically UPWARD below it,
+    # which biases every down-regulated value toward baseline.
+
+    asym(folds) = and_fold(folds; mode="hill_log_asym")
+
+    @testset "sub-baseline products are exact" begin
+        @test asym([0.5, 0.5]) ≈ 0.25 rtol=1e-6
+        @test asym([0.25, 0.25]) ≈ 0.0625 rtol=1e-6
+        @test asym([0.1, 0.1]) ≈ 0.01 rtol=1e-6
+        @test asym([0.5, 0.5, 0.5]) ≈ 0.125 rtol=1e-6
+        @test asym([0.01, 1.0]) ≈ 0.01 rtol=1e-6
+        # Two orders below baseline, where hill_log reads +167.6% high.
+        @test asym([0.001, 1.0]) ≈ 0.001 rtol=1e-6
+    end
+
+    @testset "a zero input gives exactly zero" begin
+        # hill_log's hardcoded eps=1e-6 against baseline 0.01 made a knockout
+        # contribute log(1e-6/0.010001) = -9.21 instead of -Inf, so 0 x
+        # anything came out at 0.0007 and rose with the co-input. Same epsilon
+        # sizing bug already fixed in DS_HILL_SAT_EPS and DS_INHIBITOR_EPS.
+        @test asym([0.0, 1.0]) == 0.0
+        @test asym([0.0, 100.0]) == 0.0
+        @test asym([0.0, 0.0]) == 0.0
+        # A required input at zero cannot be rescued by ANY co-input.
+        for co in (1.0, 10.0, 100.0)
+            @test asym([0.0, co]) == 0.0
+        end
+    end
+
+    @testset "crossing baseline is exact" begin
+        @test asym([0.5, 2.0]) ≈ 1.0 rtol=1e-6
+        @test asym([0.1, 10.0]) ≈ 1.0 rtol=1e-6
+        @test asym([1.0, 1.0]) ≈ 1.0 rtol=1e-9
+    end
+
+    @testset "upward compression is retained" begin
+        # The point of the asymmetry: the 100x ceiling is real, so the upward
+        # branch keeps hill_log's behaviour rather than reverting to raw
+        # multiplication. These are hill_log's numbers, not the products.
+        @test asym([2.0, 2.0]) ≈ 3.9649 rtol=1e-3      # not 4.0
+        @test asym([10.0, 10.0]) ≈ 74.07 rtol=1e-3     # not 100
+        @test asym([100.0, 100.0]) ≈ 100.0 rtol=1e-6   # capped, not 10000
+        @test asym([10.0, 10.0]) < 100.0
+    end
+
+    @testset "strictly better than hill_log below baseline" begin
+        # Direct comparison on the same inputs: the asymmetric mode is closer
+        # to the product everywhere below baseline.
+        for folds in ([0.5, 0.5], [0.25, 0.25], [0.1, 0.1], [0.001, 1.0])
+            want = prod(folds)
+            @test abs(asym(folds) - want) <= abs(and_fold(folds; mode="hill_log") - want)
+        end
+    end
+end
+
+@testset "hill_sat implements the stated AND intent exactly" begin
+    # Adam's specification: AND multiplies fold-changes, capped at 100, and
+    # "1/2 * 1/2 should be close to 1/4" -- below baseline matters as much as
+    # above it. hill_sat is the mode that implements that shape; it had two
+    # epsilons standing in the way, both now removed.
+    sat(folds) = and_fold(folds; mode="hill_sat")
+
+    @testset "products are exact below baseline" begin
+        @test sat([0.5, 0.5]) ≈ 0.25 rtol=1e-4
+        @test sat([0.25, 0.25]) ≈ 0.0625 rtol=1e-4
+        @test sat([0.1, 0.1]) ≈ 0.01 rtol=1e-4
+        @test sat([0.5, 0.5, 0.5]) ≈ 0.125 rtol=1e-4
+        # Where the old floors bit hardest: eps=1e-5 read these 20.7% and
+        # 452% high respectively.
+        @test sat([0.001, 1.0]) ≈ 0.001 rtol=1e-3
+        @test sat([0.0001, 1.0]) ≈ 0.0001 rtol=1e-3
+    end
+
+    @testset "a zero input gives exactly zero" begin
+        # The ratio carried a hardcoded eps of 1e-6 against baseline 0.01, so
+        # a knockout contributed a fold of 1e-4 rather than 0 and `0 x 100`
+        # came out at 0.0100 -- rising with the co-input, so an abundant
+        # partner could "rescue" a knockout.
+        @test sat([0.0, 1.0]) == 0.0
+        @test sat([0.0, 100.0]) == 0.0
+        @test sat([0.0, 0.0]) == 0.0
+    end
+
+    @testset "the 100x ceiling is real and still applies" begin
+        @test sat([10.0, 10.0]) ≈ 100.0 rtol=1e-3     # product is exactly 100
+        @test sat([100.0, 100.0]) ≈ 100.0 rtol=1e-6   # 10000 capped to 100
+        @test sat([2.0, 2.0]) ≈ 4.0 rtol=1e-3
+        @test sat([0.5, 2.0]) ≈ 1.0 rtol=1e-6
+    end
+
+    @testset "closer to the product than hill_log everywhere" begin
+        for folds in ([0.5,0.5], [0.1,0.1], [0.001,1.0], [10.0,10.0], [2.0,2.0])
+            want = min(prod(folds), 100.0)
+            @test abs(sat(folds) - want) <= abs(and_fold(folds; mode="hill_log") - want)
+        end
+    end
+end
 
 end  # outer testset
