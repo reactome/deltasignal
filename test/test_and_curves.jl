@@ -249,4 +249,47 @@ end
     end
 end
 
+@testset "wide AND reactions saturate instead of collapsing" begin
+    # A numerical-stability bug, not a modelling one, and severe: the smooth-min
+    # capping hill_sat at 100x was written as
+    #     (raw + max - sqrt(d^2 + eps^2)) / 2,  d = raw - max
+    # which CATASTROPHICALLY CANCELS once raw is large. With 100 AND inputs at
+    # fold 2, raw is 1.3e28; sqrt(d^2) equals d to machine precision, so
+    # (raw + 1 - (raw - 1))/2 evaluates to 0 rather than 1, and the smooth-max
+    # below then returned eps/2. A strongly ELEVATED wide reaction therefore
+    # read as ~0 -- the saturation inverted.
+    #
+    # Class_I_MHC has reactions carrying hundreds of nodes and did not solve at
+    # all under hill_sat because of this. No assertion covered wide reactions,
+    # so it survived; these are the ones that would have caught it.
+    wide(n, f) = and_fold(fill(f, n); mode="hill_sat")
+
+    @testset "elevated wide reactions cap at 100x" begin
+        for n in (10, 50, 100, 200, 400)
+            @test wide(n, 2.0) ≈ 100.0 rtol=1e-6
+        end
+        # The failure signature was collapse to the epsilon floor, orders
+        # BELOW baseline, for something that should read maximally elevated.
+        @test wide(400, 2.0) > 1.0
+        @test wide(400, 10.0) ≈ 100.0 rtol=1e-6
+    end
+
+    @testset "wide reactions at baseline stay at baseline" begin
+        # A product of many 1.0s is 1.0; drift here would move every node in a
+        # hub reaction.
+        for n in (10, 100, 400)
+            @test wide(n, 1.0) ≈ 1.0 rtol=1e-9
+        end
+    end
+
+    @testset "suppressed wide reactions stay far below baseline" begin
+        # These floor at the smooth-max epsilon rather than reaching the true
+        # product (0.5^50 = 8.9e-16). That floor is ~5e-8 in fold terms, seven
+        # orders below the 0.85 DOWN cutoff, so it cannot change a call.
+        for n in (10, 50, 200)
+            @test wide(n, 0.5) < 0.01
+        end
+    end
+end
+
 end  # outer testset

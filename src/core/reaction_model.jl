@@ -1090,11 +1090,31 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                     prod_fold *= v / bl
                 end
                 raw = bl * prod_fold
-                # Smooth-min with max_internal (caps at 1.0).
+                # Smooth-min with max_internal (caps at 1.0), in the form that
+                # does NOT catastrophically cancel.
+                #
+                # The textbook form (raw + max - sqrt(diff^2 + eps^2))/2 loses
+                # `max` entirely once raw is large: for 100 AND inputs at fold
+                # 2, raw is 1.3e28, sqrt(diff^2) == diff to machine precision,
+                # and (raw + 1 - (raw - 1))/2 evaluates to 0 rather than 1. The
+                # smooth-max below then returned eps/2, so a strongly ELEVATED
+                # wide reaction read as ~0 instead of saturating at 100x --
+                # the saturation inverted. It is why Class_I_MHC, which has
+                # reactions carrying hundreds of nodes, failed to solve at all.
+                #
+                # Algebraically identical, evaluated stably:
+                #   (raw + max - sqrt(d^2+e^2))/2  where d = raw - max
+                #     = max + (d - sqrt(d^2+e^2))/2
+                #     = max - e^2 / (2*(d + sqrt(d^2+e^2)))
+                # The last form has no subtraction of nearby large numbers.
                 diff_hi = raw - max_internal
-                hi = (raw + max_internal -
-                      sqrt(diff_hi * diff_hi + sat_eps * sat_eps)) / T(2.0)
-                # Smooth-max with 0 (floors at 0).
+                root_hi = sqrt(diff_hi * diff_hi + sat_eps * sat_eps)
+                denom_hi = diff_hi + root_hi
+                hi = denom_hi > zero(T) ?
+                    max_internal - (sat_eps * sat_eps) / (T(2.0) * denom_hi) :
+                    (raw + max_internal - root_hi) / T(2.0)
+                # Smooth-max with 0 (floors at 0). hi is bounded by
+                # max_internal here, so this form cannot cancel.
                 lo = (hi + sqrt(hi * hi + sat_eps * sat_eps)) / T(2.0)
                 return_zero ? zero(T) : clamp(lo, zero(T), one(T))
             elseif mode == "hill_log_asym"
