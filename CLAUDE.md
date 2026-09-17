@@ -150,7 +150,12 @@ The system implements a biologically-realistic reaction model with the following
   (`examples/sample_observations.csv` uses `node,condition,value,confidence`).
   Activity is on the **0-100 scale** (0 = none, 1 = normal baseline, 100 = 100x)
   and is range-checked; a value outside 0-100 is an error, not a clamp.
-  Confidence is 0-1. Any extra column — including `condition` — is ignored, so
+  Confidence is 0-1, but it is a **binary gate, not a weight**: anything above
+  `OBS_CONFIDENCE_TOL` (1e-6) pins exactly as hard as 1.0, and anything at or
+  below is discarded. A soft weighted pin is a design direction, not current
+  behaviour. The gate is pinned by `test/test_observation_pinning.jl`; it used
+  to be inoperative for root nodes, which is the case a perturbed gene almost
+  always is. Any extra column — including `condition` — is ignored, so
   a file holding several conditions is applied as one simultaneous
   perturbation set.
 
@@ -233,6 +238,8 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 | `test/test_and_curves.jl` | 17 |
 | `test/test_cycle_handling.jl` | 29 + 2 `@test_broken` |
 | `test/test_worked_example.jl` | 9 |
+| `test/test_observation_pinning.jl` | 23 |
+| `test/test_propagator_invariants.jl` | 48 |
 
 Counts are CI-verified (`.github/workflows/test.yml` runs these four by name
 and prints each `Test Summary`), not `@test` occurrences — several
