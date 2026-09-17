@@ -26,6 +26,12 @@ using .DeltaSignal
 using .DeltaSignal: OBS_CONFIDENCE_TOL
 
 const BL = 0.01
+
+# Baseline assertions carry rtol=1e-6 deliberately. These test PINNING -- that
+# a gated observation was dropped and the node sits at baseline -- which must
+# hold under any aggregation mode. Bit-equality does not: under DS_AND_MODE=
+# hill_sat an all-baseline chain settles at 1.0000002, not exactly 1.0, so a
+# bare `≈ 1.0` failed for a reason that has nothing to do with the gate.
 const P = DeltaSignal.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty")
 
 mknet(nodes, edges) = DeltaSignal.ReactionNetwork(
@@ -55,13 +61,13 @@ end
 
         # At or below the tolerance the observation must not be applied at all.
         for conf in (0.0, 1e-9, OBS_CONFIDENCE_TOL)
-            @test fold(net, Dict("S" => (100.0, conf)), "S") ≈ 1.0
-            @test fold(net, Dict("S" => (100.0, conf)), "T") ≈ 1.0
+            @test fold(net, Dict("S" => (100.0, conf)), "S") ≈ 1.0 rtol=1e-6
+            @test fold(net, Dict("S" => (100.0, conf)), "T") ≈ 1.0 rtol=1e-6
         end
 
         # A knockout must be dropped by the gate too, not just an increase —
         # otherwise the bug survives in the direction the benchmark uses most.
-        @test fold(net, Dict("S" => (0.0, 0.0)), "S") ≈ 1.0
+        @test fold(net, Dict("S" => (0.0, 0.0)), "S") ≈ 1.0 rtol=1e-6
         @test fold(net, Dict("S" => (0.0, 1.0)), "S") ≈ 0.0
     end
 
@@ -71,7 +77,7 @@ end
         # breaking this.
         net = mknet(["U", "M", "T"], [edge("U", "M"), edge("M", "T")])
         @test fold(net, Dict("M" => (100.0, 1.0)), "M") ≈ 100.0
-        @test fold(net, Dict("M" => (100.0, 0.0)), "M") ≈ 1.0
+        @test fold(net, Dict("M" => (100.0, 0.0)), "M") ≈ 1.0 rtol=1e-6
     end
 
     @testset "the gate is one threshold, not two" begin
@@ -79,7 +85,7 @@ end
         # disagreed. Both now read OBS_CONFIDENCE_TOL; a value just above it
         # must pin, and the boundary itself must not.
         net = mknet(["S", "T"], [edge("S", "T")])
-        @test fold(net, Dict("S" => (100.0, OBS_CONFIDENCE_TOL)), "S") ≈ 1.0
+        @test fold(net, Dict("S" => (100.0, OBS_CONFIDENCE_TOL)), "S") ≈ 1.0 rtol=1e-6
         @test fold(net, Dict("S" => (100.0, nextfloat(OBS_CONFIDENCE_TOL))), "S") ≈ 100.0
     end
 
@@ -87,8 +93,8 @@ end
         # A node off the perturbed path must not drift. Drift here would read
         # as a false change, which is the single largest error category.
         net = mknet(["S", "X", "U", "V"], [edge("S", "X"), edge("U", "V")])
-        @test fold(net, Dict("S" => (100.0, 1.0)), "V") ≈ 1.0
-        @test fold(net, Dict("S" => (100.0, 1.0)), "U") ≈ 1.0
+        @test fold(net, Dict("S" => (100.0, 1.0)), "V") ≈ 1.0 rtol=1e-6
+        @test fold(net, Dict("S" => (100.0, 1.0)), "U") ≈ 1.0 rtol=1e-6
     end
 
     @testset "an all-baseline reaction returns baseline at any width" begin
@@ -98,7 +104,7 @@ end
             parents = ["P$i" for i in 1:n]
             net = mknet(vcat(parents, ["T"]), [edge(p, "T") for p in parents])
             obs = Dict(p => (1.0, 1.0) for p in parents)
-            @test fold(net, obs, "T") ≈ 1.0
+            @test fold(net, obs, "T") ≈ 1.0 rtol=1e-6
         end
     end
 end
