@@ -559,4 +559,70 @@ end
     @test net2.cofactor_stids == Set(["R-ALL-29372", "R-ALL-113582"])
     @test length(net2.nodes) == 2
 end
+
+@testset "edge sign and logic values fail loudly" begin
+    # `is_positive = pos_raw == "pos"` made every UNRECOGNISED sign an
+    # inhibitor, silently inverting the edge. That is the same class as the
+    # DS_* mode typos guarded above: a wrong value selected different
+    # behaviour with no error. Only pos/neg and and/or/"" occur in the catalog
+    # today -- all 92 networks and 334,844 edges parse unchanged -- so this
+    # guards a future typo rather than fixing current data.
+    #
+    # Goes through `parse_logic_network`, the public entry point, so the
+    # schema detection is exercised too.
+    function gen_edge(pn, ao)
+        path = tempname() * ".csv"
+        write(path, "source_id,target_id,pos_neg,and_or,stoichiometry,edge_type\n" *
+                    "A,B,$(pn),$(ao),1.0,input\n")
+        try
+            return DeltaSignal.parse_logic_network(path)[1]
+        finally
+            rm(path; force=true)
+        end
+    end
+    function sample_edge(a, p)
+        path = tempname() * ".csv"
+        write(path, "parent,child,is_and,is_positive,stoichiometry\nA,B,$(a),$(p),1.0\n")
+        try
+            return DeltaSignal.parse_logic_network(path)[1]
+        finally
+            rm(path; force=true)
+        end
+    end
+
+    # Valid values are unchanged, including case and the documented empty
+    # and_or meaning OR.
+    @test gen_edge("pos", "and").is_positive
+    @test gen_edge("pos", "and").is_and
+    @test !gen_edge("neg", "or").is_positive
+    @test !gen_edge("neg", "or").is_and
+    @test gen_edge("pos", "").is_positive
+    @test !gen_edge("pos", "").is_and
+    @test gen_edge("POS", "AND").is_positive
+    @test gen_edge("POS", "AND").is_and
+
+    # A typo throws instead of inverting the edge.
+    @test_throws ArgumentError gen_edge("positive", "and")
+    @test_throws ArgumentError gen_edge("negative", "and")
+    @test_throws ArgumentError gen_edge("pos", "xor")
+
+    # The message names the offending value so the row can be found.
+    err = try
+        gen_edge("positive", "and")
+        ""
+    catch e
+        sprint(showerror, e)
+    end
+    @test occursin("positive", err)
+    @test occursin("pos_neg", err)
+
+    # Sample format carries the same guard: anything but 0/1 is a mistake.
+    @test sample_edge(1, 1).is_and
+    @test sample_edge(1, 1).is_positive
+    @test !sample_edge(0, 0).is_and
+    @test !sample_edge(0, 0).is_positive
+    @test_throws ArgumentError sample_edge(2, 1)
+    @test_throws ArgumentError sample_edge(1, -1)
+end
+
 end  # outer testset

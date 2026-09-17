@@ -234,7 +234,7 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 
 | file | `@test`s |
 |---|---|
-| `test/test_config_validation.jl` | 156 |
+| `test/test_config_validation.jl` | 175 |
 | `test/test_and_curves.jl` | 17 |
 | `test/test_cycle_handling.jl` | 29 + 2 `@test_broken` |
 | `test/test_worked_example.jl` | 9 |
