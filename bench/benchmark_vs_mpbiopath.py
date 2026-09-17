@@ -28,6 +28,7 @@ import re
 import sys
 import time
 from collections import defaultdict, Counter
+from collections.abc import Mapping
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -640,6 +641,42 @@ def network_edge_count(pathway_id: str) -> int:
         return sum(1 for _ in fh) - 1
 
 
+def summary_metrics(confusion: Mapping[tuple, int]) -> dict:
+    """Per-class precision/recall/F1 and the aggregates, from a confusion map.
+
+    `confusion` is keyed (predicted, expected) — the orientation
+    `run_pathway` writes. The orientation matters and is easy to get wrong
+    silently: F1 is symmetric in precision and recall, so transposing the
+    matrix leaves macro-F1 and change-F1 IDENTICAL while turning balanced
+    accuracy (macro-recall) into macro-precision. Only the recall-derived
+    number moves, which is why it is asserted separately in the tests.
+
+    Extracted from main() so the project's primary decision metric can be
+    checked against hand-computed values instead of only ever being observed
+    on live data.
+    """
+    def _prf(cls):
+        tp = confusion.get((cls, cls), 0)
+        fp = sum(confusion.get((cls, e), 0) for e in (DOWN, NORMAL, UP) if e != cls)
+        fn = sum(confusion.get((p, cls), 0) for p in (DOWN, NORMAL, UP) if p != cls)
+        prec = tp / (tp + fp) if (tp + fp) else 0.0
+        rec = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+        return prec, rec, f1
+
+    prf = {c: _prf(c) for c in (DOWN, NORMAL, UP)}
+    f1 = {c: prf[c][2] for c in (DOWN, NORMAL, UP)}
+    rec = {c: prf[c][1] for c in (DOWN, NORMAL, UP)}
+    return {
+        "precision": {c: prf[c][0] for c in (DOWN, NORMAL, UP)},
+        "recall": rec,
+        "f1": f1,
+        "macro_f1": sum(f1.values()) / 3,
+        "change_f1": (f1[DOWN] + f1[UP]) / 2,
+        "balanced_accuracy": sum(rec.values()) / 3,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pathway-list",
@@ -738,19 +775,11 @@ def main():
     # predictor scores F1=0 on both change classes. change-F1 (UP+DOWN only)
     # is the "are we actually detecting regulation" guard. These are the
     # numbers to optimize; accuracy is reported below for continuity.
-    def _prf(cls):
-        tp = grand_confusion.get((cls, cls), 0)
-        fp = sum(grand_confusion.get((cls, e), 0) for e in (DOWN, NORMAL, UP) if e != cls)
-        fn = sum(grand_confusion.get((p, cls), 0) for p in (DOWN, NORMAL, UP) if p != cls)
-        prec = tp / (tp + fp) if (tp + fp) else 0.0
-        rec = tp / (tp + fn) if (tp + fn) else 0.0
-        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
-        return prec, rec, f1
-    f1 = {c: _prf(c)[2] for c in (DOWN, NORMAL, UP)}
-    rec = {c: _prf(c)[1] for c in (DOWN, NORMAL, UP)}
-    macro_f1 = sum(f1.values()) / 3
-    change_f1 = (f1[DOWN] + f1[UP]) / 2
-    bal_acc = sum(rec.values()) / 3
+    metrics = summary_metrics(grand_confusion)
+    f1 = metrics["f1"]
+    macro_f1 = metrics["macro_f1"]
+    change_f1 = metrics["change_f1"]
+    bal_acc = metrics["balanced_accuracy"]
 
     print()
     print("=" * 70)

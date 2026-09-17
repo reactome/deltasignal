@@ -97,8 +97,24 @@ def main() -> int:
     if a.compare:
         arm = load(a.compare)
         report(a.compare.name, arm)
-        shared = sorted(set(base) & set(arm))
+        # Condition on the perturbation set, exactly as compare_wide_cases.py
+        # does. A case key can be present in both arms while the two arms
+        # resolved a different number of gene or knockout uuids for it -- then
+        # the arms answered DIFFERENT questions and the pairing is invalid.
+        # Unconditioned, a boundary-removal arm read +265; conditioned on the
+        # same 7,168 cases it read +64. n_gene_uuids/n_ko_uuids are the
+        # experiment's fingerprint.
+        paired = set(base) & set(arm)
+        shared = sorted(
+            k for k in paired
+            if base[k]["n_gene_uuids"] == arm[k]["n_gene_uuids"]
+            and base[k]["n_ko_uuids"] == arm[k]["n_ko_uuids"]
+        )
+        dropped = len(paired) - len(shared)
         print(f"\n=== does it generalise?  {a.compare.name} vs {a.cases.name} ===")
+        if dropped:
+            print(f"  {dropped} of {len(paired)} shared cases dropped: the arms "
+                  f"resolved a different perturbation set for them.")
         print(f"{'split':<26}{'cases':>8}{'baseline':>10}{'arm':>10}{'net':>8}")
         for label, keys in (
             ("TUNING (the paper's ten)", [k for k in shared if k[0] in TUNING_PATHWAYS]),
