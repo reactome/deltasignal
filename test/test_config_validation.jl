@@ -9,6 +9,7 @@
 # cannot fail — see test/README or the suite notes.
 
 using Test
+using JSON3
 
 include(joinpath(@__DIR__, "..", "src", "DeltaSignal.jl"))
 using .DeltaSignal
@@ -525,4 +526,37 @@ end
 end
 
 
+
+@testset "a full network payload round-trips through /api/solve" begin
+    # The bug this pins: reaction_network_from_json takes `data`, but the
+    # cofactor branch referenced an undefined `network_json`. Julia only catches
+    # that at runtime, so /api/solve returned 500 for EVERY request that sent a
+    # network payload instead of a cached network_id — the path an upload uses,
+    # and the path the benchmark's DS_SKIP_EDGE_TYPES diagnostic uses. Both were
+    # silently broken; the diagnostic reported 0/0 scored cases, which is how it
+    # was found.
+    #
+    # Reached directly rather than over HTTP: this repo has no API test harness,
+    # and the defect is in the JSON→network conversion, not in the routing.
+    payload = """
+    {"nodes": [{"uuid": "A", "name": "A", "reactome_id": "R-HSA-1",
+                "entity_type": "protein", "baseline": 0.01, "set_id": null},
+               {"uuid": "B", "name": "B", "reactome_id": "R-HSA-2",
+                "entity_type": "protein", "baseline": 0.01, "set_id": null}],
+     "edges": [{"parent_uuid": "A", "child_uuid": "B", "is_and": true,
+                "is_positive": true, "stoichiometry": 1.0, "edge_type": "input"}]}
+    """
+    net = DeltaSignal.reaction_network_from_json(JSON3.read(payload))
+    @test length(net.nodes) == 2
+    @test length(net.edges) == 1
+    @test isempty(net.cofactor_stids)
+
+    # And the round-trip the code comment promises: a bundle's cofactor list
+    # must survive parse → solve rather than being silently dropped.
+    with_cof = replace(payload, "\"edges\":" =>
+        "\"cofactor_stids\": [\"R-ALL-29372\", \"R-ALL-113582\"], \"edges\":")
+    net2 = DeltaSignal.reaction_network_from_json(JSON3.read(with_cof))
+    @test net2.cofactor_stids == Set(["R-ALL-29372", "R-ALL-113582"])
+    @test length(net2.nodes) == 2
+end
 end  # outer testset
