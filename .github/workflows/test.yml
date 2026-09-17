@@ -1,0 +1,68 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  bench:
+    name: bench suite (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install pytest
+        # The bench suite is stdlib-only: py2neo is imported lazily inside the
+        # functions that talk to Neo4j, so nothing here needs a database.
+        run: python -m pip install --upgrade pip pytest
+      - name: Run the bench suite
+        run: python -m pytest bench/ -q
+
+  julia:
+    name: solver assertions (Julia ${{ matrix.julia }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        julia: ["1.10"]   # LTS, per Project.toml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia }}
+      - uses: julia-actions/cache@v2
+      - name: Instantiate
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+      - name: Run the suites that actually assert
+        # Only four test files contain assertions; the other seven execute code
+        # and print, and pass whatever the code does. Running the four by name
+        # keeps a green tick meaningful. See CLAUDE.md.
+        #
+        # Deliberately NO DS_* environment here. The code defaults ARE the
+        # validated config and the suites pin them; setting overrides in CI
+        # would measure a configuration production never runs, which is exactly
+        # how docker-compose.dev.yml drifted for six days.
+        run: |
+          set -u
+          failed=""
+          for f in test_config_validation test_and_curves test_cycle_handling test_worked_example; do
+            echo "::group::test/$f.jl"
+            if julia --project=. "test/$f.jl"; then
+              echo "  $f PASSED"
+            else
+              echo "  $f FAILED"
+              failed="$failed $f"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then
+            echo "Failing suites:$failed"
+            exit 1
+          fi
