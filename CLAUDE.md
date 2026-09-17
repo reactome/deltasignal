@@ -244,6 +244,7 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 | `test/test_observation_pinning.jl` | 23 |
 | `test/test_propagator_invariants.jl` | 48 |
 | `test/test_cli_observations.jl` | 20 |
+| `test/test_api_errors.jl` | 26 |
 
 Counts are CI-verified (`.github/workflows/test.yml` runs these four by name
 and prints each `Test Summary`), not `@test` occurrences — several
