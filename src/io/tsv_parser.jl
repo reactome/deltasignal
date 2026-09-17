@@ -70,6 +70,13 @@ function parse_logic_network(filepath::String)::Vector{LogicNetworkEdge}
 
     edges = LogicNetworkEdge[]
     for row in eachrow(df)
+        # Same guard for the sample format: anything but 0/1 is a mistake,
+        # and `== 1` would quietly turn it into OR / negative.
+        if !(row.is_and in (0, 1)) || !(row.is_positive in (0, 1))
+            throw(ArgumentError(
+                "logic network row $(row.parent) -> $(row.child): is_and and " *
+                "is_positive must be 0 or 1, got $(row.is_and) and $(row.is_positive)."))
+        end
         is_and = row.is_and == 1
         is_positive = row.is_positive == 1
         stoich = Float64(row.stoichiometry)
@@ -96,7 +103,24 @@ function parse_logic_network_generator(df::DataFrame)::Vector{LogicNetworkEdge}
         and_raw = ismissing(row.and_or) ? "" : lowercase(strip(String(row.and_or)))
         pos_raw = lowercase(strip(String(row.pos_neg)))
 
-        is_and = and_raw == "and"
+        # An unrecognised value must FAIL, not fall through to a default.
+        # `pos_raw == "pos"` silently made every unknown sign an INHIBITOR,
+        # which inverts the edge and is invisible downstream — the same class
+        # as the DS_* mode typos that selected a different model in silence.
+        # Only pos/neg and and/or/"" occur in the catalog today, so this
+        # changes nothing about current data; it makes a future typo loud.
+        if pos_raw != "pos" && pos_raw != "neg"
+            throw(ArgumentError(
+                "logic network row $(row.source_id) -> $(row.target_id): " *
+                "pos_neg must be \"pos\" or \"neg\", got \"$(pos_raw)\"."))
+        end
+        if and_raw != "and" && and_raw != "or" && and_raw != ""
+            throw(ArgumentError(
+                "logic network row $(row.source_id) -> $(row.target_id): " *
+                "and_or must be \"and\", \"or\" or empty, got \"$(and_raw)\"."))
+        end
+
+        is_and = and_raw == "and"     # empty means OR, as documented
         is_positive = pos_raw == "pos"
         stoich = ismissing(row.stoichiometry) ? 1.0 : Float64(row.stoichiometry)
         et = if has_edge_type && !ismissing(row.edge_type)
