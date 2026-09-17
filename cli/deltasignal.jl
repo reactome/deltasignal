@@ -215,6 +215,81 @@ function execute_parse_command(args)
     end
 end
 
+"""
+    read_observations(obs_path) -> Dict{String, Tuple{Float64, Float64}}
+
+Read an observations CSV into the solver's observation map.
+
+Extracted from `execute_solve_command` so the range checks and the conflict
+check can be tested without spawning the CLI.
+
+Every extra column -- including `condition` -- is ignored, so a file holding
+several conditions is applied as ONE simultaneous perturbation set. That makes
+a node appearing twice with DIFFERENT values a conflict rather than a set, and
+it used to be resolved by silent last-write-wins: `P53,treatment_A,0.3` and
+`P53,treatment_B,2.5` in one file gave P53 = 2.5, discarding the knockdown
+with no warning.
+"""
+function read_observations(obs_path::String)::Dict{String, Tuple{Float64, Float64}}
+    observations_df = CSV.read(obs_path, DataFrame)
+
+    # Parse observations into Dict{String, Tuple{Float64, Float64}}
+    observations = Dict{String, Tuple{Float64, Float64}}()
+    for row in eachrow(observations_df)
+        # Handle different possible column names
+        uuid = if hasproperty(row, :node_uuid)
+            String(row.node_uuid)
+        else
+            String(row.node)
+        end
+
+        # Get activity value (might be called "value" or "activity")
+        # Values should already be in 0-100 scale (0=none, 1=1% of normal, 100=100% of normal)
+        activity = if hasproperty(row, :activity)
+            Float64(row.activity)
+        else
+            Float64(row.value)
+        end
+
+        confidence = Float64(row.confidence)
+
+        # Range-check here, as the HTTP API does. The solver pins
+        # `activity/100` WITHOUT clamping but clamps the value it reports,
+        # so an out-of-range observation propagates a value outside the
+        # model's [0,1] domain while the output file shows a plausible
+        # number: `EGFR,-100` and `EGFR,0` both report EGFR = 0 but produce
+        # completely different networks. Fail loudly instead.
+        if !isfinite(activity) || activity < 0.0 || activity > 100.0
+            error("Observation for '$uuid' has activity $activity; " *
+                  "must be a finite value in 0-100 (0 = none, 1 = baseline, 100 = 100x).")
+        end
+        if !isfinite(confidence) || confidence < 0.0 || confidence > 1.0
+            error("Observation for '$uuid' has confidence $confidence; " *
+                  "must be a finite value in 0-1.")
+        end
+
+        # A node listed twice with different values is a conflict, not a
+        # perturbation set. Silent last-write-wins discarded the earlier row
+        # and produced a plausible-looking result from half the file.
+        if haskey(observations, uuid)
+            prev_activity, prev_confidence = observations[uuid]
+            if prev_activity != activity || prev_confidence != confidence
+                error("Observation file lists '$uuid' more than once with " *
+                      "different values: activity $prev_activity (confidence " *
+                      "$prev_confidence) and activity $activity (confidence " *
+                      "$confidence). Every extra column -- including " *
+                      "`condition` -- is ignored, so one file is applied as a " *
+                      "single simultaneous perturbation set. Split the " *
+                      "conditions into separate files, or keep one row per node.")
+            end
+        end
+
+        observations[uuid] = (activity, confidence)
+    end
+
+    return observations
+end
+
 function execute_solve_command(args)
     println("🧮 Solving steady-state network...")
 
@@ -269,45 +344,7 @@ function execute_solve_command(args)
 
         # Load observations CSV
         println("Loading observations from: $(args[:observations])")
-        observations_df = CSV.read(args[:observations], DataFrame)
-
-        # Parse observations into Dict{String, Tuple{Float64, Float64}}
-        observations = Dict{String, Tuple{Float64, Float64}}()
-        for row in eachrow(observations_df)
-            # Handle different possible column names
-            uuid = if hasproperty(row, :node_uuid)
-                String(row.node_uuid)
-            else
-                String(row.node)
-            end
-
-            # Get activity value (might be called "value" or "activity")
-            # Values should already be in 0-100 scale (0=none, 1=1% of normal, 100=100% of normal)
-            activity = if hasproperty(row, :activity)
-                Float64(row.activity)
-            else
-                Float64(row.value)
-            end
-
-            confidence = Float64(row.confidence)
-
-            # Range-check here, as the HTTP API does. The solver pins
-            # `activity/100` WITHOUT clamping but clamps the value it reports,
-            # so an out-of-range observation propagates a value outside the
-            # model's [0,1] domain while the output file shows a plausible
-            # number: `EGFR,-100` and `EGFR,0` both report EGFR = 0 but produce
-            # completely different networks. Fail loudly instead.
-            if !isfinite(activity) || activity < 0.0 || activity > 100.0
-                error("Observation for '$uuid' has activity $activity; " *
-                      "must be a finite value in 0-100 (0 = none, 1 = baseline, 100 = 100x).")
-            end
-            if !isfinite(confidence) || confidence < 0.0 || confidence > 1.0
-                error("Observation for '$uuid' has confidence $confidence; " *
-                      "must be a finite value in 0-1.")
-            end
-
-            observations[uuid] = (activity, confidence)
-        end
+        observations = read_observations(args[:observations])
         println("✓ Loaded $(length(observations)) observations")
 
         # A uuid that is not in the network is silently dropped by the solver,
