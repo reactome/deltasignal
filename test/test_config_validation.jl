@@ -159,7 +159,16 @@ end
     # Only consulted when and_mode is hill_sat, so inert at the current
     # default. Kept sized correctly so switching AND mode does not also
     # silently re-introduce a 10%-of-baseline epsilon.
-    @test config.hill_sat_eps == 1e-5
+    #
+    # 1e-9, lowered from 1e-5. This is the smooth-max floor against zero, so
+    # it bounds how far BELOW baseline a value can travel, and 1e-5 against a
+    # baseline of 0.01 distorted the low end badly: a fold of 0.001 read 20.7%
+    # high, a fold of 0.0001 read 452% high. The sizing rule that was applied
+    # to DS_INHIBITOR_EPS applies here for the same reason -- baseline is 0.01,
+    # so the epsilon must be orders of magnitude below it, and 1e-5 is only
+    # three. At 1e-9 every AND product is exact across the range and the 100x
+    # ceiling still holds.
+    @test config.hill_sat_eps == 1e-9
     # A divide-by-zero guard, and nothing else. Baseline is 0.01, so this
     # must stay orders of magnitude below it — at the old 1e-3 it was 10% of
     # baseline and silently set the de-repression ceiling, compressed the

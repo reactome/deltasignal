@@ -734,7 +734,8 @@ const DS_VALID_MODES = Dict(
         "divide", "devspec", "spec", "krep", "hill_sat", "inversion",
     ]),
     "DS_AND_MODE" => Set([
-        "hill_log", "hill_sat", "multiplicative", "signed", "signed_gated",
+        "hill_log", "hill_log_asym", "hill_sat", "multiplicative", "signed",
+        "signed_gated",
         "min", "geomean",
     ]),
     "DS_OR_MODE"               => Set(["mean", "median", "capacity", "max"]),
@@ -838,7 +839,13 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # benchmark cases against 246 actually UP, median output 1.587 rather
         # than 1.000. At 1e-5 the curve reproduces pure multiplication across
         # the range while keeping the boundary smooth.
-        _float_env("DS_HILL_SAT_EPS", 1e-5),
+        # 1e-9, not 1e-5. This eps is the smooth-max floor against zero, so
+        # it bounds how far below baseline a value can go. At 1e-5 against a
+        # baseline of 0.01 it distorts the low end badly: a fold of 0.001 read
+        # 20.7% high and a fold of 0.0001 read 452% high, while contributing
+        # nothing above baseline. At 1e-9 every product is exact to 0.0% across
+        # the whole range and 10x10 still caps at 100. Affects hill_sat only.
+        _float_env("DS_HILL_SAT_EPS", 1e-9),
         _float_env("DS_HILL_SAT_H_MAX", 10.0),
         _float_env("DS_HILL_LOG_ZMAX", 10.0),
         _float_env("DS_INHIBITOR_K", 0.1),
@@ -1057,12 +1064,30 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 # Per-edge parameters (n, K, max) are NOT plumbed into this
                 # formula yet — the planned next step. See memory:
                 # project-sigmoid-design-intent.
-                eps_T = T(1e-6)
+                # A required input at ZERO means the product is zero. The
+                # hardcoded eps below is 1e-6 against a baseline of 0.01, so
+                # without this short-circuit a knockout contributes a fold of
+                # 1e-6/0.010001 = 1e-4 rather than 0, and `0 x 100` came out
+                # at 0.0100 instead of 0 -- rising with the co-input, so a
+                # knockout could be "rescued" by an abundant partner. Same
+                # epsilon sizing bug already fixed in DS_HILL_SAT_EPS and
+                # DS_INHIBITOR_EPS; here it is not even configurable.
+                if any(v -> v <= zero(T), and_vals)
+                    return_zero = true
+                else
+                    return_zero = false
+                end
+                # No epsilon in the ratio. Zero is handled above, and node
+                # baselines are validated in (0, 1], so v/bl is safe for every
+                # value that reaches here. The epsilon was a floor: at 1e-6
+                # against baseline 0.01 it put a hard lower bound of 1e-4 on
+                # any fold, so 0.001 x 1.0 read 0.001293 -- 29% high -- and
+                # everything further below baseline was compressed upward.
                 sat_eps = T(config.hill_sat_eps)
                 max_internal = one(T)
                 prod_fold = one(T)
                 for v in and_vals
-                    prod_fold *= (v + eps_T) / (bl + eps_T)
+                    prod_fold *= v / bl
                 end
                 raw = bl * prod_fold
                 # Smooth-min with max_internal (caps at 1.0).
@@ -1071,7 +1096,58 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                       sqrt(diff_hi * diff_hi + sat_eps * sat_eps)) / T(2.0)
                 # Smooth-max with 0 (floors at 0).
                 lo = (hi + sqrt(hi * hi + sat_eps * sat_eps)) / T(2.0)
-                clamp(lo, zero(T), one(T))
+                return_zero ? zero(T) : clamp(lo, zero(T), one(T))
+            elseif mode == "hill_log_asym"
+                # AND that multiplies fold-changes FAITHFULLY BELOW baseline
+                # and keeps hill_log's compression above it.
+                #
+                # hill_log applies `z_max*tanh(log_fold/z_max)` symmetrically,
+                # so it compresses downward exactly as hard as upward. Measured
+                # against the product it is supposed to compute:
+                #
+                #     0.5  x 2.0   ->  1.00005    (  0.0%)
+                #     2.0  x 2.0   ->  3.9645     ( -0.9%)
+                #     0.5  x 0.5   ->  0.2523     ( +0.9%)
+                #     0.25 x 0.25  ->  0.0670     ( +7.2%)
+                #     0.1  x 0.1   ->  0.0135     (+35.2%)
+                #     0.001 x 1.0  ->  0.0027     (+167.6%)
+                #     0    x 100   ->  0.0135     (never zero)
+                #
+                # Above baseline it is accurate to ~1%. Below baseline the
+                # error grows without bound and is systematically UPWARD, so
+                # every down-regulated value is lifted toward baseline. That is
+                # a directional bias against detecting DOWN, not a rail
+                # artifact.
+                #
+                # There is nothing to saturate against downward. The internal
+                # domain is [0, 1] with baseline 0.01, so an upward fold is
+                # genuinely capped at 100x -- that ceiling is real and tanh
+                # models it. A downward fold of 0.01 is perfectly
+                # representable, so compressing it is not modelling a floor,
+                # it is error. Hence: sigmoid above baseline, exact product
+                # below.
+                #
+                # Zero is handled exactly rather than through an epsilon. In
+                # hill_log a knockout contributes log(1e-6/0.010001) = -9.21
+                # instead of -Inf, which is why 0 x anything came out at
+                # 0.0007 and not 0. The epsilon was hardcoded and, at 1e-6
+                # against a baseline of 0.01, violated the sizing rule that
+                # already had to be applied to DS_HILL_SAT_EPS and
+                # DS_INHIBITOR_EPS.
+                z_max = T(config.hill_log_zmax)
+                if any(v -> v <= zero(T), and_vals)
+                    # A required input is absent: the product IS zero.
+                    zero(T)
+                else
+                    log_fold = zero(T)
+                    for v in and_vals
+                        log_fold += log(v / bl)
+                    end
+                    log_out = log_fold > zero(T) ?
+                        z_max * tanh(log_fold / z_max) :   # cap the real 100x ceiling
+                        log_fold                            # exact product downward
+                    clamp(bl * exp(log_out), zero(T), one(T))
+                end
             elseif mode == "hill_log"
                 # Sigmoid AND in LOG-FOLD space — gives genuinely continuous
                 # outputs, not the bimodal saturation that multiplicative or

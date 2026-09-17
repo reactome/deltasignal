@@ -191,7 +191,7 @@ solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
 `reaction_model.jl`). The **code defaults are the validated winning config** —
 env vars only override for benchmark sweeps:
 - `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_log`, `DS_OR_MODE=mean`,
-  `DS_ASSEMBLY_LIMITING=1`, `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-5`,
+  `DS_ASSEMBLY_LIMITING=1`, `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-9`,
   `DS_HILL_LOG_ZMAX=10.0`. Behaviour is pinned by `test/test_and_curves.jl`.
   Re-measured 2026-09-16 on 23,022 wide-curator cases, one variable at a time:
   `specs/009-solver-defaults/research.md`. That supersedes the `hill_sat` /
@@ -238,6 +238,7 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 | file | `@test`s |
 |---|---|
 | `test/test_config_validation.jl` | 175 |
+
 | `test/test_and_curves.jl` | 17 |
 | `test/test_cycle_handling.jl` | 39 + 2 `@test_broken` |
 | `test/test_worked_example.jl` | 9 |
