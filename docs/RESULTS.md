@@ -86,11 +86,44 @@ decisively better where it does not"** — a mechanism, not a uniform +8.8pp.
 
 ## 2. On our own networks
 
+**Report the held-out split.** The MP-BioPath paper tuned on ten pathways and
+reported on the rest. This project drifted off that protocol — the ten-pathway
+set kept reversing decisions that held at scale, so decisions moved to the wide
+curator set, which is the set we then report on. `bench/analysis/holdout_report.py`
+restores the split at reporting time, over an existing dump.
+
+| split | pathways | cases | accuracy | macro-F1 |
+|---|---|---|---|---|
+| tuning (the paper's ten) | 11 | 5,100 | 0.7322 | 0.7185 |
+| **held-out — quote this** | 70 | 18,808 | **0.8552** | **0.8155** |
+| all pathways | 81 | 23,908 | 0.8289 | 0.7919 |
+
+The all-pathways figure is dragged down by the tuning ten (TP53, WNT, PIP3, cell
+cycle), which are hard for both tools. **That is why the naive headline looks
+like a loss**: all-pathways DeltaSignal 82.89% against MP-BioPath's published
+83.61%. On held-out pathways the same comparison is:
+
+| held-out | DeltaSignal | MP-BioPath | margin |
+|---|---|---|---|
+| each on its **own** networks (70 pathways) | **85.52%** | 85.28% | **+0.24pp** |
+| **same** networks, MP-BioPath's (63 pathways) | **93.92%** | 84.90% | **+9.03pp** |
+
+Other ground truths, all pathways:
+
 | ground truth | result | macro-F1 |
 |---|---|---|
-| Reactome curator, end-to-end | 19,818/23,908 = **82.89%** | 0.7919 |
-| Reactome curator, valid-only | 19,289/23,022 = **83.79%** | — |
-| experimental evidence | 616/846 = **72.81%** | 0.6521 |
+| Reactome curator, valid-only | 19,289/23,022 = 83.79% | — |
+| experimental evidence | 616/846 = 72.81% | 0.6521 |
+
+### The tuning caveat, stated
+
+Today's solver defaults (`specs/009`) were chosen by measuring on the wide
+curator set, so the 70 "held-out" pathways were not held out from *that*
+decision, even though they were from the paper's. Tested directly: the chosen
+config wins **+31 on the tuning ten and +228 on the held-out rest**, so tuning
+on the ten alone would have produced the identical choice. The bias is real,
+small, and points the right way — but future decisions should be made on the
+tuning set and reported on the rest.
 
 For reference: MP-BioPath vs curator 83.61%, vs experimental 75.74%; curator vs
 experimental (the human ceiling) 81.98%.
