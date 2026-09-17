@@ -50,6 +50,12 @@ knockout drives targets to 23.03 and `FOXP1` over-expression drives them to
 0.37, the reverse of the curator calls, on a network that is 98.6% activating
 edges.
 
+That is why that pathway scores **19.1%**. Its curator ground truth is balanced
+— 164 down, 164 up, 132 unchanged — so answering "no change" to everything would
+score **28.7%**. MP-BioPath scores below that floor, which is not what
+under-calling looks like; it is predicting backwards. On the identical network
+DeltaSignal called 156/164 knockdowns and 156/164 over-expressions correctly.
+
 Measuring that inversion rate across the 66 pathways where both its raw output
 and its published accuracy exist:
 
