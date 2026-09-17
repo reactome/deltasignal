@@ -5,7 +5,9 @@ resolves gene → stids via a cached Neo4j lookup, and provides BFS / shortest-
 path primitives on the logic network DAG.
 """
 import csv
-import re, json, os
+import json
+import os
+import re
 from collections import defaultdict, deque
 from pathlib import Path
 
@@ -189,14 +191,29 @@ def pathway_dir_index(root: Path) -> dict[str, Path]:
 
     Accepts both the historical `Some_Pathway_Name_R-HSA-12345` layout and a
     bare `R-HSA-12345`, so it keeps working across the naming change.
+
+    Matches any species prefix, not just HSA. The generator names a directory by
+    whatever stable id it is given, so an `R-MMU-` directory is possible; an
+    HSA-only pattern would skip it SILENTLY, which is the same failure mode this
+    function exists to remove. Keyed by the numeric part, because the case dumps
+    and pathway lists carry numeric ids — so a cross-species catalog could
+    collide, and this asserts rather than picking one at random.
     """
     out: dict[str, Path] = {}
     for d in root.iterdir():
         if not d.is_dir():
             continue
-        m = re.search(r"R-HSA-(\d+)$", d.name)
-        if m:
-            out[m.group(1)] = d
+        m = re.search(r"R-[A-Z]{3}-(\d+)$", d.name)
+        if not m:
+            continue
+        pid = m.group(1)
+        if pid in out:
+            raise ValueError(
+                f"Two directories share pathway id {pid}: {out[pid].name} and "
+                f"{d.name}. Ids are keyed numerically here; a mixed-species "
+                "catalog needs the full stable id as the key."
+            )
+        out[pid] = d
     return out
 
 
