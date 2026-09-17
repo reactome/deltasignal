@@ -52,7 +52,7 @@ jobs:
         run: |
           set -u
           failed=""
-          for f in test_config_validation test_and_curves test_cycle_handling test_worked_example test_observation_pinning test_propagator_invariants; do
+          for f in test_config_validation test_and_curves test_cycle_handling test_worked_example test_observation_pinning test_propagator_invariants test_cli_observations; do
             echo "::group::test/$f.jl"
             if julia --project=. "test/$f.jl"; then
               echo "  $f PASSED"
