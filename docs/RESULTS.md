@@ -268,8 +268,18 @@ on the held-out split, which reverses the reading.
 | arm | all pathways | tuning ten | **held-out (70)** |
 |---|---|---|---|
 | phosphatase detection in all compartments | −9 | −7 | **−2** |
-| depletion edges excluded from root detection | −54 | **−55** | **+2** |
+| depletion edges excluded from root detection | −54 | **−55** | **+1** |
 | both together | −26 | −19 | −6 |
+
+The root-detection row is **conditioned on the perturbation set**: a case
+counts only where both arms resolved the same `n_gene_uuids`/`n_ko_uuids`, so
+the two arms answered the same question. 112 of 23,908 cases (0.5%) fail that
+and are excluded; unconditioned the held-out figure reads +2 rather than +1,
+and the tuning figure is unchanged at −55. The conclusion does not move. The
+other two rows predate the conditioning and their dumps were not retained, so
+they are unconditioned — treat them as approximate, and note that a
+cross-network comparison, where resolution differs almost everywhere, moved
+from −1459 to −151 under the same correction.
 
 **The root fix's entire −54 is the tuning ten, and almost all of it is TP53.**
 On the 70 pathways outside the tuning set it is **+2 — neutral**. Rejecting a
