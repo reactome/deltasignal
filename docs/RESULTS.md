@@ -219,6 +219,53 @@ this.
 
 ---
 
+## Generator changes: measured, and re-read on the held-out split
+
+Two real generator defects, found while tracing the `no_path` bucket. Measured
+first across all pathways, where all three arms looked negative — then re-read
+on the held-out split, which reverses the reading.
+
+| arm | all pathways | tuning ten | **held-out (70)** |
+|---|---|---|---|
+| phosphatase detection in all compartments | −9 | −7 | **−2** |
+| depletion edges excluded from root detection | −54 | **−55** | **+2** |
+| both together | −26 | −19 | −6 |
+
+**The root fix's entire −54 is the tuning ten, and almost all of it is TP53.**
+On the 70 pathways outside the tuning set it is **+2 — neutral**. Rejecting a
+correctness fix on that evidence would have been precisely the overfitting the
+paper's protocol exists to prevent.
+
+### The defects
+
+*Phosphatase detection* keyed on `R-ALL-29372`, Pi **[cytosol]** alone, while
+the rule's stated criterion is "the outputs include Pi". Nucleoplasmic (475
+reactions), mitochondrial (343) and extracellular (186) phosphatases were
+invisible. Derived by ChEBI now, 12 species at R97.
+
+*Root detection* computed `sources - targets` **after** depletion edges were
+appended, and counted them. A root is "produced by no reaction in this pathway";
+a depletion edge is not production, it is our own inference. So a depletion edge
+landing on a boundary complex silently deleted its curator-derived subunit
+decomposition. The fix restores 46 assembly edges, among them
+`p-MAPK1 → MAPK1 dimer` and the MAPK3/MAPK7 equivalents.
+
+### What TP53 was doing
+
+The root fix changes 312 predictions there, 239 with a decidable truth, and they
+are direction flips between UP and DOWN landing on the truth 41.1% of the time —
+worse than a coin toss. TP53 is dense enough that direction is unstable to a
+small structural change, and it is a tuning pathway, so that instability should
+not veto a fix that is neutral everywhere else.
+
+### Two method errors, recorded
+
+- "+28 for the compartment fix" was inferred by subtracting arms. Wrong —
+  effects are not additive and the scored denominators differ (23,022 vs
+  22,910). **Measure each arm.**
+- The three arms were first reported as clear negatives from the all-pathways
+  figure alone, before the held-out split was applied. **Split first.**
+
 ## Reproducing
 
 ```bash
