@@ -192,6 +192,10 @@ solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
 env vars only override for benchmark sweeps:
 - `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_sat`, `DS_OR_MODE=mean`,
   `DS_ASSEMBLY_LIMITING=1`, `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-9`,
+  `DS_DEPLETION_H_MIN=0.1` (= 1/`DS_DEPLETION_H_MAX`, so depletion may suppress
+  at most as hard as it may de-repress — it was previously floored at ZERO and
+  could suppress without limit; +28 held-out at p<0.0001, and it costs PIP3
+  93.75%→90.63%. `specs/011` has the record),
   `DS_HILL_LOG_ZMAX=10.0`. Behaviour is pinned by `test/test_and_curves.jl`.
   Re-measured 2026-09-16 on 23,022 wide-curator cases, one variable at a time:
   `specs/009-solver-defaults/research.md`. That supersedes the `hill_sat` /
@@ -236,6 +240,9 @@ for the last feature that touched it rather than re-deriving from the code.
   `research.md` holds the measured A/B including the negative results.
 - `specs/010-and-multiplication-fidelity/` — the AND default above, the
   measured deviation from the specification, and the depth-invariance argument.
+- `specs/011-depletion-suppression-bound/` — the depletion floor above, found
+  by root-causing every gap case and tracing one; includes the floor sweep and
+  the PIP3 regression it costs.
 - `specs/003-solver-objective/` — the solver runs a damped fixed-point
   iteration, not the specified minimisation; `mu` and `gamma` are reported
   but read by nothing. Open.
