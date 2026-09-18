@@ -372,6 +372,16 @@ Roughly 74 of the 90 were bugs. Corrected, the gap is 16.
 set is indistinguishable from a real result. Compare denominators before
 metrics.
 
+**Measured on the experimental axis too**, after an adversarial review found
+the decision had been justified on curator ground truth alone. Same catalog,
+conditioned, 849 of 849 comparable: `hill_log` macro-F1 0.6506 / 617 correct,
+`hill_sat` 0.6487 / 615 — **net −2, both in TP53**. So `hill_sat` is
+marginally worse on both axes in the same direction and at comparable
+magnitude (−0.085pp curator, −0.24pp experimental). No empirical upside to
+point to; the decision rests on correctness and magnitude fidelity. Note that
+every experimentally-evidenced pathway is inside the tuning ten, so there is no
+held-out empirical split for either tool.
+
 **Still unexplained.** Why downward compression helps classification at all.
 It is a 16-case effect, not 90, but it is a consistent paired signal across two
 independent formulations. The likeliest explanation — that lifting suppressed

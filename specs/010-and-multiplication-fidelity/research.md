@@ -124,6 +124,38 @@ doing empirically, it is not an artifact of the zero handling.
 and is **exactly neutral**: 0 of 23,908 predictions and 0 raw `pred_ui` values
 differ.
 
+## The experimental axis
+
+Added 2026-09-17 after an adversarial review found the decision had been
+justified on curator ground truth alone. `docs/RESULTS.md` calls the
+experimental axis "the most important caveat in this document" — DeltaSignal
+reproduces curator *reasoning* far better than its predecessor and is no
+better at predicting experimental *outcomes* — so a default change measured
+only against curators is a gap in the justification, not just in the
+reporting.
+
+Same fresh catalog, same guards, conditioned pairing, 849 of 849 comparable:
+
+| arm | macro-F1 | change-F1 | accuracy |
+|---|---|---|---|
+| `hill_log` | 0.6506 | 0.7919 | 617/849 = 72.67% |
+| `hill_sat` | 0.6487 | 0.7891 | 615/849 = 72.44% |
+
+**Net −2 cases, 0 fixed and 2 broke, both in
+`Transcriptional_Regulation_by_TP53`.**
+
+So `hill_sat` is marginally worse on BOTH axes, in the same direction, at
+comparable magnitude: −16 of 18,808 held-out curator cases (−0.085pp) and −2
+of 849 experimental cases (−0.24pp). The decision therefore rests on
+correctness and magnitude fidelity on both axes rather than trading one
+against the other — which is a cleaner position than if the axes had
+disagreed, but it does mean there is no empirical upside to point to.
+
+**Limitation, unchanged from `RESULTS.md`:** every pathway with experimental
+evidence is inside the paper's tuning ten, so there is no held-out empirical
+test available in this dataset — for either tool. The 849 cases cannot be
+split tuning/held-out the way the curator set can.
+
 ## The decision, and what it costs
 
 **Default changed to `DS_AND_MODE=hill_sat`.** This trades 16 held-out cases
