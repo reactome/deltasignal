@@ -1477,7 +1477,22 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             x_dep = clamp(x[rxn.depletion_indices[k]], zero(T), one(T))
             H_dep *= (bl + eps_dep) / (x_dep + eps_dep)
         end
-        H_dep = clamp(H_dep, zero(T), h_max_dep)
+        # Bound suppression by the SAME factor as de-repression. The old
+        # lower bound was zero, so depletion could suppress a node without
+        # limit while de-repression was capped at h_max -- capped above,
+        # unbounded below, the same asymmetry the AND modes had.
+        #
+        # Traced from a real failure: knocking out EPS15 in Signaling_by_EGFR
+        # de-represses two EGFR:CBL complexes to 100x baseline. Both carry a
+        # negative depletion edge onto free GRB2-1, each contributing
+        # bl/x = 1/100, compounding to 1e-4. GRB2-1:SOS1 followed it down, and
+        # the AND against a genuine 70x EGFR signal produced 0.007 -- so the
+        # readout read DOWN when the truth is UP. The model was asserting that
+        # an abundant complex depletes its free subunit ten-thousand-fold.
+        #
+        # 1/h_max_dep makes the bound symmetric in log space: depletion may
+        # suppress at most as hard as it may de-repress.
+        H_dep = clamp(H_dep, one(T) / h_max_dep, h_max_dep)
     end
 
     # Same rationale as the dict-version compute_reaction_output above:
