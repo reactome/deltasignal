@@ -704,6 +704,7 @@ struct ReactionEvalConfig
     devspec_beta_raw::String
     spec_beta_raw::String
     depletion_h_max::Float64
+    depletion_h_min::Float64
     inhibitor_or::Bool
     or_redundancy::Float64
     or_combine::String
@@ -887,6 +888,15 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         get(ENV, "DS_INHIBITOR_BETA", "1.0"),  # devspec default
         get(ENV, "DS_INHIBITOR_BETA", ""),     # spec default (per-edge when empty)
         _float_env("DS_DEPLETION_H_MAX", 10.0),
+        # Lower bound on depletion suppression. Defaults to 1/h_max, i.e.
+        # symmetric with the de-repression cap in log space: depletion may
+        # suppress at most as hard as it may de-repress. Before this existed
+        # the bound was ZERO, so an abundant complex could deplete its free
+        # subunit without limit and multiple depletion edges compounded
+        # multiplicatively. Configurable so the value can be swept on the
+        # TUNING split without editing code -- the symmetric default is
+        # principled only relative to h_max, which is itself a tuned constant.
+        _float_env("DS_DEPLETION_H_MIN", 1.0 / _float_env("DS_DEPLETION_H_MAX", 10.0)),
         _bool_env("DS_INHIBITOR_OR", false),
         # Clamped: w is documented as [0,1], and w > 1 would invert a
         # knockout (mean 0.96 + (1-w)*min with w=2 gives fold ~1.9, i.e. a KO
@@ -1492,7 +1502,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #
         # 1/h_max_dep makes the bound symmetric in log space: depletion may
         # suppress at most as hard as it may de-repress.
-        H_dep = clamp(H_dep, one(T) / h_max_dep, h_max_dep)
+        H_dep = clamp(H_dep, T(config.depletion_h_min), h_max_dep)
     end
 
     # Same rationale as the dict-version compute_reaction_output above:
