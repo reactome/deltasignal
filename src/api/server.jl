@@ -474,13 +474,18 @@ function pathway_catalog_entries()
     for entry in readdir(CATALOG_DIR; sort=true)
         isdir(joinpath(CATALOG_DIR, entry)) || continue
 
-        # "R-HSA-69620" -- what the generator writes today.
-        m_bare = match(r"^R-HSA-(\d+)$", entry)
+        # "R-HSA-69620" -- what the generator writes today. Any species, not just
+        # human: create-pathways.py passes a non-numeric id through untouched, so
+        # R-MMU-109606 is a valid input and produces a directory of that name.
+        # Matching only R-HSA here would ignore it silently, which is the bug this
+        # function already had in its other form.
+        m_bare = match(r"^R-([A-Z]{3})-(\d+)$", entry)
         if m_bare !== nothing
-            numeric = m_bare.captures[1]
-            stable = "R-HSA-" * numeric
-            push!(get!(groups, numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
-                  (id=entry, stable_id=stable, name=stable, is_rhsa=true))
+            species = m_bare.captures[1]
+            numeric = m_bare.captures[2]
+            push!(get!(groups, species * "-" * numeric,
+                       NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
+                  (id=entry, stable_id=entry, name=entry, is_rhsa=true))
             continue
         end
 
@@ -489,7 +494,7 @@ function pathway_catalog_entries()
             pretty = replace(m_rhsa.captures[1], "_" => " ")
             numeric = m_rhsa.captures[2]
             stable = "R-HSA-" * numeric
-            push!(get!(groups, numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
+            push!(get!(groups, "HSA-" * numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
                   (id=entry, stable_id=stable, name=pretty, is_rhsa=true))
             continue
         end
@@ -498,7 +503,10 @@ function pathway_catalog_entries()
         if m_plain !== nothing
             pretty = replace(m_plain.captures[1], "_" => " ")
             numeric = m_plain.captures[2]
-            push!(get!(groups, numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
+            # A bare numeric directory carries no species; human is the only thing
+            # it can have meant, and keying it that way is what lets
+            # "Name_69620" and "Name_R-HSA-69620" still deduplicate to one entry.
+            push!(get!(groups, "HSA-" * numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
                   (id=entry, stable_id=numeric, name=pretty, is_rhsa=false))
         end
     end
