@@ -331,9 +331,11 @@ baseline. And `0 x anything` never reached 0 — it read 0.0007 to 0.0135 and
 **rose with the co-input**, so an abundant partner partially rescued a
 knockout.
 
-**The cost of correctness is 16 held-out cases.** 93-pathway curator set,
-Release97, one freshly regenerated catalog, conditioned pairing, 0 of 23,908
-cases dropped:
+**The cost of correctness is 16 held-out cases.** Release97, one freshly
+regenerated catalog, conditioned pairing, 0 of 23,908 cases dropped. 81
+pathways scored — 11 tuning (5,100 cases), 70 held out (18,808 cases) — from a
+93-entry list; the rest lack a curator file or, in one case, do not exist in
+Release97:
 
 | arm | held-out net | held-out macro-F1 | all-pathway macro-F1 |
 |---|---|---|---|

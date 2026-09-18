@@ -84,8 +84,12 @@ of the 90 were bugs, not model behaviour.
 
 ## Method
 
-93-pathway curator set, Release97, one shared catalog build regenerated from
-LNG `main` for this measurement. Guards applied before any number was taken,
+Release97, one shared catalog build regenerated from LNG `main` for this
+measurement. The pathway list has 93 entries; **81 are actually scored** — 11
+tuning (5,100 cases) and 70 held out (18,808 cases). Of the rest, 8 have no
+curator file and `R-HSA-9025112 / _NEW_ROCK_signaling_regulates_MRLC_phosphorylation`
+does not exist in Release97 at all (the `_NEW_` prefix marks it as a
+placeholder in MP-BioPath's list). Quote 81, not 93 — 93 is the input list. Guards applied before any number was taken,
 because two earlier A/B runs in this project were invalidated by exactly these:
 
 - **Catalog freshness gated automatically.** The catalog's own
@@ -134,7 +138,8 @@ better at predicting experimental *outcomes* — so a default change measured
 only against curators is a gap in the justification, not just in the
 reporting.
 
-Same fresh catalog, same guards, conditioned pairing, 849 of 849 comparable:
+Same fresh catalog, same guards, conditioned pairing. 10 pathways, 849 of
+849 cases comparable:
 
 | arm | macro-F1 | change-F1 | accuracy |
 |---|---|---|---|
