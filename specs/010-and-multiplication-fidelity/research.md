@@ -84,8 +84,12 @@ of the 90 were bugs, not model behaviour.
 
 ## Method
 
-93-pathway curator set, Release97, one shared catalog build regenerated from
-LNG `main` for this measurement. Guards applied before any number was taken,
+Release97, one shared catalog build regenerated from LNG `main` for this
+measurement. The pathway list has 93 entries; **81 are actually scored** — 11
+tuning (5,100 cases) and 70 held out (18,808 cases). Of the rest, 8 have no
+curator file and `R-HSA-9025112 / _NEW_ROCK_signaling_regulates_MRLC_phosphorylation`
+does not exist in Release97 at all (the `_NEW_` prefix marks it as a
+placeholder in MP-BioPath's list). Quote 81, not 93 — 93 is the input list. Guards applied before any number was taken,
 because two earlier A/B runs in this project were invalidated by exactly these:
 
 - **Catalog freshness gated automatically.** The catalog's own
@@ -123,6 +127,57 @@ doing empirically, it is not an artifact of the zero handling.
 `DS_HILL_SAT_EPS` 1e-5 → 1e-9 was isolated as its own arm on the same catalog
 and is **exactly neutral**: 0 of 23,908 predictions and 0 raw `pred_ui` values
 differ.
+
+## The experimental axis
+
+Added 2026-09-17 after an adversarial review found the decision had been
+justified on curator ground truth alone. `docs/RESULTS.md` calls the
+experimental axis "the most important caveat in this document" — DeltaSignal
+reproduces curator *reasoning* far better than its predecessor and is no
+better at predicting experimental *outcomes* — so a default change measured
+only against curators is a gap in the justification, not just in the
+reporting.
+
+Same fresh catalog, same guards, conditioned pairing. 10 pathways, 849 of
+849 cases comparable:
+
+| arm | macro-F1 | change-F1 | accuracy |
+|---|---|---|---|
+| `hill_log` | 0.6506 | 0.7919 | 617/849 = 72.67% |
+| `hill_sat` | 0.6487 | 0.7891 | 615/849 = 72.44% |
+
+**Net −2 cases, 0 fixed and 2 broke, both in
+`Transcriptional_Regulation_by_TP53`. That is NOT a detectable difference:**
+McNemar exact on the discordant pairs gives **p = 0.50**.
+
+(An earlier draft of this table reported 11 fixed / 30 broke and p = 0.0043 for
+the held-out split. Those were the POOLED discordant pairs across both
+splits, mislabelled. The held-out figures are 9 and 25. The conclusion is
+unchanged — the cost is real — but the numbers were wrong.)
+
+The two axes are therefore not the same result, and an earlier draft of this
+document wrongly described them as "marginally worse on both axes, in the same
+direction, at comparable magnitude". They are not comparable:
+
+| axis | fixed / broke | net | McNemar p | verdict |
+|---|---|---|---|---|
+| curator held-out | 9 / 25 | −16 of 18,808 | **0.0090** | small but REAL cost |
+| curator tuning | 2 / 5 | −3 of 5,100 | 0.4531 | no detectable effect |
+| experimental | 0 / 2 | −2 of 849 | **0.50** | no detectable effect |
+
+As percentages (−0.085pp and −0.24pp) they look similar, which is exactly how
+the over-read happened. On the paired test they are a real signal and a coin
+flip.
+
+So the honest statement is: correct AND arithmetic costs a small, measurable
+amount of agreement with curator reasoning, and has **no measurable effect on
+predicting experimental outcomes**. There is no empirical upside, but there is
+no measured empirical cost either.
+
+**Limitation, unchanged from `RESULTS.md`:** every pathway with experimental
+evidence is inside the paper's tuning ten, so there is no held-out empirical
+test available in this dataset — for either tool. The 849 cases cannot be
+split tuning/held-out the way the curator set can.
 
 ## The decision, and what it costs
 

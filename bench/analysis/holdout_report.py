@@ -23,7 +23,11 @@ from __future__ import annotations
 import argparse
 import collections
 import csv
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import mcnemar_exact  # noqa: E402
 
 # The paper's tuning set. Names as they appear in the curator files.
 TUNING_PATHWAYS = {
@@ -115,7 +119,8 @@ def main() -> int:
         if dropped:
             print(f"  {dropped} of {len(paired)} shared cases dropped: the arms "
                   f"resolved a different perturbation set for them.")
-        print(f"{'split':<26}{'cases':>8}{'baseline':>10}{'arm':>10}{'net':>8}")
+        print(f"{'split':<26}{'cases':>8}{'baseline':>10}{'arm':>10}{'net':>8}"
+              f"{'fixed':>7}{'broke':>7}{'p':>9}")
         for label, keys in (
             ("TUNING (the paper's ten)", [k for k in shared if k[0] in TUNING_PATHWAYS]),
             ("HELD-OUT (report this)", [k for k in shared if k[0] not in TUNING_PATHWAYS]),
@@ -124,8 +129,23 @@ def main() -> int:
                 continue
             b = sum(1 for k in keys if base[k]["predicted"] == base[k]["expected"])
             m = sum(1 for k in keys if arm[k]["predicted"] == arm[k]["expected"])
-            print(f"{label:<26}{len(keys):>8}{b/len(keys):>10.4f}{m/len(keys):>10.4f}{m-b:>+8d}")
+            # Discordant pairs and their exact McNemar p-value. A net figure
+            # alone does not say whether the sign means anything: "-2 of 849"
+            # was 0 fixed / 2 broke, p = 0.50, indistinguishable from a coin
+            # flip, while "-16 of 18,808" was 11 fixed / 30 broke, p = 0.0043.
+            # As percentages those look comparable. They are not.
+            fixed = sum(1 for k in keys
+                        if arm[k]["predicted"] == arm[k]["expected"]
+                        and base[k]["predicted"] != base[k]["expected"])
+            broke = sum(1 for k in keys
+                        if base[k]["predicted"] == base[k]["expected"]
+                        and arm[k]["predicted"] != arm[k]["expected"])
+            pval = mcnemar_exact(fixed, broke)
+            print(f"{label:<26}{len(keys):>8}{b/len(keys):>10.4f}{m/len(keys):>10.4f}"
+                  f"{m-b:>+8d}{fixed:>7}{broke:>7}{pval:>9.4f}")
         print("\nA decision that wins on TUNING but not HELD-OUT is overfitting.")
+        print("p is two-sided exact McNemar on the discordant pairs. p >= 0.05 means"
+              "\nthe net figure's SIGN is not established, whatever its magnitude.")
     return 0
 
 

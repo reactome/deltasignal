@@ -233,3 +233,31 @@ def name_to_id_map(pathway_list: Path) -> dict[str, str]:
         return raw.get(name) or norm.get(name.replace(",", "").rstrip("_"))
 
     return type("M", (), {"get": staticmethod(lambda n, d=None: lookup(n) or d)})()
+
+
+def mcnemar_exact(fixed: int, broke: int) -> float:
+    """Two-sided exact McNemar p-value for a paired arm comparison.
+
+    `fixed` and `broke` are the DISCORDANT pairs: cases the arm got right and
+    the baseline got wrong, and vice versa. Concordant pairs carry no
+    information about which arm is better and are excluded, which is the whole
+    point of the test.
+
+    This exists because net case deltas were being reported as though their
+    sign were meaningful. They are not, on their own: an AND-mode arm read
+    "-2 of 849" on the experimental axis, which is 0 fixed and 2 broke and
+    p = 0.50 -- pure noise -- while "-16 of 18,808" on the curator axis is 11
+    fixed and 30 broke and p = 0.0043, a real signal. The two look comparable
+    as percentages and are not comparable at all.
+
+    Report the p-value beside every net figure, or the reader cannot tell a
+    result from a coin flip.
+    """
+    from math import comb
+
+    n = fixed + broke
+    if n == 0:
+        return 1.0
+    k = min(fixed, broke)
+    tail = sum(comb(n, i) for i in range(k + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
