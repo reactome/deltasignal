@@ -59,6 +59,9 @@ services:
       # here. When the catalyst is knocked out (x → 0), substrate boosted by
       # ~H_max (e.g. PTEN-KO → PIP3 up).
       - DS_DEPLETION_H_MAX=${DS_DEPLETION_H_MAX:-10.0}
+      # Symmetric with H_MAX: depletion may suppress at most as hard as it
+      # de-represses. Was floored at ZERO. See specs/011.
+      - DS_DEPLETION_H_MIN=${DS_DEPLETION_H_MIN:-0.1}
       # Damping for the steady-state penalty solver. 0 = original feed-forward
       # iteration (converges in network-depth steps for acyclic, oscillates in
       # cyclic). >0 = damped x ← (1-λ)·x + λ·F(x), better convergence for
