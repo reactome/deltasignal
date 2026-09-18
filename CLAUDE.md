@@ -243,6 +243,10 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/011-depletion-suppression-bound/` — the depletion floor above, found
   by root-causing every gap case and tracing one; includes the floor sweep and
   the PIP3 regression it costs.
+- `specs/012-self-contained-inhibitors/` — NEGATIVE. An inhibitor containing
+  its own substrate cancels the signal exactly (150 reactions, 22.7% of those
+  with both an activator and an inhibitor), but dropping those edges is −61
+  held-out at p<0.0001: 28 fixed against 89 broken. Mechanism real, fix wrong.
 - `specs/003-solver-objective/` — the solver runs a damped fixed-point
   iteration, not the specified minimisation; `mu` and `gamma` are reported
   but read by nothing. Open.
