@@ -17,7 +17,7 @@ services:
       # AND-cluster aggregator mode for benchmark tuning.
       # Winning config default is hill_log; override via host env
       # (DS_AND_MODE=min|signed|geomean|multiplicative|hill_sat).
-      - DS_AND_MODE=${DS_AND_MODE:-hill_log}
+      - DS_AND_MODE=${DS_AND_MODE:-hill_sat}
       # OR-cluster aggregation. "max" = best-available alternative (default);
       # "mean" = each alternative carries weight (registers single-member knockouts).
       - DS_OR_MODE=${DS_OR_MODE:-mean}

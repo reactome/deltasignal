@@ -190,7 +190,7 @@ The reaction model is driven by `DS_*` environment variables, resolved once per
 solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
 `reaction_model.jl`). The **code defaults are the validated winning config** —
 env vars only override for benchmark sweeps:
-- `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_log`, `DS_OR_MODE=mean`,
+- `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_sat`, `DS_OR_MODE=mean`,
   `DS_ASSEMBLY_LIMITING=1`, `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-9`,
   `DS_HILL_LOG_ZMAX=10.0`. Behaviour is pinned by `test/test_and_curves.jl`.
   Re-measured 2026-09-16 on 23,022 wide-curator cases, one variable at a time:
@@ -202,9 +202,19 @@ env vars only override for benchmark sweeps:
   container, and the tests pin the code defaults, so the divergence made the
   suite fail in the project's own container while measuring a config production
   never ran.
-- `DS_AND_MODE=hill_log` is an **empirical** default, not a principled one.
-  `hill_sat` implements the stated AND intent more faithfully (10x10 = 99.98 vs
-  74.06) and still scores 90 cases worse. Why compression helps is unexplained.
+- `DS_AND_MODE=hill_sat` implements the stated AND intent exactly: AND
+  multiplies fold-changes capped at 100, so 0.5*0.5 = 0.25, 0.1*0.1 = 0.01,
+  `0 x anything` = 0, 10*10 = 100 and 100*100 = 100, all to 0.0%. It costs
+  **16 held-out cases (0.085pp, macro-F1 -0.0014)** against `hill_log` on
+  23,908 conditioned cases, and buys depth-invariant magnitudes: `hill_log`
+  compresses so hard along a cascade that a 100x source reads 74x at one hop
+  and **19x at ten**, so two readouts with identical biology and different
+  path lengths get different predicted folds. `specs/010` has the full
+  justification and the numbers.
+  The earlier record that `hill_sat` "scores 90 cases worse" is **void** — it
+  was measured against a `hill_sat` that could not represent a knockout and
+  inverted its own saturation on wide reactions. Why the remaining 16-case
+  downward compression helps is still unexplained.
 - SCC-condensation solve is on by default (`DS_SCC_SOLVE=1`); the legacy flat
   iteration and the `"fixed_point"` `SteadyStateParams.method` are not used by
   the CLI or API (both use the penalty/SCC path).
@@ -224,6 +234,8 @@ for the last feature that touched it rather than re-deriving from the code.
 
 - `specs/002-upregulation-propagation/` — the AND/assembly defaults above.
   `research.md` holds the measured A/B including the negative results.
+- `specs/010-and-multiplication-fidelity/` — the AND default above, the
+  measured deviation from the specification, and the depth-invariance argument.
 - `specs/003-solver-objective/` — the solver runs a damped fixed-point
   iteration, not the specified minimisation; `mu` and `gamma` are reported
   but read by nothing. Open.

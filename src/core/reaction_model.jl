@@ -808,18 +808,29 @@ rather than silently selecting a different model deeper in the dispatch.
 function resolve_reaction_eval_config()::ReactionEvalConfig
     return ReactionEvalConfig(
         _mode_env("DS_INHIBITION_MODE", "divide"),
-        # hill_sat, not hill_log. The design intent for AND is multiplication
-        # of fold-changes constrained to the 0-100 range — 0.5*0.5=0.25,
-        # 2*0.5=1, and 100*100=100 rather than 10,000 — with the curve
-        # essentially exact near baseline.
+        # hill_sat. AND is multiplication of fold-changes capped at 100 --
+        # 0.5*0.5 = 0.25, 0.1*0.1 = 0.01, 0*x = 0, 10*10 = 100, 100*100 = 100 --
+        # and hill_sat now reproduces that exactly. See
+        # specs/010-and-multiplication-fidelity/research.md.
         #
-        # hill_log tanh-squashes the SUMMED log-fold with z_max=10, and e^10 is
-        # far outside the UI range, so the squashing is active throughout the
-        # operating range instead of only at the ceiling: a lone node at UI 50
-        # reads 41.4 and at UI 100 reads 74.1. It is identity at the 0.85/1.15
-        # classification cutoffs, which is why every previous check passed it.
-        # hill_sat saturates only at the 0 and 100 boundaries, as specified.
-        _mode_env("DS_AND_MODE", "hill_log"),
+        # This costs 16 held-out cases (0.085pp, macro-F1 -0.0014) against
+        # hill_log, measured on 23,908 conditioned cases. It buys correct
+        # arithmetic below baseline, where hill_log read +35% at 0.1*0.1 and
+        # +168% at 0.001, systematically UPWARD, and where `0 x anything` never
+        # reached 0 and rose with the co-input.
+        #
+        # It also buys DEPTH-INVARIANT magnitudes. hill_log's tanh compression
+        # compounds along a cascade: through single-input reactions -- which
+        # have nothing to combine and should be the identity -- a 100x source
+        # arrives as 74x at one hop and 19x at ten, so two readouts with
+        # identical biology and different path lengths get different predicted
+        # folds. That is what made hill_log's continuous outputs unusable as a
+        # scale, which was the reason specs/002 adopted it.
+        #
+        # The prior record of "hill_sat is 90 cases worse" was measured against
+        # a hill_sat that could not represent a knockout AND inverted its own
+        # saturation on wide reactions. Corrected, the gap is 16.
+        _mode_env("DS_AND_MODE", "hill_sat"),
         _mode_env("DS_OR_MODE", "mean"),
         # OFF. The limiting-reactant rule aggregated a complex's subunits with
         # min, and min(elevated, baseline) is EXACTLY baseline — so a complex

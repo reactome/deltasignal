@@ -316,6 +316,68 @@ not veto a fix that is neutral everywhere else.
 - The three arms were first reported as clear negatives from the all-pathways
   figure alone, before the held-out split was applied. **Split first.**
 
+## AND mode: the specification vs the empirical winner
+
+The AND default changed from `hill_log` to `hill_sat` on 2026-09-17.
+`specs/010-and-multiplication-fidelity/research.md` has the full record; the
+numbers that matter for a write-up:
+
+**`hill_log` deviated from the specification below baseline, without bound.**
+AND is specified as multiplication of fold-changes capped at 100. Measured
+against the product: 0.5x2 = 0.0%, 2x2 = −0.9%, 0.5x0.5 = +0.9%,
+0.25x0.25 = **+7.2%**, 0.1x0.1 = **+35.2%**, 0.001x1 = **+167.6%**. The error
+is systematically UPWARD, so every down-regulated value was lifted toward
+baseline. And `0 x anything` never reached 0 — it read 0.0007 to 0.0135 and
+**rose with the co-input**, so an abundant partner partially rescued a
+knockout.
+
+**The cost of correctness is 16 held-out cases.** 93-pathway curator set,
+Release97, one freshly regenerated catalog, conditioned pairing, 0 of 23,908
+cases dropped:
+
+| arm | held-out net | held-out macro-F1 | all-pathway macro-F1 |
+|---|---|---|---|
+| `hill_log` (was default) | — | 0.8152 | 0.7846 |
+| `hill_sat` (now default) | **−16** | 0.8138 (−0.0014) | 0.7835 |
+| `hill_log_asym` (hybrid arm) | −12 | 0.8143 (−0.0010) | 0.7840 |
+
+**The gain is depth-invariant magnitudes, and this is the publishable part.** A
+chain of SINGLE-input reactions has nothing to combine, so it must be the
+identity. It was not:
+
+| source fold | `hill_log` d1 | d5 | d10 | `hill_sat`, any depth |
+|---|---|---|---|---|
+| 100x | 74.1 | 33.5 | **19.1** | **100** |
+| 10x | 9.6 | 8.3 | 7.2 | **10** |
+| 0.1x | 0.104 | 0.120 | 0.139 | **0.1** |
+
+`hill_log` lost 81% of a 100x signal over ten hops, and the loss depended on
+path length — median path length here is ~10 hops. Two readouts with identical
+biology and different path lengths therefore received different predicted
+folds. That is what made those continuous outputs unusable as a scale, which
+was the stated reason `specs/002` adopted `hill_log` in the first place.
+`hill_sat` is exact at every depth.
+
+**The previous justification for `hill_log` was void.** `specs/002` and
+CLAUDE.md recorded `hill_sat` as 90 cases worse. That was measured against a
+`hill_sat` carrying two then-unknown defects: it could not represent a knockout
+(a hardcoded `eps=1e-6` floor against baseline 0.01), and a catastrophic
+cancellation in its 100x cap inverted the saturation on wide reactions, so a
+maximally elevated wide reaction read as ~0 and
+`Class_I_MHC_mediated_antigen_processing_presentation` did not solve at all.
+Roughly 74 of the 90 were bugs. Corrected, the gap is 16.
+
+**Method note.** The cancellation was found because the broken arm scored
+**23,788 cases against the others' 23,908** — a 0.003 macro-F1 gap on a smaller
+set is indistinguishable from a real result. Compare denominators before
+metrics.
+
+**Still unexplained.** Why downward compression helps classification at all.
+It is a 16-case effect, not 90, but it is a consistent paired signal across two
+independent formulations. The likeliest explanation — that lifting suppressed
+values toward baseline masks false DOWN calls in over-coupled regions, making
+it a symptom of over-coupling rather than a property of AND — is untested.
+
 ## Reproducing
 
 ```bash
