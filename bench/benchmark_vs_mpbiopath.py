@@ -77,6 +77,22 @@ KO_AGG = os.environ.get("DS_KO_AGG", "max")
 # Diagnostic: comma-separated logic_network edge_types to drop before solving
 # (e.g. "assembly,dissociation"). Empty = keep all edges.
 SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").split(",") if t.strip()}
+# Diagnostic: drop inhibitor edges whose source CONTAINS one of the same
+# reaction's activators. Such an inhibitor is not an independent variable --
+# it is a partition of the substrate pool, and it rises because the substrate
+# rose. With divide-form inhibition (H = baseline/x) the two cancel, so an
+# elevated substrate produces exactly baseline flux.
+#
+# Traced from a real failure: ATM over-expression in Cell_Cycle_Checkpoints
+# drives CDKN1A mRNA to 76.83x, and "PCBP4 modulates CDKN1A translation" has
+# that mRNA as its activator (76.83x) and PCBP4:CDKN1A mRNA -- a complex
+# CONTAINING the mRNA -- as its inhibitor, also 76.83x. 76.83 * (0.01/0.7683)
+# = 0.9998, so the readout reads exactly baseline and 10 steps of correct
+# propagation are annulled.
+#
+# 150 reactions catalog-wide, 22.7% of those carrying both an activator and an
+# inhibitor, across 37 pathways.
+SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
 
 # Key-output remap for pathways whose 2019 curator ground truth references
 # entities that were deleted/replaced by a later Reactome recuration (the old
@@ -174,6 +190,39 @@ def build_adjacency(pathway_dir: Path) -> dict:
         for row in reader:
             adj[row["source_id"]].append(row["target_id"])
     return adj
+
+
+def self_contained_inhibitor_pairs(pathway_dir: Path) -> set:
+    """(source, target) of inhibitor edges whose source contains an activator
+    of the same reaction. Uses the containment table the generator ships, so
+    nothing is inferred here."""
+    cf = pathway_dir / "containment.csv"
+    if not cf.exists():
+        return set()
+    stid_to_uuids = load_stid_to_uuids(pathway_dir)
+    uuid_to_stid = {u: s for s, us in stid_to_uuids.items() for u in us}
+    contains: dict = {}
+    with open(cf) as f:
+        for row in csv.DictReader(f):
+            contains.setdefault(row["stable_id"], set()).add(row["contains_stable_id"])
+    acts: dict = {}
+    inh_rows = []
+    with open(pathway_dir / "logic_network.csv") as f:
+        for row in csv.DictReader(f):
+            tgt = uuid_to_stid.get(str(row["target_id"]))
+            src = uuid_to_stid.get(str(row["source_id"]))
+            if not (tgt and src):
+                continue
+            if row.get("pos_neg") == "neg":
+                inh_rows.append((str(row["source_id"]), str(row["target_id"]), src, tgt))
+            else:
+                acts.setdefault(tgt, set()).add(src)
+    pairs = set()
+    for su, tu, src, tgt in inh_rows:
+        inside = contains.get(src, set()) - {src}
+        if inside & acts.get(tgt, set()):
+            pairs.add((su, tu))
+    return pairs
 
 
 def load_edge_pairs(pathway_dir: Path, edge_types: set) -> set:
@@ -507,16 +556,20 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     edges = parsed["edges"]
     # Diagnostic A/B: drop synthetic boundary edges (assembly/dissociation) of a
     # given type at solve time, to isolate their effect without regenerating.
+    skip_pairs = set()
     if SKIP_EDGE_TYPES:
-        skip_pairs = load_edge_pairs(pathway_dir, SKIP_EDGE_TYPES)
-        if skip_pairs:
-            edges = [e for e in edges
-                     if (str(e["parent_uuid"]), str(e["child_uuid"])) not in skip_pairs]
+        skip_pairs |= load_edge_pairs(pathway_dir, SKIP_EDGE_TYPES)
+    if SKIP_SELF_CONTAINED_INHIBITORS:
+        skip_pairs |= self_contained_inhibitor_pairs(pathway_dir)
+    if skip_pairs:
+        edges = [e for e in edges
+                 if (str(e["parent_uuid"]), str(e["child_uuid"])) not in skip_pairs]
     network_payload = {"nodes": parsed["nodes"], "edges": edges, "pathways": parsed["pathways"]}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
-    solve_network_id = parsed.get("network_id") if not SKIP_EDGE_TYPES else None
+    modified = bool(SKIP_EDGE_TYPES) or SKIP_SELF_CONTAINED_INHIBITORS
+    solve_network_id = parsed.get("network_id") if not modified else None
 
     total = 0
     correct = 0
