@@ -377,10 +377,14 @@ metrics.
 **Measured on the experimental axis too**, after an adversarial review found
 the decision had been justified on curator ground truth alone. Same catalog,
 conditioned, 849 of 849 comparable: `hill_log` macro-F1 0.6506 / 617 correct,
-`hill_sat` 0.6487 / 615 — **net −2, both in TP53**. So `hill_sat` is
-marginally worse on both axes in the same direction and at comparable
-magnitude (−0.085pp curator, −0.24pp experimental). No empirical upside to
-point to; the decision rests on correctness and magnitude fidelity. Note that
+`hill_sat` 0.6487 / 615 — **net −2, both in TP53, which is 0 fixed and 2
+broke and McNemar p = 0.50: no detectable difference.** The curator cost by
+contrast is 9 fixed / 25 broke on the held-out split, p = 0.0090 — small but
+real; on the tuning ten it is 2 / 5, p = 0.4531, not detectable. As percentages
+(−0.085pp and −0.24pp) the two axes look similar; on the paired test one is a
+signal and the other is a coin flip. So: correct AND arithmetic costs a
+measurable amount of agreement with curator *reasoning* and has no measurable
+effect on predicting experimental *outcomes*. Note that
 every experimentally-evidenced pathway is inside the tuning ten, so there is no
 held-out empirical split for either tool.
 

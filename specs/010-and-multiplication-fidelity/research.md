@@ -147,14 +147,32 @@ Same fresh catalog, same guards, conditioned pairing. 10 pathways, 849 of
 | `hill_sat` | 0.6487 | 0.7891 | 615/849 = 72.44% |
 
 **Net −2 cases, 0 fixed and 2 broke, both in
-`Transcriptional_Regulation_by_TP53`.**
+`Transcriptional_Regulation_by_TP53`. That is NOT a detectable difference:**
+McNemar exact on the discordant pairs gives **p = 0.50**.
 
-So `hill_sat` is marginally worse on BOTH axes, in the same direction, at
-comparable magnitude: −16 of 18,808 held-out curator cases (−0.085pp) and −2
-of 849 experimental cases (−0.24pp). The decision therefore rests on
-correctness and magnitude fidelity on both axes rather than trading one
-against the other — which is a cleaner position than if the axes had
-disagreed, but it does mean there is no empirical upside to point to.
+(An earlier draft of this table reported 11 fixed / 30 broke and p = 0.0043 for
+the held-out split. Those were the POOLED discordant pairs across both
+splits, mislabelled. The held-out figures are 9 and 25. The conclusion is
+unchanged — the cost is real — but the numbers were wrong.)
+
+The two axes are therefore not the same result, and an earlier draft of this
+document wrongly described them as "marginally worse on both axes, in the same
+direction, at comparable magnitude". They are not comparable:
+
+| axis | fixed / broke | net | McNemar p | verdict |
+|---|---|---|---|---|
+| curator held-out | 9 / 25 | −16 of 18,808 | **0.0090** | small but REAL cost |
+| curator tuning | 2 / 5 | −3 of 5,100 | 0.4531 | no detectable effect |
+| experimental | 0 / 2 | −2 of 849 | **0.50** | no detectable effect |
+
+As percentages (−0.085pp and −0.24pp) they look similar, which is exactly how
+the over-read happened. On the paired test they are a real signal and a coin
+flip.
+
+So the honest statement is: correct AND arithmetic costs a small, measurable
+amount of agreement with curator reasoning, and has **no measurable effect on
+predicting experimental outcomes**. There is no empirical upside, but there is
+no measured empirical cost either.
 
 **Limitation, unchanged from `RESULTS.md`:** every pathway with experimental
 evidence is inside the paper's tuning ten, so there is no held-out empirical
