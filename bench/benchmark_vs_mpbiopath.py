@@ -93,6 +93,24 @@ SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").s
 # 150 reactions catalog-wide, 22.7% of those carrying both an activator and an
 # inhibitor, across 37 pathways.
 SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
+# Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
+# same reaction. An entity that is both the catalyst and a substrate of one
+# reaction currently contributes TWICE to the AND product, so its fold-change
+# is squared -- a 5x input yields 25x.
+#
+# Traced from a real failure: TP53 knockout in Cell_Cycle_Checkpoints reaches
+# "MDM2 ubiquitinates phosphorylated MDM4", whose activator edges are Ub (1x)
+# plus MDM2:MDM4 as BOTH input and catalyst (5x each). 5 * 5 = 25, and the
+# readout reads UP where the curator expects no change.
+#
+# 7,013 reactions catalog-wide -- 15.8% of all reactions with 2+ activator
+# edges, across 78 pathways -- and the repeated role pair is catalyst+input in
+# 7,042 of 7,045 cases.
+#
+# NOTE: a "dedup activators" arm was recorded as negative previously, at
+# p = 0.25 on the 742-case set. That is not significant, and that set has
+# reversed decisions twice. This re-measures on the wide curator set.
+DEDUP_ACTIVATORS = os.environ.get("DS_DEDUP_ACTIVATORS", "0") == "1"
 
 # Key-output remap for pathways whose 2019 curator ground truth references
 # entities that were deleted/replaced by a later Reactome recuration (the old
@@ -190,6 +208,25 @@ def build_adjacency(pathway_dir: Path) -> dict:
         for row in reader:
             adj[row["source_id"]].append(row["target_id"])
     return adj
+
+
+def duplicate_activator_edges(edges: list) -> set:
+    """Indices of activator edges that repeat a (source, target) already seen.
+
+    Keeps the first occurrence, drops the rest, so the entity contributes once
+    to the AND product instead of once per role it plays.
+    """
+    seen = set()
+    drop = set()
+    for i, e in enumerate(edges):
+        if not e.get("is_positive", True):
+            continue
+        key = (str(e["parent_uuid"]), str(e["child_uuid"]))
+        if key in seen:
+            drop.add(i)
+        else:
+            seen.add(key)
+    return drop
 
 
 def self_contained_inhibitor_pairs(pathway_dir: Path) -> set:
@@ -564,11 +601,15 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     if skip_pairs:
         edges = [e for e in edges
                  if (str(e["parent_uuid"]), str(e["child_uuid"])) not in skip_pairs]
+    if DEDUP_ACTIVATORS:
+        drop = duplicate_activator_edges(edges)
+        if drop:
+            edges = [e for i, e in enumerate(edges) if i not in drop]
     network_payload = {"nodes": parsed["nodes"], "edges": edges, "pathways": parsed["pathways"]}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
-    modified = bool(SKIP_EDGE_TYPES) or SKIP_SELF_CONTAINED_INHIBITORS
+    modified = bool(SKIP_EDGE_TYPES) or SKIP_SELF_CONTAINED_INHIBITORS or DEDUP_ACTIVATORS
     solve_network_id = parsed.get("network_id") if not modified else None
 
     total = 0
