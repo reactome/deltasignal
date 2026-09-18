@@ -107,7 +107,7 @@ end
     @test and_fold([0.0, 1.0]; mode="hill_sat", eps="1e-5") < 0.01
 end
 
-@testset "defaults are what measured best, which is NOT the design intent" begin
+@testset "defaults ARE the design intent (specs/010)" begin
     # An honest name, because these two disagree and the tension is real.
     #
     # specs/002 R5 argued `hill_sat` implements Adam's stated AND intent --
@@ -131,7 +131,7 @@ end
         haskey(ENV, name) && delete!(ENV, name)
     end
     config = resolve_reaction_eval_config()
-    @test config.and_mode == "hill_log"
+    @test config.and_mode == "hill_sat"
     @test config.assembly_limiting == true
     # Inert while and_mode is hill_log; kept correctly sized so switching the
     # AND mode cannot silently restore a 10%-of-baseline epsilon.

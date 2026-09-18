@@ -83,15 +83,18 @@ ko(u) = Dict(u => (0.0, 1.0))
         out(is_and, a, b) = solve_ui(two_input(is_and),
                                      Dict("P1" => (a, 1.0), "P2" => (b, 1.0)))[1]["T"]
 
-        # Monotone in the co-input, yet never reaches baseline.
-        prev = -Inf
+        # A zero AND input cannot be compensated by ANY co-input magnitude.
+        #
+        # Under the old hill_log default this read 0.00070 / 0.00252 / 0.00781 /
+        # 0.01350 for co = 1 / 10 / 50 / 100 -- below baseline, but RISING with
+        # the co-input, because a hardcoded eps of 1e-6 against baseline 0.01
+        # floored the fold instead of zeroing it. An abundant partner therefore
+        # partially "rescued" a knockout, which is the opposite of AND. With
+        # hill_sat (specs/010) it is exactly 0 for every co-input, so the old
+        # monotone-in-co-input assertion is gone: it pinned that artifact.
         for co in (1.0, 10.0, 50.0, 100.0)
-            v = out(true, 0.0, co)
-            @test v < 1.0          # cannot be held up to baseline
-            @test v > prev         # but the co-input does lift it
-            prev = v
+            @test out(true, 0.0, co) == 0.0
         end
-        @test out(true, 0.0, 100.0) < 0.02
 
         # OR is rescued, which is why the OR-joined cycle satisfies US1.
         @test out(false, 0.0, 100.0) > 1.0
@@ -168,9 +171,14 @@ ko(u) = Dict(u => (0.0, 1.0))
             [x[u2i[u]] for u in LOOP_NODES]
         end
 
+        # atol is the smooth-max epsilon scale, not machine precision: the
+        # collapsed loop settles ON that floor (~2.5e-8 in UI terms), so
+        # different starting points agree to the floor rather than to 1e-12.
+        # The claim being tested is "same fixed point regardless of where the
+        # iteration starts", which this still tests.
         reference = settle(0.0)
         for start in (0.01, 0.1, 0.3, 0.5, 0.8, 1.0)
-            @test settle(start) ≈ reference atol = 1e-12
+            @test settle(start) ≈ reference atol = 1e-6
         end
     end
 

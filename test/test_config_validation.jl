@@ -153,7 +153,7 @@ end
     # over 564 experimental cases; on the curator set those same two choices
     # cost -90 and -196 respectively. The wide set decides (FR-008), so they
     # are reverted here. Attribution and numbers: specs/009-solver-defaults.
-    @test config.and_mode == "hill_log"
+    @test config.and_mode == "hill_sat"
     @test config.or_mode == "mean"
     @test config.assembly_limiting == true
     # Only consulted when and_mode is hill_sat, so inert at the current

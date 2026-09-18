@@ -49,8 +49,8 @@ end
 
     @testset "the config these numbers describe" begin
         # Fail FAST and by name if the resolved config is not the one these
-        # magic numbers were measured under. Without this the suite fails with
-        # bare assertion errors -- 74.07 became something else -- and reads as
+        # numbers describe. Without this the suite fails with bare assertion
+        # errors and reads as
         # "the propagator broke" rather than "DS_AND_MODE is overridden in this
         # shell". That is the exact confusion CLAUDE.md records from the six
         # days docker-compose.dev.yml drifted from the code defaults.
@@ -59,12 +59,12 @@ end
         # characterization tests for the SHIPPED default, so an accidental
         # change to that default should surface here, not be masked.
         cfg = DeltaSignal.resolve_reaction_eval_config()
-        @test cfg.and_mode == "hill_log"
+        @test cfg.and_mode == "hill_sat"
         @test cfg.inhibition_mode == "divide"
         @test cfg.or_mode == "mean"
         @test cfg.assembly_limiting
-        if cfg.and_mode != "hill_log" || cfg.inhibition_mode != "divide"
-            @warn "Propagator invariants describe and_mode=hill_log / " *
+        if cfg.and_mode != "hill_sat" || cfg.inhibition_mode != "divide"
+            @warn "Propagator invariants describe and_mode=hill_sat / " *
                   "inhibition_mode=divide. The resolved config differs, so the " *
                   "magnitudes below WILL fail. Check DS_* in this environment." cfg
         end
@@ -94,21 +94,23 @@ end
         @test fold(act, Dict("P" => (100.0, 1.0)), "T") > 10.0
     end
 
-    @testset "aggregation mode is NOT a no-op for a single input" begin
-        # A lone activator has nothing to combine with, so AND and OR should
-        # agree. They do not: the AND path applies hill_log compression to a
-        # single input, the OR path (mean of one) is exact.
+    @testset "aggregation mode IS a no-op for a single input" begin
+        # A lone activator has nothing to combine with, so AND and OR must
+        # agree. Under the old hill_log default they did NOT: AND applied tanh
+        # compression to a single input, giving 74.07 for a 100x source where
+        # OR gave 100.0, and 0.0007 for a knockout where OR gave 0. That
+        # asymmetry is gone -- specs/010.
         and_net = mknet(["P", "T"], [edge("P", "T"; is_and=true)])
         or_net  = mknet(["P", "T"], [edge("P", "T"; is_and=false)])
 
-        @test fold(or_net,  Dict("P" => (100.0, 1.0)), "T") ≈ 100.0 rtol=1e-6
-        @test fold(and_net, Dict("P" => (100.0, 1.0)), "T") ≈ 74.0673 rtol=1e-4
-        @test fold(and_net, Dict("P" => (100.0, 1.0)), "T") <
-              fold(or_net,  Dict("P" => (100.0, 1.0)), "T")
-
-        # A knockout is exact through OR and very nearly exact through AND.
-        @test fold(or_net,  Dict("P" => (0.0, 1.0)), "T") ≈ 0.0 atol=1e-9
-        @test fold(and_net, Dict("P" => (0.0, 1.0)), "T") < 1e-3
+        for f in (0.0, 0.5, 1.0, 2.0, 100.0)
+            a = fold(and_net, Dict("P" => (f, 1.0)), "T")
+            o = fold(or_net,  Dict("P" => (f, 1.0)), "T")
+            @test a ≈ o rtol=1e-6
+        end
+        # And both are the identity, which is what a single input means.
+        @test fold(and_net, Dict("P" => (100.0, 1.0)), "T") ≈ 100.0 rtol=1e-6
+        @test fold(and_net, Dict("P" => (0.0, 1.0)), "T") == 0.0
     end
 
     @testset "monotonicity holds in both directions" begin
@@ -131,26 +133,29 @@ end
         end
     end
 
-    @testset "signal decays toward baseline with path depth" begin
-        # A single-input chain is not identity: hill_log compression compounds.
-        # UI 100 arrives as 19.1 after ten hops, which is roughly the median
-        # path length in the catalog.
-        @test chain_fold(1, 100.0) ≈ 74.0673 rtol=1e-4
-        @test chain_fold(10, 100.0) ≈ 19.14 rtol=1e-2
-        @test chain_fold(40, 100.0) < chain_fold(10, 100.0)
-
-        # Baseline is the fixed point: it must not decay at any depth.
-        for d in (1, 5, 20, 40)
-            @test chain_fold(d, 1.0) ≈ 1.0 rtol=1e-12
+    @testset "magnitude is preserved through path depth" begin
+        # A chain of SINGLE-input reactions has nothing to combine at any step,
+        # so it must be the identity at every depth. Under the old hill_log
+        # default it was not: tanh compression compounded, and a 100x source
+        # read 74x at one hop, 33x at five and 19x at ten. Two readouts with
+        # identical biology and different path lengths therefore received
+        # different predicted folds, which is what made those magnitudes
+        # unusable as a scale. specs/010 has the table.
+        for f in (0.1, 0.5, 2.0, 10.0, 100.0)
+            for d in (1, 5, 10, 20)
+                @test chain_fold(d, f) ≈ f rtol=1e-6
+            end
         end
 
-        # The decay is SYMMETRIC in log-fold -- it is a function of magnitude,
-        # not of direction. This is why it does not bias the model up or down,
-        # and why it is not the explanation for the de-repression deficit.
-        retained(f) = log2(chain_fold(10, f)) / log2(f)
-        @test retained(0.01) ≈ retained(100.0) rtol=0.02
-        @test retained(0.1) ≈ retained(10.0)  rtol=0.02
-        @test 0.6 < retained(100.0) < 0.7
+        # Baseline is the fixed point, at any depth.
+        for d in (1, 5, 20, 40)
+            @test chain_fold(d, 1.0) ≈ 1.0 rtol=1e-9
+        end
+
+        # Depth-invariance stated directly: the same source fold gives the same
+        # answer one hop away and ten.
+        @test chain_fold(1, 100.0) ≈ chain_fold(10, 100.0) rtol=1e-6
+        @test chain_fold(1, 0.1) ≈ chain_fold(10, 0.1) rtol=1e-6
     end
 
     @testset "nothing drifts off baseline" begin
