@@ -447,10 +447,26 @@ function catalog_network_paths(pathway_id::String)
     return (logic, uuid, nothing)  # generator has no set_mappings
 end
 
-# Build a deduplicated, pretty-named catalog from CATALOG_DIR contents.
-# Directory names look like "Cell_Cycle_Checkpoints_69620" or
-# "Cell_Cycle_Checkpoints_R-HSA-69620". Group by trailing numeric id;
-# prefer the R-HSA variant when both exist.
+# Build a deduplicated catalog from CATALOG_DIR contents.
+#
+# The generator names a pathway directory by its stable id and nothing else --
+# "R-HSA-69620". It used to be "{name}_{id}", and it stopped because names are
+# data: they gain commas, lose trailing underscores and get recurated. On
+# Release97 three differ between the curator files and the directories, and
+# matching on name silently misfiled 438 of 1,484 cases.
+#
+# This function only understood the old spelling, so a freshly generated catalog
+# produced an EMPTY list -- no error, no log, just no pathways, because entries
+# that match neither pattern are skipped. That is the whole reason /api/pathways
+# returned [] on the Reactome dev box.
+#
+# Bare ids are now accepted, and **no name is invented for them**. The pathway
+# name is not in the generator's output and this service has no business guessing
+# it: `name` falls back to the stable id, and a consumer that wants a readable
+# label looks it up in Reactome by that id, as the generator's own comment asks.
+#
+# The two older "{name}_{id}" spellings still work, so an existing catalog keeps
+# its names.
 function pathway_catalog_entries()
     isdir(CATALOG_DIR) || return Vector{Dict{String, String}}()
 
@@ -458,12 +474,27 @@ function pathway_catalog_entries()
     for entry in readdir(CATALOG_DIR; sort=true)
         isdir(joinpath(CATALOG_DIR, entry)) || continue
 
+        # "R-HSA-69620" -- what the generator writes today. Any species, not just
+        # human: create-pathways.py passes a non-numeric id through untouched, so
+        # R-MMU-109606 is a valid input and produces a directory of that name.
+        # Matching only R-HSA here would ignore it silently, which is the bug this
+        # function already had in its other form.
+        m_bare = match(r"^R-([A-Z]{3})-(\d+)$", entry)
+        if m_bare !== nothing
+            species = m_bare.captures[1]
+            numeric = m_bare.captures[2]
+            push!(get!(groups, species * "-" * numeric,
+                       NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
+                  (id=entry, stable_id=entry, name=entry, is_rhsa=true))
+            continue
+        end
+
         m_rhsa = match(r"^(.*)_R-HSA-(\d+)$", entry)
         if m_rhsa !== nothing
             pretty = replace(m_rhsa.captures[1], "_" => " ")
             numeric = m_rhsa.captures[2]
             stable = "R-HSA-" * numeric
-            push!(get!(groups, numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
+            push!(get!(groups, "HSA-" * numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
                   (id=entry, stable_id=stable, name=pretty, is_rhsa=true))
             continue
         end
@@ -472,7 +503,10 @@ function pathway_catalog_entries()
         if m_plain !== nothing
             pretty = replace(m_plain.captures[1], "_" => " ")
             numeric = m_plain.captures[2]
-            push!(get!(groups, numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
+            # A bare numeric directory carries no species; human is the only thing
+            # it can have meant, and keying it that way is what lets
+            # "Name_69620" and "Name_R-HSA-69620" still deduplicate to one entry.
+            push!(get!(groups, "HSA-" * numeric, NamedTuple{(:id, :stable_id, :name, :is_rhsa)}[]),
                   (id=entry, stable_id=numeric, name=pretty, is_rhsa=false))
         end
     end
