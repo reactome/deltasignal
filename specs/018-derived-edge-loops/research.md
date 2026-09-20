@@ -96,3 +96,38 @@ label-independent (836 → 34-node components); the AKT-KO cases stay correct
 false change *down* in the loop-heavy pathways; and the catalyst-break
 history (TP53 +104 / held-out −65 when catalysts alone were frozen) says the
 catalyst role must be measured separately from assembly + depletion.
+
+## Results
+
+### Pre-registration (committed before the arms ran)
+
+Arms on `cat_os`, production defaults, from a worktree pinned to the committed
+SHA (logged per arm); baseline `ab_fixed_point_ctrl.tsv` — the current tree,
+`--max-edges 40000`, 24,100 cases, bit-identical to the September-18 dump on
+the 23,908 shared keys. Role lists: **A** `assembly,depletion` (our derived
+classes), **C** `catalyst` (Reactome's recycling closures, now with component
+recomputation), **ACD** all three. Curator held-out / tuning with
+concentration, false change, per-pathway net, McNemar p; experimental axis for
+each; the 102 TP53 AKT1/AKT2-KO cases (100 correct in the control); relabel
+churn on `cat_perm` for any list that wins.
+
+- **P1 (structure, A).** TP53's largest component after recomputation ≤ 60
+  nodes (836), DSB's ≤ 150 (1,127); catalog-wide cyclic components ≤ 210
+  (258). The TP53 AKT1-KO solve converges. Closures: ~2,000 assembly, ~850
+  depletion.
+- **P2 (accuracy, A).** Held-out vs control **≥ +20**, p < 0.05, ≥ 5 pathways
+  and ≥ 10 genes, false change **down** in the loop-heavy pathways (the
+  welds were the rails); TP53 loses ≤ 10 of the 100 AKT-KO cases (the
+  AKT → MDM2 → TP53 route is backbone, not derived); experimental conditioned
+  net ≥ −5.
+- **P3 (C).** Catalyst closures alone reproduce the June pattern in sign —
+  TP53 tuning up, held-out **negative** — because signal-carrying catalysts
+  are read at entry; if instead held-out is ≥ 0, recomputation was what the
+  June knob lacked.
+- **P4 (ACD).** Not better than A on held-out (the catalyst half costs what it
+  costs in P3).
+- **P5 (decision).** Adopt A only if P2 holds in full; a gain carried by one
+  pathway (> 50% of the net) is reported as such and not adopted. If A loses
+  held-out, the closure reading (entry value) is the wrong semantics for
+  derived edges and the next candidate is reading them feed-forward from the
+  recomputed order without `supply` — recorded, not built.

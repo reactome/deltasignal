@@ -145,7 +145,11 @@ Response:
   `fallback_negative`, `fallback_inconsistent`, `pooled_nodes`. Under the
   default `fixed_point`, `pooled` is 0 and `iterated` counts the cyclic
   components. A benchmark arm that expects pooling checks `pooled > 0` here
-  instead of trusting the environment.
+  instead of trusting the environment. With `DS_SCC_BREAK_ROLES` set
+  (specs/018) it also carries `break_roles`, `closures_catalyst` /
+  `closures_assembly` / `closures_depletion` (edges read at their entry value)
+  and `cyclic_before` / `cyclic_after` / `largest_after` (component census
+  before and after recomputation).
 - **`influence_scores`**: `uuid → Σ|∂F/∂input|` at the solution, computed with
   the same propagator as the solve (so inhibitors carry real influence). Use for
   a "what drove this?" view; higher = more influential.

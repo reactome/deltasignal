@@ -421,6 +421,10 @@ struct IndexedReaction
                                             # unphysical; protein-level feedback
                                             # (no gene input) keeps full strength.
     depletion_indices::Vector{Int}          # catalyst→substrate "consumption"
+    depletion_break::Vector{Bool}           # per-depletion: a recycling CLOSURE
+                                            # (source and target in one SCC) under
+                                            # DS_SCC_BREAK_ROLES=depletion; read at
+                                            # the component-entry value (`supply`).
     depletion_own_product::Vector{Bool}     # per-depletion: is the depleter a
                                             # direct product of a reaction that
                                             # consumes this target (X -> R -> P,
@@ -500,7 +504,8 @@ function index_reactions(
     reactions::Vector{Reaction},
     uuid_to_idx::Dict{String, Int},
     baselines::Dict{String, Float64},
-    gene_uuids::Set{String} = Set{String}(),
+    gene_uuids::Set{String} = Set{String}();
+    stats::Union{Nothing, Dict{String, Any}} = nothing,
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # Node indices that are gene entities (inputs to transcription/expression
     # reactions). Used to detect transcriptional autoregulation loops.
@@ -608,8 +613,76 @@ function index_reactions(
     # components are needed when it is on even under the legacy flat solve --
     # otherwise DS_LOOP_ELASTICITY<1 with DS_SCC_SOLVE=0 was a silent no-op.
     elastic = _float_env("DS_LOOP_ELASTICITY", 1.0) < 1.0
-    comp_id, n_comp = (scc_solve || break_catalyst || elastic) ?
+    # DS_SCC_BREAK_ROLES (specs/018): comma list from {catalyst, assembly,
+    # depletion}. An edge of a listed role whose source and target share a
+    # first-pass SCC is a recycling CLOSURE: it keeps its feed-forward meaning
+    # (read at the component-entry value through `supply`) but does not feed a
+    # value back around the cycle, and components are recomputed without those
+    # edges so a component welded together by our own derived edges falls apart
+    # into its reaction-level cycles. Measured motivation: removing assembly +
+    # depletion edges takes TP53's component from 836 nodes to 34 and DSB's
+    # from 1,127 to 126; MP-BioPath's hand-curated networks keep the reaction
+    # backbone inside our cycles and essentially never carry these classes.
+    break_roles = _break_roles_env()
+    roles_on = !isempty(break_roles)
+    comp_id, n_comp = (scc_solve || break_catalyst || elastic || roles_on) ?
         tarjan_scc_components(fwd_adj) : (Int[], 0)
+    n_comp_pass1 = n_comp
+    closure_act = [falses(length(rec.act_indices)) for rec in raw]
+    closure_dep = [falses(length(rec.dep_indices)) for rec in raw]
+    n_closure = Dict("catalyst" => 0, "assembly" => 0, "depletion" => 0)
+    if roles_on && !isempty(comp_id)
+        cyclic_before = count(c -> c > 0, let sz = zeros(Int, n_comp); (for c in comp_id; c >= 1 && (sz[c] += 1); end); [s > 1 ? 1 : 0 for s in sz] end)
+        fwd_adj2 = [copy(s) for s in fwd_adj]
+        @inbounds for (ri, rec) in enumerate(raw)
+            t = rec.target_idx
+            for k in eachindex(rec.act_indices)
+                s = rec.act_indices[k]
+                comp_id[s] == comp_id[t] || continue
+                role = rec.act_is_catalyst[k] ? "catalyst" : (rec.act_is_assembly[k] ? "assembly" : "")
+                if role in break_roles
+                    closure_act[ri][k] = true; n_closure[role] += 1
+                    # drop only if no other edge from s to t survives (Set semantics: one entry per pair)
+                    delete!(fwd_adj2[s], t)
+                end
+            end
+            for k in eachindex(rec.dep_indices)
+                s = rec.dep_indices[k]
+                if "depletion" in break_roles && comp_id[s] == comp_id[t]
+                    closure_dep[ri][k] = true; n_closure["depletion"] += 1
+                    delete!(fwd_adj2[s], t)
+                end
+            end
+        end
+        # an s->t pair may carry several edges; restore the adjacency for any pair that
+        # still has a non-closure edge
+        @inbounds for (ri, rec) in enumerate(raw)
+            t = rec.target_idx
+            for k in eachindex(rec.act_indices)
+                closure_act[ri][k] || push!(fwd_adj2[rec.act_indices[k]], t)
+            end
+            for i in rec.inh_indices; push!(fwd_adj2[i], t); end
+            for k in eachindex(rec.dep_indices)
+                closure_dep[ri][k] || push!(fwd_adj2[rec.dep_indices[k]], t)
+            end
+            for sb in rec.sub_indices; push!(fwd_adj2[sb], t); end
+        end
+        comp_id, n_comp = tarjan_scc_components(fwd_adj2)
+        if stats !== nothing
+            sz = zeros(Int, n_comp); for c in comp_id; c >= 1 && (sz[c] += 1); end
+            stats["scc_closures_catalyst"] = n_closure["catalyst"]
+            stats["scc_closures_assembly"] = n_closure["assembly"]
+            stats["scc_closures_depletion"] = n_closure["depletion"]
+            stats["scc_cyclic_before"] = cyclic_before
+            stats["scc_cyclic_after"] = count(>(1), sz)
+            stats["scc_largest_after"] = isempty(sz) ? 0 : maximum(sz)
+        end
+    elseif stats !== nothing
+        stats["scc_closures_catalyst"] = 0; stats["scc_closures_assembly"] = 0; stats["scc_closures_depletion"] = 0
+        sz = zeros(Int, n_comp); for c in comp_id; c >= 1 && (sz[c] += 1); end
+        stats["scc_cyclic_before"] = count(>(1), sz); stats["scc_cyclic_after"] = count(>(1), sz)
+        stats["scc_largest_after"] = isempty(sz) ? 0 : maximum(sz)
+    end
 
     # Second pass: for each (target, inhibitor) pair, BFS forward from the
     # target up to max_depth hops to see if the inhibitor is reachable. If so,
@@ -617,7 +690,7 @@ function index_reactions(
     # eligible for DS_INHIBITOR_FLOOR dampening.
     max_depth = parse(Int, get(ENV, "DS_LOOP_DEPTH", "3"))
     indexed = IndexedReaction[]
-    for rec in raw
+    for (ri, rec) in enumerate(raw)
         in_loop = Bool[]
         for inh in rec.inh_indices
             found = false
@@ -678,7 +751,7 @@ function index_reactions(
         # it for relaxation under DS_SCC_SOLVE. All-false when SCC solve is off.
         act_break = Bool[]
         for k in eachindex(rec.act_indices)
-            brk = false
+            brk = closure_act[ri][k]
             if break_catalyst && rec.act_is_catalyst[k]
                 src = rec.act_indices[k]
                 if comp_id[src] == comp_id[rec.target_idx]
@@ -739,7 +812,7 @@ function index_reactions(
             rec.act_indices, rec.act_is_and, act_break, act_in_loop,
             rec.act_is_assembly, comp_redundant, rec.act_group,
             rec.inh_indices, rec.inh_is_and, in_loop, in_transcription,
-            rec.dep_indices, dep_own,
+            rec.dep_indices, closure_dep[ri], dep_own,
             rec.sub_indices, rec.params,
         ))
     end
@@ -887,6 +960,28 @@ const DS_VALID_MODES = Dict(
     "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only"]),
     "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
 )
+
+const DS_BREAK_ROLES = Set(["catalyst", "assembly", "depletion"])
+
+"""
+`DS_SCC_BREAK_ROLES`: comma-separated roles whose cycle-closing edges are read
+at the component-entry value and excluded from component detection
+(specs/018). Empty (default) = off. A misspelt role is a startup error.
+"""
+function _break_roles_env()::Set{String}
+    raw = strip(get(ENV, "DS_SCC_BREAK_ROLES", ""))
+    isempty(raw) && return Set{String}()
+    roles = Set{String}()
+    for tok in split(raw, ",")
+        r = String(strip(tok))
+        isempty(r) && continue
+        r in DS_BREAK_ROLES || throw(ArgumentError(
+            "DS_SCC_BREAK_ROLES=$raw: \"$r\" is not a role; expected a comma list from " *
+            "\"catalyst\", \"assembly\", \"depletion\"."))
+        push!(roles, r)
+    end
+    return roles
+end
 
 """
 Read a `DS_*` mode variable, rejecting anything not in its allowlist.
@@ -1833,7 +1928,10 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         h_max_dep = T(config.depletion_h_max)
         suppress_only = config.depletion_own_product == "suppress_only"
         @inbounds for k in 1:length(rxn.depletion_indices)
-            x_dep = clamp(x[rxn.depletion_indices[k]], zero(T), one(T))
+            i_dep = rxn.depletion_indices[k]
+            raw_dep = (supply !== nothing && k <= length(rxn.depletion_break) && rxn.depletion_break[k]) ?
+                      supply[i_dep] : x[i_dep]      # recycling closure: entry value, no feedback
+            x_dep = clamp(raw_dep, zero(T), one(T))
             f_dep = (bl + eps_dep) / (x_dep + eps_dep)
             if suppress_only && k <= length(rxn.depletion_own_product) &&
                rxn.depletion_own_product[k]

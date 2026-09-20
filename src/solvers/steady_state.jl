@@ -589,7 +589,9 @@ function solve_scc_ordered!(
             "the model domain and throws from inside the propagator."
         ))
     end
-    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false)
+    # `supply` (component-entry state) is read by recycling-closure edges: the
+    # legacy catalyst knob and the role list of specs/018.
+    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
     max_inner = params.max_iters
     tol = params.tolerance
 
@@ -802,7 +804,10 @@ function solve_scc_ordered!(
             for ri in rs
                 t = rxns_idx[ri].target_idx
                 t in obs_set && continue
-                x[t] = compute_reaction_output_vec(x, rxns_idx[ri]; config=config)
+                # A closure edge into an acyclic node reads the current state,
+                # which IS its entry value (upstream is final, downstream is
+                # still at its initial value).
+                x[t] = compute_reaction_output_vec(x, rxns_idx[ri]; supply = use_supply ? x : nothing, config=config)
             end
         else
             if pooling
@@ -1019,7 +1024,8 @@ function solve_steady_state_penalty(
     all_nodes = collect(keys(x0))
     n = length(all_nodes)
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
-    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids)
+    index_stats = Dict{String, Any}()
+    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids; stats = index_stats)
 
     # Resolve the per-reaction DS_* knobs ONCE here (not once per reaction per
     # iteration inside compute_reaction_output_vec). Threaded into every forward
@@ -1178,6 +1184,14 @@ function solve_steady_state_penalty(
             "scc_fallback_negative" => scc_stats.fallback_negative,
             "scc_fallback_inconsistent" => scc_stats.fallback_inconsistent,
             "scc_pooled_nodes" => scc_stats.pooled_nodes,
+            # specs/018: recycling closures by role and the component census
+            "scc_break_roles" => get(ENV, "DS_SCC_BREAK_ROLES", ""),
+            "scc_closures_catalyst" => get(index_stats, "scc_closures_catalyst", 0),
+            "scc_closures_assembly" => get(index_stats, "scc_closures_assembly", 0),
+            "scc_closures_depletion" => get(index_stats, "scc_closures_depletion", 0),
+            "scc_cyclic_before" => get(index_stats, "scc_cyclic_before", 0),
+            "scc_cyclic_after" => get(index_stats, "scc_cyclic_after", 0),
+            "scc_largest_after" => get(index_stats, "scc_largest_after", 0),
         ),
     )
 end
