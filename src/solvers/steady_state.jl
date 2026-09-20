@@ -898,6 +898,17 @@ member node at its own baseline, divided by the target's baseline. Reactions
 whose target is pinned are not entries: the pinned value itself carries the
 signal into the reactions that read it. Entry factors are multiplied in sorted
 order so the product is bit-identical under relabelling.
+
+Known consequences of the rule, measured (specs/017 research.md):
+- a pooled state is not a fixed point of F, so `converged` reads false for
+  any solve that pooled a component with a real entry;
+- a pinned member does not sever the pool: entries on both sides of a pin
+  multiply into one fold (the fixed point treats a pin as a boundary);
+- alternative routes through one component (RAS isoforms in one GTPase
+  cycle) are multiplied as if co-required, and 0 absorbs, so one isoform's
+  knockout zeroes the cycle -- the mechanism behind the -53 held-out on MET,
+  SCF-KIT and DAP12;
+- DS_SCC_BREAK_CATALYST does not apply inside a pooled component.
 """
 function pool_component!(x::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector{IndexedReaction},
                          comp_id::Vector{Int}, c::Int, members::Vector{Int}, obs_set::Set{Int},
@@ -914,7 +925,11 @@ function pool_component!(x::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector{I
         t = r.target_idx
         t in obs_set && continue
         f = compute_reaction_output_vec(xpool, r; config=config) / baseline_vec[t]
-        f != 1.0 && push!(entries, (t, f))
+        # hill_sat's smooth cap returns bl*(1 + 3e-15) at pure baseline, so an
+        # exact `!= 1` test made ~97% of member reactions "entries" (TP53:
+        # 808 of 837). A relative tolerance well below any real perturbation
+        # and well above that noise keeps the notion meaningful.
+        abs(f - 1.0) > 1e-9 && push!(entries, (t, f))
     end
     # Sign of every member relative to every entry (parity only).
     signs = Dict{Int, Dict{Int, Int8}}()     # entry node => (member => +-1)

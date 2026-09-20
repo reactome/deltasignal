@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-19
 
-**Status**: Draft
+**Status**: Amended 2026-09-19 after adversarial review (see research.md §Review); measurement in progress
 
 **Input**: User description: Adam's proposal — "if you have a loop you could treat it like a node somehow. where say there are four things going in A,B,C,D with values 1,1,3,2 then the cycle should have the value of 1*1*3*2=6 around. unfortunately you lose the granularity of different parts of the loop having different values and I don't know how you handle negative interactions." Treat a strongly-connected component as one pool whose level is set by what flows into it, instead of iterating around it.
 
@@ -17,7 +17,7 @@ sweep order and node labels (specs/013, specs/014). On 2026-09-19 that coin
 decided the sign of three otherwise-correct structural fixes (specs/016:
 sharing flipped TP53 by −92; composition edges flipped DSB and TP53 in both
 directions). The loop taxonomy (2026-06-12) showed the giant components —
-TP53 1,250 nodes, WNT 622, DSB — are catalytic-recycling artifacts dominated
+TP53 836 nodes on the production catalog (1,250 on an earlier one), WNT 211, DSB 1,127 — are catalytic-recycling artifacts dominated
 by one or two Reactome reactions, where iterating around the cycle is
 meaningless: the recycled species is one pool whose level is set by external
 supply. `DS_SCC_BREAK_CATALYST` (freeze the recycled catalyst at its entry
@@ -85,13 +85,19 @@ rules are shipped and measured against each other:
   odd negative cycle — genuine negative feedback, e.g. p27 ↔ Cdk2 in Mitotic
   G1) is not pooled under either rule.
 
-**Independent Test**: the traced TP53 case (specs/016): X → M enters a
-component in which M depletes T; with X at 0.5, `pool_parity` reads T at 2x and
-M at 0.5x, while `pool` falls back and reports the component as iterated.
+**Independent Test** *(amended)*: X → M enters a component in which M inhibits
+T **and T inhibits M back** (two negatives on the cycle — consistent parity);
+with X at 0.5, `pool_parity` reads T at 2x and M at 0.5x, while `pool` falls back
+and reports the component as iterated. The original scenario (one negative on
+the cycle, the MDM2 ⊣ TP53 → MDM2 case) is an odd negative cycle and therefore
+inconsistent by FR-006; it is the fall-back scenario 3, not scenario 1. The
+spec as first committed contradicted itself here (FR-006 and the edge-case
+bullet force fall-back for any one-negative cycle); the implementation follows
+FR-006.
 
 **Acceptance Scenarios**:
 
-1. **Given** the X → M, M ⊣ T fixture with X = 0.5, **When** solved under `pool_parity`, **Then** M reads 0.5x and T reads 2x, and the component is reported pooled.
+1. **Given** the X → M, M ⊣ T, T ⊣ M fixture with X = 0.5, **When** solved under `pool_parity`, **Then** M reads 0.5x and T reads 2x, and the component is reported pooled. *(amended: two negatives; one negative is scenario 3)*
 2. **Given** the same fixture, **When** solved under `pool`, **Then** the component is reported iterated and activities equal the fixed-point solver's.
 3. **Given** a component with an odd negative cycle, **When** solved under either rule, **Then** it is reported iterated.
 
@@ -131,9 +137,11 @@ before the arms run.
 
 ### Functional Requirements
 
-- **FR-001**: The solver MUST offer two new component-resolution modes, `pool`
-  and `pool_parity`, selected the same way as the existing modes; the existing
-  default MUST remain the default and be bit-identical in output.
+- **FR-001**: The solver MUST offer new component-resolution modes `pool`,
+  `pool_parity` and *(added at implementation)* `pool_all` — the literal rule,
+  pooling every component with internal negatives contributing nothing —
+  selected the same way as the existing modes; the existing default MUST
+  remain the default and be bit-identical in output.
 - **FR-002**: For a pooled component, each member reaction's *external fold*
   MUST be computed with the normal AND/OR/inhibition rules, with every
   in-component input held at that input's baseline and every pinned member at
@@ -183,8 +191,12 @@ before the arms run.
   member (no rail, no collapse) and a knockout yields 0, under both modes.
 - **SC-002**: Relabelling an isomorphic catalog moves 0 predictions under a
   pooling mode (the current solver moves 14–22, specs/013).
-- **SC-003**: The AKT1-KO → TIGAR case reads UP under `pool_parity`; the 102
-  AKT1/AKT2-KO TP53 cases score ≥ 60 correct (currently 2).
+- **SC-003** *(corrected)*: the 102 AKT1/AKT2-KO TP53 cases score **100/102 in
+  the production baseline** (the "currently 2" first written here was the
+  shared-catalog figure from specs/016, not the production dump). The
+  criterion is therefore: no variant may lose more than 10 of them; `pool_parity`
+  cannot pool that component at all (odd cycle), so the original "reads UP under
+  pool_parity" is void.
 - **SC-004**: Held-out net vs the production dump is ≥ 0 for at least one
   variant with p < 0.05, distributed over ≥ 5 pathways and ≥ 10 genes, and
   false change does not rise; the experimental axis is not negative
@@ -202,9 +214,11 @@ before the arms run.
 - The product rule follows Adam's statement literally across *entries*; within
   a reaction the existing AND/OR rules apply, so alternative producers do not
   multiply.
-- Genuine negative-feedback components are rare (loop taxonomy: Mitotic G1's
-  92-node component is the named example); falling back to iteration for them
-  is acceptable for this measurement.
+- *(corrected)* Components with an internal negative edge are **60 of 258**
+  cyclic components on the production catalog and include every giant one
+  (DSB 1,127 nodes, TP53 836, MHC 680); none is sign-balanced. So `pool` and
+  `pool_parity` pool the same 198 small positive loops (44% of cyclic nodes)
+  and are functionally identical; only `pool_all` pools the giants.
 - Non-goals: no generator change; no edge deletion; no tuning of a pool
   exponent against the evaluation set; no claim that pooling is biology for
   genuine negative-feedback loops.

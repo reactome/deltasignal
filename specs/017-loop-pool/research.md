@@ -150,3 +150,76 @@ one cyclic pathway.
   sign is set by one pathway (> 50% of the net), report it as such and do not
   adopt. If `pool_all` loses held-out, the pool rule is refuted as a blanket
   treatment and the hierarchical variant is the only path left.
+
+### Review, 2026-09-19 (two independent reviewers, code and data only), and one trace
+
+**Pre-registration error, corrected before scoring.** P3 and SC-003 said the
+102 AKT1/AKT2-KO TP53 cases are "currently 2 correct". In `ab_onesided.tsv`
+they are **100 of 102** (94 UP→UP, 6 DOWN→DOWN, 2 UP→NORMAL); the 2 was the
+shared catalog's figure (specs/016). P3 is re-stated: **no variant may lose
+more than 10 of the 100**; its original form would have scored a −90 TP53
+regression as "held". The baseline solve for that case is itself
+non-converged (500 iterations), so the 100 are a rail landing on the right
+side — the knife-edge premise stands, the starting point was misdescribed.
+
+**pool ≡ pool_parity on this catalog.** Census of `cat_os` (reviewer's
+`scc_census.py`, Tarjan over the edge lists): 258 cyclic components in 77
+pathways; 60 carry an internal negative edge; **0 of the 60 are
+sign-balanced**. Both variants pool the same 198 small positive loops (5,578
+of 12,749 cyclic nodes) and fall back on every giant; their headlines are
+identical (20,048/24,100). Three arms are two.
+
+**P1 failed for `pool`, and not as a null result.** Held-out **−53** (15
+fixed / 68 broke, p < 0.0001), tuning −16, false change on held-out keys
+984 → 1,046. The broken cases sit at exactly **0.0 (27), 100.0 (24) or 80.0
+(10)** where the baseline read exactly 1.0: the fixed point held these small
+positive loops at baseline; the pool is what rails them. So the spec's "Why"
+premise — any leak rails a positive cycle — is contradicted by the data for
+the very loops these variants pool.
+
+**Traced (benchmark-faithful gene resolution): HRAS KO → R-HSA-354126 in
+Signaling by MET.** HRAS resolves to 4 nodes; one sits in a 19-node component
+with no internal negative edge — the RAS GTP/GDP recycling cycle
+(R-HSA-8851827 / 8851877 / 8851899) that also carries the other isoforms'
+routes (R-HSA-8875568, 5674631, 354074, 8875591). Fixed point: the HRAS
+reactions read 0, **those other members stay at 1.000**, the readout stays
+NORMAL — the curators' call (isoform redundancy). Pool: the pinned HRAS node is
+an entry with fold 0, **0 absorbs, all 19 members read 0**, the readout reads
+DOWN. Product-across-entries is AND semantics applied to alternatives: a
+component that bundles redundant routes is treated as if every route were
+co-required. This is the mechanism behind MET −20, SCF-KIT −12, DAP12 −12,
+and it is a property of the rule, not a bug.
+
+**Solver review (reviewer A), verified and acted on:**
+
+| # | finding | action |
+|---|---|---|
+| 1 | A pinned member does not sever the pool; entries on both sides of a pin multiply into one fold (the fixed point treats a pin as a boundary). `fourentry` with C pinned at baseline + E1 = 3x: fixed point D = 1, pool D = 3. | Recorded as a consequence of the rule (the granularity loss Adam accepted); documented in `pool_component!`; not changed. |
+| 2 | Exact `f != 1.0` entry test: hill_sat's smooth cap returns bl·(1 + 3e-15) at pure baseline, so ~97% of member reactions were "entries" (TP53 808 of 837). | **Fixed**: relative tolerance 1e-9; test asserts a resting loop pools with a real product of 1. `pool`/`pool_parity` arms ran with the exact test (factors of 1 + 3e-15, numerically inert); later arms carry the fix. |
+| 3 | `converged` is false for every solve that pools a real entry (a pooled state is not a fixed point of F). | Documented; asserted in the test. The benchmark's "both arms converged" statistic is void under pooling. |
+| 4 | The rule overrides well-posed contracting loops (OR-producer loop: unique stable fixed point 2.0, pool 5/3), double-counts one signal entering by two member reactions (4 vs the fixed point's rail), and lets two entries of opposite parity cancel exactly. | Consequences of the product rule, now stated as such in the docstring rather than pinned as truths. |
+| 5–6 | Heterogeneous baselines create phantom entries (unreachable from the parser); `DS_SCC_BREAK_CATALYST` is a no-op inside a pooled component. | Documented. |
+| 7 | Test gaps: dead code in FR-008, `ref` re-solve, pinned-member test weak, `converged` never asserted, file not in CI. | Fixed the first four; CI list and CLAUDE.md table updated in this commit. |
+| 8 | `scc.method` reads `"flat"` under `DS_SCC_SOLVE=0`, not a `DS_SCC_METHOD` value; `pooled_nodes` counts reaction nodes. | Documented in docs/API.md. |
+
+Default bit-identity vs the base branch was verified by the reviewer on the
+TP53 catalog network with 25 pins (0 activity diffs) — the differential check
+T015 is thereby done by an independent hand.
+
+**Methodology review (reviewer B), verified:** the `--max-edges` cap differs
+between baseline (20,000) and arms (40,000), adding CD28 (192 cases, 97.9%) to
+the arms' headline — paired comparisons are on the 23,908 shared keys and are
+unaffected; a `fixed_point` control on the current tree and cap is queued so
+the −53 is attributed to the rule and not to the tree. The spec cited specs
+013–016, which are on a sibling branch (#55), not an ancestor of this one. P5
+pre-committed to the hierarchical follow-up whichever way the result fell;
+that sentence is withdrawn — the follow-up is argued from the trace above, not
+from the decision rule.
+
+**Where this leaves the proposal before the remaining arms land.** The
+product-of-entries pool is refuted as a blanket rule by a traced case: it
+destroys the redundancy the fixed point preserves. What survives of the idea
+is the part the trace does not touch — that a *pure recycling* cycle (one
+species cycling through states, one entry) should not amplify — and the
+remaining arms (`pool_all`, experimental, relabel churn, control) are run for
+the record, not for a decision.

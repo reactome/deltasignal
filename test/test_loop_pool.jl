@@ -103,6 +103,10 @@ RELABELLINGS = (s -> "zz_" * s, s -> string(hash(s)), s -> reverse(s) * "_q")
             rb = solve(posloop(), Dict(), mode)
             @test fold(rb, "A") ≈ 1.0 rtol=1e-12
             @test fold(rb, "B") ≈ 1.0 rtol=1e-12
+            # a closed loop at rest has NO entries: hill_sat's 3e-15 baseline noise must not count
+            @test diag(rb, "scc_pooled") == 1
+            # and a pooled solve with a real entry is not a fixed point of F: `converged` is false
+            @test r.converged == false
         end
         # the knife-edge it replaces: fixed_point does NOT read 2x (it rails or collapses)
         rf = solve(posloop(), Dict("U" => (2.0, 1.0)), "fixed_point")
@@ -167,10 +171,10 @@ RELABELLINGS = (s -> "zz_" * s, s -> string(hash(s)), s -> reverse(s) * "_q")
         # Gauss-Seidel, whose result is label-dependent by the solver's known defect
         for (net, obs) in ((posloop(), Dict("U" => (2.0, 1.0))), (parityfix(), Dict("X" => (0.5, 1.0))), (fourentry(), Dict("E3" => (3.0, 1.0), "E4" => (2.0, 1.0))), (threecomp(), Dict("U" => (2.0, 1.0))), (negfeedback(), Dict("X" => (0.5, 1.0))))
             for mode in ("pool_parity", "pool_all")
-                net === parityfix() && false
                 r0 = solve(net, obs, mode)
+                # a fixture that fell back is iterated by Gauss-Seidel (label-dependent by the solver's known defect)
                 diag(r0, "scc_iterated") == 0 || continue
-                ref = solve(net, obs, mode).node_activities
+                ref = r0.node_activities
                 for f in RELABELLINGS
                     rl = solve(relabel(net, f), Dict(f(k) => v for (k, v) in obs), mode).node_activities
                     @test all(rl[f(k)] == v for (k, v) in ref)
