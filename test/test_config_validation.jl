@@ -253,6 +253,51 @@ end
     end
 end
 
+@testset "DS_SCC_SWEEP" begin
+    # The sweep scheme inside a cyclic component. `gauss_seidel` (the default,
+    # historical) writes x[t] back mid-sweep, so the visit order -- which comes
+    # from Julia Dict/UUID hashing -- selects which fixed point a multi-root
+    # component lands in. Relabelling every UUID in the 92-pathway catalog,
+    # verified isomorphic, moved 14 of 23,908 curator predictions. `jacobi`
+    # evaluates against the state at the sweep's start and commits together,
+    # which is order-free. See test/test_solver_determinism.jl.
+    #
+    # A typo here must throw rather than silently pick a scheme, which is the
+    # same guard-rail rule the other DS_* mode knobs follow.
+    network = DeltaSignal.ReactionNetwork(
+        Dict(
+            "A" => DeltaSignal.NetworkNode("A", "A", "protein", nothing, "A", 0.01),
+            "B" => DeltaSignal.NetworkNode("B", "B", "protein", nothing, "B", 0.01),
+        ),
+        [DeltaSignal.LogicNetworkEdge("A", "B", true, true, 1.0, "input")],
+        Dict{String, DeltaSignal.SetExpansionMapping}(),
+    )
+    observations = Dict("A" => (50.0, 1.0))
+    params = DeltaSignal.SteadyStateParams(1.0, 0.1, 100, 1e-6, "penalty")
+
+    # Unset must behave exactly as the explicit default.
+    ref = with_env("DS_SCC_SWEEP", nothing) do
+        DeltaSignal.solve_steady_state(network, observations, params)
+    end
+    @test ref !== nothing
+    gs = with_env("DS_SCC_SWEEP", "gauss_seidel") do
+        DeltaSignal.solve_steady_state(network, observations, params)
+    end
+    @test gs.node_activities == ref.node_activities
+
+    with_env("DS_SCC_SWEEP", "jacobi") do
+        @test DeltaSignal.solve_steady_state(network, observations, params) !== nothing
+    end
+
+    # Typos, case variants, near-misses and empty all throw.
+    for bad in ("gauss-seidel", "Jacobi", "GAUSS_SEIDEL", "jacobi ", "", "1", "true", "seidel")
+        with_env("DS_SCC_SWEEP", bad) do
+            @test_throws ArgumentError DeltaSignal.solve_steady_state(
+                network, observations, params)
+        end
+    end
+end
+
 @testset "DS_COFACTOR_MODE" begin
     # `inert` is the default: +37 cases on 21,450 curator cases. Deleting the
     # nodes instead cost 84, so there is no "drop" mode to select.

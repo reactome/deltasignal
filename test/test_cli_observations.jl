@@ -109,4 +109,40 @@ end
         end
         @test obs == Dict("X" => (2.0, 1.0))
     end
+
+    @testset "results provenance reports only what was read" begin
+        # mu/gamma are read ONLY by the minimising cyclic-component solver.
+        # The CLI used to print them and write them into every results file
+        # regardless, so a result carried provenance naming a mu and gamma that
+        # had not touched the numbers beside them. specs/003 FR5.
+        p = DeltaSignal.SteadyStateParams(1.0, 1e-6, 500, 1e-6, "penalty")
+
+        fp = solve_provenance("fixed_point", p, "stoichiometry_weighted")
+        @test fp["scc_method"] == "fixed_point"
+        @test fp["mu"] === nothing
+        @test fp["gamma"] === nothing
+        @test fp["mu_gamma_read"] == false
+        @test fp["max_iters"] == 500
+        @test fp["aggregation"] == "stoichiometry_weighted"
+
+        mz = solve_provenance("minimize", p, "mean")
+        @test mz["scc_method"] == "minimize"
+        @test mz["mu"] == 1.0
+        @test mz["gamma"] == 1e-6
+        @test !haskey(mz, "mu_gamma_read")
+        @test mz["aggregation"] == "mean"
+
+        # A changed weight must show up in provenance when it is live, and must
+        # NOT be reported at all when it is not.
+        p2 = DeltaSignal.SteadyStateParams(2.5, 0.25, 500, 1e-6, "penalty")
+        @test solve_provenance("minimize", p2, "mean")["gamma"] == 0.25
+        @test solve_provenance("fixed_point", p2, "mean")["gamma"] === nothing
+
+        # Any other method is treated as not-reading them, which is the safe
+        # direction: a new method must opt in to claiming them.
+        for m in ("jacobi", "legacy", "")
+            @test solve_provenance(m, p, "mean")["mu"] === nothing
+            @test solve_provenance(m, p, "mean")["mu_gamma_read"] == false
+        end
+    end
 end

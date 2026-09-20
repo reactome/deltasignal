@@ -228,6 +228,14 @@ env vars only override for benchmark sweeps:
   curators recorded, and this is the propagator declining to route through it.
   Set `propagate` for the previous behaviour. The list and the measured A/B are
   in `src/core/cofactors.jl`.
+- `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
+  byte-identical defaults for two measured-but-not-adopted alternatives
+  (`limit`: a `composition` edge can lower a container but never raise it;
+  `limit_novel`: the same, skipping the 54% of composition edges that repeat a
+  producing reaction; `suppress_only`: a depleter built from the target cannot
+  de-repress it).
+  Both A/B'd on the shared catalog, neither adopted; `specs/016` has the arms
+  and the traced mechanisms.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -263,13 +271,13 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 
 | file | `@test`s |
 |---|---|
-| `test/test_config_validation.jl` | 175 |
+| `test/test_config_validation.jl` | 192 |
 
 | `test/test_and_curves.jl` | 17 |
 | `test/test_cycle_handling.jl` | 39 + 2 `@test_broken` |
 | `test/test_worked_example.jl` | 9 |
 | `test/test_observation_pinning.jl` | 23 |
-| `test/test_propagator_invariants.jl` | 52 |
+| `test/test_propagator_invariants.jl` | 120 |
 | `test/test_cli_observations.jl` | 20 |
 | `test/test_api_errors.jl` | 26 |
 

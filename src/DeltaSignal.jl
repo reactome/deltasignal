@@ -1,6 +1,7 @@
 module DeltaSignal
 
 using LinearAlgebra
+using SparseArrays
 using Statistics
 using Optim
 using ForwardDiff

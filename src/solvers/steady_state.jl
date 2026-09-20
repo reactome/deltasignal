@@ -29,9 +29,28 @@ function default_steady_state_params()
     if max_iters < 1
         throw(ArgumentError("DS_MAX_ITERS=$max_iters must be at least 1."))
     end
+    # mu and gamma are read ONLY by DS_SCC_METHOD=minimize (specs/003). Under
+    # the default fixed-point method they are still inert, which is why they
+    # must not be reported as if they shaped the answer — see FR5.
+    #
+    # gamma's default is 1e-6, NOT the design doc's 0.1. Measured both ways
+    # (specs/003 research.md section 6): gamma must clear ~5e-7 or the prior
+    # cannot lift a collapsed loop out of the all-zero root (the escape
+    # gradient 2*gamma*x0 falls below the optimiser's gradient tolerance), and
+    # at the doc's 0.1 it competes with model consistency hard enough to read a
+    # 100x perturbation as 51x. 1e-6 is three orders above the floor and five
+    # below the doc.
+    mu = _float_env("DS_MU", 1.0)
+    gamma = _float_env("DS_GAMMA", 1e-6)
+    if !(mu > 0.0) || !isfinite(mu)
+        throw(ArgumentError("DS_MU=$mu must be finite and > 0."))
+    end
+    if gamma < 0.0 || !isfinite(gamma)
+        throw(ArgumentError("DS_GAMMA=$gamma must be finite and >= 0."))
+    end
     return SteadyStateParams(
-        1.0,        # mu     (currently unused — see solve_steady_state_penalty)
-        0.1,        # gamma  (currently unused)
+        mu,
+        gamma,
         max_iters,
         _float_env("DS_TOLERANCE", 1e-6),
         "penalty"
@@ -165,6 +184,388 @@ in `obs_set` are never updated (hard-pinned). `DS_SCC_DAMPING` (default 0.5)
 sets the per-component blend; `DS_SCC_BREAK_CATALYST` additionally freezes
 recycling-catalyst edges at their component-entry value (conserved moiety).
 """
+
+"""
+A full-length state vector with a handful of entries overlaid by dual numbers.
+
+`component_gradient!` differentiates one reaction at a time with respect to
+that reaction's own inputs. Materialising a full-length `Vector{Dual}` for each
+one allocates the whole network per reaction per gradient — ~2M allocations per
+gradient on a 840-reaction component, which dominated everything else. The
+reaction reads only its own few entries, so this overlays them on the Float64
+state instead: O(1) construction, O(#overlaid) lookup, nothing allocated.
+
+`idx` is short (a reaction's input count), so the linear scan beats a Dict.
+"""
+struct OverlayVector{T, S} <: AbstractVector{T}
+    base::Vector{S}
+    idx::Vector{Int}
+    vals::Vector{T}
+end
+
+Base.size(v::OverlayVector) = size(v.base)
+Base.length(v::OverlayVector) = length(v.base)
+Base.IndexStyle(::Type{<:OverlayVector}) = IndexLinear()
+
+Base.@propagate_inbounds function Base.getindex(v::OverlayVector{T, S}, i::Int) where {T, S}
+    @inbounds for k in eachindex(v.idx)
+        v.idx[k] == i && return v.vals[k]
+    end
+    return convert(T, @inbounds v.base[i])
+end
+
+"""
+One cyclic component's minimisation problem, in the form the optimiser needs.
+
+`free` are the component's unobserved target nodes — the variables. `xbuf` is a
+full-length state vector whose entries OUTSIDE the component stay at their final
+upstream values; the free entries are overwritten per evaluation. `deps[k]` is
+the set of free variables reaction `rs[k]` actually reads, which is what makes
+the gradient sparse.
+"""
+struct ComponentProblem
+    rs::Vector{Int}
+    rxns::Vector{IndexedReaction}
+    free::Vector{Int}
+    slot::Dict{Int, Int}
+    deps::Vector{Vector{Int}}
+    xbuf::Vector{Float64}
+    baseline::Vector{Float64}
+    mu::Float64
+    gamma::Float64
+    config::ReactionEvalConfig
+    supply::Union{Nothing, Vector{Float64}}
+end
+
+function ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
+                          mu, gamma, config, supply)
+    free = Int[]
+    @inbounds for ri in rs
+        t = rxns_idx[ri].target_idx
+        t in obs_set && continue
+        push!(free, t)
+    end
+    slot = Dict{Int, Int}(t => k for (k, t) in enumerate(free))
+    deps = Vector{Vector{Int}}(undef, length(rs))
+    @inbounds for (k, ri) in enumerate(rs)
+        r = rxns_idx[ri]
+        d = Int[]
+        append!(d, r.activator_indices); append!(d, r.inhibitor_indices)
+        append!(d, r.depletion_indices); append!(d, r.substrate_indices)
+        push!(d, r.target_idx)
+        deps[k] = unique!(sort!(filter(i -> haskey(slot, i), d)))
+    end
+    ComponentProblem(collect(rs), rxns_idx, free, slot, deps, copy(x),
+                     baseline_vec, mu, gamma, config, supply)
+end
+
+"""`L(z) = mu*||F(x) - x||^2 + gamma*||x - x0||^2` restricted to the component."""
+function component_objective(p::ComponentProblem, z::Vector{Float64})::Float64
+    @inbounds for (k, t) in enumerate(p.free)
+        p.xbuf[t] = z[k]
+    end
+    acc = 0.0
+    @inbounds for ri in p.rs
+        r = p.rxns[ri]
+        t = r.target_idx
+        haskey(p.slot, t) || continue
+        d = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config) - p.xbuf[t]
+        acc += d * d
+    end
+    prior = 0.0
+    @inbounds for (k, t) in enumerate(p.free)
+        d = z[k] - p.baseline[t]
+        prior += d * d
+    end
+    p.mu * acc + p.gamma * prior
+end
+
+"""
+Gradient of `component_objective`, assembled from per-reaction pieces.
+
+Differentiating the whole objective at once with forward-mode AD costs O(n)
+evaluations per gradient, and a component here reaches 836 nodes: measured at
+~400x the fixed point's cost by 80 nodes, and one catalog solve ran 80 minutes
+without returning. But the objective is a sum of per-reaction terms and each
+reaction reads only its own few inputs, so
+
+    dL/dx_j = 2*mu * SUM_r (F_r - x_tr) * (dF_r/dx_j - delta_{j,tr})
+              + 2*gamma * (x_j - x0_j)
+
+is built by taking a SMALL ForwardDiff gradient per reaction over that
+reaction's own inputs and scattering it. Cost is O(sum of in-degrees) =
+O(edges), independent of component size, and adds no dependency.
+"""
+function component_gradient!(G::Vector{Float64}, p::ComponentProblem, z::Vector{Float64})
+    @inbounds for i in eachindex(G); G[i] = 0.0; end
+    @inbounds for (k, t) in enumerate(p.free); p.xbuf[t] = z[k]; end
+    @inbounds for (k, ri) in enumerate(p.rs)
+        r = p.rxns[ri]
+        t = r.target_idx
+        haskey(p.slot, t) || continue
+        d = p.deps[k]
+        fval = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config)
+        resid = fval - p.xbuf[t]
+        if !isempty(d)
+            local_in = Float64[p.xbuf[i] for i in d]
+            fr = function (v)
+                yy = OverlayVector{eltype(v), Float64}(p.xbuf, d, v)
+                compute_reaction_output_vec(yy, r; supply=p.supply, config=p.config)
+            end
+            gloc = ForwardDiff.gradient(fr, local_in)
+            @inbounds for (m, i) in enumerate(d)
+                G[p.slot[i]] += 2.0 * p.mu * resid * gloc[m]
+            end
+        end
+        G[p.slot[t]] -= 2.0 * p.mu * resid
+    end
+    @inbounds for (k, t) in enumerate(p.free)
+        G[k] += 2.0 * p.gamma * (z[k] - p.baseline[t])
+    end
+    G
+end
+
+
+"""
+Residual vector and its sparse Jacobian for one component, in least-squares form.
+
+    r = [ sqrt(mu) * (F_r(x) - x_tr)   for each reaction r in the component
+          sqrt(gamma) * (x_j - x0_j)   for each free node j ]
+
+so that `L = ||r||^2` is exactly `component_objective`. Returning `r` and `J`
+separately is the whole point: the objective is a sum of squares, so its
+Hessian is well approximated by `2*J'J` and a Gauss-Newton / Levenberg-Marquardt
+step uses that directly. LBFGS only sees the scalar and has to rebuild curvature
+from gradient history, which is why it needed hundreds of iterations and was
+still drifting at 100 on an 840-node component.
+
+`J` is very sparse: a reaction row has one entry per input it reads plus its own
+target, and each prior row is a single diagonal entry.
+"""
+function component_residual_jacobian(p::ComponentProblem, z::Vector{Float64};
+                                     gamma::Float64 = p.gamma)
+    nfree = length(p.free)
+    nrx = 0
+    @inbounds for ri in p.rs
+        haskey(p.slot, p.rxns[ri].target_idx) && (nrx += 1)
+    end
+    m = nrx + nfree
+    r = zeros(Float64, m)
+    I = Int[]; Jc = Int[]; V = Float64[]
+    sm = sqrt(p.mu); sg = sqrt(gamma)
+
+    @inbounds for (k, t) in enumerate(p.free); p.xbuf[t] = z[k]; end
+
+    row = 0
+    @inbounds for (k, ri) in enumerate(p.rs)
+        rx = p.rxns[ri]
+        t = rx.target_idx
+        haskey(p.slot, t) || continue
+        row += 1
+        d = p.deps[k]
+        fval = compute_reaction_output_vec(p.xbuf, rx; supply=p.supply, config=p.config)
+        r[row] = sm * (fval - p.xbuf[t])
+        if !isempty(d)
+            local_in = Float64[p.xbuf[i] for i in d]
+            fr = function (v)
+                yy = OverlayVector{eltype(v), Float64}(p.xbuf, d, v)
+                compute_reaction_output_vec(yy, rx; supply=p.supply, config=p.config)
+            end
+            gloc = ForwardDiff.gradient(fr, local_in)
+            for (mm, i) in enumerate(d)
+                push!(I, row); push!(Jc, p.slot[i]); push!(V, sm * gloc[mm])
+            end
+        end
+        # d(F_r - x_t)/dx_t also carries the -1 from the subtracted target.
+        push!(I, row); push!(Jc, p.slot[t]); push!(V, -sm)
+    end
+    @inbounds for k in 1:nfree
+        row += 1
+        r[row] = sg * (z[k] - p.baseline[p.free[k]])
+        push!(I, row); push!(Jc, k); push!(V, sg)
+    end
+    J = sparse(I, Jc, V, m, nfree)
+    return r, J
+end
+
+"""
+Levenberg-Marquardt minimisation of `component_objective`, box-clamped to [0,1].
+
+Solves `(J'J + lambda*diag(J'J)) delta = -J'r` each step, growing `lambda` when a
+step fails and shrinking it when it succeeds. `J'J` is sparse and factorised
+directly.
+
+Returns `(converged, iterations)`.
+"""
+function lm_minimize!(z::Vector{Float64}, p::ComponentProblem;
+                      max_iter::Int = 100, g_tol::Float64 = 1e-10,
+                      step_tol::Float64 = 1e-12, gamma::Float64 = p.gamma)
+    lambda = 1e-3
+    r, J = component_residual_jacobian(p, z; gamma=gamma)
+    cost = dot(r, r)
+    local_iters = 0
+    for it in 1:max_iter
+        local_iters = it
+        JtJ = Symmetric(Matrix(J' * J))
+        g = J' * r
+        norm(g, Inf) < g_tol && return (true, it)
+        stepped = false
+        for _ in 1:12          # lambda back-off within one iteration
+            A = Matrix(JtJ) + lambda * Diagonal(max.(diag(JtJ), 1e-12))
+            local delta
+            try
+                delta = -(A \ g)
+            catch
+                lambda *= 10.0
+                continue
+            end
+            znew = clamp.(z .+ delta, 0.0, 1.0)
+            rnew, Jnew = component_residual_jacobian(p, znew; gamma=gamma)
+            cnew = dot(rnew, rnew)
+            if cnew < cost
+                if norm(znew .- z, Inf) < step_tol
+                    z .= znew
+                    return (true, it)
+                end
+                z .= znew; r = rnew; J = Jnew; cost = cnew
+                lambda = max(lambda * 0.3, 1e-12)
+                stepped = true
+                break
+            else
+                lambda *= 10.0
+                lambda > 1e12 && break
+            end
+        end
+        stepped || return (false, it)  # no downhill step found (lambda exhausted / solve failed): NOT a certified minimum
+    end
+    return (false, local_iters)
+end
+
+"""
+Minimise the specified objective over one cyclic component's free nodes,
+holding everything outside the component fixed.
+
+Returns the component's final model residual `max|F(x) - x|`, on the same scale
+the fixed-point path reports, so the convergence verdict keeps its meaning.
+
+Observed nodes are excluded from the free set rather than penalised, which is
+the current hard-constraint semantics (FR4 makes them weighted later).
+"""
+function minimize_component!(
+    x::Vector{Float64},
+    rs::Vector{Int},
+    rxns_idx::Vector{IndexedReaction},
+    obs_set::Set{Int},
+    baseline_vec::Vector{Float64},
+    params::SteadyStateParams,
+    config::ReactionEvalConfig,
+    supply::Union{Nothing,Vector{Float64}},
+)::Float64
+    prob = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
+                            params.mu, params.gamma, config, supply)
+    isempty(prob.free) && return 0.0
+
+    z0 = Float64[x[t] for t in prob.free]
+
+    # Optimiser. LM is the default because the objective is a sum of squares:
+    # measured on an 840-node component, LBFGS was still drifting at 100
+    # iterations (readout 1.01 -> 1.31 -> 1.12 -> 0.22 at 5/10/25/100) and took
+    # 29s, because it rebuilds curvature from gradient history instead of using
+    # the J'J that a least-squares problem hands you for free.
+    opt = get(ENV, "DS_SCC_OPTIMIZER", "lm")
+    if !(opt in ("lm", "lbfgs"))
+        throw(ArgumentError(
+            "DS_SCC_OPTIMIZER=$opt is not an optimiser; expected \"lm\" or \"lbfgs\"."
+        ))
+    end
+
+    try
+        if opt == "lm"
+            zb = copy(z0)
+            cap = max(1, min(params.max_iters, _lm_iter_cap()))
+            gtol = params.tolerance * 1e-2
+            # gamma-continuation (homotopy). A cyclic component can have several
+            # self-consistent states -- on an 840-node ring, collapsed (~0.2 UI),
+            # baseline (1.0) and saturated (100) are all roots -- and a plain
+            # solve lands in whichever one the warm start sits nearest. That
+            # makes the answer a property of where we happened to start.
+            #
+            # Instead, start at a LARGE gamma, where the prior dominates and the
+            # minimiser is unambiguous (near baseline), then step gamma down,
+            # warm-starting each solve from the last. This tracks the branch
+            # CONNECTED TO BASELINE down to the target gamma rather than picking
+            # a root by accident. Off by default; DS_GAMMA_ANNEAL=n sets steps.
+            for g in _gamma_schedule(params.gamma)
+                lm_minimize!(zb, prob; max_iter=cap, g_tol=gtol, gamma=g)
+            end
+            @inbounds for (k, t) in enumerate(prob.free)
+                x[t] = clamp(zb[k], 0.0, 1.0)
+            end
+            return _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+        end
+        lower = zeros(Float64, length(prob.free))
+        upper = ones(Float64, length(prob.free))
+        res = Optim.optimize(
+            z -> component_objective(prob, z),
+            (G, z) -> component_gradient!(G, prob, z),
+            lower, upper, z0,
+            Optim.Fminbox(Optim.LBFGS()),
+            Optim.Options(iterations = params.max_iters,
+                          g_tol = params.tolerance),
+        )
+        zbest = Optim.minimizer(res)
+        @inbounds for (k, t) in enumerate(prob.free)
+            x[t] = clamp(zbest[k], 0.0, 1.0)
+        end
+    catch err
+        # A failed minimisation must not hand back the warm start as though it
+        # were a minimiser. Keep it (it is a valid fixed-point answer) but say so.
+        @warn "component minimisation failed; keeping the fixed-point warm start" exception=(err, catch_backtrace()) n_free=length(prob.free)
+    end
+
+    return _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+end
+
+"""Worst `|F(x) - x|` over a component's unobserved targets."""
+function _component_residual(x, rs, rxns_idx, obs_set, supply, config)::Float64
+    resid = 0.0
+    @inbounds for ri in rs
+        r = rxns_idx[ri]
+        t = r.target_idx
+        t in obs_set && continue
+        d = abs(compute_reaction_output_vec(x, r; supply=supply, config=config) - x[t])
+        d > resid && (resid = d)
+    end
+    return resid
+end
+
+
+"""
+Decreasing gamma schedule ending at the target, for continuation.
+
+`DS_GAMMA_ANNEAL=0` (the default) returns just the target, i.e. no continuation.
+`n > 0` prepends `n` geometrically-spaced larger values starting from
+`DS_GAMMA_ANNEAL_START` (default 1.0).
+"""
+function _gamma_schedule(target::Float64)
+    n = round(Int, _float_env("DS_GAMMA_ANNEAL", 0.0))
+    n < 0 && throw(ArgumentError("DS_GAMMA_ANNEAL=$n must be >= 0."))
+    (n == 0 || target <= 0.0) && return [target]
+    start = _float_env("DS_GAMMA_ANNEAL_START", 1.0)
+    start <= target && return [target]
+    ratio = (target / start)^(1.0 / n)
+    sched = [start * ratio^(k - 1) for k in 1:n]
+    push!(sched, target)
+    sched
+end
+
+"""LM iteration cap. Far smaller than the fixed-point budget by design."""
+function _lm_iter_cap()
+    n = round(Int, _float_env("DS_LM_ITERS", 60.0))
+    n < 1 && throw(ArgumentError("DS_LM_ITERS=$n must be at least 1."))
+    n
+end
+
 function solve_scc_ordered!(
     x::Vector{Float64},
     rxns_idx::Vector{IndexedReaction},
@@ -173,6 +574,7 @@ function solve_scc_ordered!(
     obs_set::Set{Int},
     params::SteadyStateParams,
     config::ReactionEvalConfig = resolve_reaction_eval_config(),
+    baseline_vec::Union{Nothing,Vector{Float64}} = nothing,
 )
     # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
     # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
@@ -190,6 +592,85 @@ function solve_scc_ordered!(
     use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false)
     max_inner = params.max_iters
     tol = params.tolerance
+
+    # Sweep scheme inside a cyclic component.
+    #
+    #   "gauss_seidel" (default, historical): x[t] is written back inside the
+    #       sweep, so each reaction reads values some of its neighbours have
+    #       already updated this pass. Converges faster, but the result depends
+    #       on the ORDER reactions are visited in. That order comes from Julia
+    #       `Dict` iteration in `convert_to_reaction_network` and
+    #       `solve_steady_state`, i.e. from UUID hashing — so relabelling a
+    #       network's nodes, with the graph otherwise identical, can land the
+    #       component in a different fixed point. Measured: renaming every UUID
+    #       in the 92-pathway catalog (verified isomorphic — identical
+    #       stable-id edge multiset for all 92) moved 14 of 23,908 curator
+    #       predictions, every one of them inside a single cyclic pathway.
+    #       No acyclic pathway moved a case.
+    #
+    #   "jacobi": every reaction is evaluated against the state at the START of
+    #       the sweep and the new values are committed together, so the sweep is
+    #       invariant to the order of `rs` and the solve becomes a function of
+    #       the graph rather than of its node names.
+    #
+    # This does not resolve WHY a cyclic component has more than one fixed point
+    # (that is the all-zero root, specs/004); it removes node labelling as the
+    # thing that picks between them.
+    sweep = get(ENV, "DS_SCC_SWEEP", "gauss_seidel")
+    if !(sweep in ("gauss_seidel", "jacobi"))
+        throw(ArgumentError(
+            "DS_SCC_SWEEP=$sweep is not a sweep scheme; " *
+            "expected \"gauss_seidel\" or \"jacobi\"."
+        ))
+    end
+    jacobi = sweep == "jacobi"
+
+    # How a CYCLIC component is resolved. specs/003-solver-objective.
+    #
+    #   "fixed_point" (default, historical): sweep x <- F(x) until the residual
+    #       stops moving. On a component with several self-consistent states
+    #       this finds *a* root, not a defined one, and which root depends on
+    #       the sweep order. Raising the iteration budget does not help: at 20x
+    #       the budget two labellings of one network diverged FURTHER (14 -> 25
+    #       differing predictions). See specs/003 research.md section 3.
+    #
+    #   "minimize": minimise the objective the design specifies over the
+    #       component's free nodes,
+    #
+    #           L = mu*||F(x) - x||^2 + gamma*||x - x0||^2
+    #
+    #       box-constrained to [0,1], LBFGS with ForwardDiff gradients, warm
+    #       started from the fixed-point result. The gamma term is the point:
+    #       with gamma = 0 the all-zero state is a stationary point AND a
+    #       global minimum (gradient exactly 0, L = 0), tied with the correct
+    #       answer, so nothing prefers the right root -- which is the defect
+    #       Adam described. With gamma = 0.1 the correct state scores ~1e28
+    #       better. See specs/003 research.md section 2.
+    #
+    # Observations stay pinned here; making them weighted is FR4, Stage 3.
+    scc_method = get(ENV, "DS_SCC_METHOD", "fixed_point")
+    if !(scc_method in ("fixed_point", "minimize"))
+        throw(ArgumentError(
+            "DS_SCC_METHOD=$scc_method is not a method; " *
+            "expected \"fixed_point\" or \"minimize\"."
+        ))
+    end
+    minimize = scc_method == "minimize"
+    if minimize && baseline_vec === nothing
+        throw(ArgumentError(
+            "DS_SCC_METHOD=minimize needs baselines: solve_scc_ordered! was " *
+            "called without `baseline_vec`, so the gamma||x - x0||^2 term " *
+            "cannot be formed. This is a caller bug, not a configuration one."
+        ))
+    end
+
+    # Staging buffers for the Jacobi scheme, allocated ONCE and grown to the
+    # largest component rather than per component — the Gauss-Seidel path must
+    # not pay an allocation per SCC for a scheme it does not use. There is one
+    # reaction per target node (`convert_to_reaction_network` groups every edge
+    # by child), so staged writes never collide.
+    stage_idx = Int[]
+    stage_val = Float64[]
 
     # Type-aware loop handling. Positive/recycling SCCs want full convergence
     # (resolves spuriously-sustained signal). Negative-feedback / switch SCCs
@@ -285,9 +766,14 @@ function solve_scc_ordered!(
             is_neg = neg_mode != "converge" && comp_neg_frac[c] >= neg_frac_thresh
             cap = is_neg ? neg_iters : max_inner
             comp_residual = 0.0
+            if jacobi && length(rs) > length(stage_idx)
+                resize!(stage_idx, length(rs))
+                resize!(stage_val, length(rs))
+            end
             for it in 1:cap
                 total_iters += 1
                 maxch = 0.0
+                n_staged = 0
                 for ri in rs
                     r = rxns_idx[ri]
                     t = r.target_idx
@@ -303,10 +789,29 @@ function solve_scc_ordered!(
                     # different scales.
                     ch = abs(fwd - x[t])
                     ch > maxch && (maxch = ch)
-                    x[t] = nv
+                    if jacobi
+                        n_staged += 1
+                        stage_idx[n_staged] = t
+                        stage_val[n_staged] = nv
+                    else
+                        x[t] = nv
+                    end
+                end
+                if jacobi
+                    for s in 1:n_staged
+                        x[stage_idx[s]] = stage_val[s]
+                    end
                 end
                 comp_residual = maxch
                 maxch < tol && break
+            end
+            # Warm-started minimisation of the specified objective. The
+            # fixed-point sweep above produced the starting point; this moves
+            # from "a root the sweep happened to reach" to "the minimiser of
+            # the objective", which is defined independently of visit order.
+            if minimize
+                comp_residual = minimize_component!(
+                    x, rs, rxns_idx, obs_set, baseline_vec, params, config, supply)
             end
             # Report the worst final residual across all loop components, so a
             # non-converged upstream loop isn't masked by a later converged one.
@@ -410,8 +915,15 @@ function solve_steady_state_penalty(
         # majority exactly in topological order and confines damped iteration to
         # the strongly-connected components (real loops), so feedback converges
         # instead of settling on an oscillating last-iterate.
+        # Baselines indexed like x, for the gamma||x - x0||^2 term of the
+        # specified objective (DS_SCC_METHOD=minimize). Built here because
+        # this is where the uuid -> index mapping lives.
+        baseline_vec = Vector{Float64}(undef, n)
+        @inbounds for (i, uuid) in enumerate(all_nodes)
+            baseline_vec[i] = get(baseline_activities, uuid, 0.01)
+        end
         iters, max_change = solve_scc_ordered!(
-            x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config)
+            x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec)
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
