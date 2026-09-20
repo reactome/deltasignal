@@ -223,3 +223,29 @@ is the part the trace does not touch — that a *pure recycling* cycle (one
 species cycling through states, one entry) should not amplify — and the
 remaining arms (`pool_all`, experimental, relabel churn, control) are run for
 the record, not for a decision.
+
+### Scoring, all arms landed (2026-09-19 23:15)
+
+Control: `fixed_point` on the current tree with `--max-edges 40000`
+(`ab_fixed_point_ctrl.tsv`) is **bit-identical** to `ab_onesided.tsv` on all
+23,908 shared cases (0 predictions, 0 `pred_ui` differ), so the tree carries
+no effect and CD28's 192 extra cases only move headlines. The `pool_all`
+re-run on the committed tree (`fadc0b2`, clean) is bit-identical to the
+original `pool_all` arm, so the mid-run entry-test edit was value-neutral and
+the churn number below is attributable.
+
+| variant | held-out (fixed/broke, p) | tuning | false change (23,908 keys) | experimental (849, conditioned) | AKT-KO TP53 (of 100) | relabel churn |
+|---|---|---|---|---|---|---|
+| `pool` | **−53** (15/68, <1e-4) | −16 | 1,437 → 1,518 | 0 (612 → 612) | 100 | — |
+| `pool_parity` | identical to `pool` (0 values differ) | | | 0 | 100 | — |
+| `pool_all` | **−326** (168/494, <1e-4), 20 pw, 89 genes | −399 | 1,437 → 1,771 | **−17** (24/41, p 0.046) | **2** | **0 of 24,100** (fixed point: 14) |
+
+- **P1** — fails: not a null measurement; −53 by railing small positive loops the fixed point held at baseline.
+- **P2** — fails: held-out −326, false change +334 (predicted −100 in loop-heavy pathways; observed +214 there). The one clause that held: 0 relabel churn.
+- **P3** (corrected) — fails: `pool_all` loses 98 of the 100 AKT-KO cases. (The original wording, built on the wrong baseline, would have scored this as held.)
+- **P4** — fails for `pool_all` (−17, p 0.046); `pool` / `pool_parity` neutral.
+- **P5** — nothing adopted; the product-of-entries pool is refuted as a blanket treatment on both axes.
+
+Mechanism, from the trace: the components the rule pools bundle alternative routes (RAS isoforms in one GTPase cycle) and, in the giants, genuine negative feedback; a product over entries is AND semantics applied to alternatives, and 0 absorbs. The follow-up is not a variant of the pool: specs/018 shows the giant components are welded by our own derived edges (assembly, depletion), which is a different problem with a different rule.
+
+Process note for the record: `src/` was edited twice while arms mounting the live tree were running (the entry-test fix during the pool arms; the specs/018 implementation during the control and re-run). Both were shown harmless after the fact — the servers had loaded their code at start (`code: fadc0b2 dirty_src=0` in the arm log), and the affected dumps are bit-identical to their comparators — but the rule (arms mount a pinned worktree; no `src/` edits until the queue is empty) was written after the first and broken by the second. It stands.
