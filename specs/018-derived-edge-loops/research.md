@@ -441,3 +441,19 @@ Regenerate (`cat_fix2`), production solver, vs the current-tree control on
 - Decision: adopt `79feca7` (correctness: only cycles Neo4j lacks removed) if
   the connectivity and Mitotic G1 clauses hold and held-out is not below
   `cat_fix`'s; the accuracy gain is reported DSB-concentrated regardless.
+
+### Solver-rule review (reviewer A) — verified, fixed
+
+| # | finding | action |
+|---|---|---|
+| 1 | A closure activator evaluated **without `supply`** read the target's baseline (fold 1): the pool path, the flat solve (`DS_SCC_SOLVE=0`), the final residual and **influence scores** — under assembly-limiting a closure clamped at fold 1 dominated the min and zeroed every other input's influence; upstream perturbations arriving through a closure never entered a pooled component. Non-default only. | **Fixed**: those paths pass the live state as `supply` (it is the entry value there); tests added (pool, flat, influence). |
+| 2 | FR-006 test compared activities at 1e-6, not equality, and did not vary edge order; the drift (≤ 1.9e-8) is the known Gauss-Seidel label dependence of the remaining iterated components, present with or without roles. | **Fixed**: the closure set and component census are asserted **exactly** under relabelling and edge reversal; iterated remnants to solver tolerance; test renamed to what it checks. |
+| 3 | `assembly` also breaks composition-edge closures (both are assembly-class) and counts them as assembly. | Documented in `_break_roles_env` and here. |
+| 4 | A direct self-loop counted as a closure (deleted from the census while the solver still iterated the node). | **Fixed**: `s == t` is never a closure; test added. |
+| 5 | Entry-value semantics for a downstream unpinned source = no feedback at all, not damping. | As specified (FR-004); stated in the rule's docstring. |
+| 6–7 | Legacy `DS_SCC_BREAK_CATALYST` singleton evaluation now reads the initial state rather than baseline (identical unless warm-started); diagnostics echo the raw env string. | Noted. |
+
+Verified by the reviewer: default bit-identity against the base tree on the
+TP53 (2,358 nodes, 25 pins) and DSB (12,837 nodes) catalog networks — 0
+differing values; the `fwd_adj2` rebuild omits no edge class; `supply` is
+copied before the component's iteration; role parsing is deterministic.

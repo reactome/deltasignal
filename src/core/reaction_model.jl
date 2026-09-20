@@ -639,6 +639,9 @@ function index_reactions(
             for k in eachindex(rec.act_indices)
                 s = rec.act_indices[k]
                 comp_id[s] == comp_id[t] || continue
+                s == t && continue      # a self-loop is iterated by comp_has_self_loop, not a closure
+                # `assembly` covers composition edges too (activator_is_assembly is
+                # set for both); they are counted under closures_assembly.
                 role = rec.act_is_catalyst[k] ? "catalyst" : (rec.act_is_assembly[k] ? "assembly" : "")
                 if role in break_roles
                     closure_act[ri][k] = true; n_closure[role] += 1
@@ -648,7 +651,7 @@ function index_reactions(
             end
             for k in eachindex(rec.dep_indices)
                 s = rec.dep_indices[k]
-                if "depletion" in break_roles && comp_id[s] == comp_id[t]
+                if "depletion" in break_roles && comp_id[s] == comp_id[t] && s != t
                     closure_dep[ri][k] = true; n_closure["depletion"] += 1
                     delete!(fwd_adj2[s], t)
                 end
@@ -967,6 +970,9 @@ const DS_BREAK_ROLES = Set(["catalyst", "assembly", "depletion"])
 `DS_SCC_BREAK_ROLES`: comma-separated roles whose cycle-closing edges are read
 at the component-entry value and excluded from component detection
 (specs/018). Empty (default) = off. A misspelt role is a startup error.
+`assembly` includes `composition` edges (both are assembly-class). Self-loops
+are never closures. Under a role list, `DS_LOOP_ELASTICITY` and the inhibitor
+loop floor see the recomputed (smaller) components.
 """
 function _break_roles_env()::Set{String}
     raw = strip(get(ENV, "DS_SCC_BREAK_ROLES", ""))

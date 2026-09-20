@@ -80,16 +80,55 @@ relabel(net, f) = DS.ReactionNetwork(Dict(f(k) => DS.NetworkNode(f(v.uuid), v.re
         @test a == b
     end
 
-    @testset "FR-006: labels and edge order do not matter" begin
+    @testset "FR-006: closure marking is label- and edge-order-free; remnants iterate as before" begin
+        # The closure SET and the recomputed component census must be identical under
+        # relabelling and edge reversal (exact). Activities of components that still
+        # iterate carry the solver's known Gauss-Seidel label drift (~1e-8, specs/013)
+        # with or without roles, so they are compared to solver tolerance, not bitwise.
         for (net, obs) in ((welded(), Dict("U" => (2.0, 1.0))), (depweld(), Dict("Z" => (0.5, 1.0))))
             for roles in ("assembly", "assembly,depletion", "catalyst,assembly,depletion")
-                ref = solve(net, obs, roles).node_activities
+                r0 = solve(net, obs, roles)
+                census(r) = (diag(r, "scc_closures_assembly"), diag(r, "scc_closures_depletion"), diag(r, "scc_closures_catalyst"), diag(r, "scc_cyclic_before"), diag(r, "scc_cyclic_after"), diag(r, "scc_largest_after"))
                 for f in (s -> "zz_" * s, s -> string(hash(s)))
-                    rl = solve(relabel(net, f), Dict(f(k) => v for (k, v) in obs), roles).node_activities
-                    # pooled/recomputed components are label-free; iterated remnants may not be (known defect), so compare classes
-                    @test all(abs(rl[f(k)] - v) < 1e-6 for (k, v) in ref)
+                    rl = solve(relabel(net, f), Dict(f(k) => v for (k, v) in obs), roles)
+                    @test census(rl) == census(r0)
+                    @test all(abs(rl.node_activities[f(k)] - v) <= 1e-7 for (k, v) in r0.node_activities)
                 end
+                rev = DS.ReactionNetwork(net.nodes, reverse(net.edges), net.set_mappings)
+                rr = solve(rev, obs, roles)
+                @test census(rr) == census(r0)
+                @test all(abs(rr.node_activities[k] - v) <= 1e-7 for (k, v) in r0.node_activities)
             end
         end
+    end
+
+    @testset "review fixes: closures read the entry state on every evaluation path; self-loops are not closures" begin
+        # a closure activator into a POOLED component must carry an upstream perturbation
+        ko = Dict{String,Tuple{Float64,Float64}}("M" => (0.0, 1.0))
+        r_fp = withenv("DS_SCC_BREAK_ROLES" => "assembly") do
+            DS.solve_steady_state(welded(), ko, P)
+        end
+        r_pool = withenv("DS_SCC_BREAK_ROLES" => "assembly", "DS_SCC_METHOD" => "pool_all") do
+            DS.solve_steady_state(welded(), ko, P)
+        end
+        @test r_fp.node_activities["C"] < 1e-9
+        @test r_pool.node_activities["C"] < 1e-9
+        # the flat solver honours closures the same way
+        r_flat = withenv("DS_SCC_BREAK_ROLES" => "assembly", "DS_SCC_SOLVE" => "0") do
+            DS.solve_steady_state(welded(), ko, P)
+        end
+        @test r_flat.node_activities["C"] < 1e-9
+        # influence of the limiting member is not zeroed by a closure clamped at fold 1
+        r = solve(welded(), Dict("U" => (2.0, 1.0)), "assembly")
+        infl = withenv("DS_SCC_BREAK_ROLES" => "assembly") do
+            DS.compute_influence_scores(r, DS.convert_to_reaction_network(welded()))
+        end
+        @test get(infl, "M", 0.0) > 0.0
+        # a self-catalysing reaction is not a closure
+        # a DIRECT self-edge (node catalyses its own production); the two-node A <-> rA form is a real cycle
+        selfcat = mk(("U", "A"), [E("U", "A", true, true, "input"), E("A", "A", true, true, "catalyst")])
+        rs = solve(selfcat, Dict("U" => (2.0, 1.0)), "catalyst")
+        @test diag(rs, "scc_closures_catalyst") == 0
+        @test diag(rs, "scc_cyclic_before") == diag(rs, "scc_cyclic_after")
     end
 end

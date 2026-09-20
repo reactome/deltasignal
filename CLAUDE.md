@@ -286,7 +286,7 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 | `test/test_observation_pinning.jl` | 23 |
 | `test/test_propagator_invariants.jl` | 120 |
 | `test/test_loop_pool.jl` | 81 |
-| `test/test_scc_break_roles.jl` | 26 |
+| `test/test_scc_break_roles.jl` | 56 |
 | `test/test_cli_observations.jl` | 20 |
 | `test/test_api_errors.jl` | 26 |
 

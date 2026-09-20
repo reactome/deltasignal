@@ -929,7 +929,8 @@ function pool_component!(x::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector{I
         r = rxns_idx[ri]
         t = r.target_idx
         t in obs_set && continue
-        f = compute_reaction_output_vec(xpool, r; config=config) / baseline_vec[t]
+        # closure edges (DS_SCC_BREAK_ROLES / legacy catalyst break) read the entry state
+        f = compute_reaction_output_vec(xpool, r; supply=x, config=config) / baseline_vec[t]
         # hill_sat's smooth cap returns bl*(1 + 3e-15) at pure baseline, so an
         # exact `!= 1` test made ~97% of member reactions "entries" (TP53:
         # 808 of 837). A relative tolerance well below any real perturbation
@@ -1067,6 +1068,12 @@ function solve_steady_state_penalty(
     iters = 0
     scc_stats = (method = "flat", pooled = 0, iterated = 0, fallback_negative = 0,
                  fallback_inconsistent = 0, pooled_nodes = 0)
+    # A closure activator with no `supply` reads the TARGET's baseline (the
+    # legacy catalyst-break semantics); on the flat path, in the final residual
+    # and in influence scores that zeroed the influence of every other input
+    # under assembly-limiting. Pass the live state instead wherever closures
+    # are marked: it IS the entry value there.
+    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
     max_change = 0.0
 
     # Optional damping for loop convergence. The original feed-forward
@@ -1102,7 +1109,7 @@ function solve_steady_state_penalty(
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
-            x_fwd = forward_model_vec(x, rxns_idx; config=eval_config)
+            x_fwd = forward_model_vec(x, rxns_idx; supply = flat_supply ? x : nothing, config=eval_config)
 
             max_change = 0.0
             @inbounds for i in 1:n
@@ -1124,7 +1131,7 @@ function solve_steady_state_penalty(
     end
 
     # Final consistency check on the stable state.
-    x_fwd_final = forward_model_vec(x, rxns_idx; config=eval_config)
+    x_fwd_final = forward_model_vec(x, rxns_idx; supply = flat_supply ? x : nothing, config=eval_config)
     consistency_inf = n == 0 ? 0.0 : maximum(abs.(x .- x_fwd_final))
 
     # Honest residual: max |x - F(x)| over the FREE nodes only.
@@ -1227,10 +1234,11 @@ function compute_influence_scores(
     end
 
     eval_config = resolve_reaction_eval_config()
+    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
     influence_scores = Dict{String, Float64}()
     h = 1e-6
     for rxn in indexed
-        base = compute_reaction_output_vec(x, rxn; config=eval_config)
+        base = compute_reaction_output_vec(x, rxn; supply = infl_supply ? x : nothing, config=eval_config)
         # Every input the reaction's output depends on: activators, inhibitors,
         # depletion (catalyst→substrate), and substrates.
         input_idxs = vcat(rxn.activator_indices, rxn.inhibitor_indices,
@@ -1241,7 +1249,7 @@ function compute_influence_scores(
             # yields a finite-difference slope (forward step would clamp to 0).
             dir = (x_saved + h <= 1.0) ? h : -h
             x[idx] = x_saved + dir
-            plus = compute_reaction_output_vec(x, rxn; config=eval_config)
+            plus = compute_reaction_output_vec(x, rxn; supply = infl_supply ? x : nothing, config=eval_config)
             x[idx] = x_saved
             deriv = (plus - base) / dir
             uuid = all_nodes[idx]
