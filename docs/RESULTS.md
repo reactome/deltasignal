@@ -126,6 +126,39 @@ On our own networks against experimental evidence: 627/849 = 73.85%, macro-F1
 
 ## 2. On our own networks
 
+### 2026-09-20: the welded-loop fix (specs/018) — new canonical numbers
+
+The generator's boundary expansion reused, as a root complex's subunit leaf, a
+node that the root complex itself reaches downstream, welding cycles Reactome
+does not have (1,994 of 2,077 cycle-carrying assembly edges; TP53's component
+836 nodes, DSB's 1,127). reactome/logic-network-generator#91 (`79feca7`) refuses
+exactly those reuses: stable-id edge multisets are identical in all 92
+pathways, +336 fresh leaf nodes; TP53 → 56, DSB → 290. Regenerated catalog,
+production solver, no solver change:
+
+| split | pathways | cases | accuracy | macro-F1 |
+|---|---|---|---|---|
+| tuning (the paper's ten) | 11 | 5,100 | 0.770 | — |
+| **held-out — quote this** | 71 | 19,000 | **0.870** | — |
+| all pathways | 82 | 24,100 | **0.8471** | **0.8137** |
+
+Against the previous production catalog on identical keys: held-out **+173**
+(199 fixed / 26 broke, p < 1e-4), tuning +109, false change 1,437 → 1,150,
+experimental +3 (conditioned), the 102 AKT-KO → TP53 cases unchanged at
+100. **Stated plainly: 94% of the held-out gain is DSB Repair** (its welded
+component was collapsing to zero under PARP1/2, FEN1, POLQ, RTEL1, XRCC5/6,
+MUS81 knockouts) and 187 of the 199 fixes are DOWN → NORMAL where the truth
+is NORMAL. It is adopted on correctness grounds; the accuracy gain is one
+pathway's. The tables below this section predate the fix and describe the
+previous catalog. The production catalog must be regenerated with the merged
+generator for these numbers to reach the API.
+
+Everything else measured in September 2026 — loop elasticity, the objective
+minimiser, the loop pool, composition edges, catalyst/own-product rules — is
+recorded in `specs/013`–`018` as measured and not adopted; the re-evaluation
+of each on the fixed catalog is in `specs/018-derived-edge-loops/research.md`.
+
+
 **Report the held-out split.** The MP-BioPath paper tuned on ten pathways and
 reported on the rest. This project drifted off that protocol — the ten-pathway
 set kept reversing decisions that held at scale, so decisions moved to the wide
