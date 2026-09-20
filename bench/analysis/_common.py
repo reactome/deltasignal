@@ -52,7 +52,7 @@ def load_one(dirname):
     incoming = defaultdict(list)
     outgoing = defaultdict(list)
     for r in rows:
-        src, tgt, pn, ao, et, _ = r
+        src, tgt, pn, ao, et, *_ = r   # 6 or 7 columns (edge_reaction_id added 2026-09)
         incoming[tgt].append((src, pn, ao, et))
         outgoing[src].append((tgt, pn, ao, et))
     stids, rev = {}, defaultdict(list)
@@ -75,7 +75,7 @@ def load_joint(dirnames):
     for d in dirnames:
         rows = list(csv.reader(open(CATALOG / d / "logic_network.csv")))[1:]
         for r in rows:
-            src, tgt, pn, ao, et, _ = r
+            src, tgt, pn, ao, et, *_ = r   # 6 or 7 columns (edge_reaction_id added 2026-09)
             inc[tgt].append((src, pn, ao, et))
             out[src].append((tgt, pn, ao, et))
         for r in csv.DictReader(open(CATALOG / d / "stid_to_uuid_mapping.csv")):

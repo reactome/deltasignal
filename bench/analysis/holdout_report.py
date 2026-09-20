@@ -85,7 +85,8 @@ def report(name: str, cases: dict) -> None:
           f"{len(allrows):>8}{ok/len(allrows):>10.4f}{macro_f1(allrows):>10.4f}")
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    # `argv` is for tests; the CLI passes nothing and argparse reads sys.argv.
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cases", type=Path, required=True)
@@ -93,7 +94,7 @@ def main() -> int:
                     help="A second dump. Reports whether the change wins on the "
                          "HELD-OUT half as well as the tuning half -- a change "
                          "that only wins on tuning is overfitting.")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
 
     base = load(a.cases)
     report(a.cases.name, base)
@@ -120,7 +121,8 @@ def main() -> int:
             print(f"  {dropped} of {len(paired)} shared cases dropped: the arms "
                   f"resolved a different perturbation set for them.")
         print(f"{'split':<26}{'cases':>8}{'baseline':>10}{'arm':>10}{'net':>8}"
-              f"{'fixed':>7}{'broke':>7}{'p':>9}")
+              f"{'fixed':>7}{'broke':>7}{'p':>9}{'pathways':>10}{'readouts':>10}{'genes':>7}")
+        concentrated = []
         for label, keys in (
             ("TUNING (the paper's ten)", [k for k in shared if k[0] in TUNING_PATHWAYS]),
             ("HELD-OUT (report this)", [k for k in shared if k[0] not in TUNING_PATHWAYS]),
@@ -141,11 +143,71 @@ def main() -> int:
                         if base[k]["predicted"] == base[k]["expected"]
                         and arm[k]["predicted"] != arm[k]["expected"])
             pval = mcnemar_exact(fixed, broke)
+            # HOW CONCENTRATED is the movement? McNemar assumes the discordant
+            # pairs are independent. Cases sharing a pathway, a readout and a
+            # mechanism are not: a coverage fix that makes ONE entity
+            # addressable produces a cluster of "fixed" cases that reads as a
+            # distributed gain and is not one.
+            #
+            # LNG #89 is the case that forced these columns. It reported
+            # "+14 held-out, 16 fixed / 2 broke, p = 0.0013" -- which was all
+            # 18 cases on a SINGLE readout (HSP90B1) in a single pathway, 9
+            # genes x 2 directions. Effective n is 1, not 18, and the p-value
+            # was meaningless.
+            disc = [k for k in keys
+                    if (arm[k]["predicted"] == arm[k]["expected"])
+                    != (base[k]["predicted"] == base[k]["expected"])]
+            n_pw = len({k[0] for k in disc})
+            n_ro = len({(k[0], k[3]) for k in disc})
+            # Distinct PERTURBATIONS, not just readouts. A loop fix once showed
+            # 19 held-out discordant cases over 18 distinct readouts -- and 13
+            # of them were one gene (DOK1) read at 13 places. Readouts alone
+            # said "distributed"; genes said "two perturbations".
+            gene_counts = collections.Counter((k[0], k[1]) for k in disc)
+            n_ge = len(gene_counts)
+            # Dominance, not just count: 19 discordant cases over 5 genes still
+            # had 13 from ONE gene. The count said "five"; the share says "68%".
+            top_gene, top_n = (gene_counts.most_common(1)[0] if gene_counts else (None, 0))
+            top_share = top_n / len(disc) if disc else 0.0
+            scored_pw = len({k[0] for k in keys})
+            concentrated.append((label, n_pw, n_ro, n_ge, scored_pw, top_gene, top_share))
             print(f"{label:<26}{len(keys):>8}{b/len(keys):>10.4f}{m/len(keys):>10.4f}"
-                  f"{m-b:>+8d}{fixed:>7}{broke:>7}{pval:>9.4f}")
+                  f"{m-b:>+8d}{fixed:>7}{broke:>7}{pval:>9.4f}"
+                  f"{f'{n_pw}/{scored_pw}':>10}{n_ro:>10}{n_ge:>7}")
         print("\nA decision that wins on TUNING but not HELD-OUT is overfitting.")
         print("p is two-sided exact McNemar on the discordant pairs. p >= 0.05 means"
               "\nthe net figure's SIGN is not established, whatever its magnitude.")
+        print("pathways = how many moved / how many scored. readouts = distinct"
+              "\n(pathway, readout) pairs among the discordant cases. genes = distinct"
+              "\n(pathway, gene) perturbations among them.")
+        for label, n_pw, n_ro, n_ge, scored_pw, top_gene, top_share in concentrated:
+            if n_ro == 0:
+                print(f"\n  !! {label}: NO comparable case moved. Every discordant "
+                      f"case was dropped by the\n     perturbation-set conditioning "
+                      f"above, which is what happens when the change is a\n     "
+                      f"COVERAGE fix -- it makes cases answerable that were not, so "
+                      f"there is no\n     like-for-like pair. Score it as coverage "
+                      f"(how many cases became answerable,\n     and how well they "
+                      f"are answered), not as fixed/broke.")
+                continue
+            if top_share >= 0.5 and n_ro > 1:
+                print(f"\n  !! {label}: one perturbation ({top_gene[1]} in {top_gene[0]}) "
+                      f"accounts for {top_share:.0%} of the discordant cases\n     "
+                      f"(across {n_ro} readouts). The readouts differ but the cause is "
+                      f"shared, so the\n     independent evidence is closer to one case "
+                      f"than to {n_ro}. Report the gene, not just the count.")
+            if n_ro > 1 and n_pw > 1 and n_ge <= 2:
+                print(f"\n  !! {label}: the movement spans {n_ro} readouts but only "
+                      f"{n_ge} distinct (pathway, gene) perturbation(s).\n     Those cases "
+                      f"share their cause, so McNemar's independence assumption fails "
+                      f"even though\n     the readouts differ. Report it as a "
+                      f"{n_ge}-perturbation result, and treat the p-value as overstated.")
+            if n_ro <= 1 or n_pw <= 1:
+                print(f"\n  !! {label}: the movement spans {n_pw} pathway(s) and "
+                      f"{n_ro} readout(s).\n     These cases are NOT independent, so "
+                      f"McNemar does not apply and the p-value above is\n     "
+                      f"meaningless. Report this as a single-{'readout' if n_ro <= 1 else 'pathway'} "
+                      f"fix, not a distributed gain.")
     return 0
 
 
