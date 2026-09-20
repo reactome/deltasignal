@@ -320,3 +320,32 @@ axes for every arm.
 Decision rule: each arm keeps or reverses its earlier verdict on held-out
 sign with p < 0.05, both axes reported; a change of verdict is recorded as
 the fix's effect, not as a new discovery.
+
+### Re-evaluation scored (2026-09-20 04:30; control `ab_fix`, worktree `560a85c`, both axes)
+
+| arm | held-out (fixed/broke, p) | tuning | false change | experimental (cond.) | welded-era verdict | **verdict on `cat_fix`** |
+|---|---|---|---|---|---|---|
+| el (elasticity 0.5/0.2/0.95) | **+29** (30/1, <1e-4; PTK6 +13, MET +5, EGFR +4) | **−85** (TP53 −94) | −44 | +3 | +29 / −61 | **unchanged** — the gain was never a weld artifact and neither was the TP53 cost: elasticity damps the real MDM2 loop. Not adoptable. Prediction ("gain shrinks, cost gone") wrong on both counts. |
+| jacobi | −10 (41/51, n.s.) | −72 (TP53) | +18 | −14 | −0.26pp | **unchanged, worse**: not adoptable; label independence still costs TP53. |
+| dedup activators | **−15** (3/18, 0.0015) | +39 (TP53 +51, PIP3 −14) | −14 | 0 | −15 | **unchanged**: the squaring is load-bearing with or without the welds. |
+| depletion floor OFF | **−25** (8/33) | **−126** (TP53 −125) | −5 | +3 | floor was +28 | **stands, larger**: the floor is not a loop artifact. |
+| hill_log | +2 (n.s.) | −72 (TP53) | +8 | 0 | −16 | **unchanged**: hill_sat stands. |
+| catalyst closures | **−104** (5/109; DSB −99) | −33 | −38 | −4 | −65 | **unchanged, worse**. |
+| own-product depletion | −5 | 0 | −1 | −2 | inert | **unchanged**: inert. |
+| assembly closures | −5 / +8 ALL | +13 | −12 | 0 | **+214** | **absorbed by the fix**, as predicted: 93 closures left do nothing. |
+| **sharing** (regen on the fix; 4,094 conditioning drops) | −1 (11/12) | **+18** (TP53 +18) | +11 | +3 | −1 / **−64** | **REVERSED**: the −64 was the TP53 basin flip and it is gone. Sharing is now a free correctness change (nodes −35%, reachability identical) with no accuracy cost on either axis → **adopt** (generator default), pending Adam. |
+| **composition** `limit_novel` (regen on the fix, vs same-catalog ctrl) | **−185** (137/322) | −174 | **+426** | −5 | +12 (DSB −62) | **REVERSED the other way**: DSB **−241**, TP53 −151, IFN α/β +100 unchanged. With the welds gone, composition edges are the derived class that closes cycles (cycle-carrying by construction: complex → containing complex → … → complex); they re-weld what the fix unwelded. Refuted as an edge on this network; off, and the LNG flag should stay off. `assembly`-semantics variant: held-out −337. |
+
+Regeneration churn control: `cat_fix_comp` with composition skipped vs `cat_fix`
+differs by +12 (one tuning pathway, 6 readouts) — the size of relabelling noise
+on the remaining reaction-level cycles.
+
+**Summary.** Of ten welded-era verdicts, eight stand (six knobs remain
+not-adoptable or inert, the depletion floor and hill_sat remain right, the
+assembly rule is now redundant) and two reverse: **sharing becomes adoptable**
+and **composition edges become clearly harmful**. Elasticity is the surprise:
+its +29 / −85 is the same trade after the fix as before, which locates it on
+the genuine MDM2–TP53 feedback loop rather than on the welds, and says the
+remaining loop work is about that loop and the reaction-level recycling
+cycles (MHC 675 nodes, Checkpoints 483, HOX 425), not about our edges any
+more.
