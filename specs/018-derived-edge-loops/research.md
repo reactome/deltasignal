@@ -457,3 +457,49 @@ Verified by the reviewer: default bit-identity against the base tree on the
 TP53 (2,358 nodes, 25 pins) and DSB (12,837 nodes) catalog networks — 0
 differing values; the `fwd_adj2` rebuild omits no edge class; `supply` is
 copied before the component's iteration; role parsing is deterministic.
+
+### P8 scored — the targeted fix (LNG `79feca7`, `cat_fix2`; 2026-09-20 07:40)
+
+Structure: TP53 **56**, DSB **290**, cyclic components **210**, cycle-carrying
+assembly edges **36**; stable-id edge multisets **identical to `cat_os` in all
+92 pathways**; **336** fresh leaf nodes (475 in v1). Every structural clause
+holds — and the correctness claim is now exact: the only change is 336 new
+boundary-leaf nodes, added where reusing an existing node would have closed a
+cycle Reactome does not have.
+
+| | control (`cat_os`) | v1 `cat_fix` (refuse every produced node) | **v2 `cat_fix2` (refuse only downstream nodes)** |
+|---|---|---|---|
+| all pathways | 83.47% / 0.8009 | 84.81% / 0.8141 | **84.71% / 0.8137** |
+| held-out, conditioned | | +222 (255/33) | **+173** (199/26, p < 1e-4; 5 pathways) |
+| held-out, unconditioned | | +260 | +192 (225/33) |
+| tuning, conditioned | | +81 | **+109** (121/12) |
+| false change | 1,437 | 1,043 | **1,150** |
+| DSB (conditioned) | | +186 | **+163** |
+| Mitotic G1 | | **−28** | **−4** |
+| former passes → `no_path` | | 65 | **13** (11 in DSB) |
+| AKT-KO TP53 (of 102) | 100 | 98 | **100** |
+| experimental, conditioned / dropped subset | | 0 / **0 fixed, 8 broke** | **+3** (6/3) / 0 fixed, 4 broke |
+| conditioning drops (curator / experimental) | | 1,550 / 222 | 638 / 57 |
+
+Clauses: structure ✓; Mitotic G1 within ±5 ✓ (−4); DSB ≥ +150 ✓ (+163);
+tuning ≥ +60 ✓ (+109); AKT ≥ 96 ✓ (100); experimental conditioned ≥ −5 ✓ (+3)
+and dropped subset not worse than −4 ✓ (exactly −4). **Two clauses fail as
+written**: former-pass `no_path` losses 13 (bar was ≤ 10; 11 of the 13 are in
+DSB, which nets +163), and held-out +173 is below v1's +222. The second bar
+was ill-posed: v1's extra 49 came from severing 752 real feed-forward links,
+which removed false DOWNs along with Mitotic G1's true ones; v2 is the version
+whose correctness claim is exact and whose losses are small and local.
+
+Stated plainly: held-out conditioned +173 is **94% DSB Repair** and 187 of the
+199 fixes are DOWN → NORMAL with truth NORMAL. This is the removal of one
+pathway's welded-loop collapse, with small gains in TP53 (+65 tuning), HDR,
+PIP3, ERBB2, HOX and TGF-β and nothing worse than −4 anywhere.
+
+**Decision: adopt `79feca7`.** On correctness (exact), with the accuracy
+effect reported as above. The v1 catalog and its numbers are superseded. The
+production catalog must be regenerated with this generator for any of it to
+reach the API. Follow-ups: trace the 11 DSB former passes that became
+`no_path`; the re-evaluation (sharing adoptable on structure, composition
+harmful, everything else unchanged) was run on v1 and its verdicts do not
+depend on the 752 links, but sharing should be re-run on v2 before its
+default is flipped.
