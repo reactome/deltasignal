@@ -222,3 +222,30 @@ changed.
   fix is adopted on *correctness* grounds (the network no longer contains
   cycles Neo4j does not have) if the accuracy clauses hold, and reported as
   a DSB-concentrated accuracy gain.
+
+### P6 scored — `assembly` alone (2026-09-20 00:55; worktree `560a85c`)
+
+| | headline | held-out (fixed/broke, p) | tuning | false change (loop-heavy / all) | experimental | AKT-KO TP53 (of 100) | relabel churn |
+|---|---|---|---|---|---|---|---|
+| **As** `assembly` | **84.74% / mF1 0.8136** (control 83.47 / 0.8009) | **+214** (241/27, p < 1e-4), 5 pathways, 40 readouts | **+92** (110/18) | 637 → **374** / 1,437 → **1,127** | 612 → 612 (0) | **100** | 15 of 24,100 (fixed point 14) |
+| A `assembly,depletion` (for comparison) | 84.59 / 0.8107 | +226 | +44 | 278 / 1,006 | +1 | 4 | 17 |
+
+Per pathway (As): DSB **+190**, TP53 **+46**, HDR +20, DNA Damage Bypass +15,
+PIP3 +14, ERBB2 +12, HOX +7, TGF-β +6, EGFR −4, Checkpoints −2.
+
+- AKT clause **holds** (100 of 100 kept; the depletion edge MDM2:TP53 ⊣ TP53
+  feeds back again). DSB ≥ 120 **holds** (+190). Held-out ≥ +100 **holds**
+  (+214). False change ≥ −250 in loop-heavy **holds** (−263). Experimental
+  ≥ −5 **holds** (0). **Relabel churn 0 fails** (15 vs 14): the reaction-level
+  components that remain after unwelding are still iterated by Gauss-Seidel,
+  whose result depends on visit order (specs/013); unwelding does not touch
+  that, `DS_SCC_SWEEP=jacobi` does.
+- Concentration, stated: DSB is 190 of the held-out +214 (89%). The tuning
+  +92 is spread over six pathways with TP53 +46. The rule acts where a derived
+  edge welded a giant, and there are two such pathways.
+
+`assembly` alone is strictly better than `assembly,depletion` on every axis
+except the loop-heavy false-change count, and it does not touch the AKT
+route. It is the candidate solver rule — pending P7, which asks whether the
+same result is obtained by not constructing the welding edges in the first
+place, in which case no solver rule is needed for assembly at all.
