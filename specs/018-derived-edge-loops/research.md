@@ -249,3 +249,46 @@ except the loop-heavy false-change count, and it does not touch the AKT
 route. It is the candidate solver rule — pending P7, which asks whether the
 same result is obtained by not constructing the welding edges in the first
 place, in which case no solver rule is needed for assembly at all.
+
+### P7 scored — the generator fix, regenerated catalog, production solver, no rule (2026-09-20 01:30)
+
+Regeneration: LNG `3e6d00c` clean, 93 pathways, 737 s. Census of `cat_fix`
+vs `cat_os`: cyclic components **207** (258), nodes in cycles 8,449 (12,749),
+cycle-carrying assembly edges **93** (2,077); largest components TP53 **56**
+(836), DSB **290** (1,127), WNT 168 (211), MHC 675 (675 — a reaction-backbone
+component, untouched as it should be). Every structural clause holds.
+
+| | control (`cat_os`, current tree) | **`cat_fix`, production solver** |
+|---|---|---|
+| all pathways | 83.47% / mF1 0.8009 | **84.81% / 0.8141** |
+| held-out, conditioned (18,358) | 86.15% | **87.36%** — **+222** (255/33, p < 1e-4) |
+| held-out, unconditioned (19,000) | | +260 (306/46), **15 of 71 pathways moved**, 56 readouts |
+| tuning, conditioned | 77.60% | 79.53% — **+81** (120/39) |
+| false change (23,908 shared keys) | 1,437 | **1,043** (loop-heavy 637 → 322) |
+| experimental, conditioned (627) | | **0** (4/4); unconditioned −8 (4/12, p 0.08; WNT −4, Mitotic G1 −4) |
+| AKT-KO TP53 (of 100) | 100 | **98** |
+| conditioning drops | | 1,550 (fresh boundary leaves carry the gene, so gene node sets grew) |
+
+Per pathway: DSB **+210**, TP53 +49, DNA Damage Bypass +22, HDR +20, PIP3
++14, WNT +9, pluripotent stem cells +9, HOX +7, TGF-β +6, FGFR3 +3;
+**Mitotic G1 −28**, Intrinsic Apoptosis −6, RUNX1 −3.
+
+- Held-out ≥ +150 **holds** (+222 conditioned). DSB ≥ +120 **holds** (+210).
+  False change ≥ −250 in loop-heavy **holds** (−315). AKT ≥ 90 **holds** (98).
+  Experimental ≥ −5 conditioned **holds** (0).
+- Concentration, stated: DSB is 210 of the held-out +260 (81%); but fifteen
+  held-out pathways moved, three times as many as under the solver rule, and
+  twelve of them moved up.
+- The one new loss: **Mitotic G1 −28** — RBL1-OE (17) and RBL2-OE (15) cases
+  that read DOWN correctly through the welded component now read NORMAL. A
+  correct answer that depended on a wrong edge; to be traced before it is
+  called a regression rather than a revealed gap.
+
+**Decision (per the pre-registered rule): the generator fix is adopted on
+correctness grounds** — the network no longer contains 1,900 cycles that
+Reactome does not have — and its accuracy effect is reported as a
+DSB-concentrated +222 held-out with broad small gains. It makes the solver's
+`assembly` closure rule redundant (93 closures remain catalog-wide);
+`DS_SCC_BREAK_ROLES` stays available, off by default, as the measured record.
+Everything measured this month on the welded catalog is now re-evaluated
+against `cat_fix` (next section).
