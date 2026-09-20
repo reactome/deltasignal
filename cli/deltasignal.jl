@@ -236,7 +236,7 @@ See specs/003-solver-objective FR5.
 function solve_provenance(scc_method::String, params::SteadyStateParams,
                           aggregation)::Dict{String, Any}
     base = Dict{String, Any}(
-        "scc_method" => scc_method,
+        "scc_method" => scc_method,   # pool / pool_parity / pool_all (specs/017) or fixed_point / minimize
         "max_iters" => params.max_iters,
         "tolerance" => params.tolerance,
         "aggregation" => aggregation,

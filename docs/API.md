@@ -140,6 +140,12 @@ Response:
 ```
 - **`node_activities`**: `uuid → activity` on the **0–1 internal scale**
   (`× 100` for display — see Conventions).
+- **`scc`** (additive, specs/017): how the cyclic components were resolved —
+  `method` (the `DS_SCC_METHOD` in force), `pooled`, `iterated`,
+  `fallback_negative`, `fallback_inconsistent`, `pooled_nodes`. Under the
+  default `fixed_point`, `pooled` is 0 and `iterated` counts the cyclic
+  components. A benchmark arm that expects pooling checks `pooled > 0` here
+  instead of trusting the environment.
 - **`influence_scores`**: `uuid → Σ|∂F/∂input|` at the solution, computed with
   the same propagator as the solve (so inhibitors carry real influence). Use for
   a "what drove this?" view; higher = more influential.

@@ -648,14 +648,41 @@ function solve_scc_ordered!(
     #       better. See specs/003 research.md section 2.
     #
     # Observations stay pinned here; making them weighted is FR4, Stage 3.
+    #   "pool" / "pool_parity" (specs/017): the component is a conserved POOL.
+    #       Every member reaction is evaluated with its in-component inputs held
+    #       at baseline (fold 1), giving an EXTERNAL fold; the entry folds
+    #       multiply into one pool fold (0 absorbs, capped at 100x like hill_sat)
+    #       and every non-pinned member reads its own baseline x that fold. No
+    #       iteration inside the component, so the gain-1 knife-edge cannot rail
+    #       or collapse it and the answer does not depend on node labels.
+    #       "pool" leaves any component with an internal inhibitor/depletion
+    #       edge to the damped fixed point; "pool_parity" reads each entry's
+    #       fold to the power +-1 by the parity of negative internal edges on
+    #       the path from that entry, and falls back only when the signs are
+    #       inconsistent (an odd negative cycle: genuine negative feedback).
+    #       "pool_all" is the literal rule: pool every component, and an
+    #       internal negative edge contributes nothing (its source reads
+    #       baseline, factor 1). A member downstream of an internal inhibitor
+    #       therefore moves WITH the entry, not against it -- known wrong for
+    #       MDM2 -| TP53, kept because it is the only variant that pools the
+    #       giant components at all (every one of them has a negative edge).
     scc_method = get(ENV, "DS_SCC_METHOD", "fixed_point")
-    if !(scc_method in ("fixed_point", "minimize"))
+    if !(scc_method in ("fixed_point", "minimize", "pool", "pool_parity", "pool_all"))
         throw(ArgumentError(
             "DS_SCC_METHOD=$scc_method is not a method; " *
-            "expected \"fixed_point\" or \"minimize\"."
+            "expected \"fixed_point\", \"minimize\", \"pool\", \"pool_parity\" or \"pool_all\"."
         ))
     end
     minimize = scc_method == "minimize"
+    pooling = scc_method in ("pool", "pool_parity", "pool_all")
+    parity = scc_method == "pool_parity"
+    pool_all = scc_method == "pool_all"
+    if pooling && baseline_vec === nothing
+        throw(ArgumentError(
+            "DS_SCC_METHOD=$scc_method needs baselines: solve_scc_ordered! was " *
+            "called without `baseline_vec`. This is a caller bug, not a configuration one."
+        ))
+    end
     if minimize && baseline_vec === nothing
         throw(ArgumentError(
             "DS_SCC_METHOD=minimize needs baselines: solve_scc_ordered! was " *
@@ -742,6 +769,26 @@ function solve_scc_ordered!(
         end
     end
 
+    # Pool bookkeeping (specs/017): member node lists and an internal-negative
+    # census per component, built only when pooling is on.
+    comp_nodes = pooling ? [Int[] for _ in 1:n_comp] : Vector{Int}[]
+    comp_has_neg = falses(n_comp)
+    if pooling
+        @inbounds for (i, c) in enumerate(comp_id)
+            c >= 1 && push!(comp_nodes[c], i)
+        end
+        @inbounds for r in rxns_idx
+            c = comp_id[r.target_idx]
+            c >= 1 || continue
+            comp_has_neg[c] && continue
+            if any(i -> comp_id[i] == c, r.inhibitor_indices) ||
+               any(i -> comp_id[i] == c, r.depletion_indices)
+                comp_has_neg[c] = true
+            end
+        end
+    end
+    n_pooled = 0; n_iterated = 0; n_fb_neg = 0; n_fb_inc = 0; n_pooled_nodes = 0
+
     total_iters = 0
     last_change = 0.0
 
@@ -758,6 +805,21 @@ function solve_scc_ordered!(
                 x[t] = compute_reaction_output_vec(x, rxns_idx[ri]; config=config)
             end
         else
+            if pooling
+                status, nw = pool_component!(x, rs, rxns_idx, comp_id, c, comp_nodes[c],
+                                             obs_set, baseline_vec, config, parity,
+                                             pool_all ? false : comp_has_neg[c])
+                if status == :pooled
+                    n_pooled += 1
+                    n_pooled_nodes += nw
+                    continue
+                elseif status == :negative
+                    n_fb_neg += 1
+                else
+                    n_fb_inc += 1
+                end
+            end
+            n_iterated += 1
             # Genuine loop: damped fixed point confined to this component.
             # Freeze the entry state for the optional catalyst-break layer.
             supply = use_supply ? copy(x) : nothing
@@ -818,7 +880,97 @@ function solve_scc_ordered!(
             last_change = max(last_change, comp_residual)
         end
     end
-    return total_iters, last_change
+    stats = (method = scc_method, pooled = n_pooled, iterated = n_iterated,
+             fallback_negative = n_fb_neg, fallback_inconsistent = n_fb_inc,
+             pooled_nodes = n_pooled_nodes)
+    return total_iters, last_change, stats
+end
+
+"""
+Resolve one cyclic component as a conserved pool (specs/017). Returns
+`(:pooled, n_written)`, `(:negative, 0)` (has an internal negative edge and
+parity is off) or `(:inconsistent, 0)` (parity on, but a member is reached
+from one entry with both signs -- an odd negative cycle). On the two fallback
+statuses `x` is untouched and the caller iterates the component as before.
+
+The external fold of a member reaction is its output with every non-pinned
+member node at its own baseline, divided by the target's baseline. Reactions
+whose target is pinned are not entries: the pinned value itself carries the
+signal into the reactions that read it. Entry factors are multiplied in sorted
+order so the product is bit-identical under relabelling.
+"""
+function pool_component!(x::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector{IndexedReaction},
+                         comp_id::Vector{Int}, c::Int, members::Vector{Int}, obs_set::Set{Int},
+                         baseline_vec::Vector{Float64}, config::ReactionEvalConfig,
+                         parity::Bool, has_neg::Bool)
+    (has_neg && !parity) && return :negative, 0
+    xpool = copy(x)
+    @inbounds for m in members
+        m in obs_set || (xpool[m] = baseline_vec[m])
+    end
+    entries = Tuple{Int, Float64}[]          # (entry node, external fold)
+    @inbounds for ri in rs
+        r = rxns_idx[ri]
+        t = r.target_idx
+        t in obs_set && continue
+        f = compute_reaction_output_vec(xpool, r; config=config) / baseline_vec[t]
+        f != 1.0 && push!(entries, (t, f))
+    end
+    # Sign of every member relative to every entry (parity only).
+    signs = Dict{Int, Dict{Int, Int8}}()     # entry node => (member => +-1)
+    if parity && has_neg && !isempty(entries)
+        adj = Dict{Int, Vector{Tuple{Int, Int8}}}()
+        @inbounds for ri in rs
+            r = rxns_idx[ri]
+            t = r.target_idx
+            for a in r.activator_indices
+                comp_id[a] == c && push!(get!(adj, a, Tuple{Int, Int8}[]), (t, Int8(1)))
+            end
+            for i in r.inhibitor_indices
+                comp_id[i] == c && push!(get!(adj, i, Tuple{Int, Int8}[]), (t, Int8(-1)))
+            end
+            for i in r.depletion_indices
+                comp_id[i] == c && push!(get!(adj, i, Tuple{Int, Int8}[]), (t, Int8(-1)))
+            end
+        end
+        for (e, _) in entries
+            haskey(signs, e) && continue
+            s = Dict{Int, Int8}(e => Int8(1))
+            queue = [e]
+            while !isempty(queue)
+                u = popfirst!(queue)
+                for (v, sg) in get(adj, u, Tuple{Int, Int8}[])
+                    sv = s[u] * sg
+                    if haskey(s, v)
+                        s[v] == sv || return :inconsistent, 0
+                    else
+                        s[v] = sv
+                        push!(queue, v)
+                    end
+                end
+            end
+            signs[e] = s
+        end
+    end
+    n_written = 0
+    factors = Float64[]
+    @inbounds for m in members
+        m in obs_set && continue
+        empty!(factors)
+        for (e, f) in entries
+            sg = parity && has_neg ? get(signs[e], m, Int8(1)) : Int8(1)
+            push!(factors, sg == 1 ? f : (f == 0.0 ? 100.0 : 1.0 / f))
+        end
+        sort!(factors)
+        pool = 1.0
+        for v in factors
+            pool *= v
+        end
+        pool = clamp(pool, 0.0, 100.0)
+        x[m] = clamp(baseline_vec[m] * pool, 0.0, 1.0)
+        n_written += 1
+    end
+    return :pooled, n_written
 end
 
 """
@@ -892,6 +1044,8 @@ function solve_steady_state_penalty(
     obs_set = Set(obs_indices)
     converged = false
     iters = 0
+    scc_stats = (method = "flat", pooled = 0, iterated = 0, fallback_negative = 0,
+                 fallback_inconsistent = 0, pooled_nodes = 0)
     max_change = 0.0
 
     # Optional damping for loop convergence. The original feed-forward
@@ -922,7 +1076,7 @@ function solve_steady_state_penalty(
         @inbounds for (i, uuid) in enumerate(all_nodes)
             baseline_vec[i] = get(baseline_activities, uuid, 0.01)
         end
-        iters, max_change = solve_scc_ordered!(
+        iters, max_change, scc_stats = solve_scc_ordered!(
             x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec)
         converged = max_change < params.tolerance
     else
@@ -1001,6 +1155,14 @@ function solve_steady_state_penalty(
             "max_change_final" => isfinite(max_change) ? Float64(max_change) : -1.0,
             "free_residual_inf" => safe_residual,
             "model_residual_inf" => isfinite(consistency_inf) ? Float64(consistency_inf) : -1.0,
+            # specs/017: how the cyclic components were resolved, so an arm cannot
+            # silently measure the old solver.
+            "scc_method" => scc_stats.method,
+            "scc_pooled" => scc_stats.pooled,
+            "scc_iterated" => scc_stats.iterated,
+            "scc_fallback_negative" => scc_stats.fallback_negative,
+            "scc_fallback_inconsistent" => scc_stats.fallback_inconsistent,
+            "scc_pooled_nodes" => scc_stats.pooled_nodes,
         ),
     )
 end
