@@ -102,13 +102,18 @@ function parse_solve_args()
             help = "Output aggregated pathway results JSON file"
             arg_type = String
         "--mu"
-            help = "Model consistency penalty weight"
+            help = "Model consistency weight. READ ONLY when the cyclic-component " *
+                   "solver is the minimiser (DS_SCC_METHOD=minimize); the default " *
+                   "fixed-point method ignores it. See specs/003-solver-objective."
             arg_type = Float64
             default = 1.0
         "--gamma"
-            help = "Baseline prior weight"
+            help = "Baseline prior weight. READ ONLY under DS_SCC_METHOD=minimize; " *
+                   "the default fixed-point method ignores it. It is the term that " *
+                   "stops a loop settling into the all-zero root, which at gamma=0 " *
+                   "is a global minimum tied with the correct answer."
             arg_type = Float64
-            default = 0.1
+            default = 1e-6
         "--max-iters"
             help = "Maximum optimization iterations"
             arg_type = Int
@@ -213,6 +218,38 @@ function execute_parse_command(args)
         println("❌ Error parsing network: $e")
         exit(1)
     end
+end
+
+
+"""
+Provenance block for a results file: what actually shaped these numbers.
+
+`mu` and `gamma` are read ONLY by the minimising cyclic-component solver
+(`DS_SCC_METHOD=minimize`). Under the default fixed-point method they change
+nothing, so recording their values would tell a reader that a setting took
+effect when it did not — and anyone reproducing from the file would set the
+same values and believe they had matched the config. When the objective is not
+live they are recorded as `nothing` with `mu_gamma_read = false`.
+
+See specs/003-solver-objective FR5.
+"""
+function solve_provenance(scc_method::String, params::SteadyStateParams,
+                          aggregation)::Dict{String, Any}
+    base = Dict{String, Any}(
+        "scc_method" => scc_method,
+        "max_iters" => params.max_iters,
+        "tolerance" => params.tolerance,
+        "aggregation" => aggregation,
+    )
+    if scc_method == "minimize"
+        base["mu"] = params.mu
+        base["gamma"] = params.gamma
+    else
+        base["mu"] = nothing
+        base["gamma"] = nothing
+        base["mu_gamma_read"] = false
+    end
+    base
 end
 
 """
@@ -366,11 +403,25 @@ function execute_solve_command(args)
             "penalty"  # Default to penalty method
         )
 
-        # Solve steady-state
+        # Solve steady-state.
+        #
+        # mu and gamma are read ONLY by the minimising cyclic-component solver.
+        # Under the default fixed-point method they change nothing, and printing
+        # them unconditionally (as this did) told the user they had taken effect
+        # when they had not. Same for the provenance block written into the
+        # results file below.
+        scc_method = get(ENV, "DS_SCC_METHOD", "fixed_point")
+        objective_live = scc_method == "minimize"
         println("\n🔬 Running steady-state solver...")
         println("   Solver parameters:")
-        println("   - mu (model consistency): $(params.mu)")
-        println("   - gamma (baseline prior): $(params.gamma)")
+        println("   - cyclic-component method: $scc_method")
+        if objective_live
+            println("   - mu (model consistency): $(params.mu)")
+            println("   - gamma (baseline prior): $(params.gamma)")
+        else
+            println("   - mu, gamma: NOT READ under '$scc_method' " *
+                    "(set DS_SCC_METHOD=minimize to solve the objective)")
+        end
         println("   - max iterations: $(params.max_iters)")
         println("   - tolerance: $(params.tolerance)")
 
@@ -403,13 +454,7 @@ function execute_solve_command(args)
             ),
             "observations" => Dict(uuid => Dict("activity" => act, "confidence" => conf)
                                   for (uuid, (act, conf)) in observations),
-            "parameters" => Dict(
-                "mu" => params.mu,
-                "gamma" => params.gamma,
-                "max_iters" => params.max_iters,
-                "tolerance" => params.tolerance,
-                "aggregation" => args[:aggregation]
-            )
+            "parameters" => solve_provenance(scc_method, params, args[:aggregation])
         )
 
         # Save results

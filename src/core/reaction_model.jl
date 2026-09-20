@@ -72,6 +72,15 @@ struct Reaction
     # overexpressing one subunit of a many-membered complex doesn't spuriously
     # drive the whole complex up (the dominant curator OE false-positive mode).
     activator_is_assembly::Vector{Bool}
+
+    # Per-activator GROUP id for `composition` edges, aligned with
+    # activator_uuids; 0 = ungrouped. Inputs sharing a group are node copies of
+    # ONE entity (the same base stable id -- HDR's BCDX2 complex exists as 33
+    # copies, one per variant reaction). Under DS_COMPOSITION_GROUP they are
+    # aggregated as alternatives (max within the group) before the
+    # limiting-reactant min across distinct components. Off, they are min'd
+    # like any assembly input, so the container is capped by the LEAST copy.
+    activator_group::Vector{Int}
 end
 
 # Back-compat outer constructor: callers predating the per-activator catalyst
@@ -95,6 +104,7 @@ function Reaction(
         activator_is_and, inhibitor_is_and,
         fill(false, length(activator_uuids)),   # activator_is_catalyst
         fill(false, length(activator_uuids)),   # activator_is_assembly
+        fill(0, length(activator_uuids)),       # activator_group
     )
 end
 
@@ -161,6 +171,8 @@ function create_reaction_from_edges(
     activator_is_and = Bool[]
     activator_is_catalyst = Bool[]
     activator_is_assembly = Bool[]
+    activator_group = Int[]
+    group_ids = Dict{String, Int}()   # base stable id -> dense group id
     inhibitors = String[]
     inhibitor_is_and = Bool[]
     depletions = String[]
@@ -172,7 +184,27 @@ function create_reaction_from_edges(
             push!(activators, edge.parent_uuid)
             push!(activator_is_and, edge.is_and)
             push!(activator_is_catalyst, edge.edge_type == "catalyst")
-            push!(activator_is_assembly, edge.edge_type == "assembly")
+            # `composition` (complex -> complex that contains it, emitted by LNG
+            # along Reactome's hasComponent hierarchy) shares assembly's
+            # limiting-reactant semantics: a container cannot exceed the
+            # component it is built from. specs/016. This is a DELIBERATE default
+            # change for networks that carry the (new, LNG_COMPOSITION_EDGES=1)
+            # edge type: before, an unknown edge_type was a plain AND input. No
+            # shipped catalog contains it, so shipped results are unchanged.
+            push!(activator_is_assembly, edge.edge_type in ("assembly", "composition"))
+            # Group composition inputs by the source's base stable id, so node
+            # copies of one entity can be aggregated as alternatives.
+            g = 0
+            if edge.edge_type == "composition"
+                node = get(network.nodes, edge.parent_uuid, nothing)
+                rid = node === nothing ? nothing : node.reactome_id
+                # Key by base stable id so node copies of one entity share a
+                # group; fall back to the uuid so EVERY composition edge has
+                # g > 0 -- the propagator reads "g > 0" as "is composition".
+                base = rid === nothing ? edge.parent_uuid : first(split(rid, "::variant::"))
+                g = get!(group_ids, base, length(group_ids) + 1)
+            end
+            push!(activator_group, g)
         elseif edge.edge_type == "depletion"
             push!(depletions, edge.parent_uuid)
         else
@@ -197,7 +229,7 @@ function create_reaction_from_edges(
     # so per-edge weights stay aligned with the deduplicated vectors.
     if _bool_env("DS_DEDUP_ACTIVATORS", false) && length(activators) > 1
         seen = Dict{String, Int}()
-        d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]
+        d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]; d_grp = Int[]
         for k in eachindex(activators)
             src = activators[k]
             j = get(seen, src, 0)
@@ -206,6 +238,7 @@ function create_reaction_from_edges(
                 push!(d_and, activator_is_and[k])
                 push!(d_cat, activator_is_catalyst[k])
                 push!(d_asm, activator_is_assembly[k])
+                push!(d_grp, activator_group[k])
                 seen[src] = length(d_act)
             else
                 # Merge deterministically so the result cannot depend on edge
@@ -222,10 +255,18 @@ function create_reaction_from_edges(
                 d_and[j] |= activator_is_and[k]
                 d_cat[j] |= activator_is_catalyst[k]
                 d_asm[j] &= activator_is_assembly[k]
+                # A composition edge parallel to a plain activator from the same
+                # source repeats a fold the plain edge already carries, so the
+                # plain role wins: the group survives only if EVERY duplicate is
+                # composition. `max` let the group id (read as "is composition"
+                # under DS_COMPOSITION_MODE=limit*) delete the input role and turn
+                # a 4x input into a <=1 limiter.
+                d_grp[j] = (d_grp[j] > 0 && activator_group[k] > 0) ? max(d_grp[j], activator_group[k]) : 0
             end
         end
         activators, activator_is_and = d_act, d_and
         activator_is_catalyst, activator_is_assembly = d_cat, d_asm
+        activator_group = d_grp
     end
 
     # Reaction-level fallback flag (preserved for any legacy caller).
@@ -250,6 +291,7 @@ function create_reaction_from_edges(
         inhibitor_is_and,
         activator_is_catalyst,
         activator_is_assembly,
+        activator_group,
     )
 end
 
@@ -323,7 +365,28 @@ struct IndexedReaction
                                     # baseline (conserved-moiety modulator) so
                                     # the artifactual SCC dissolves at solve
                                     # time without editing the network.
+    activator_in_loop::Vector{Bool}  # per-activator: does this edge CLOSE a
+                                    # cycle -- source in the same SCC as the
+                                    # target? Under DS_LOOP_ELASTICITY < 1 the
+                                    # input fold is read through fold^eps on
+                                    # exactly these edges, so a positive loop's
+                                    # gain at baseline drops below 1 and
+                                    # baseline becomes a stable state instead
+                                    # of a knife-edge. Acyclic edges untouched.
     activator_is_assembly::Vector{Bool}  # per-activator: edge_type=="assembly"
+    activator_comp_redundant::Vector{Bool} # per-activator: a composition edge
+                                    # whose source ALREADY feeds a producing
+                                    # reaction of this target (S -> R -> T).
+                                    # 54% of the catalog's composition edges.
+                                    # Under DS_COMPOSITION_MODE=limit_novel
+                                    # these are skipped: the producing reaction
+                                    # already carries the component's fold, and
+                                    # multiplying it in again squares it at
+                                    # every level of a nested hierarchy.
+    activator_group::Vector{Int}     # per-activator composition group; > 0 iff
+                                    # the edge is `composition`, copies of one
+                                    # entity share an id. See DS_COMPOSITION_GROUP
+                                    # and DS_COMPOSITION_MODE.
                                     # (member→complex). Under DS_ASSEMBLY_LIMITING
                                     # these inputs are aggregated with a
                                     # limiting-reactant (min) rule — a complex
@@ -358,6 +421,13 @@ struct IndexedReaction
                                             # unphysical; protein-level feedback
                                             # (no gene input) keeps full strength.
     depletion_indices::Vector{Int}          # catalyst→substrate "consumption"
+    depletion_own_product::Vector{Bool}     # per-depletion: is the depleter a
+                                            # direct product of a reaction that
+                                            # consumes this target (X -> R -> P,
+                                            # P -| X), or a direct successor?
+                                            # Under DS_DEPLETION_OWN_PRODUCT=
+                                            # suppress_only such an edge may
+                                            # suppress but not de-repress.
                                             # inhibitor edges from
                                             # edge_type="depletion". Always
                                             # treated with divide-form
@@ -441,6 +511,12 @@ function index_reactions(
     raw = NamedTuple[]
     n_nodes = length(uuid_to_idx)
     fwd_adj = [Set{Int}() for _ in 1:n_nodes]
+    # Substrate/assembly chains only: X -> R -> P through input, assembly and
+    # output edges. Catalyst edges are excluded (an enzyme is not consumed into
+    # its product, so the product is not the enzyme's "own product"), and so
+    # are composition edges (a hierarchy hop is not a producing reaction, so it
+    # cannot make another hierarchy edge "redundant").
+    chain_adj = [Set{Int}() for _ in 1:n_nodes]
 
     for r in reactions
         haskey(uuid_to_idx, r.target_uuid) || continue
@@ -456,6 +532,7 @@ function index_reactions(
         act_is_and = Bool[]
         act_is_catalyst = Bool[]
         act_is_assembly = Bool[]
+        act_group = Int[]
         act_orig = Int[]
         for (k, uuid) in enumerate(r.activator_uuids)
             haskey(uuid_to_idx, uuid) || continue
@@ -463,6 +540,7 @@ function index_reactions(
             push!(act_is_and, k <= length(r.activator_is_and) ? r.activator_is_and[k] : r.is_and_gate)
             push!(act_is_catalyst, k <= length(r.activator_is_catalyst) ? r.activator_is_catalyst[k] : false)
             push!(act_is_assembly, k <= length(r.activator_is_assembly) ? r.activator_is_assembly[k] : false)
+            push!(act_group, k <= length(r.activator_group) ? r.activator_group[k] : 0)
             push!(act_orig, k)
         end
         inh_orig = [k for (k, u) in enumerate(r.inhibitor_uuids) if haskey(uuid_to_idx, u)]
@@ -486,8 +564,11 @@ function index_reactions(
         # reads x[substrate_indices] into the availability factor L, so they are
         # a real dependency. Nothing populates `substrate_uuids` today, which is
         # the only reason their absence was harmless.
-        for a in act_indices
+        for (kk, a) in enumerate(act_indices)
             push!(fwd_adj[a], target_idx)
+            is_cat = kk <= length(act_is_catalyst) && act_is_catalyst[kk]
+            is_comp = kk <= length(act_group) && act_group[kk] > 0
+            (is_cat || is_comp) || push!(chain_adj[a], target_idx)
         end
         for i in inh_indices
             push!(fwd_adj[i], target_idx)
@@ -510,6 +591,7 @@ function index_reactions(
             target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
             act_indices=act_indices, act_is_and=act_is_and,
             act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
+            act_group=act_group,
             inh_indices=inh_indices, inh_is_and=inh_is_and, dep_indices=dep_indices,
             sub_indices=sub_indices, params=params,
         ))
@@ -522,7 +604,11 @@ function index_reactions(
     # recycling catalyst back-edges to relax [DS_SCC_BREAK_CATALYST].
     scc_solve = _bool_env("DS_SCC_SOLVE", true)  # SCC-condensation solve is the default; set DS_SCC_SOLVE=0 for legacy flat iteration
     break_catalyst = _bool_env("DS_SCC_BREAK_CATALYST", false)
-    comp_id, n_comp = (scc_solve || break_catalyst) ?
+    # Loop elasticity reads `activator_in_loop`, i.e. SCC membership, so the
+    # components are needed when it is on even under the legacy flat solve --
+    # otherwise DS_LOOP_ELASTICITY<1 with DS_SCC_SOLVE=0 was a silent no-op.
+    elastic = _float_env("DS_LOOP_ELASTICITY", 1.0) < 1.0
+    comp_id, n_comp = (scc_solve || break_catalyst || elastic) ?
         tarjan_scc_components(fwd_adj) : (Int[], 0)
 
     # Second pass: for each (target, inhibitor) pair, BFS forward from the
@@ -602,12 +688,58 @@ function index_reactions(
             push!(act_break, brk)
         end
 
+        # Loop-closing activators: source and target share an SCC. This is the
+        # set of edges whose gain product decides whether a cycle's baseline is
+        # stable. Empty comp_id (SCC detection off) => all false.
+        act_in_loop = Bool[]
+        for k in eachindex(rec.act_indices)
+            src = rec.act_indices[k]
+            push!(act_in_loop,
+                  !isempty(comp_id) && comp_id[src] == comp_id[rec.target_idx])
+        end
+
+        # Own-product depleters: P -| X where P is produced from X within two
+        # activator hops (X -> reaction -> P, or X -> P directly). Structural,
+        # order-free, independent of any DS_* setting; the propagator decides
+        # what to do with it (DS_DEPLETION_OWN_PRODUCT).
+        dep_own = Bool[]
+        for d in rec.dep_indices
+            own = d in chain_adj[rec.target_idx]
+            if !own
+                for mid in chain_adj[rec.target_idx]
+                    if d in chain_adj[mid]
+                        own = true
+                        break
+                    end
+                end
+            end
+            push!(dep_own, own)
+        end
+
+        # Redundant composition inputs: source -> some reaction -> this target
+        # already exists through activator edges, so the hierarchy edge repeats
+        # a fold the producing route carries. Structural, order-free.
+        comp_redundant = Bool[]
+        for k in eachindex(rec.act_indices)
+            s = rec.act_indices[k]
+            red = false
+            if k <= length(rec.act_group) && rec.act_group[k] > 0
+                for mid in chain_adj[s]
+                    if mid != rec.target_idx && rec.target_idx in chain_adj[mid]
+                        red = true
+                        break
+                    end
+                end
+            end
+            push!(comp_redundant, red)
+        end
+
         push!(indexed, IndexedReaction(
             rec.target_idx, rec.baseline,
-            rec.act_indices, rec.act_is_and, act_break,
-            rec.act_is_assembly,
+            rec.act_indices, rec.act_is_and, act_break, act_in_loop,
+            rec.act_is_assembly, comp_redundant, rec.act_group,
             rec.inh_indices, rec.inh_is_and, in_loop, in_transcription,
-            rec.dep_indices,
+            rec.dep_indices, dep_own,
             rec.sub_indices, rec.params,
         ))
     end
@@ -708,6 +840,12 @@ struct ReactionEvalConfig
     inhibitor_or::Bool
     or_redundancy::Float64
     or_combine::String
+    loop_elasticity::Float64
+    loop_elasticity_width::Float64
+    loop_elasticity_hi::Float64
+    composition_group::Bool
+    composition_mode::String
+    depletion_own_product::String
 end
 
 """
@@ -728,6 +866,10 @@ explicitly so that selecting it stays deliberate):
 - `DS_AND_MODE`: `geomean` is the `else`.
 - `DS_OR_MODE`: `max` is the `else`.
 - `DS_OR_COMBINE`: `max` is the `else`.
+- `DS_DEPLETION_OWN_PRODUCT`: `full` is the `else` (own-product depleters
+  both suppress and de-repress, as every depleter does today).
+- `DS_COMPOSITION_MODE`: `assembly` is the `else` (composition edges join the
+  assembly-limiting AND cluster); `limit` makes them a pure limiter.
 - `DS_INHIBITOR_FLOOR_SCOPE`: `none` is the `else` (no floor applied).
 """
 const DS_VALID_MODES = Dict(
@@ -741,6 +883,8 @@ const DS_VALID_MODES = Dict(
     ]),
     "DS_OR_MODE"               => Set(["mean", "median", "capacity", "max"]),
     "DS_OR_COMBINE"            => Set(["max", "gate"]),
+    "DS_COMPOSITION_MODE"      => Set(["assembly", "limit", "limit_novel"]),
+    "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only"]),
     "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
 )
 
@@ -903,7 +1047,151 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # driving the target UP). Easy to hit with a sweep typo.
         clamp(_float_env("DS_OR_REDUNDANCY", 1.0), 0.0, 1.0),
         _mode_env("DS_OR_COMBINE", "max"),
+        # Elasticity applied to LOOP-CLOSING activator edges only (source and
+        # target in the same SCC): the input fold is read as fold^eps.
+        #
+        # Why: AND is multiplication of folds, so every edge has elasticity 1
+        # and a positive cycle has loop gain exactly 1 at baseline. Baseline is
+        # then a knife-edge, not a stable state. Measured on a two-reaction
+        # AND-loop: U = 1.01 drives A to 1.09 / 2.30 / 100.0 at 50 / 500 / 5000
+        # sweeps; U = 0.90 collapses it to 0.0026 and reports converged. Any
+        # leak into a loop rails it, which way depends on sweep order and
+        # budget -- the mechanism behind label-dependence, "more iterations
+        # makes it worse", and false-change concentrating in cyclic pathways.
+        #
+        # With eps < 1 on the closing edges the loop's baseline root is unique
+        # and stable and zero becomes unstable (A^eps >> A near zero pulls it
+        # back up), so collapse needs an actual in-loop knockout. Acyclic edges
+        # keep exact multiplication, so cascade depth-invariance is untouched.
+        # This is the design doc's per-input sensitivity (Section 2.1) applied
+        # where it matters, and it is the first learnable loop parameter.
+        #
+        # 1.0 = off (byte-identical default). Must be in (0, 1]: 0 would erase
+        # the input, > 1 would sharpen the knife-edge.
+        _loop_elasticity_env(),
+        # Width (in |log fold|) of the band around baseline inside which the
+        # loop elasticity applies. 0 = constant elasticity on every in-loop
+        # edge (byte-identical to the flag above alone). With w > 0 the
+        # elasticity is SIGMOIDAL in the input's fold:
+        #
+        #     eps(f) = eps_lo + (1 - eps_lo) * tanh(|log f| / w)
+        #
+        # so at f ~ 1 the edge reads fold^eps_lo (drift decays), and once
+        # |log f| >> w it reads fold^1 (a real signal passes unattenuated).
+        # Motivation, measured: constant eps = 0.5 cut false change 72% in
+        # the loop-heavy pathways but traded it 1:1 for MISSED change -- 98%
+        # of the cases it broke were genuine changes flattened to NORMAL, with
+        # a median fixed-point value of 1.56x. In a giant SCC nearly every
+        # edge is "in-loop", so constant eps compressed every path through it.
+        # The leaks to damp sit at ~1.0x; the signals to keep sit at >= 1.5x.
+        # This is the design doc's Section 2.1 sensitivity alpha(x) in the fold
+        # domain, and the threshold is the first loop parameter to LEARN.
+        _loop_elasticity_width_env(),
+        # Ceiling the sigmoid rises to. 1.0 (default, byte-identical) means an
+        # above-band signal is read at fold^1 -- exact multiplication -- which
+        # restores loop gain 1 and therefore the knife-edge for every signal
+        # outside the band. Measured: at w=0.15 that brought label-dependence
+        # BACK and worse (73 predictions moved under UUID relabelling, vs 14
+        # for the original solver and 0 for constant eps), a 0.19pp swing from
+        # node names alone. With eps_hi < 1 the loop's gain stays below 1 at
+        # every amplitude, so the root is unique everywhere, while a real
+        # signal still clears the classifier: 1.5x through ten in-loop edges at
+        # eps_hi=0.9 reads ~1.19, above the 1.15 UP cutoff.
+        _loop_elasticity_hi_env(),
+        # Aggregate `composition` inputs that are node copies of ONE entity as
+        # alternatives (max within the group) before the limiting-reactant min
+        # across distinct components. Motivation: HDR's BCDX2 complex exists as
+        # 33 node copies from 5 variant reactions, all feeding the same container
+        # -- min over copies caps the container by whichever copy a perturbation
+        # happened to reach. Off by default; measured as its own arm.
+        _bool_env("DS_COMPOSITION_GROUP", false),
+        # How a `composition` edge (component complex -> containing complex, LNG
+        # along hasComponent) enters the container's activity. specs/016.
+        #
+        #   "assembly" (default, byte-identical): the edge is one more
+        #       assembly-limiting AND input, and the AND cluster then meets the
+        #       container's OR cluster (its producing reactions) through
+        #       DS_OR_COMBINE. Under `max` a baseline component MASKS a DOWN
+        #       coming through the producing reaction (IFN-gamma 34 and DAP12 30
+        #       DOWN->NORM); under `gate` an over-expressed component MULTIPLIES
+        #       into every container above it (DSB Repair: 108 false UPs from
+        #       RAD52/ERCC1/ERCC4/MUS81 OE; -151, identical with loops relaxed).
+        #       Both measured on the deduplicated catalog.
+        #
+        #   "limit": a container cannot exceed its scarcest component, and a
+        #       hierarchy edge is not a producing route. The composition inputs
+        #       leave the AND cluster; their folds are capped at 1 and the
+        #       smallest multiplies the reaction's result. A knocked-out or
+        #       reduced component pulls the container down; an over-expressed
+        #       one changes nothing (its partners still limit it); a container
+        #       with no producing reaction in the network (the severed
+        #       Interferon alpha/beta branch) reads baseline x that limiter.
+        #
+        #   "limit_novel": `limit`, but a composition edge whose source already
+        #       feeds a producing reaction of the target (S -> R -> T; 54% of the
+        #       catalog's composition edges) is skipped. Measured under `limit`:
+        #       RAD52 OE on DSB Repair zeroes 281 of 365 composition sources
+        #       through 35 nested containers, unmoved by an inhibitor floor or
+        #       by loop elasticity -- the component's fold enters each container
+        #       twice (producing reaction and hierarchy edge) and squares at
+        #       every level. Only the hierarchy hops with NO reaction (the
+        #       severed Interferon alpha/beta branch) carry new information.
+        _mode_env("DS_COMPOSITION_MODE", "assembly"),
+        # What a depletion edge may do when its source is the target's OWN
+        # product (X -> R -> P, P -| X: a complex depleting the free subunit it
+        # is built from). specs/016, traced on AKT1-KO -> TP53.
+        #
+        #   "full" (default, byte-identical): the depleter's fold acts both ways.
+        #       When the substrate's supply halves, its products halve with it,
+        #       and the edge then reads "fewer consumers -> less depletion" and
+        #       de-represses the substrate back up: nuclear p-MDM2 arrives at
+        #       0.82 from a 0.50 supply through three such edges, and TP53's
+        #       de-repression never happens. A mass balance does not do this --
+        #       a product that is low BECAUSE the substrate is low restores
+        #       nothing.
+        #
+        #   "suppress_only": an own-product depleter may suppress (the abundant
+        #       complex draining its free subunit -- specs/011's EGFR:CBL case)
+        #       but its factor is capped at 1, so it cannot de-repress. What is
+        #       lost: de-repression when the complex fell because of its OTHER
+        #       partner (TP53 KO -> less MDM2:TP53 -> more free MDM2). The
+        #       propagator cannot tell the two apart at the node; which the
+        #       curators expect more often is the A/B.
+        _mode_env("DS_DEPLETION_OWN_PRODUCT", "full"),
     )
+end
+
+function _loop_elasticity_hi_env()::Float64
+    hi = _float_env("DS_LOOP_ELASTICITY_HI", 1.0)
+    if !(0.0 < hi <= 1.0) || !isfinite(hi)
+        throw(ArgumentError(
+            "DS_LOOP_ELASTICITY_HI=$hi is out of range; must be in (0, 1]. " *
+            "1.0 = the sigmoid rises to exact multiplication (knife-edge above the band)."
+        ))
+    end
+    hi
+end
+
+function _loop_elasticity_width_env()::Float64
+    w = _float_env("DS_LOOP_ELASTICITY_WIDTH", 0.0)
+    if !(w >= 0.0) || !isfinite(w)
+        throw(ArgumentError(
+            "DS_LOOP_ELASTICITY_WIDTH=$w must be finite and >= 0 " *
+            "(0 = constant elasticity; > 0 = sigmoidal band in |log fold|)."
+        ))
+    end
+    w
+end
+
+function _loop_elasticity_env()::Float64
+    eps = _float_env("DS_LOOP_ELASTICITY", 1.0)
+    if !(0.0 < eps <= 1.0) || !isfinite(eps)
+        throw(ArgumentError(
+            "DS_LOOP_ELASTICITY=$eps is out of range; must be in (0, 1]. " *
+            "1.0 is off; below 1 stabilises positive loops at baseline."
+        ))
+    end
+    eps
 end
 
 """
@@ -959,6 +1247,19 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     assembly_limiting = config.assembly_limiting
     assembly_min = typemax(T)
     have_assembly = false
+    # DS_COMPOSITION_GROUP: per-group running max for composition inputs that
+    # are copies of one entity; folded into assembly_min after the loop.
+    # Allocated only when the feature is on: this function is the hot path
+    # (once per reaction per sweep) and an unconditional Dict here measured a
+    # 3.7x slowdown / 3.5x allocation on a 3,000-node cyclic solve.
+    use_groups = config.composition_group
+    group_max = use_groups ? Dict{Int, T}() : nothing
+    # DS_COMPOSITION_MODE=limit: composition inputs leave the AND cluster and
+    # become a fold factor <= 1 applied to the whole reaction (see resolver).
+    comp_limit_mode = config.composition_mode == "limit" || config.composition_mode == "limit_novel"
+    comp_skip_redundant = config.composition_mode == "limit_novel"
+    comp_limit = one(T)
+    comp_group_max = (comp_limit_mode && use_groups) ? Dict{Int, T}() : nothing
 
     # Activator inputs (with per-input sensitivity transform + per-edge AND/OR)
     @inbounds for k in 1:length(rxn.activator_indices)
@@ -974,16 +1275,51 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         else
             x[i]
         end
+        # Loop elasticity (DS_LOOP_ELASTICITY): on a cycle-closing edge, read
+        # the input's FOLD through fold^eps so the loop's gain at baseline is
+        # below 1. Fold 1 maps to fold 1, 0 to 0; only the slope changes.
+        if config.loop_elasticity < 1.0 &&
+           k <= length(rxn.activator_in_loop) && rxn.activator_in_loop[k] &&
+           src_val > zero(T)
+            fold = src_val / bl
+            eps_lo = T(config.loop_elasticity)
+            eps = if config.loop_elasticity_width > 0.0
+                # Sigmoidal: eps_lo at baseline, -> eps_hi once |log fold| >> width.
+                eps_hi = T(config.loop_elasticity_hi)
+                eps_lo + (eps_hi - eps_lo) * tanh(abs(log(fold)) / T(config.loop_elasticity_width))
+            else
+                eps_lo
+            end
+            src_val = bl * fold^eps
+        end
         transformed = apply_sensitivity_transform(
             src_val;
             s=p.activator_sensitivity_s[k],
             n=p.activator_sensitivity_n[k],
             K_α=p.activator_sensitivity_K[k],
         )
-        if assembly_limiting && k <= length(rxn.activator_is_assembly) &&
+        if comp_limit_mode && k <= length(rxn.activator_group) && rxn.activator_group[k] > 0
+            # Limiter: the container cannot exceed this component. Fold capped
+            # at 1, so an over-expressed component never lifts the container.
+            if comp_skip_redundant && k <= length(rxn.activator_comp_redundant) &&
+               rxn.activator_comp_redundant[k]
+                # the producing reaction already carries this component's fold
+            elseif comp_group_max !== nothing
+                g = rxn.activator_group[k]
+                comp_group_max[g] = max(get(comp_group_max, g, zero(T)), transformed)
+            else
+                comp_limit = min(comp_limit, min(one(T), transformed / bl))
+            end
+        elseif assembly_limiting && k <= length(rxn.activator_is_assembly) &&
            rxn.activator_is_assembly[k]
-            # Limiting-reactant: track the scarcest subunit; injected once below.
-            assembly_min = min(assembly_min, transformed)
+            g = (group_max !== nothing && k <= length(rxn.activator_group)) ? rxn.activator_group[k] : 0
+            if g > 0
+                # Copies of one entity are alternatives: the strongest copy carries it.
+                group_max[g] = max(get(group_max, g, zero(T)), transformed)
+            else
+                # Limiting-reactant: track the scarcest subunit; injected once below.
+                assembly_min = min(assembly_min, transformed)
+            end
             have_assembly = true
         elseif rxn.activator_is_and[k]
             push!(and_vals, transformed)
@@ -995,6 +1331,18 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
 
     # Inject the assembled-complex limiting value as a single AND input, so it
     # combines with any catalytic/regulatory inputs via the normal DS_AND_MODE.
+    # Each entity group contributes its strongest copy to the limiting-reactant min.
+    if group_max !== nothing
+        for v in values(group_max)
+            assembly_min = min(assembly_min, v)
+        end
+    end
+    # Copies of one entity are alternatives (strongest copy), components co-limit.
+    if comp_group_max !== nothing
+        for v in values(comp_group_max)
+            comp_limit = min(comp_limit, min(one(T), v / bl))
+        end
+    end
     if have_assembly
         push!(and_vals, assembly_min)
         push!(and_wts, 1.0)
@@ -1483,9 +1831,15 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     if !isempty(rxn.depletion_indices)
         eps_dep = T(config.inhibitor_eps)
         h_max_dep = T(config.depletion_h_max)
+        suppress_only = config.depletion_own_product == "suppress_only"
         @inbounds for k in 1:length(rxn.depletion_indices)
             x_dep = clamp(x[rxn.depletion_indices[k]], zero(T), one(T))
-            H_dep *= (bl + eps_dep) / (x_dep + eps_dep)
+            f_dep = (bl + eps_dep) / (x_dep + eps_dep)
+            if suppress_only && k <= length(rxn.depletion_own_product) &&
+               rxn.depletion_own_product[k]
+                f_dep = min(f_dep, one(T))
+            end
+            H_dep *= f_dep
         end
         # Bound suppression by the SAME factor as de-repression. The old
         # lower bound was zero, so depletion could suppress a node without
@@ -1509,7 +1863,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # drop the spec's output Hill step in favor of clamped linear propagation
     # to keep baseline as a stable fixed point. Hill primitives remain
     # available for explicit per-reaction use after training.
-    return clamp(A * H * H_dep * L, zero(T), one(T))
+    return clamp(A * H * H_dep * L * comp_limit, zero(T), one(T))
 end
 
 """
