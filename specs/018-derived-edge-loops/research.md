@@ -292,3 +292,31 @@ DSB-concentrated +222 held-out with broad small gains. It makes the solver's
 `DS_SCC_BREAK_ROLES` stays available, off by default, as the measured record.
 Everything measured this month on the welded catalog is now re-evaluated
 against `cat_fix` (next section).
+
+## Re-evaluation of the welded-era A/Bs on the fixed catalog (pre-registered 2026-09-20 01:50)
+
+Adam: "now that we did that and it is a real fix shouldn't we re-evaluate a
+lot of the other things we were looking into?" Yes: every A/B this month whose
+gain or loss lived in a loop-heavy pathway was partly measuring which side of
+a welded knife-edge a coin landed. Control for all arms below: `ab_fix.tsv`
+(`cat_fix`, production solver). Solver knobs are single-catalog (zero churn);
+sharing and composition need regenerations (`cat_fix_share`, `cat_fix_comp`)
+and are cross-catalog. Code: worktree `560a85c`; curator and experimental
+axes for every arm.
+
+| arm | knob | welded-era result | prediction on `cat_fix` |
+|---|---|---|---|
+| el | elasticity 0.5/0.2/0.95 | held-out +29 / tuning −61 | gain shrinks (the rails it damped were welds): held-out within ±15, tuning cost mostly gone |
+| jacobi | `DS_SCC_SWEEP=jacobi` | −0.26pp, churn 14 → 0 | cost shrinks below 0.1pp; still 0 churn |
+| dedup | `DS_DEDUP_ACTIVATORS=1` | held-out −15 (specs/012) | the squaring was inside welds: now within ±10, i.e. no longer load-bearing |
+| floor0 | `DS_DEPLETION_H_MIN=0` | reverses the +28 floor win | still negative (the EGFR mechanism was acyclic): ≤ −15 |
+| hill_log | `DS_AND_MODE=hill_log` | −16 vs hill_sat (specs/010) | still negative; hill_sat stands |
+| catbreak | `DS_SCC_BREAK_ROLES=catalyst` | −65 | still negative |
+| ownprod | `DS_DEPLETION_OWN_PRODUCT=suppress_only` | −15 / inert | still within ±10 |
+| asm | `DS_SCC_BREAK_ROLES=assembly` | +214 on the welded catalog | ≈ 0 now (93 closures remain) — confirms the fix absorbed the rule |
+| share | regen `LNG_SHARE_VARIANT_NODES=1` on the fix | −1 held-out / −64 tuning (TP53 basin flip) | tuning cost gone (no weld to flip); held-out within ±10; if so, adopt as correctness |
+| comp | regen `LNG_COMPOSITION_EDGES=1` + `DS_COMPOSITION_MODE=limit_novel` | +12 held-out; DSB −62 | DSB loss gone (it was the weld); held-out > +50 if IFN α/β's +100 survives |
+
+Decision rule: each arm keeps or reverses its earlier verdict on held-out
+sign with p < 0.05, both axes reported; a change of verdict is recorded as
+the fix's effect, not as a new discovery.
