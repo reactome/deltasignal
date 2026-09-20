@@ -232,6 +232,9 @@ env vars only override for benchmark sweeps:
   the last three treat a cyclic component as a conserved pool (specs/017);
   measured, refuted as a blanket rule by a traced case (product of entries
   destroys isoform redundancy), not adopted.
+- `DS_SCC_BREAK_ROLES` (default empty): derived-edge recycling closures
+  (assembly, depletion; catalyst) read at their entry value and excluded from
+  component detection — specs/018; measurement in progress.
 - `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
   byte-identical defaults for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
@@ -283,6 +286,7 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 | `test/test_observation_pinning.jl` | 23 |
 | `test/test_propagator_invariants.jl` | 120 |
 | `test/test_loop_pool.jl` | 81 |
+| `test/test_scc_break_roles.jl` | 26 |
 | `test/test_cli_observations.jl` | 20 |
 | `test/test_api_errors.jl` | 26 |
 
