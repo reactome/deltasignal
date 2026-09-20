@@ -131,3 +131,62 @@ churn on `cat_perm` for any list that wins.
   held-out, the closure reading (entry value) is the wrong semantics for
   derived edges and the next candidate is reading them feed-forward from the
   recomputed order without `supply` — recorded, not built.
+
+### Scoring, first three arms (2026-09-20 00:20; worktree `560a85c`, control = current-tree `fixed_point`, 24,100 cases)
+
+| role list | headline | held-out (fixed/broke, p) | tuning | false change (loop-heavy / all) | experimental (conditioned) | AKT-KO TP53 (of 100) |
+|---|---|---|---|---|---|---|
+| **A** `assembly,depletion` | **84.59% / mF1 0.8107** (control 83.47 / 0.8009) | **+226** (251/25, p < 1e-4), 6 pathways, 42 readouts, 45 genes, dominant perturbation 5% | +44 | 637 → **278** / 1,437 → **1,006** | +1 (17/16) | **4** |
+| **C** `catalyst` | 83.16 / 0.7967 | −65 (12/77) | −11 | 637 → 571 / −77 | −1 | 12 |
+| **ACD** all three | 84.00 / 0.8034 | +100 (241/141) | +26 | 637 → 276 / −435 | 0 | 4 |
+
+TP53 probe under A: 1 component (836) → 2, largest **23**, from 2 assembly + 5
+depletion closures.
+
+**P1 — holds.** TP53 ≤ 60 (23); DSB's giant dissolves (the +190 below is that
+component); components recomputed; closures counted.
+
+**P2 — holds on every clause but one.** Held-out +226 with p < 1e-4, 6
+pathways, 45 genes, false change down 359 in the loop-heavy pathways (the
+welds were the rails, as predicted), experimental +1. **The AKT clause fails
+badly**: 92 of the 100 correct AKT1/AKT2-KO cases go UP → NORM. The route
+AKT → MDM2 → TP53 is backbone, but the *step that raises TP53* is the depletion
+edge MDM2:TP53 ⊣ TP53 — and that edge closes a cycle (TP53 → MDM2 transcription
+→ MDM2 → MDM2:TP53), so under `depletion` it is read at its entry value and the
+de-repression never happens. Depletion closures carry genuine regulation, not
+only our double count. TP53 nets −4 overall because DAXX / ELL / BRCA1 cases
+(181) are fixed while the AKT cases (92) and others break.
+
+**P3 — holds**: `catalyst` alone is held-out −65, DSB −48 — the June pattern
+with recomputation added; recomputation was not what the June knob lacked.
+
+**P4 — holds**: ACD (+100) is worse than A (+226); the catalyst half costs
+what P3 says.
+
+**P5 — the concentration clause fires.** DSB Repair is **+190 of the +226**
+(84%); the other five held-out movers are DNA Damage Bypass +15, EGFR +8, HOX
++7, TGF-β +6, Hedgehog 0. By the rule written before the arm, a gain carried
+by one pathway is reported as such and not adopted. The mechanism explains
+the concentration — welded giant components exist in two pathways, DSB
+(held-out) and TP53 (tuning), so that is where a weld-breaking rule can act —
+but the rule is the rule. What DSB's +190 is: **198 cases DOWN → NORM with
+truth NORM** — the welded 1,127-node component was collapsing to zero under
+knockouts of PARP1, PARP2, FEN1, POLQ, RTEL1, XRCC5/6, MUS81 (13–15 cases
+each); with the weld broken those knockouts stay local. That is the
+over-coupling error class the project identified as its largest, removed in
+the pathway where it was largest.
+
+### Pre-registered P6: `assembly` alone (committed before the arm)
+
+The AKT failure says depletion closures are load-bearing regulation; the
+census says assembly alone removes most of the weld (TP53 836 → 56; DSB
+1,127 → ~290). Arm **As** = `DS_SCC_BREAK_ROLES=assembly`, same control, plus
+the experimental axis, plus relabel churn on `cat_perm` for **A** and **As**.
+Predictions: As keeps ≥ 90 of the 100 AKT-KO cases (the depletion edge feeds
+back again); DSB keeps ≥ 120 of its +190 (its weld is mostly assembly); held-out
+≥ +100 with the same distribution caveat; false change still down ≥ 250 in the
+loop-heavy pathways; experimental ≥ −5; relabel churn 0 for both A and As on
+the recomputed components. Decision: if As holds all of those, it is the
+candidate — still DSB-concentrated by mechanism, to be stated as such; the
+depletion half is then a separate question (which depletion closures are our
+double count and which are regulation).
