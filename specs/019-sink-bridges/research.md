@@ -50,3 +50,14 @@ Regenerate `cat_fix2_sb` (LNG `2387c88`, `LNG_SINK_BRIDGES=1`) and
   with Mitotic G1 not moving is a one-pathway fix and is reported as such.
   If held-out < 0, the sink design stands as measured (specs/015) and the
   acyclic guard was not the missing piece.
+
+## Side question (Adam, 2026-09-20): are the depletion edges necessary?
+
+Pre-registered before the arm: `cat_fix2`, production solver, client-side
+`DS_SKIP_EDGE_TYPES=depletion` vs the same catalog with them (zero churn), both
+axes. Prediction: removing all 4,930 depletion edges is **negative** — held-out
+≤ −40 and tuning ≤ −80, concentrated in TP53 (the AKT-KO cases run through
+MDM2:TP53 ⊣ TP53; expect ≥ 60 of the 100 lost) and EGFR/GRB2 (specs/011's
+case); false change *falls* (fewer routes) while missed change rises more.
+If instead held-out ≥ 0, the edges are not load-bearing and the class is a
+candidate for removal on fidelity grounds (Reactome never asserted them).
