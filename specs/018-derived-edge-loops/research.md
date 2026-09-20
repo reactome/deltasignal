@@ -349,3 +349,95 @@ the genuine MDM2–TP53 feedback loop rather than on the welds, and says the
 remaining loop work is about that loop and the reaction-level recycling
 cycles (MHC 675 nodes, Checkpoints 483, HOX 425), not about our edges any
 more.
+
+## Review of P7 and the re-evaluation (2026-09-20, two independent reviewers) — verified errata
+
+**E1. The first fix over-reached, and Mitotic G1 −28 is a genuine regression.**
+Refusing every *produced* node as a boundary leaf also severed **752 acyclic**
+feed-forward assembly links (of 2,749 produced-source assembly edges, 1,997
+were cycle-carrying, 752 were not). Traced: RBL1-OE → RBL1:E2F4/5:TFDP ⊣
+R-HSA-8964513 → R-HSA-68639 → (assembly, produced source, acyclic) → root
+complex R-HSA-68653 → … → readouts; in `cat_fix` 0 of those readouts are
+reachable from RBL1. Mitotic G1's largest component is 58 in **both** catalogs
+— no weld was involved; the write-up's guess ("read DOWN through the weld")
+was wrong. `no_path` grew 1,482 → 1,656, 65 of them former passes (Mitotic G1
+25, DSB 11, WNT 8, DNA Damage Bypass 6, EGFR 4, TP53 4). **Corrected fix (LNG
+`79feca7`)**: reuse is refused only for a node the root complex can *reach*
+(reachability over every edge emitted so far, bridges and depletion edges
+included — the output-only definition let 28 welds survive); every acyclic
+link is kept. Re-measured as P8 below.
+
+**E2. "Adopted on correctness grounds" was carrying weight the concentration
+rule forbids.** DSB is 186 of the +222 conditioned (84%). The pre-registration
+wrote the escape hatch in, and the correctness claim was weakened by E1. With
+the targeted fix the correctness claim is exact (only cycles Neo4j lacks are
+removed); the accuracy claim remains DSB-concentrated and is stated as such.
+Conditioned per-pathway nets (the P7 table mixed unconditioned values in):
+DSB +186, TP53 +52 (tuning), HDR +20 (t), PIP3 +14 (t), DNA Damage Bypass +11,
+WNT +8 (t), HOX +7, TGF-β +6, FGFR1–4 +3 each, Chromatin +3, IL-3/5 +1, RUNX1
+−3, EGFR −1, pluripotent 0, Intrinsic Apoptosis 0; Mitotic G1 −12
+conditioned.
+
+**E3. The gain is almost entirely "stop saying DOWN".** Of 255 conditioned
+held-out fixes, **239 are DOWN → NORMAL with truth NORMAL**; 30 of the 33
+broke are correct DOWNs lost to NORMAL. Held-out predicted-DOWN falls 3,088 →
+2,726 against 3,357 true DOWNs: DOWN recall fell. Macro-F1 still rose (0.8009
+→ 0.8141), so this is not accuracy inflation, but it must be said.
+
+**E4. Conditioning excluded the treated cases.** The 1,550 curator drops (a
+gene's node set grew by a fresh leaf) are the fix's *direct* targets: dropped
+subset +20 overall (60/40, p 0.057), **tuning dropped −18** (9/27, p 0.004),
+held-out dropped +38. Experimental: 222 dropped, **0 fixed / 8 broke
+(p 0.008)**, Mitotic G1 −4, WNT −4 — the only significant experimental signal,
+negative, and outside the quoted "conditioned 0". Both subsets are now
+reported.
+
+**E5. Sharing's "+18 tuning" is 12 relabelling churn + 6.** The churn control
+(`cat_fix_comp` with composition skipped vs `cat_fix`: +12, one pathway, 6
+readouts, MDM2/MDM4-KO NORMAL→UP) flips the *same* 12 cases sharing flips
+(overlap 12 of 12); conditioned, sharing's tuning is **+6** (6/0, p 0.03,
+ATM-KO). "The basin flip is gone" is not shown — the MDM2/MDM4 basin still
+flips under relabelling, favourably this time. What survives: sharing changed
+41 of 24,100 predictions, held-out −1, no accuracy cost on either axis; its
+adoption rests on structure (nodes −35%, reachability identical), not on the
++18.
+
+**E6. Pre-registration integrity.** P7's structural clauses (TP53 ≤ 60, DSB ≤
+300, components ≤ 215, closures < 100) were written *after* the CSV census
+that produced them (LNG commit 3e6d00c at 00:30:10 already states "836 → 56,
+1,127 → ~290"; the pre-registration commit is 00:30:37) — they were checks on
+the regeneration, not predictions, and are relabelled as such. The accuracy
+clauses were set after P6's near-equivalent solver rule had scored +214 /
+DSB +190, so they were low-risk. Re-evaluation timing was clean; four of its
+ten predictions failed (el both counts, dedup, jacobi, comp) and were scored
+as failed.
+
+**E7. Small errors.** MHC's largest component is 680 in `cat_os` (not 675),
+675 in `cat_fix`. There are 102 AKT1/AKT2-KO cases: control 100/102, fix
+98/102.
+
+**What survived review**: every number reproduces (83.47/0.8009 → 84.81/0.8141;
++222 conditioned, p 1e-43; +260 unconditioned; tuning +81; census exact); at
+the stable-id level `cat_fix` = `cat_os` + 475 fresh leaf nodes with **identical
+edge multisets in all 92 pathways** (no confound); `cat_fix_comp` minus
+composition edges is census-identical to `cat_fix`, so the composition
+comparison is zero-churn; "composition re-welds" is confirmed and understated
+(with composition edges: 13,823 nodes in cycles vs `cat_os`'s 12,749, DSB
+largest 1,525 vs 1,127); no coverage inflation (valid / not-in-network counts
+identical).
+
+### Pre-registered P8 — the targeted fix (LNG `79feca7`), committed before the regeneration
+
+Regenerate (`cat_fix2`), production solver, vs the current-tree control on
+`cat_os`; both axes; conditioned **and** dropped subsets reported.
+- Structure: TP53 ≤ 60, DSB ≤ 300, cyclic components ≤ 215, cycle-carrying
+  assembly edges < 100 (same as `cat_fix` — the acyclic links do not affect
+  the cycle census); **stable-id edge multiset identical to `cat_os`**; fresh
+  leaf nodes fewer than 475.
+- Connectivity: `no_path` former-pass losses ≤ 10 (65 in `cat_fix`).
+- Accuracy: **Mitotic G1 within ±5** (−28 in `cat_fix`); DSB ≥ +150
+  conditioned; held-out ≥ +200 conditioned; tuning ≥ +60; AKT-KO ≥ 96 of 102;
+  experimental conditioned ≥ −5 **and** dropped subset not worse than −4.
+- Decision: adopt `79feca7` (correctness: only cycles Neo4j lacks removed) if
+  the connectivity and Mitotic G1 clauses hold and held-out is not below
+  `cat_fix`'s; the accuracy gain is reported DSB-concentrated regardless.
