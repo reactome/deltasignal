@@ -101,3 +101,52 @@ the old solver by accident (constitution V).
   differential check against the pre-feature tree in the tasks. ✓
 - V (honest reporting): fallback counts in diagnostics and API. ✓
 - VI (API boundary): additive field only. ✓
+
+## Results
+
+### Finding from the fixtures, before any arm
+
+A cycle with exactly one negative edge is an odd negative cycle by definition,
+and MDM2 ⊣ TP53 → MDM2 is exactly that. So `pool_parity` cannot pool the
+component the spec named as its motivating case; it pools only components in
+which every cycle has an even number of negatives (double inhibition =
+positive feedback), and `pool` pools only components with no internal negative
+at all. Every giant component in the catalog (TP53, WNT, DSB) carries
+depletion or inhibitor edges, so under both spec'd variants they fall back to
+the fixed point and the arm measures the old solver there. `pool_all` — the
+literal reading of the proposal, internal negatives contribute nothing — is
+the only variant that pools them, and it moves TP53 *with* MDM2, the wrong
+direction for the AKT cases. The AKT → TP53 case therefore needs a
+hierarchical treatment (pool the positive recycling sub-cycles, iterate the
+negative feedback over the pooled units), which is out of scope here and
+recorded as the follow-up.
+
+### Pre-registration (committed before the arms ran)
+
+Arms on `cat_os`, production defaults, baseline `ab_onesided.tsv` (23,908
+cases), `DS_SCC_METHOD ∈ {pool, pool_parity, pool_all}`; each arm's probe solve
+of TP53 must report `scc.pooled > 0` for `pool_all` and the counts for the
+others, or the arm is void. Curator held-out / tuning with concentration
+columns, McNemar p, false change, per-pathway net; experimental axis for each
+variant; the 102 TP53 AKT1/AKT2-KO cases scored directly; relabel churn on
+one cyclic pathway.
+
+- **P1 (coverage of the rule).** `pool` and `pool_parity` pool few of the
+  cyclic components in loop-heavy pathways (< 20% of TP53's, DSB's and WNT's
+  components; the small positive recycling loops elsewhere are pooled); their
+  held-out nets are within ±15 of zero and their false-change counts within
+  ±10 of the baseline's 1,430 — mostly a null measurement of the old solver.
+- **P2 (pool_all).** `pool_all` pools every cyclic component. It removes the
+  coin-flips: on the relabelled catalog (`cat_perm`) it moves 0 predictions
+  where `fixed_point` moved 14. False change in the loop-heavy pathways falls
+  by ≥ 100 (rails and collapses cannot form). Held-out net vs baseline is
+  **positive**, ≥ +20, distributed over ≥ 5 pathways and ≥ 10 genes.
+- **P3 (the price).** Under `pool_all` the 102 AKT1/AKT2-KO TP53 cases stay
+  wrong (≤ 10 correct; today 2), and TP53's tuning net is negative or flat:
+  members downstream of an internal inhibitor move with the entry.
+- **P4 (experimental).** `pool_all` is not negative on the experimental axis
+  (conditioned net ≥ −5).
+- **P5 (decision rule).** Adopt a variant only if P2 and P4 both hold; if P2's
+  sign is set by one pathway (> 50% of the net), report it as such and do not
+  adopt. If `pool_all` loses held-out, the pool rule is refuted as a blanket
+  treatment and the hierarchical variant is the only path left.
