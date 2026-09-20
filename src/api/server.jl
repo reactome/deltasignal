@@ -766,7 +766,24 @@ function solve_handler(req)
             "influence_scores" => influence_scores,
             "converged" => solver_result.converged,
             "iterations" => solver_result.iterations,
-            "solve_time" => solver_result.solve_time
+            "solve_time" => solver_result.solve_time,
+            # specs/017 (additive): how the cyclic components were resolved, so a
+            # client can tell a pooled solve from an iterated one.
+            "scc" => Dict(
+                "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
+                "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),
+                "iterated" => get(solver_result.diagnostics, "scc_iterated", 0),
+                "fallback_negative" => get(solver_result.diagnostics, "scc_fallback_negative", 0),
+                "fallback_inconsistent" => get(solver_result.diagnostics, "scc_fallback_inconsistent", 0),
+                "pooled_nodes" => get(solver_result.diagnostics, "scc_pooled_nodes", 0),
+                "break_roles" => get(solver_result.diagnostics, "scc_break_roles", ""),
+                "closures_catalyst" => get(solver_result.diagnostics, "scc_closures_catalyst", 0),
+                "closures_assembly" => get(solver_result.diagnostics, "scc_closures_assembly", 0),
+                "closures_depletion" => get(solver_result.diagnostics, "scc_closures_depletion", 0),
+                "cyclic_before" => get(solver_result.diagnostics, "scc_cyclic_before", 0),
+                "cyclic_after" => get(solver_result.diagnostics, "scc_cyclic_after", 0),
+                "largest_after" => get(solver_result.diagnostics, "scc_largest_after", 0),
+            ),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))

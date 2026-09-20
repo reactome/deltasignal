@@ -589,7 +589,9 @@ function solve_scc_ordered!(
             "the model domain and throws from inside the propagator."
         ))
     end
-    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false)
+    # `supply` (component-entry state) is read by recycling-closure edges: the
+    # legacy catalyst knob and the role list of specs/018.
+    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
     max_inner = params.max_iters
     tol = params.tolerance
 
@@ -648,14 +650,41 @@ function solve_scc_ordered!(
     #       better. See specs/003 research.md section 2.
     #
     # Observations stay pinned here; making them weighted is FR4, Stage 3.
+    #   "pool" / "pool_parity" (specs/017): the component is a conserved POOL.
+    #       Every member reaction is evaluated with its in-component inputs held
+    #       at baseline (fold 1), giving an EXTERNAL fold; the entry folds
+    #       multiply into one pool fold (0 absorbs, capped at 100x like hill_sat)
+    #       and every non-pinned member reads its own baseline x that fold. No
+    #       iteration inside the component, so the gain-1 knife-edge cannot rail
+    #       or collapse it and the answer does not depend on node labels.
+    #       "pool" leaves any component with an internal inhibitor/depletion
+    #       edge to the damped fixed point; "pool_parity" reads each entry's
+    #       fold to the power +-1 by the parity of negative internal edges on
+    #       the path from that entry, and falls back only when the signs are
+    #       inconsistent (an odd negative cycle: genuine negative feedback).
+    #       "pool_all" is the literal rule: pool every component, and an
+    #       internal negative edge contributes nothing (its source reads
+    #       baseline, factor 1). A member downstream of an internal inhibitor
+    #       therefore moves WITH the entry, not against it -- known wrong for
+    #       MDM2 -| TP53, kept because it is the only variant that pools the
+    #       giant components at all (every one of them has a negative edge).
     scc_method = get(ENV, "DS_SCC_METHOD", "fixed_point")
-    if !(scc_method in ("fixed_point", "minimize"))
+    if !(scc_method in ("fixed_point", "minimize", "pool", "pool_parity", "pool_all"))
         throw(ArgumentError(
             "DS_SCC_METHOD=$scc_method is not a method; " *
-            "expected \"fixed_point\" or \"minimize\"."
+            "expected \"fixed_point\", \"minimize\", \"pool\", \"pool_parity\" or \"pool_all\"."
         ))
     end
     minimize = scc_method == "minimize"
+    pooling = scc_method in ("pool", "pool_parity", "pool_all")
+    parity = scc_method == "pool_parity"
+    pool_all = scc_method == "pool_all"
+    if pooling && baseline_vec === nothing
+        throw(ArgumentError(
+            "DS_SCC_METHOD=$scc_method needs baselines: solve_scc_ordered! was " *
+            "called without `baseline_vec`. This is a caller bug, not a configuration one."
+        ))
+    end
     if minimize && baseline_vec === nothing
         throw(ArgumentError(
             "DS_SCC_METHOD=minimize needs baselines: solve_scc_ordered! was " *
@@ -742,6 +771,26 @@ function solve_scc_ordered!(
         end
     end
 
+    # Pool bookkeeping (specs/017): member node lists and an internal-negative
+    # census per component, built only when pooling is on.
+    comp_nodes = pooling ? [Int[] for _ in 1:n_comp] : Vector{Int}[]
+    comp_has_neg = falses(n_comp)
+    if pooling
+        @inbounds for (i, c) in enumerate(comp_id)
+            c >= 1 && push!(comp_nodes[c], i)
+        end
+        @inbounds for r in rxns_idx
+            c = comp_id[r.target_idx]
+            c >= 1 || continue
+            comp_has_neg[c] && continue
+            if any(i -> comp_id[i] == c, r.inhibitor_indices) ||
+               any(i -> comp_id[i] == c, r.depletion_indices)
+                comp_has_neg[c] = true
+            end
+        end
+    end
+    n_pooled = 0; n_iterated = 0; n_fb_neg = 0; n_fb_inc = 0; n_pooled_nodes = 0
+
     total_iters = 0
     last_change = 0.0
 
@@ -755,9 +804,27 @@ function solve_scc_ordered!(
             for ri in rs
                 t = rxns_idx[ri].target_idx
                 t in obs_set && continue
-                x[t] = compute_reaction_output_vec(x, rxns_idx[ri]; config=config)
+                # A closure edge into an acyclic node reads the current state,
+                # which IS its entry value (upstream is final, downstream is
+                # still at its initial value).
+                x[t] = compute_reaction_output_vec(x, rxns_idx[ri]; supply = use_supply ? x : nothing, config=config)
             end
         else
+            if pooling
+                status, nw = pool_component!(x, rs, rxns_idx, comp_id, c, comp_nodes[c],
+                                             obs_set, baseline_vec, config, parity,
+                                             pool_all ? false : comp_has_neg[c])
+                if status == :pooled
+                    n_pooled += 1
+                    n_pooled_nodes += nw
+                    continue
+                elseif status == :negative
+                    n_fb_neg += 1
+                else
+                    n_fb_inc += 1
+                end
+            end
+            n_iterated += 1
             # Genuine loop: damped fixed point confined to this component.
             # Freeze the entry state for the optional catalyst-break layer.
             supply = use_supply ? copy(x) : nothing
@@ -818,7 +885,113 @@ function solve_scc_ordered!(
             last_change = max(last_change, comp_residual)
         end
     end
-    return total_iters, last_change
+    stats = (method = scc_method, pooled = n_pooled, iterated = n_iterated,
+             fallback_negative = n_fb_neg, fallback_inconsistent = n_fb_inc,
+             pooled_nodes = n_pooled_nodes)
+    return total_iters, last_change, stats
+end
+
+"""
+Resolve one cyclic component as a conserved pool (specs/017). Returns
+`(:pooled, n_written)`, `(:negative, 0)` (has an internal negative edge and
+parity is off) or `(:inconsistent, 0)` (parity on, but a member is reached
+from one entry with both signs -- an odd negative cycle). On the two fallback
+statuses `x` is untouched and the caller iterates the component as before.
+
+The external fold of a member reaction is its output with every non-pinned
+member node at its own baseline, divided by the target's baseline. Reactions
+whose target is pinned are not entries: the pinned value itself carries the
+signal into the reactions that read it. Entry factors are multiplied in sorted
+order so the product is bit-identical under relabelling.
+
+Known consequences of the rule, measured (specs/017 research.md):
+- a pooled state is not a fixed point of F, so `converged` reads false for
+  any solve that pooled a component with a real entry;
+- a pinned member does not sever the pool: entries on both sides of a pin
+  multiply into one fold (the fixed point treats a pin as a boundary);
+- alternative routes through one component (RAS isoforms in one GTPase
+  cycle) are multiplied as if co-required, and 0 absorbs, so one isoform's
+  knockout zeroes the cycle -- the mechanism behind the -53 held-out on MET,
+  SCF-KIT and DAP12;
+- DS_SCC_BREAK_CATALYST does not apply inside a pooled component.
+"""
+function pool_component!(x::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector{IndexedReaction},
+                         comp_id::Vector{Int}, c::Int, members::Vector{Int}, obs_set::Set{Int},
+                         baseline_vec::Vector{Float64}, config::ReactionEvalConfig,
+                         parity::Bool, has_neg::Bool)
+    (has_neg && !parity) && return :negative, 0
+    xpool = copy(x)
+    @inbounds for m in members
+        m in obs_set || (xpool[m] = baseline_vec[m])
+    end
+    entries = Tuple{Int, Float64}[]          # (entry node, external fold)
+    @inbounds for ri in rs
+        r = rxns_idx[ri]
+        t = r.target_idx
+        t in obs_set && continue
+        # closure edges (DS_SCC_BREAK_ROLES / legacy catalyst break) read the entry state
+        f = compute_reaction_output_vec(xpool, r; supply=x, config=config) / baseline_vec[t]
+        # hill_sat's smooth cap returns bl*(1 + 3e-15) at pure baseline, so an
+        # exact `!= 1` test made ~97% of member reactions "entries" (TP53:
+        # 808 of 837). A relative tolerance well below any real perturbation
+        # and well above that noise keeps the notion meaningful.
+        abs(f - 1.0) > 1e-9 && push!(entries, (t, f))
+    end
+    # Sign of every member relative to every entry (parity only).
+    signs = Dict{Int, Dict{Int, Int8}}()     # entry node => (member => +-1)
+    if parity && has_neg && !isempty(entries)
+        adj = Dict{Int, Vector{Tuple{Int, Int8}}}()
+        @inbounds for ri in rs
+            r = rxns_idx[ri]
+            t = r.target_idx
+            for a in r.activator_indices
+                comp_id[a] == c && push!(get!(adj, a, Tuple{Int, Int8}[]), (t, Int8(1)))
+            end
+            for i in r.inhibitor_indices
+                comp_id[i] == c && push!(get!(adj, i, Tuple{Int, Int8}[]), (t, Int8(-1)))
+            end
+            for i in r.depletion_indices
+                comp_id[i] == c && push!(get!(adj, i, Tuple{Int, Int8}[]), (t, Int8(-1)))
+            end
+        end
+        for (e, _) in entries
+            haskey(signs, e) && continue
+            s = Dict{Int, Int8}(e => Int8(1))
+            queue = [e]
+            while !isempty(queue)
+                u = popfirst!(queue)
+                for (v, sg) in get(adj, u, Tuple{Int, Int8}[])
+                    sv = s[u] * sg
+                    if haskey(s, v)
+                        s[v] == sv || return :inconsistent, 0
+                    else
+                        s[v] = sv
+                        push!(queue, v)
+                    end
+                end
+            end
+            signs[e] = s
+        end
+    end
+    n_written = 0
+    factors = Float64[]
+    @inbounds for m in members
+        m in obs_set && continue
+        empty!(factors)
+        for (e, f) in entries
+            sg = parity && has_neg ? get(signs[e], m, Int8(1)) : Int8(1)
+            push!(factors, sg == 1 ? f : (f == 0.0 ? 100.0 : 1.0 / f))
+        end
+        sort!(factors)
+        pool = 1.0
+        for v in factors
+            pool *= v
+        end
+        pool = clamp(pool, 0.0, 100.0)
+        x[m] = clamp(baseline_vec[m] * pool, 0.0, 1.0)
+        n_written += 1
+    end
+    return :pooled, n_written
 end
 
 """
@@ -852,7 +1025,8 @@ function solve_steady_state_penalty(
     all_nodes = collect(keys(x0))
     n = length(all_nodes)
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
-    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids)
+    index_stats = Dict{String, Any}()
+    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids; stats = index_stats)
 
     # Resolve the per-reaction DS_* knobs ONCE here (not once per reaction per
     # iteration inside compute_reaction_output_vec). Threaded into every forward
@@ -892,6 +1066,14 @@ function solve_steady_state_penalty(
     obs_set = Set(obs_indices)
     converged = false
     iters = 0
+    scc_stats = (method = "flat", pooled = 0, iterated = 0, fallback_negative = 0,
+                 fallback_inconsistent = 0, pooled_nodes = 0)
+    # A closure activator with no `supply` reads the TARGET's baseline (the
+    # legacy catalyst-break semantics); on the flat path, in the final residual
+    # and in influence scores that zeroed the influence of every other input
+    # under assembly-limiting. Pass the live state instead wherever closures
+    # are marked: it IS the entry value there.
+    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
     max_change = 0.0
 
     # Optional damping for loop convergence. The original feed-forward
@@ -922,12 +1104,12 @@ function solve_steady_state_penalty(
         @inbounds for (i, uuid) in enumerate(all_nodes)
             baseline_vec[i] = get(baseline_activities, uuid, 0.01)
         end
-        iters, max_change = solve_scc_ordered!(
+        iters, max_change, scc_stats = solve_scc_ordered!(
             x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec)
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
-            x_fwd = forward_model_vec(x, rxns_idx; config=eval_config)
+            x_fwd = forward_model_vec(x, rxns_idx; supply = flat_supply ? x : nothing, config=eval_config)
 
             max_change = 0.0
             @inbounds for i in 1:n
@@ -949,7 +1131,7 @@ function solve_steady_state_penalty(
     end
 
     # Final consistency check on the stable state.
-    x_fwd_final = forward_model_vec(x, rxns_idx; config=eval_config)
+    x_fwd_final = forward_model_vec(x, rxns_idx; supply = flat_supply ? x : nothing, config=eval_config)
     consistency_inf = n == 0 ? 0.0 : maximum(abs.(x .- x_fwd_final))
 
     # Honest residual: max |x - F(x)| over the FREE nodes only.
@@ -1001,6 +1183,22 @@ function solve_steady_state_penalty(
             "max_change_final" => isfinite(max_change) ? Float64(max_change) : -1.0,
             "free_residual_inf" => safe_residual,
             "model_residual_inf" => isfinite(consistency_inf) ? Float64(consistency_inf) : -1.0,
+            # specs/017: how the cyclic components were resolved, so an arm cannot
+            # silently measure the old solver.
+            "scc_method" => scc_stats.method,
+            "scc_pooled" => scc_stats.pooled,
+            "scc_iterated" => scc_stats.iterated,
+            "scc_fallback_negative" => scc_stats.fallback_negative,
+            "scc_fallback_inconsistent" => scc_stats.fallback_inconsistent,
+            "scc_pooled_nodes" => scc_stats.pooled_nodes,
+            # specs/018: recycling closures by role and the component census
+            "scc_break_roles" => get(ENV, "DS_SCC_BREAK_ROLES", ""),
+            "scc_closures_catalyst" => get(index_stats, "scc_closures_catalyst", 0),
+            "scc_closures_assembly" => get(index_stats, "scc_closures_assembly", 0),
+            "scc_closures_depletion" => get(index_stats, "scc_closures_depletion", 0),
+            "scc_cyclic_before" => get(index_stats, "scc_cyclic_before", 0),
+            "scc_cyclic_after" => get(index_stats, "scc_cyclic_after", 0),
+            "scc_largest_after" => get(index_stats, "scc_largest_after", 0),
         ),
     )
 end
@@ -1036,10 +1234,11 @@ function compute_influence_scores(
     end
 
     eval_config = resolve_reaction_eval_config()
+    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
     influence_scores = Dict{String, Float64}()
     h = 1e-6
     for rxn in indexed
-        base = compute_reaction_output_vec(x, rxn; config=eval_config)
+        base = compute_reaction_output_vec(x, rxn; supply = infl_supply ? x : nothing, config=eval_config)
         # Every input the reaction's output depends on: activators, inhibitors,
         # depletion (catalyst→substrate), and substrates.
         input_idxs = vcat(rxn.activator_indices, rxn.inhibitor_indices,
@@ -1050,7 +1249,7 @@ function compute_influence_scores(
             # yields a finite-difference slope (forward step would clamp to 0).
             dir = (x_saved + h <= 1.0) ? h : -h
             x[idx] = x_saved + dir
-            plus = compute_reaction_output_vec(x, rxn; config=eval_config)
+            plus = compute_reaction_output_vec(x, rxn; supply = infl_supply ? x : nothing, config=eval_config)
             x[idx] = x_saved
             deriv = (plus - base) / dir
             uuid = all_nodes[idx]
