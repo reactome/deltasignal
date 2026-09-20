@@ -190,3 +190,35 @@ the recomputed components. Decision: if As holds all of those, it is the
 candidate — still DSB-concentrated by mechanism, to be stated as such; the
 depletion half is then a separate question (which depletion closures are our
 double count and which are regulation).
+
+### The generator-side cause, and pre-registered P7 (committed before the regeneration)
+
+Adam: "if these edges are the breaking apart of complexes in terminal outputs
+and root inputs, they should not create loops as they would get different
+uuids." They should, and they do not: boundary expansion's `_leaf_uuid`
+reuses a leaf's *existing* node whenever the protein already has one anywhere
+in the network, including a copy that a reaction **produces** downstream of
+the root complex. Census on `cat_os`: of 2,077 cycle-carrying assembly edges,
+**1,994 have a produced source and a root-complex target**; 40,208 acyclic
+assembly edges are proper unproduced leaves into root complexes. The depletion
+closures are a different thing — MDM2:TP53 ⊣ TP53 is genuine regulation inside
+a genuine feedback loop, which is why silencing them broke the AKT cases.
+
+Fix in the generator (LNG branch `fix/boundary-leaf-no-produced-reuse`, 3e6d00c):
+a boundary leaf reuses only an *unproduced* node; a produced copy gets a fresh
+leaf uuid. `LNG_BOUNDARY_LEAF_REUSE=any` restores the old behaviour.
+
+**P7 — regenerate the full catalog with the fix (`cat_fix`), solve with the
+production solver (no `DS_SCC_BREAK_ROLES`), compare to the current-tree
+control on `cat_os`.** Cross-catalog (uuids differ), so churn is part of what
+is measured; conditioning drops are expected only where a gene's node set
+changed.
+- Structure: TP53's largest component ≤ 60 nodes, DSB's ≤ 300; catalog cyclic
+  components ≤ 215; cycle-carrying assembly edges < 100 catalog-wide.
+- Accuracy: held-out ≥ +150 (the assembly half of A's +226), DSB ≥ +120,
+  false change down ≥ 250 in the loop-heavy pathways, the 100 AKT-KO TP53
+  cases stay ≥ 90 (depletion untouched), experimental conditioned ≥ −5.
+- Interpretation: the same DSB concentration as A, for the same reason; the
+  fix is adopted on *correctness* grounds (the network no longer contains
+  cycles Neo4j does not have) if the accuracy clauses hold, and reported as
+  a DSB-concentrated accuracy gain.
