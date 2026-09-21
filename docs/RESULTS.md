@@ -126,6 +126,37 @@ On our own networks against experimental evidence: 627/849 = 73.85%, macro-F1
 
 ## 2. On our own networks
 
+### Scope: why the catalog is 92 pathways, not 93
+
+MP-BioPath's `pathway_list.tsv` has 93 pathways. One of them,
+**`R-HSA-9025112` `_NEW_ROCK_signaling_regulates_MRLC_phosphorylation`**, is
+permanently excluded and has never been in any catalog we have built.
+
+It has no results in the MP-BioPath publication. Searching their whole
+repository, the id appears in exactly three files — `pathway_list.tsv`,
+`key_outputs.tsv` (two key outputs assigned, 419195 and 5668934) and
+`db_id_to_name_mapping.txt`. There is **no network file, no input data, no
+curator predictions and no experimental results**, so there is nothing to
+score against. The `_NEW_` prefix reads like a late addition to their list
+that was set up and never finished. Generation also fails on it outright
+("No reactions found"), so it contributes zero cases on either axis.
+
+**`R-HSA-5627117` "RHO GTPases Activate ROCKs" is not a substitute for it** and
+must not be swapped in to fill the gap. It is a different pathway that does not
+align closely enough with the `_NEW_ROCK` entry to stand for it. It has its own
+network, input data and curator predictions, we generate it normally (156
+edges), and it is scored on its own merits like any other pathway.
+
+So: 93 listed, 92 generated, and **82 distinct pathways actually contribute
+scored cases** — their list also carries pathways with no curator file, and the
+experimental axis covers only 11.
+
+This was invisible until 2026-09-21. `bin/create-pathways.py` logged the
+failure and exited 0, so every regeneration silently produced a 92-pathway
+catalog while reporting success. LNG #93 made a failed pathway exit non-zero,
+and this surfaced on the first run.
+
+
 ### 2026-09-20: the welded-loop fix (specs/018) — new canonical numbers
 
 The generator's boundary expansion reused, as a root complex's subunit leaf, a
