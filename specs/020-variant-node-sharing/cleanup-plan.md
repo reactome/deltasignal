@@ -46,7 +46,16 @@ this repo's own specs. Verified corrections:
   composition, whose stated failure mechanism is "they re-weld what the fix
   unwelded" — a claim about a cycle census that has since changed twice.
 
-### Executing now (safe, verified)
+### Done (2026-09-21)
+
+| action | outcome |
+|---|---|
+| **Close PR #92** (`LNG_SINK_BRIDGES`) | **DONE** — closed unmerged with the full measured record in the closing comment. |
+| **Drop `LNG_BOUNDARY_LEAF_REUSE=any`** | **DONE** — LNG PR #93. Setting the variable now raises rather than being ignored. |
+| **Adopt variant sharing, no flag** | **DONE** — LNG PR #94. Measured first: P1-P4 all hold (see this spec's Results). Setting `LNG_SHARE_VARIANT_NODES` now raises. |
+| Cache-fingerprint gap | **DONE** — `LNG_BOUNDARY_EXPANSION`, `LNG_COMPOSITION_EDGES`, `LNG_EMIT_ONE_SIDED` added to `_FINGERPRINTED_ENV` in PR #94. |
+
+The rationale for each, as written before executing:
 
 | action | why safe |
 |---|---|
@@ -57,7 +66,6 @@ this repo's own specs. Verified corrections:
 
 | row | blocker |
 |---|---|
-| `LNG_SHARE_VARIANT_NODES` | **no measurement yet** — specs/020's P2–P4 have not run. The queue stated the outcome as fact. |
 | `DS_SCC_METHOD=minimize` | specs/003 says keep it reachable and is Open. Also far larger than described: `SteadyStateParams.mu/.gamma` are **positional fields constructed 38 times across 19 files**, CLI `--mu/--gamma` are **documented in CLAUDE.md's quick-start**, and the provenance keys are asserted in `test_cli_observations.jl` — a *kept* assertion file. |
 | `DS_SCC_METHOD=pool` / `pool_parity` | measured on the **welded** catalog, where most SCCs were our own welds (TP53 836→56). Not among the ten arms specs/018 re-ran. Other arms reversed by that much (composition +12→−185, assembly closures +214→−5). One cheap same-catalog arm settles it. |
 | `LNG_COMPOSITION_EDGES` / `DS_COMPOSITION_MODE` | see the correction above; and `016:489` required a re-measure on fixed+share that has never been run. |
@@ -77,4 +85,4 @@ this repo's own specs. Verified corrections:
 
 ### Sequencing
 
-1. Close #92; amend `019:165`. 2. Drop `=any`. 3. Finish specs/020 and record P2–P4 before deciding the share row. 4. Re-measure `pool` and `DS_DEPLETION_OWN_PRODUCT` on `cat_fix2` — one cheap same-catalog arm each. 5. Composition: re-measure on fixed+share as `016:489` required, or write down explicitly that the arm is foreclosed — and rewrite the ladder's tier 4 either way. 6. Split `DS_SCC_BREAK_ROLES` from the specs/018 supply fix per hazard 2. 7. Get the catalogs out of `/tmp`; add the flags to `_FINGERPRINTED_ENV`. 8. Add the unknown-`DS_*` guard.
+Steps 1-3 are done (#92 closed, `019:165` amended, `=any` dropped in #93, sharing measured and adopted in #94). Remaining: 4. Re-measure `pool` and `DS_DEPLETION_OWN_PRODUCT` on `cat_fix2` — one cheap same-catalog arm each. 5. Composition: re-measure on fixed+share as `016:489` required, or write down explicitly that the arm is foreclosed — and rewrite the ladder's tier 4 either way. 6. Split `DS_SCC_BREAK_ROLES` from the specs/018 supply fix per hazard 2. 7. Get the catalogs out of `/tmp`; add the flags to `_FINGERPRINTED_ENV`. 8. Add the unknown-`DS_*` guard.
