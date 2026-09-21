@@ -227,8 +227,23 @@ leaf uuid. `LNG_BOUNDARY_LEAF_REUSE=any` restored the old behaviour.
 > +173 measurement. Fixing it (append each emitted assembly edge to `_succ`
 > and invalidate the reachability cache) **changes emitted networks**, so it
 > needs its own regeneration, its own A/B and its own spec — it is not a
-> touch-up to a merged PR. Tracked as the next candidate in this family;
-> the residual welds it leaves are a subset of the 1,994 the fix removed.
+> touch-up to a merged PR.
+>
+> **MEASURED 2026-09-21, and it is not a lever.** Counted directly on the
+> current catalog: an assembly edge is a residual weld when the complex can
+> reach its own leaf in the FINAL graph. There are **4 of 9,642 assembly edges
+> (0.04%), in 2 of 92 pathways** — against the 1,994 the fix removed. All four
+> do sit inside a real cycle, and in one pathway they matter locally
+> (R-HSA-73893: removing 2 edges splits the largest component **312 → 159** and
+> takes it from 2 cyclic components to 6; R-HSA-453274: largest 63 → 56).
+>
+> So the defect is real, the invariant as stated is still false, and fixing it
+> would help exactly two pathways. By this project's own concentration rule a
+> result confined to 2 of 92 pathways cannot carry a valid p-value, so this is
+> a **correctness/coverage fix, not an accuracy lever** — the same shape as
+> LNG#89. Worth doing when something else already forces a regeneration; not
+> worth a regeneration of its own. My earlier note calling it "the next
+> candidate in this family" over-promised and is withdrawn.
 
 **P7 — regenerate the full catalog with the fix (`cat_fix`), solve with the
 production solver (no `DS_SCC_BREAK_ROLES`), compare to the current-tree
