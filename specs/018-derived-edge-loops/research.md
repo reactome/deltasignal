@@ -206,7 +206,29 @@ a genuine feedback loop, which is why silencing them broke the AKT cases.
 
 Fix in the generator (LNG branch `fix/boundary-leaf-no-produced-reuse`, 3e6d00c):
 a boundary leaf reuses only an *unproduced* node; a produced copy gets a fresh
-leaf uuid. `LNG_BOUNDARY_LEAF_REUSE=any` restores the old behaviour.
+leaf uuid. `LNG_BOUNDARY_LEAF_REUSE=any` restored the old behaviour.
+
+> **Flag removed 2026-09-21 (LNG #93).** Per the flag-expiry policy in
+> specs/020, the escape hatch is gone and **setting the variable is now a hard
+> error** rather than a no-op, so a stale value cannot make a run silently
+> measure the default. The reproduction commands in this document that set
+> `LNG_BOUNDARY_LEAF_REUSE` will therefore fail rather than reproduce; the
+> measured record below is the evidence.
+>
+> **Open defect found by adversarial review of that PR, not fixed there.** The
+> rule is "a boundary leaf never reuses a node the root complex can reach" —
+> but reachability is computed from a `_succ` snapshot taken *before* the
+> emission loop, and the loop appends its own assembly edges without updating
+> it. So a second root complex can be handed a leaf that an *earlier* complex
+> made reachable, welding exactly the cycle this fix removes. A reviewer built
+> the case: with two root complexes sharing subunits, the emitter produced
+> `u_C2 -> r1 -> u_P -> u_C1 -> r2 -> u_X -> u_C2`. This is **pre-existing and
+> identical on both sides of the flag removal**, so it does not affect the
+> +173 measurement. Fixing it (append each emitted assembly edge to `_succ`
+> and invalidate the reachability cache) **changes emitted networks**, so it
+> needs its own regeneration, its own A/B and its own spec — it is not a
+> touch-up to a merged PR. Tracked as the next candidate in this family;
+> the residual welds it leaves are a subset of the 1,994 the fix removed.
 
 **P7 — regenerate the full catalog with the fix (`cat_fix`), solve with the
 production solver (no `DS_SCC_BREAK_ROLES`), compare to the current-tree
