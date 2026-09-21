@@ -256,3 +256,64 @@ emitter (~11.2k genuine bridges). The depletion ablation is unaffected: the
 review confirmed the client-side skip removes exactly the 3,444 depletion
 edges with zero collateral, conditioning drops zero cases, and every figure
 reproduces — depletion edges remain load-bearing.
+
+## Re-run with the corrected emitter (2026-09-21; LNG `a81887e`, catalogs `cat_fix3_sb` / `cat_fix3_sb8`)
+
+Structure: **11,069** bridges uncapped (simulation predicted 10,547 — within
+5%), 3,416 at fan-out ≤ 8, **0 sink→sink**, cycle census **210 / 8,407 / 675**
+identical to the unbridged catalog. Each arm has its own same-catalog control
+(per C3), so no cross-catalog churn.
+
+| | control | uncapped | cap 8 |
+|---|---|---|---|
+| all pathways | 84.71% / 0.8137 | 84.80% / 0.8173 | 84.87% / 0.8179 |
+| **held-out** | | **−11** (169/180, p 0.59) | **−4** (155/159, p 0.87) |
+| tuning | | +35 (68/33) | +38 (67/29) |
+| false change | 1,150 | **+195** | +173 |
+| experimental, conditioned | | **−2** (9/11) | **−2** (7/9) |
+
+Per pathway: Interferon α/β **+100** (100 fixed, 0 broke), Mitotic G1 +31,
+ROBO **−44** (1 fixed, 45 broke), RET −18, PDGF −17, IL-3/5 −13; 200 new
+false changes in 18 pathways.
+
+### Scored against the original pre-registration
+
+P1 structure **holds** (bridge count matches the simulation, cycle census
+unchanged). P2 **fails** (IFN +100 vs bar +150; Mitotic G1 +31 vs +100).
+P3 **fails** (held-out −11 / −4, neither significant, bar +100). P4 **fails**
+(false change +195 against 237 gross fixes; the sub-clause holds — the arms'
+held-out nets differ by 7). P5 **holds** (experimental −2, bar −10).
+
+**Verdict: not adopted, `LNG_SINK_BRIDGES` stays off** — the same verdict the
+buggy run reached, now on a valid measurement.
+
+### What the bug did and did not change
+
+| | buggy (69% sink→sink) | corrected (0) |
+|---|---|---|
+| held-out uncapped | −6 | −11 |
+| false change | +171 | +195 |
+| Interferon α/β | +100 | +100 |
+| ROBO | −43 | **−44** |
+| Mitotic G1 | +35 | +31 |
+| PDGF / RET | −13 / −10 | −17 / −18 |
+
+**The review's inference was wrong even though the defect was real.** It
+reasoned that ROBO lost because 77% of its bridges were artifacts and
+Interferon α/β gained because only 7% were — but with *zero* artifacts ROBO
+still loses 44 and Interferon α/β still gains exactly 100. The artifact edges
+were nearly inert for a structural reason neither of us stated at the time: a
+sink→sink edge points at a node with no outgoing edges, so it can only change
+that sink's own value, and only where the sink is itself a readout. The defect
+had to be fixed — 69% of the emitted edges were not the intervention — but it
+was not what produced the result.
+
+**So the conclusion withdrawn in C1 is reinstated, now on evidence that
+supports it**: reconnecting a released subunit to the copies that consume it
+buys reach and over-coupling in roughly equal measure. Interferon α/β is the
+case where the released copy really is the copy the downstream reactions use
+(+100, nothing broken); ROBO, RET, PDGF and IL-3/5 are cases where it is not,
+and the bridge manufactures change. Which of the two a bridge will be is a
+question about the identity of the copy — specs/005 — and cannot be decided by
+a connectivity rule, a cycle guard, or a fan-out cap (the cap changed the
+held-out net by 7 cases).
