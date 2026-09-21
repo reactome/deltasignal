@@ -126,6 +126,47 @@ On our own networks against experimental evidence: 627/849 = 73.85%, macro-F1
 
 ## 2. On our own networks
 
+### The headline has a regeneration-noise floor of ~80 cases, all in TP53
+
+Measured 2026-09-21 and worth knowing before quoting any cross-catalog number.
+Two catalogs were built from the **same generator commit with the same flags**
+and are structurally identical — 92 pathways, 70,738 nodes, 224,189 edges in
+both. The only difference is that node ids are freshly minted `uuid4`s on each
+run. The solver source was verified identical across the arms.
+
+| split | measured catalog | regenerated catalog | net |
+|---|---|---|---|
+| headline (82 pathways, 24,100) | 84.65%, mF1 0.8125 | 84.33%, mF1 0.8072 | **−76** |
+| tuning (11) | 0.7667 | 0.7510 | **−80** (0 fixed, 80 broke) |
+| **held-out (71)** | 0.8679 | **0.8681** | **+4** (4 fixed, 0 broke) |
+| experimental | 71.73%, mF1 0.6432 | 70.20%, mF1 0.6310 | −13 |
+
+**All of the tuning movement is one pathway and effectively one perturbation.**
+It spans 1 of 11 pathways (Transcriptional Regulation by TP53) and 40 readouts,
+and MDM2 alone accounts for 50% of the discordant cases. The 40 readouts are
+not independent — they share a cause — so McNemar does not apply and the
+p-value the tool prints for that row is meaningless. The held-out movement is
+likewise 1 pathway (Signaling by MET), 4 readouts, one gene (STAT3).
+
+This is the label-dependence of the solver showing up as measurement noise:
+Gauss-Seidel sweep order inside a strongly connected component comes from
+Julia `Dict` hash order, so relabelling flips which basin TP53's MDM2 loop
+settles into. It reproduces the earlier observation that two bridge-free
+regenerations differed by 96 predictions, all in TP53, zero held-out.
+
+**Consequences.**
+1. **The headline accuracy figure is not reproducible to better than ~0.3pp
+   across regenerations**, with no real change behind the swing. Do not read a
+   sub-0.3pp cross-catalog difference in the headline as an effect.
+2. **Quote held-out.** It moved +4 of 19,000 here, so it is stable at the
+   level the headline is not — which is the reason the split exists.
+3. Any cross-catalog A/B must carry this as its control bound. Same-catalog
+   arms (client-side switches) do not pay it.
+
+**Current production baseline**, generator `f2842bc`, solver `dea0577`,
+catalog `cat_prod`: held-out **86.81% / macro-F1 0.8291**, headline 84.33% /
+0.8072, experimental 70.20% / 0.6310.
+
 ### Scope: why the catalog is 92 pathways, not 93
 
 MP-BioPath's `pathway_list.tsv` has 93 pathways. One of them,
