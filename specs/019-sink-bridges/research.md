@@ -64,15 +64,16 @@ candidate for removal on fidelity grounds (Reactome never asserted them).
 
 ### Depletion ablation scored (2026-09-21; `cat_fix2`, same catalog, zero churn)
 
-| | with depletion (control) | **without (all 4,930 edges skipped)** |
+| | with depletion (control) | **without (all 3,444 edges skipped)** |
 |---|---|---|
 | all pathways | 84.71% / mF1 0.8137 | **83.52% / 0.7960** |
 | held-out | | **−90** (38 fixed / 128 broke, p < 1e-4), 13 pathways, 43 readouts, 33 genes |
 | tuning | | **−196** (TP53 −241) |
 | experimental, conditioned | | **−24** (21/45, p 0.0043), 5 of 10 pathways |
 | false change | 1,150 | **974 (−176)** |
-| AKT-KO → TP53 (of 102) | 100 | **2** |
-| predictions changed | | 815; 489 of them collapse to NORMAL (246 true DOWN, 243 true UP lost) |
+| AKT1/AKT2 **KO**, TP53 pathway (of 102) | 100 | **2** |
+| the same 102 cases, **OE** direction | 84 | **2** |
+| predictions changed | | 815; **704** collapse to NORMAL (269 true DOWN, 254 true UP) — of which 489 were correct before |
 
 Per pathway: TP53 −241, MET −60, IFN-γ −34, EGFR −25; only ERBB2 +26 and WNT +9 positive.
 
@@ -82,10 +83,13 @@ falls (fewer routes) and missed change rises more than twice as far. They are
 the only edge class that carries "consumption": an abundant complex drawing
 down its free subunit, a phosphatase consuming its substrate. Without them a
 knockout upstream of a complex cannot raise the free partner, which is how
-93 of the 100 AKT-KO → TP53 cases are answered (AKT ⊣ MDM2 phosphorylation →
-less MDM2:TP53 → more free TP53).
+98 of the 100 AKT1/AKT2-**knockdown** cases in the TP53 pathway are answered
+(AKT ⊣ MDM2 phosphorylation → less MDM2:TP53 → more free TP53). The
+over-expression direction of the same 102 cases falls **84 → 2** on the same
+ablation. (Label note: these are AKT perturbations scored across all readouts
+of `Transcriptional_Regulation_by_TP53`, not a TP53 readout.)
 
-They remain **our inference, not curation** (1.5% of edges; Reactome asserts
+They remain **our inference, not curation** (3,444 edges, **1.21%**; Reactome asserts
 no such relation), and the two bounded-ness defects found this month were both
 in this class (the floor at zero, specs/011, +28 held-out; the own-product
 double count, specs/016, inert). The honest statement for a paper: *a
@@ -160,3 +164,95 @@ which is the node-identity problem (specs/005), not a connectivity heuristic.
 
 Kept as an off-by-default generator flag with the measurement recorded, so the
 question does not need re-opening a fourth time.
+
+## Corrections after adversarial review (2026-09-21)
+
+Every headline in this document reproduced independently. Two classes of
+problem were found: one that invalidates the sink-bridge *experiment*, and
+several errors of fact in the write-up.
+
+### C1 [critical] The sink-bridge arms measured an intervention the design did not describe
+
+`_emit_sink_bridge_edges` decided consumer eligibility with `out_deg[c] > 0`,
+reading the same dict it increments. Once a sink received a bridge it became an
+eligible "consuming copy" for every later sink of the same entity. On the
+shipped catalog **24,967 of 36,125 edges (69%) pointed at another sink** and
+consumed nothing (cap-8: 2,053 of 4,003). They concentrate exactly where the
+arm lost:
+
+| pathway | bridges | sink→sink | curator net |
+|---|---|---|---|
+| Interferon α/β | 14 | **1 (7%)** | **+100** (100 fixed, 0 broke) |
+| ROBO receptors | 92 | **71 (77%)** | −43 (1 fixed, 44 broke) |
+| Mitotic G1 | 3,472 | **3,238 (93%)** | +35 |
+
+The one pathway whose bridges are nearly all genuine gained 100 cases and broke
+nothing; the one that lost hardest is 77% artifact. So **the conclusion drawn
+below — "added connectivity buys as much over-coupling as reach … it needs the
+identity of the copy (specs/005)" — is withdrawn**: it generalises from edges
+the design never intended to emit. The cheaper mechanism the review proposes is
+also more likely: a sink *is* a readout node, and readout resolution collects
+every uuid for a stable id, so a sink→sink edge writes straight into another
+readout's value. The genuine-bridge count (11,158) is within 6% of the
+simulation's 10,547 — and this also falsifies my explanation of the 3.4x
+inflation as "the registry before dedup"; it was this bug.
+
+Fixed (LNG `a81887e`): eligibility against a pre-emitter snapshot. Re-running.
+
+### C2 [high] The emitted bridge set was a random draw per regeneration
+
+Sinks were visited in `sorted()` order over uuid4 labels; the guard is greedy,
+so order changes *which* edges survive, not just their order. Constructed case:
+swapping two sink labels emits a different edge. At scale, the
+cycle-closing-skipped count differs by ~5,400 between the two arms of the same
+rule. Fixed: ordering by (stable id, first appearance in the edge list), both
+functions of the Reactome data. Tests added; the three guarantees (no sink is
+a bridge target; a bridge can make a later candidate cycle-closing; visit
+order is data-determined) each now fail their mutation — all three passed
+before.
+
+### C3 [high, methodology] Cross-catalog churn is ~96 cases, all in TP53
+
+Two regenerations that differ only in uuids and in bridges that were then
+skipped client-side (`sb_ctrl` vs `sb8_ctrl`) differ in **96 predictions, all
+in Transcriptional_Regulation_by_TP53, zero held-out**. An earlier pair of the
+same kind gave 2 — so the earlier "2-case churn" was a lucky draw, not a
+bound. This is the MDM2 loop's basin flipping under relabelling (specs/013,
+018). Consequences to apply going forward:
+- **Held-out figures across catalogs are safe** (0 churn in both pairs).
+- **Tuning figures across catalogs are not**: the +109/+81 tuning numbers in
+  specs/018's P7/P8 are within this noise band and should not be quoted as
+  effects. The held-out +173/+222 there stand.
+- Cross-catalog arms must either report a same-catalog control (as the capped
+  arm now does) or omit TP53-dominated tuning claims.
+
+### C4 [medium] Errors of fact, corrected above
+
+- Depletion edges: **3,444**, not 4,930; **1.21%** of edges, not 1.5%.
+- "815 changed; 489 collapse to NORMAL" conflated two quantities: **704**
+  collapse to NORMAL, of which 489 had been correct.
+- "AKT-KO → TP53" is AKT1/AKT2 perturbations scored over all readouts of the
+  TP53 pathway, not a TP53 readout; the over-expression direction (84 → 2) was
+  omitted and is now reported.
+- The experimental axis has **no held-out split at all** — all 849 cases lie in
+  the ten tuning pathways. "P5 (experimental) holds" is a tuning-set result.
+- `sb8_ctrl` did exist by the time it was cited: capped arm vs its own control
+  is held-out **+23** (161/138, p 0.20), tuning +24, false change +150.
+- "Third measurement of sink bridging" overstates continuity. 2026-05's −15pp
+  was an ablation of the whole dissociation class under a shared-node model —
+  it is what *created* sinks; the silo bridge was solver-side, to in-degree-0
+  copies, guarded by a reach cap rather than a cycle test. Fair phrasing:
+  *third intervention in the family; the first targeting dissociation sinks,
+  bridging to consuming copies, with a cycle guard, pre-registered.*
+- Logging: `fan` recorded only emitted sinks (cap-8 hid 1,290 from its own
+  statistic) and `skipped` was counted before the cap check — both fixed; a
+  negative `LNG_SINK_BRIDGE_MAX_FANOUT` is now an error rather than a silent
+  total cap.
+
+### Verdict status
+
+**The sink-bridge result is withdrawn pending a re-run** with the corrected
+emitter (~11.2k genuine bridges). The depletion ablation is unaffected: the
+review confirmed the client-side skip removes exactly the 3,444 depletion
+edges with zero collateral, conditioning drops zero cases, and every figure
+reproduces — depletion edges remain load-bearing.
