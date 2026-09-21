@@ -1,8 +1,16 @@
 # DeltaSignal: current results
 
-**Last measured**: 2026-09-16, Reactome Release97, catalog build `cat_fresh`,
-solver defaults as merged in `specs/009-solver-defaults` (`hill_log`,
-assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`).
+**Last measured**: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+(generator `f2842bc`), solver `5032771` with the current code defaults
+(`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
+`DS_DEPLETION_H_MIN=0.1`).
+
+> The head-to-head below was previously carried at 93.38% from a 2026-09-16
+> run whose AND default was **`hill_log`**. Eleven solver commits landed after
+> it, including the switch to `hill_sat` (specs/010) and the depletion floor
+> (specs/011), so that figure described a solver we no longer ship. It has been
+> **re-measured on the current solver and it holds**: 93.29% against 93.38%,
+> on identical case counts.
 
 Keep this file current. Every number here is reproducible from the commands at
 the bottom; if you change a default, re-run and update the tables in the same
@@ -21,10 +29,16 @@ the same Reactome curator ground truth on the same 72 pathways.
 | | cases | accuracy | macro-F1 |
 |---|---|---|---|
 | MP-BioPath (published) | 23,009 | 84.58% | 0.8063 |
-| **DeltaSignal, same networks** | 22,106 | **93.38%** | **0.9209** |
+| **DeltaSignal, same networks** (solver `5032771`, 2026-09-21) | 22,106 | **93.29%** | **0.9199** |
+| DeltaSignal, same networks (solver of 2026-09-16, `hill_log`) | 22,106 | 93.38% | 0.9209 |
 
 DeltaSignal scores 903 fewer cases (coverage). **Counting every one of those as
-wrong**, it still leads: 20,642/23,009 = **89.71%**, a margin of **+5.14pp**.
+wrong**, it still leads: 20,622/23,009 = **89.63%**, a margin of **+5.05pp**.
+
+The eleven solver commits between the two rows — the `hill_sat` AND default,
+the AND-fidelity fixes, the depletion floor, the loop work — move this
+comparison by **0.09pp on identical case counts**. The margin over the
+published result is not an artefact of a particular solver configuration.
 
 ### It is not carried by a few pathways
 
@@ -93,12 +107,14 @@ happened in a cell — and it tells a different story.
 Same networks (MP-BioPath's), same 712 cases, the 8 pathways present in both
 network sets:
 
-| | cases | accuracy |
-|---|---|---|
-| MP-BioPath | 564/712 | **79.21%** |
-| DeltaSignal | 555/712 | **77.95%** |
+| | cases | accuracy | macro-F1 |
+|---|---|---|---|
+| MP-BioPath | 564/712 | **79.21%** | — |
+| **DeltaSignal** (solver `5032771`, 2026-09-21) | 553/712 | **77.67%** | 0.6712 |
+| DeltaSignal (solver of 2026-09-16, `hill_log`) | 555/712 | 77.95% | — |
 
-A 9-case difference: **level, not better.** DeltaSignal wins 5 of the 8 pathways
+An 11-case difference: **level, not better.** Re-measured on the current
+solver, which moves it by 2 cases. DeltaSignal wins 5 of the 8 pathways
 (RAF 100% vs 91.8%, Cell Cycle, Prophase, S Phase, WNT) and loses on PIP3, which
 is 200 of the 712 cases and where it is 7.5 points down.
 
@@ -121,8 +137,18 @@ Two structural limits on ever settling it:
 - 712 cases across 8 pathways is small, and one pathway (PIP3) carries the
   difference.
 
-On our own networks against experimental evidence: 627/849 = 73.85%, macro-F1
-0.6599, against MP-BioPath's published 643/849 = 75.74%.
+On our own networks against experimental evidence (catalog `cat_prod`,
+2026-09-21): **596/849 = 70.20%, macro-F1 0.6310**, against MP-BioPath's
+published 643/849 = 75.74%. We are **behind** on that axis and those networks.
+
+That figure has drifted down across this sequence of generator changes —
+627 (`cat_fresh`) → 611 (welded-loop fix) → 609 (variant sharing) → 596
+(regeneration) — but most of the drift is not distinguishable from noise: a
+regeneration with **no change at all** costs 13 cases on this axis, so the
+18-case movement across the two real changes is barely above the floor. The
+experimental axis also has **no held-out split** — all 849 cases sit in the ten
+tuning pathways — so it cannot arbitrate a close call. Treat it as a guardrail
+that says "nothing broke badly", not as evidence of improvement.
 
 ## 2. On our own networks
 
