@@ -289,6 +289,8 @@ Per-feature numbers belong in that feature's `research.md`, not here.
 | `test/test_scc_break_roles.jl` | 56 |
 | `test/test_cli_observations.jl` | 20 |
 | `test/test_api_errors.jl` | 26 |
+| `test/test_loop_elasticity.jl` | 150 + 1 broken |
+| `test/test_solver_determinism.jl` | 80 |
 
 Counts are CI-verified (`.github/workflows/test.yml` runs these four by name
 and prints each `Test Summary`), not `@test` occurrences — several

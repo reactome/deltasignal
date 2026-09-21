@@ -162,7 +162,11 @@ it is worth 100 cases; where it is not (ROBO/SLIT, PDGF, FGFR4, RET) it
 manufactures change. Distinguishing the two needs the *identity* of the copy,
 which is the node-identity problem (specs/005), not a connectivity heuristic.
 
-Kept as an off-by-default generator flag with the measurement recorded, so the
+**Superseded 2026-09-21 by the flag-expiry policy (specs/020): the emitter is
+not merged and PR #92 is closed — the record below is the deterrent, not the
+code. The Interferon alpha/beta +100 (0 broken) remains a live unclaimed
+finding; it needs copy identity (specs/005), not this emitter.** Originally:
+kept as an off-by-default generator flag with the measurement recorded, so the
 question does not need re-opening a fourth time.
 
 ## Corrections after adversarial review (2026-09-21)
