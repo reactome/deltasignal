@@ -315,6 +315,18 @@ print output; they pass whatever the code does. Treat a green run of those as
 The documented docker runner is also broken: `docker-compose.dev.yml`'s
 `test-runner` chains `test/test_full_pipeline.jl`, which does not exist.
 
+**And as of 2026-09-21 no test loads in the dev container at all.** The compose
+file mounts `src`, `cli`, `test`, `bench` and `examples`, but **not
+`Project.toml`** — so the dependency set is frozen at image-build time while
+the source is live. `/app/Project.toml` in the running image is dated May 25
+and predates the `SparseArrays` dependency, so every test file dies at load
+with `Package DeltaSignal does not have SparseArrays in its dependencies`.
+CI is unaffected: it instantiates from the repo. Rebuild the image
+(`docker compose -f docker-compose.dev.yml build julia-api`) before trusting a
+local run, and note that adding any dependency silently breaks the container
+again until someone does. `Manifest.toml` is gitignored, so mounting it is not
+a fix.
+
 When adding behaviour, add assertions to one of the three real files or start
 a new one — do not extend a file from the zero-assertion list and assume it is
 covering anything.
