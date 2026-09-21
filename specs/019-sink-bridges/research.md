@@ -92,3 +92,62 @@ double count, specs/016, inert). The honest statement for a paper: *a
 consumption term is required for knockout propagation through complexes;
 Reactome does not record it; we derive it from reaction stoichiometry and
 bound it symmetrically.*
+
+## Results (2026-09-21; pinned DS worktree `72015ce`, same-catalog control, zero churn)
+
+Churn control: `sb_ctrl` (bridged catalog, bridges skipped) vs `cat_fix2`
+differs by 2 cases in one pathway — the comparison is clean.
+
+| | control | **uncapped** (36,125 bridges) | **cap 8** (4,003 bridges) |
+|---|---|---|---|
+| all pathways | 84.70% / mF1 0.8136 | **84.85% / 0.8177** | 84.51% / 0.8115 |
+| **held-out** | | **−6** (158/164, p 0.78) | **+23** (161/138, p 0.20) |
+| tuning | | +42 (65/23) | −68 (51/119) |
+| false change | 1,150 | **1,321 (+171)** | 1,300 (+150) |
+| experimental, conditioned | | **0** (9/9) | **−15** (8/23, p 0.011) |
+| cyclic components / nodes in cycles / largest | 210 / 8,407 / 675 | **210 / 8,407 / 675** | 210 / 8,407 / 675 |
+
+Per pathway (uncapped): Interferon α/β **+100** (100 fixed, 0 broke — all four
+gene sets, NORM → DOWN with truth DOWN), Mitotic G1 **+35**, against ROBO
+receptors **−43** (44 of its 45 changes are new false changes: SLIT1/ROBO2
+perturbations now reach readouts the curators call NORMAL), PDGF −13, and a
+diffuse tail. 472 predictions change; 176 are **new** false changes across 17
+pathways.
+
+### Scored against the pre-registration
+
+- **P1 (structure) — holds in the part that matters**: the acyclic guard works
+  exactly as designed, cyclic components and nodes-in-cycles **identical** to
+  the unbridged catalog in both arms. The bridge count is 3.4x the simulation
+  (36,125 vs 10,547) because the emitter runs over the in-memory registry
+  before final edge dedup, where the simulation used the written bundle.
+- **P2 (the two pathways) — fails narrowly**: Interferon α/β +100 (bar: +150),
+  Mitotic G1 +35 (bar: +100). The routes are restored — but many restored
+  routes deliver a change where the curator recorded none.
+- **P3 (held-out ≥ +100, p < 0.05) — fails decisively**: −6 uncapped, +23
+  capped, neither significant.
+- **P4 (false change < half the gross gain) — fails**: +171 against 223 gross
+  fixes uncapped; +150 against 212 capped. The sub-clause held (the two arms'
+  held-out nets are within 30).
+- **P5 (experimental ≥ −10) — holds uncapped (0), fails capped (−15)**.
+
+**Verdict: not adopted; `LNG_SINK_BRIDGES` stays off.** By the pre-registered
+decision rule ("if held-out < 0, the sink design stands as measured and the
+acyclic guard was not the missing piece"), this is the **third** measurement
+of sink bridging (after 2026-05's −15pp and the silo bridge's −73/−77) and the
+first with the cycle objection removed — the objection was not what was wrong
+with it. The connectivity gain is real and large (Interferon α/β's severed
+routes 293 → 631 in simulation, +100 cases in fact) and it is paid for
+one-for-one in false change elsewhere.
+
+The mechanism is the project's oldest finding restated: **on these networks,
+added connectivity buys as much over-coupling as it buys reach.** A released
+subunit is *one molecule among many copies*; bridging it to every consumer
+asserts that the copy the complex released is the copy every downstream
+reaction uses. Where that happens to be true (Interferon α/β's ISGF3 branch)
+it is worth 100 cases; where it is not (ROBO/SLIT, PDGF, FGFR4, RET) it
+manufactures change. Distinguishing the two needs the *identity* of the copy,
+which is the node-identity problem (specs/005), not a connectivity heuristic.
+
+Kept as an off-by-default generator flag with the measurement recorded, so the
+question does not need re-opening a fourth time.
