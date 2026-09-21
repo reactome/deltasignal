@@ -95,8 +95,17 @@ bound it symmetrically.*
 
 ## Results (2026-09-21; pinned DS worktree `72015ce`, same-catalog control, zero churn)
 
-Churn control: `sb_ctrl` (bridged catalog, bridges skipped) vs `cat_fix2`
-differs by 2 cases in one pathway — the comparison is clean.
+**Catalog identity, checked (and a correction).** Every regeneration mints
+fresh uuid4s: `cat_fix2`, `cat_fix2_sb` and `cat_fix2_sb8` share **zero**
+uuids. So only the **uncapped** contrast is same-catalog and zero-churn
+(`sb_live` vs `sb_ctrl`, both on `cat_fix2_sb`, bridges skipped client-side);
+the **capped** arm ran on its own regeneration and its comparison against
+`sb_ctrl` is **cross-catalog** — the table below originally implied otherwise.
+Measured relabelling churn between two regenerations that both lack bridges
+(`sb_ctrl` vs `cat_fix2`): **2 cases in one pathway**, far below the ±14–22
+seen on `cat_perm`, so the capped arm's figures are not materially confounded
+— but its own control (`sb8_ctrl`, same catalog, bridges skipped) is reported
+below where available.
 
 | | control | **uncapped** (36,125 bridges) | **cap 8** (4,003 bridges) |
 |---|---|---|---|
