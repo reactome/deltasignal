@@ -5,6 +5,16 @@ and the solver 47 `DS_*`; most are answered questions. Constitution IV says new
 behaviour arrives behind a flag "**until it is measured**" — the second half was
 never honoured, so measurement scaffolding accumulated as permanent surface.
 
+
+> **Reproduction note (2026-09-21).** The `LNG_SHARE_VARIANT_NODES` and
+> `LNG_BOUNDARY_LEAF_REUSE` settings in the commands below **no longer exist**:
+> variant sharing and downstream-free leaf reuse are unconditional, and setting
+> either name is now a hard error (LNG #93, #94). That is deliberate — a stale
+> value must not let a run quietly measure the default. It does mean these
+> commands will abort rather than reproduce; the recorded numbers are the
+> evidence. To re-measure the *old* behaviour you have to check out the
+> generator commit named in the arm, not set a flag.
+
 ## Policy
 
 A flag exists only while a question is open. On resolution it expires:

@@ -6,6 +6,16 @@ keys Phase-1 UUIDs on (entity, **Reactome** reaction, role) instead of
 across a reaction's set-member variants stops being photocopied once per
 variant.
 
+
+> **Reproduction note (2026-09-21).** The `LNG_SHARE_VARIANT_NODES` and
+> `LNG_BOUNDARY_LEAF_REUSE` settings in the commands below **no longer exist**:
+> variant sharing and downstream-free leaf reuse are unconditional, and setting
+> either name is now a hard error (LNG #93, #94). That is deliberate — a stale
+> value must not let a run quietly measure the default. It does mean these
+> commands will abort rather than reproduce; the recorded numbers are the
+> evidence. To re-measure the *old* behaviour you have to check out the
+> generator commit named in the arm, not set a flag.
+
 ## Why re-measure
 
 The only measurement (specs/016) ran on `cat_fix`, the **v1** loop-fix catalog

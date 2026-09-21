@@ -4,6 +4,16 @@
 **Status**: METHOD BUILT. Two pathways: right at the entity level, ~half-severed at the node level. A simulated 2-hop composition bridge (fan-out 1–2) restores 392→43 severed routes in Interferon and 462→165 in Mitotic G1 — the non-broadcasting repair. IMPLEMENTED and validated on Interferon (392→52); catalog-wide it recovers 11% of severed curator routes, the protein→complex variant 8% more with hub fan-out to 840 (not built). ~33% of curator routes stay cut: instance multiplicity + released-subunit sinks. A/B FINAL (81 pathways): comp_live −85 held-out (false change −219, Interferon +74), comp_group −322. No aggregation over node copies is right; the fix is upstream (LNG_SHARE_VARIANT_NODES, implemented, validating on HDR). Regulator-dropping hypothesis REFUTED (all 61 set-typed regulators carried).
 **Tool**: `scratchpad/reactome_direct.py` (to be promoted into `bench/analysis/`)
 
+
+> **Reproduction note (2026-09-21).** The `LNG_SHARE_VARIANT_NODES` and
+> `LNG_BOUNDARY_LEAF_REUSE` settings in the commands below **no longer exist**:
+> variant sharing and downstream-free leaf reuse are unconditional, and setting
+> either name is now a hard error (LNG #93, #94). That is deliberate — a stale
+> value must not let a run quietly measure the default. It does mean these
+> commands will abort rather than reproduce; the recorded numbers are the
+> evidence. To re-measure the *old* behaviour you have to check out the
+> generator commit named in the arm, not set a flag.
+
 ## 1. Why this exists
 
 Adam, on the claim that the benchmark's resolution was the limit: *"I don't
