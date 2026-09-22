@@ -69,9 +69,10 @@ docker compose -f docker-compose.dev.yml run --rm julia-api sh -c \
 docker compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/cli/deltasignal.jl solve \
   --network /app/data/output/network.json \
   --observations /app/examples/sample_observations.csv \
-  --output /app/data/output/results.json \
-  --mu 1.0 \
-  --gamma 0.1
+  --output /app/data/output/results.json
+# --mu / --gamma exist but are read ONLY by DS_SCC_METHOD=minimize. Under the
+# default they are inert and reported as `nothing`. Do not copy `--gamma 0.1`:
+# it is measured harmful under the minimiser (a 100x perturbation reads 51x).
 
 # 3. Export results in various formats
 docker compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/cli/deltasignal.jl export \
@@ -234,7 +235,8 @@ env vars only override for benchmark sweeps:
   destroys isoform redundancy), not adopted.
 - `DS_SCC_BREAK_ROLES` (default empty): derived-edge recycling closures
   (assembly, depletion; catalyst) read at their entry value and excluded from
-  component detection — specs/018; measurement in progress.
+  component detection — specs/018. Measured: the generator-side fix absorbed
+  it (the `assembly` arm is now ≈0), so it stays off as the record.
 - `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
   byte-identical defaults for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
@@ -265,46 +267,102 @@ for the last feature that touched it rather than re-deriving from the code.
   (7,013 reactions, 15.8%); deduplicating is −15 held-out, p=0.0015. Both
   mechanisms are real and both are load-bearing — on these networks,
   *bounding* a runaway operator has paid off and *deleting* a wrong term has not.
-- `specs/003-solver-objective/` — the solver runs a damped fixed-point
-  iteration, not the specified minimisation; `mu` and `gamma` are reported
-  but read by nothing. Open.
+- `specs/003-solver-objective/` — **negative on accuracy.** Levenberg-Marquardt
+  made the minimiser fast but it loses at every gamma (held-out −71 / −87 /
+  −148). The mechanism findings stand (with gamma = 0 the all-zero state is a
+  global minimum); the accuracy claim does not. `mu` and `gamma` are read
+  **only** by `DS_SCC_METHOD=minimize`; under the default fixed-point method
+  they are inert and are reported as `nothing` with `mu_gamma_read = false`,
+  deliberately, so they cannot be read as having shaped the answer. One design
+  term is still untested (FR4, soft observations), and `minimize` stays
+  reachable because the parameter-learning direction needs it.
+- `specs/006-bounded-derepression/` — the de-repression ceiling in the list
+  above, and the epsilon attribution behind it.
+- `specs/007-cofactor-conduction/` — the record for `DS_COFACTOR_MODE=inert`.
+- `specs/013-solver-label-invariance/` — relabelling a verified-isomorphic
+  network **moves predictions**, because sweep order inside a strongly
+  connected component comes from Julia `Dict` hash order. Quantified, not
+  fixed. It is the blocking prerequisite for parameter learning, which
+  specs/014 and specs/003 state rather than 013 itself.
+- `specs/014-loop-elasticity/` — the positive-cycle knife-edge and the
+  sigmoid-epsilon arms.
+- `specs/015-dissociation-sinks/` — released-subunit readout handles traced
+  end to end; the largest class of severed curator routes, and not a lever.
+- `specs/016-curator-oracle/` — read the pathway from Neo4j and diff it
+  against the generated network. Also the composition-edge arms: **an
+  Interferon α/β fix and a loss everywhere else.** The apparent +40 held-out
+  is **−60 outside IFN α/β** (016 E4), and re-measured once the welds were
+  gone it is **−185** (018), because composition edges are the derived class
+  that closes cycles. Refuted, not merely concentrated — an earlier revision
+  of this file said "declined on concentration rather than on harm", which was
+  wrong.
+- `specs/017-loop-pool/` — treating a cyclic component as a conserved pool.
+  A traced case refuted it as a blanket rule; the `pool_all` arm refuted it on
+  both axes. Nothing adopted.
+- `specs/018-derived-edge-loops/` — **the largest accuracy finding.** Our own
+  boundary expansion welded cycles Reactome does not contain (1,994 of 2,077
+  cycle-carrying assembly edges). Fixing it is held-out **+173**, p < 1e-4,
+  94% concentrated in DSB Repair. Records one residual defect, measured at 4
+  edges in 2 pathways and therefore not a lever.
+- `specs/019-sink-bridges/` — three interventions in the sink-bridge family,
+  all null or negative. The Interferon α/β result (+100 fixed, 0 broken) is
+  recorded as live and unclaimed.
+- `specs/020-variant-node-sharing/` — variant sharing adopted: nodes −34.6%,
+  edges −21.5%, no pathway gains cyclic nodes, held-out net zero on both axes.
+  Also the flag-expiry policy: a flag is removed once its question is answered.
+- `specs/021-empirical-holdout-axis/` — the phospho-site validation design,
+  the target list, and what a magnitude claim can and cannot be. Open.
+- `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
+  behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
   checked against.
+
+**Not listed here: 001, 004, 005 and 008.** They are OR semantics, loop
+handling, node identity and cycle handling — superseded as decisions by 013,
+014, 017 and 018, which are listed. The index covers the specs behind current
+behaviour, not the whole directory; `ls specs/` is the complete list.
 
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Only three files contain assertions:
+**Most of the test suite cannot fail.** Twelve files contain assertions; the
+other seven execute code and print output.
 
-| file | `@test`s |
-|---|---|
-| `test/test_config_validation.jl` | 192 |
+| file | assertions | note |
+|---|---|---|
+| `test/test_config_validation.jl` | 192 | |
+| `test/test_loop_elasticity.jl` | 150 | + 1 `@test_broken` |
+| `test/test_propagator_invariants.jl` | 120 | |
+| `test/test_loop_pool.jl` | 81 | |
+| `test/test_solver_determinism.jl` | 80 | |
+| `test/test_and_curves.jl` | 71 | |
+| `test/test_scc_break_roles.jl` | 56 | |
+| `test/test_cli_observations.jl` | 39 | |
+| `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
+| `test/test_api_errors.jl` | 26 | |
+| `test/test_observation_pinning.jl` | 23 | |
+| `test/test_worked_example.jl` | 9 | |
 
-| `test/test_and_curves.jl` | 17 |
-| `test/test_cycle_handling.jl` | 39 + 2 `@test_broken` |
-| `test/test_worked_example.jl` | 9 |
-| `test/test_observation_pinning.jl` | 23 |
-| `test/test_propagator_invariants.jl` | 120 |
-| `test/test_loop_pool.jl` | 81 |
-| `test/test_scc_break_roles.jl` | 56 |
-| `test/test_cli_observations.jl` | 20 |
-| `test/test_api_errors.jl` | 26 |
-| `test/test_loop_elasticity.jl` | 150 + 1 broken |
-| `test/test_solver_determinism.jl` | 80 |
+Counts are the `Pass` column of each file's outer `Test Summary`, not `@test`
+occurrences — several testsets generate assertions in loops. **Verified
+2026-09-22 from CI run 35684497165**; `.github/workflows/test.yml` runs all
+twelve by name and prints each summary, so that log is how to re-read them.
+They are not currently re-checkable locally — see the dev-container note below.
 
-Counts are CI-verified (`.github/workflows/test.yml` runs these four by name
-and prints each `Test Summary`), not `@test` occurrences — several
-testsets generate assertions in loops. The earlier figures in this table (42 /
-22 / 8) were wrong in both directions.
+Earlier revisions of this table were wrong in several places at once: they said
+"three files" while listing twelve, split the table with a stray blank line,
+and gave `test_and_curves.jl` as 17 (actually 71), `test_cli_observations.jl`
+as 20 (39) and `test_cycle_handling.jl` as 39 + 2 (34 + 2). Re-read them from
+CI rather than trusting a figure in this file.
 
 **A failing testset used to hide every later one.** A top-level `@testset`
 throws when it finishes with a failure, which aborts the file. In the dev
-container, where `DS_*` overrides contradict the code defaults, that meant
+container, whose `DS_*` overrides then contradicted the code defaults (since
+fixed), that meant
 `test_config_validation.jl` ran 10 assertions and silently skipped **141** —
 the cofactor tests, the silo-bridge tests and the observation-membership test
 all looked green because they never executed. The files now nest their testsets
 inside one outer testset so failures accumulate and everything runs.
-| the other seven | **0** |
 
 `test_basic.jl`, `test_steady_state.jl`, `test_hill_function.jl`,
 `test_feedback_loops.jl`, `test_inhibition_focused.jl`,
@@ -327,8 +385,8 @@ local run, and note that adding any dependency silently breaks the container
 again until someone does. `Manifest.toml` is gitignored, so mounting it is not
 a fix.
 
-When adding behaviour, add assertions to one of the three real files or start
-a new one — do not extend a file from the zero-assertion list and assume it is
+When adding behaviour, add assertions to one of the twelve files that assert,
+or start a new one — do not extend a file from the zero-assertion list and assume it is
 covering anything.
 
 ## Project Dependencies
