@@ -1,6 +1,7 @@
 # A held-out empirical axis: feasibility
 
-**Status**: FEASIBILITY SIZED, external coverage not yet checked. No claim made.
+**Status**: FEASIBILITY SIZED. **The transcript framing below is REJECTED** —
+see "Protein, not transcript" for the design that replaced it. No claim made.
 
 ## Why this and not more accuracy work
 
@@ -102,3 +103,93 @@ catalog-wide, first match wins. **2,785 of 15,616 stable ids appear as
 answer depended on directory iteration order: two runs over identical data
 reported 1,691 and 1,812 triples. Now resolved per pathway, and pinned by two
 tests that fail if the catalog-wide lookup is restored.
+
+
+---
+
+## Protein, not transcript (Adam, 2026-09-21)
+
+> "I don't really trust aligning anything but protein data with these tests as
+> that is what we are really modelling in reactome mainly. we need to be clever
+> to come up with something that not only comes out with significant results
+> but also is arguable."
+
+Correct, and it voids the transcript plan above. Reactome models **proteins,
+complexes and their modification states**. An mRNA readout inserts a proxy step
+between what we predict and what is measured, and a reviewer would say exactly
+that — it would be the *weakest* possible evidence against the "tracks the
+representation, not the biology" critique, not an answer to it.
+
+**The inversion this creates.** The readouts the transcript framing discarded
+are the ones where our claim is most specific and most directly checkable.
+Re-classified by what a protein assay could measure, across all 82 pathways:
+
+| readout class | cases | triples | readouts | perturbed genes | pathways |
+|---|---|---|---|---|---|
+| complex / other modified form | 14,724 | 7,368 | 558 | 490 | 79 |
+| unmodified protein | 6,192 | 3,096 | 197 | 194 | 25 |
+| proteolytic fragment | 1,642 | 821 | 80 | 125 | 11 |
+| **phospho, named site** | **836** | **418** | **36** | **134** | **16** |
+| phospho, site not parsed | 706 | 353 | 19 | 178 | 20 |
+
+### The argument to make, and why it is not dismissible
+
+Take the named-site phospho readouts: `p-S317_S345-CHEK1`, `p-S133-CREB1`,
+`p-S166_S188-MDM2`, `p-S216-CDC25C`, `p-T308-AKT1`-style entries — a named
+residue on a named protein.
+
+- Reactome asserts that a specific kinase phosphorylates that specific residue.
+- DeltaSignal predicts a direction for that site under perturbation of the
+  responsible kinase.
+- Site-level phosphoproteomics, or a phospho-specific antibody, measures
+  **that exact site**.
+
+The modelled entity and the measured entity are *the same object*. There is no
+proxy step to attack. That is the difference between "our numbers correlate
+with something" and "we predicted this phosphosite would fall and it fell."
+
+Only 418 triples — but 418 three-class calls has ample power against any
+sensible null (marginal-distribution or all-NORMAL baseline), so **significant
+and arguable are not in tension here**; the small n is what makes each case
+strong rather than weak.
+
+### The design that answers BOTH open questions at once
+
+Adam's other standing question is whether the *magnitude* of our predicted
+changes means anything. Dose-resolved phosphoproteomics under kinase inhibition
+(the decryptM-style design: many drugs, several doses, site-level readout)
+supplies both in one dataset:
+
+1. **direction agreement** at named sites → the validity test above;
+2. **dose-response** → the magnitude test, because a graded perturbation should
+   produce a graded, monotone predicted response, and depth along a cascade
+   should attenuate it in a specific way.
+
+That is the clever version: one experimental modality, protein-level and
+site-specific, that tests the two things we cannot currently defend.
+
+### Candidate sources, coverage NOT yet checked
+
+| source | perturbation | readout | fit |
+|---|---|---|---|
+| dose-resolved phospho under kinase inhibition | drug, several doses | phosphosite | best: direction **and** magnitude |
+| LINCS P100 | drug / genetic | ~90 phosphopeptides | clean perturbation, narrow readout panel |
+| RPPA panels (cell lines / tumours) | genomic alteration | ~200-450 antibodies, phospho-rich | large n, observational |
+| deep tumour proteogenomics | driver event | proteome + phosphoproteome | deep, observational, confounded |
+
+The gating question is now: **how many of the 36 named sites (and the 197
+unmodified-protein readouts) appear in a dataset where the responsible
+upstream gene is also perturbed?** That needs third-party data.
+
+### Two things to decide before any arm runs
+
+1. **Complexes are 61% of the curator axis and have no direct protein readout.**
+   Arguing from subunit abundance imports a modelling assumption ("a complex
+   tracks its limiting subunit") which is itself one of the things under test.
+   Either exclude complexes and say so, or test that assumption separately —
+   do not quietly fold it in.
+2. **Observational designs are confounded.** A tumour with a loss-of-function
+   event carries co-occurring alterations and lineage effects. A perturbation
+   design (drug or knockout, measured before and after) does not. Prefer the
+   perturbation design even at much smaller n, because the argument is the
+   point.
