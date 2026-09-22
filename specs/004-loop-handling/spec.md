@@ -267,7 +267,7 @@ and reported explicitly as an unshippable upper bound.
 - The four-column network files encode parent, child, polarity as ±1, and a
   conjunction flag; the exact conjunction convention is to be confirmed
   against MP-BioPath's own reader before the control is trusted.
-- the account that loops were removed manually is taken as given; this
+- The account that loops were removed manually is taken as given; this
   feature measures the consequence rather than re-deriving the provenance.
 - Non-convergence is out of scope here. It is being addressed in
   `specs/003-solver-objective`, and 179 of 564 cases currently do not

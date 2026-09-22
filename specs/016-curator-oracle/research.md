@@ -379,7 +379,7 @@ the oracle's error: it matched node identity by exact stable id and so missed
 the 92 pathways, presence judged by a regulator-class edge from the entity or
 any member into the reaction's node — finds **all carried**: 61 set-typed
 regulators (29 negative, 32 positive), 742 complex-typed, 137 protein-typed,
-24 small-molecule. **No set-typed regulator is dropped.** the hypothesis
+24 small-molecule. **No set-typed regulator is dropped.** The hypothesis
 was worth one query; it does not hold. (An earlier version of this section
 claimed one confirmed instance; that claim is withdrawn.)
 

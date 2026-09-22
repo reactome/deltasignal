@@ -114,7 +114,13 @@ class Networks:
 
 
 def load_gene_stids(cache_path="/tmp/gene_to_stids.json"):
-    """Returns dict gene_name → set of stable_ids (from Reactome ReferenceEntity)."""
+    """Returns dict gene_name → set of stable_ids (from Reactome ReferenceEntity).
+
+    Raises SystemExit, deliberately, unlike graph() below which raises
+    RuntimeError. Its one best-effort caller, report.maybe_classify, catches
+    `(ImportError, SystemExit)` explicitly -- so changing this type would break
+    that guard rather than fix anything.
+    """
     if not os.path.exists(cache_path):
         raise SystemExit(
             f"No gene→stids cache at {cache_path}. "

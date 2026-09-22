@@ -462,11 +462,15 @@ direction against the measured one. It is a way of turning any differential
 gene or protein list into a set of "pin these, predict those" cases without
 needing a designed perturbation.
 
-**One helper went with it.** The script carried a *forward* reachability BFS
-(`forward_reachable(outgoing, sources, targets, max_depth)`).
-`bench/analysis/_common.py` has only backward helpers (`bfs_upstream`,
-`shortest_path_back`), so the repo currently has no forward equivalent. Any
-revival of this method needs it rebuilt.
+**No code was actually lost, contrary to a first draft of this note.** The
+script carried a forward reachability BFS, and `bench/analysis/_common.py` does
+only hold backward helpers (`bfs_upstream`, `shortest_path_back`) — but the
+repo has upwards of a dozen forward implementations elsewhere, including
+`check_silo_bug._bfs_reach`, `nopath_anatomy.reaches`,
+`version_skew.reachable` and `benchmark_vs_mpbiopath.reachable_from`. The
+Cypher gene-to-stable-id query was byte-identical to `build_gene_cache.py` and
+the loader duplicated `_common.load_one`. Only the *method* above was unique,
+which is why it is recorded here.
 
 Nothing else was lost: the Cypher gene-to-stable-id query was byte-identical to
 `build_gene_cache.py`, and the loader duplicated `_common.load_one`.

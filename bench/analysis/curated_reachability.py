@@ -26,9 +26,10 @@ from __future__ import annotations
 
 import collections
 
-# Connection details come from _common, which reads the environment and
-# refuses to run without NEO4J_PASSWORD rather than carrying a literal.
-from _common import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USER, graph  # noqa: F401
+# Connection details come from _common, which reads the environment and refuses
+# to run without NEO4J_PASSWORD rather than carrying a literal. Re-exported so
+# existing importers of this module keep working.
+from _common import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USER, graph  # noqa: F401,E402
 
 
 PARTICIPATION = """

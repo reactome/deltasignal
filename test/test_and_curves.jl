@@ -4,7 +4,7 @@
 #
 # Specification: AND multiplies fold-changes with a Hill-like curve,
 # constrained to 0-100 so that 100 x 100 gives 100 rather than 10,000, and
-# "if it is near 1 I want it to be extremely close to pure multiplication" —
+# near baseline it must behave as close to pure multiplication as possible —
 # 0.5*0.5 = 0.25, 1*1 = 1, 2*0.5 = 1.
 #
 # Every defect this feature fixes was EXACTLY IDENTITY at the 0.85/1.15
@@ -71,7 +71,7 @@ end
 @testset "AND curve behaviour" begin
 
 @testset "AND is multiplication near baseline" begin
-    # "extremely close to pure multiplication" where signals usually sit.
+    # As close to pure multiplication as possible where signals usually sit.
     @test and_fold([0.5, 0.5]; mode="hill_sat") ≈ 0.25 atol=0.01
     @test and_fold([1.0, 1.0]; mode="hill_sat") ≈ 1.00 atol=0.01
     @test and_fold([2.0, 0.5]; mode="hill_sat") ≈ 1.00 atol=0.01
