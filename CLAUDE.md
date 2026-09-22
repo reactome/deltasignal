@@ -312,8 +312,15 @@ for the last feature that touched it rather than re-deriving from the code.
   Also the flag-expiry policy: a flag is removed once its question is answered.
 - `specs/021-empirical-holdout-axis/` — the phospho-site validation design,
   the target list, and what a magnitude claim can and cannot be. Open.
+- `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
+  behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
   checked against.
+
+**Not listed here: 001, 004, 005 and 008.** They are OR semantics, loop
+handling, node identity and cycle handling — superseded as decisions by 013,
+014, 017 and 018, which are listed. The index covers the specs behind current
+behaviour, not the whole directory; `ls specs/` is the complete list.
 
 Per-feature numbers belong in that feature's `research.md`, not here.
 
