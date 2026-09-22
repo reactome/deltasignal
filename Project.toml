@@ -1,6 +1,6 @@
 name = "DeltaSignal"
 uuid = "f9c12345-1234-5678-9abc-123456789012"
-authors = ["Adam Wright <awright@oicr.on.ca>"]
+authors = ["Adam Wright"]
 version = "0.1.0"
 
 [deps]
