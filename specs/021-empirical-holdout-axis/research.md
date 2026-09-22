@@ -107,14 +107,11 @@ tests that fail if the catalog-wide lookup is restored.
 
 ---
 
-## Protein, not transcript (Adam, 2026-09-21)
+## Protein, not transcript
 
-> "I don't really trust aligning anything but protein data with these tests as
-> that is what we are really modelling in reactome mainly. we need to be clever
-> to come up with something that not only comes out with significant results
-> but also is arguable."
-
-Correct, and it voids the transcript plan above. Reactome models **proteins,
+**Direction taken 2026-09-21: only protein-level data is acceptable here, and
+the test has to be both statistically significant and defensible as an
+argument.** That voids the transcript plan above. Reactome models **proteins,
 complexes and their modification states**. An mRNA readout inserts a proxy step
 between what we predict and what is measured, and a reviewer would say exactly
 that — it would be the *weakest* possible evidence against the "tracks the
@@ -155,7 +152,7 @@ strong rather than weak.
 
 ### The design that answers BOTH open questions at once
 
-Adam's other standing question is whether the *magnitude* of our predicted
+The other standing question is whether the *magnitude* of our predicted
 changes means anything. Dose-resolved phosphoproteomics under kinase inhibition
 (the decryptM-style design: many drugs, several doses, site-level readout)
 supplies both in one dataset:
@@ -196,15 +193,13 @@ upstream gene is also perturbed?** That needs third-party data.
 
 ---
 
-## Two different claims, and not mixing them (Adam, 2026-09-21)
+## Correctness and utility are separate claims
 
-> "I think the tcga work was promising. cancer is complicated but showing that
-> we can predict which pathways were effected and correlate it to clusters for
-> clinical outcomes like survival. this might be too hard to make it seam
-> correct as it is messy when we are trying to prove the tool works or is
-> useful."
-
-That is the right split, and it should be enforced in how we write:
+**Decided 2026-09-21.** Tumour-level work (predicting which pathways are
+affected, clustered against clinical outcomes such as survival) is a genuine
+result about **utility**. It cannot establish **correctness**, because cancer
+data is messy enough that a correct prediction and a confounded one look
+identical. The two claims must not argue for each other:
 
 | claim | evidence | why it fits |
 |---|---|---|
@@ -334,8 +329,8 @@ Sources: [decryptM 2.0 dataset](https://zenodo.org/records/17533475) ·
 
 ## Can we say the magnitudes mean something?
 
-> "also as I said it would be good to be able to say the magnitudes mean
-> something. I don't have an idea of how to do this."
+An open goal for the project: state something defensible about the *size* of a
+predicted change, not only its direction.
 
 ### First, the blocker: there is barely any magnitude to validate
 
