@@ -82,7 +82,7 @@ Measured on R-HSA-1257604:
 - 156 `(reaction, entity, role)` triples in the diagram, and **0 of them
   resolve to more than one glyph.**
 
-That is the whole answer to Adam's question. An entity drawn nine times is
+That is the whole answer to the question. An entity drawn nine times is
 drawn *once per reaction*, so the triple that already keys our node
 registry also uniquely identifies the glyph. "Which one did the uuid come
 from" is answerable exactly, with no ambiguity to resolve.
@@ -289,7 +289,7 @@ Three arms, identical catalog, identical 742 scored cases:
 **I predicted mean would win and it does not.** The arithmetic argument in
 data-model.md is still sound — with uniform baseline x₀, a set's pool fold is
 `Σxᵢ/(n·x₀) = mean(xᵢ)/x₀`, so mean *is* the sum-of-abundances reading, and it
-matches Adam's stated rule that OR configurations average. The data simply
+matches the stated rule that OR configurations average. The data simply
 does not support acting on it.
 
 **Why the rule barely matters — the mechanism, not just the null.** Of the

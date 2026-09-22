@@ -190,7 +190,7 @@ was one of three things it was silently deciding.
 
 ## R7 — The best solution is no epsilon at all, and this is the same bug twice
 
-Adam, on being shown the attribution: *"I thought epsilon was just supposed
+On being shown the attribution, the design intent was restated: epsilon was only supposed
 to avoid divide by zero errors."* It was. It wasn't doing that.
 
 A divide-by-zero guard has to be small enough to be invisible. Internal
@@ -318,14 +318,14 @@ constant documented as a divide-by-zero guard was sized at 10% of the scale
 it guarded and was silently setting the de-repression ceiling, compressing
 the interior of the response curve, and shifting maximum suppression. That is
 wrong whatever it scores, and at scale it also happens to score better. But
-the −5 is Adam's call to accept, not mine to absorb.
+the −5 is the lead's call to accept, not mine to absorb.
 
 
 ---
 
-# R10 — Adam was right: the fix is one line, and my rewrite earned nothing
+# R10 — The original suggestion was right: the fix is one line, and my rewrite earned nothing
 
-Adam, on the proposed formula change: *"I thought that we needed it to avoid
+On the proposed formula change, the design intent was restated: it was needed to avoid
 divide by zero and I thought the solution would just be to make it really
 really small."*
 
@@ -360,7 +360,7 @@ nobody noticed the identical defect in `DS_HILL_SAT_EPS`.
 ## The process failure, recorded because it is the useful part
 
 I built a 2×2 attribution experiment **specifically** to avoid mis-attributing
-a gain, and then did not run the simplest arm until Adam asked for it. The
+a gain, and then did not run the simplest arm until it was asked for. The
 2×2 tested my proposal against itself; it never tested it against doing less.
 
 Every arm in it was a variant of "restructure the formula and add a

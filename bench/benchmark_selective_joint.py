@@ -26,9 +26,9 @@ from py2neo import Graph
 
 DS = os.environ.get("DS_URL", "http://127.0.0.1:8080")
 CAT = Path(os.environ.get("PATHWAY_CATALOG",
-                          "/home/awright/gitroot/logic-network-generator/output"))
+                          str(Path.home() / "gitroot" / "logic-network-generator" / "output")))
 MPBIO = Path(os.environ.get("MPBIO_ROOT",
-                            "/home/awright/gitroot/mp-biopath-pathways"))
+                            str(Path.home() / "gitroot" / "mp-biopath-pathways")))
 
 graph = Graph(os.environ.get("NEO4J_URL", "bolt://localhost:7687"),
               auth=(os.environ.get("NEO4J_USER", "neo4j"),

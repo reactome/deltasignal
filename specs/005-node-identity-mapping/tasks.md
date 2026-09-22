@@ -233,7 +233,7 @@ resolves back to the glyph to highlight.
       per-pathway net change, both-arms-converged count and coverage delta.
 - [x] T027 [US4] Record the arithmetic for whichever rule is adopted, not
       only its score: with uniform baseline x₀, `Σxᵢ/(n·x₀) = mean(xᵢ)/x₀`,
-      so `mean` is the sum-of-abundances reading and matches Adam's stated
+      so `mean` is the sum-of-abundances reading and matches the lead's stated
       rule that OR configurations average. Record the losing arms too
       (constitution III).
 - [x] T028 [US4] Check the dilution failure explicitly: report how often
@@ -295,7 +295,7 @@ Phase 6 (T029-T032)
 ## Implementation strategy
 
 **MVP is Phase 2 + Phase 3.** #67 has to land regardless — it is a
-correctness bug in shipped output — and Phase 3 delivers Adam's actual
+correctness bug in shipped output — and Phase 3 delivers the lead's actual
 request plus 177 recovered cases. Phases 4 and 5 are the pathway-browser
 deliverable and the accuracy question respectively, and both are better done
 against a mapping that already exists and is verified.

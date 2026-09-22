@@ -16,11 +16,10 @@
 
 ## 1. Why this exists
 
-Adam, on the claim that the benchmark's resolution was the limit: *"I don't
-think that is true. What the curators did was look at what they thought would
-happen with the pathway... If you traversed all the tests from root input to
-terminal output in Neo4j you could see what you think should happen and see if
-our modelling is doing that."*
+The claim that the benchmark's resolution was the limit was rejected. The
+curators reasoned about what they expected the pathway to do, so the check is
+to traverse each test from root input to terminal output in Neo4j, form the
+same expectation, and see whether the model reproduces it.
 
 He is right. Comparing the model to 2019 curator calls conflates our defects
 with theirs and with version skew. Comparing the model to a **direct reading of
@@ -380,7 +379,7 @@ the oracle's error: it matched node identity by exact stable id and so missed
 the 92 pathways, presence judged by a regulator-class edge from the entity or
 any member into the reaction's node — finds **all carried**: 61 set-typed
 regulators (29 negative, 32 positive), 742 complex-typed, 137 protein-typed,
-24 small-molecule. **No set-typed regulator is dropped.** Adam's hypothesis
+24 small-molecule. **No set-typed regulator is dropped.** the hypothesis
 was worth one query; it does not hold. (An earlier version of this section
 claimed one confirmed instance; that claim is withdrawn.)
 
@@ -1167,7 +1166,7 @@ adopted on that basis; it is a *connectivity fix for one known-severed
 pathway*, of the same kind as LNG#89's HSP90B1, and is honest to describe as
 that. Configuration that carries it with the least damage: `LNG_COMPOSITION_EDGES=1`
 + `DS_COMPOSITION_MODE=limit_novel` (+12 held-out alone, +40 with elasticity).
-Off by default in both repos; the decision is recorded here for Adam.
+Off by default in both repos; the decision is recorded here for the lead.
 
 ### Final table for 2026-09-19 (additions to the morning table)
 

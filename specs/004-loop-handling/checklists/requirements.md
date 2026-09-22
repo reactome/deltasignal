@@ -44,7 +44,7 @@ Validation notes, iteration 1:
   own reader before the control is trusted), whether the published networks
   are the ones the published predictions came from (assumed, with a stated
   invalidation condition), and the provenance of the manual loop removal
-  (taken as given per Adam).
+  (taken as given).
 - **Constitution check.** Principle I is the binding constraint and is stated
   in the spec body: upstream edge removal is a diagnostic, not an acceptable
   outcome, because processing a faithful representation is DeltaSignal's job.

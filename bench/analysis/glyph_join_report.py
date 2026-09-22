@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How completely do generated nodes join to diagram glyphs, and both ways?
 
-Adam's requirement: clicking one of the two ATP glyphs in the pathway browser
+Requirement: clicking one of the two ATP glyphs in the pathway browser
 must resolve to what THAT glyph means, and a solved node must resolve back to
 the glyph to highlight.
 

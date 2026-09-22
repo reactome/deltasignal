@@ -8,7 +8,7 @@ A/B protocol note at the end for why.
 
 - Neo4j holding Reactome **Release97**, reachable at `NEO4J_URL` (dev
   credentials are in the logic-network-generator `.env`).
-- Julia 1.10 on `PATH`: `export PATH=/home/awright/julia-1.10.10/bin:$PATH`
+- Julia 1.10 on `PATH`: `export PATH=$HOME/julia-1.10.10/bin:$PATH`
 - The MP-BioPath comparison inputs:
   - `~/codes_and_results/PredictiveAccuracyOfBiologicalPathways_SupplementaryTables.xlsx`
   - `~/codes_and_results/db_id_to_name_mapping.txt`
@@ -20,7 +20,7 @@ Set a scratch root once; the rest of this document uses it:
 ```bash
 export S=/tmp/claude-1001/.../scratchpad     # session scratchpad
 export W=~/codes_and_results
-export PATH=/home/awright/julia-1.10.10/bin:$PATH
+export PATH=$HOME/julia-1.10.10/bin:$PATH
 export PYTHONHASHSEED=0
 ```
 

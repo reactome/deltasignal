@@ -349,7 +349,7 @@ The **AND-joined** cycle, same topology, is where it breaks:
 | one out, other **50x** | 0.00026 | 0.078 |
 
 One external input 50x above baseline, and the cycle still sits ~13x *below*
-baseline. This is the behaviour Adam described, and it is a property of the AND
+baseline. This is the behaviour described, and it is a property of the AND
 semantics, not of root selection: the cycle's own recycled product is treated
 as a required co-input, so a knockout anywhere in the cycle cannot be
 compensated by any other input.

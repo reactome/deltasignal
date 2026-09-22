@@ -63,12 +63,12 @@ than Planned:
    feedback arguably *should* behave differently and this treats them alike.
 
 The measurement in this spec does not settle which. Deciding is a planning
-question and needs Adam's steer.
+question and needs a steer from the lead.
 
 **Two judgement calls made rather than escalated:**
 
 1. The all-zero collapse is treated as numerical, not biological. Stated by
-   Adam directly: the math is satisfied by all-zero even when the loop's inputs
+   directly: the math is satisfied by all-zero even when the loop's inputs
    are ≥ 1. An earlier reading of it as a mass-balance question was wrong.
 2. US1 and US2 are both P1. The convergence defect could be deferred as
    "only reporting", but the reported non-convergence rate is the evidence

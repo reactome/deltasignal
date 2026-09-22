@@ -27,19 +27,9 @@ from __future__ import annotations
 import collections
 import os
 
-NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "reactome")
-
-_graph = None
-
-
-def graph():
-    global _graph
-    if _graph is None:
-        from py2neo import Graph
-        _graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
-    return _graph
+# Connection details come from _common, which reads the environment and
+# refuses to run without NEO4J_PASSWORD rather than carrying a literal.
+from _common import NEO4J_PASSWORD, NEO4J_URL, NEO4J_USER, graph  # noqa: F401
 
 
 PARTICIPATION = """

@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-19 · **Branch**: `feat/018-derived-edge-loops` · **Status**: findings only; no rule built yet
 
-Adam's steer: understand how MP-BioPath's curators resolved loops — not to break
+Steer: understand how MP-BioPath's curators resolved loops — not to break
 loops ourselves — and derive solver-side rules that stay extensible toward
 representing the biology correctly. Everything below is read-only analysis of
 two catalogs we already hold: `cat_os` (ours, Reactome v97, 81 scored
@@ -89,7 +89,7 @@ welded component falls apart into its reaction-level cycles, which the
 existing damped fixed point then solves separately. Generalising the existing
 knob: `DS_SCC_BREAK_ROLES=catalyst,assembly,depletion`.
 
-Pre-registration for that rule belongs in its own spec once Adam has read
+Pre-registration for that rule belongs in its own spec once the lead has read
 this; predictions to state first: TP53's solve becomes converged and
 label-independent (836 → 34-node components); the AKT-KO cases stay correct
 (the route AKT → MDM2 → TP53 is backbone, not derived); held-out ≥ 0 with
@@ -193,7 +193,7 @@ double count and which are regulation).
 
 ### The generator-side cause, and pre-registered P7 (committed before the regeneration)
 
-Adam: "if these edges are the breaking apart of complexes in terminal outputs
+Diagnosis raised in review: if these edges are the breaking apart of complexes in terminal outputs
 and root inputs, they should not create loops as they would get different
 uuids." They should, and they do not: boundary expansion's `_leaf_uuid`
 reuses a leaf's *existing* node whenever the protein already has one anywhere
@@ -332,7 +332,7 @@ against `cat_fix` (next section).
 
 ## Re-evaluation of the welded-era A/Bs on the fixed catalog (pre-registered 2026-09-20 01:50)
 
-Adam: "now that we did that and it is a real fix shouldn't we re-evaluate a
+Raised in review once the fix landed: with a real fix in place, re-evaluate a
 lot of the other things we were looking into?" Yes: every A/B this month whose
 gain or loss lived in a loop-heavy pathway was partly measuring which side of
 a welded knife-edge a coin landed. Control for all arms below: `ab_fix.tsv`
@@ -370,7 +370,7 @@ the fix's effect, not as a new discovery.
 | catalyst closures | **−104** (5/109; DSB −99) | −33 | −38 | −4 | −65 | **unchanged, worse**. |
 | own-product depletion | −5 | 0 | −1 | −2 | inert | **unchanged**: inert. |
 | assembly closures | −5 / +8 ALL | +13 | −12 | 0 | **+214** | **absorbed by the fix**, as predicted: 93 closures left do nothing. |
-| **sharing** (regen on the fix; 4,094 conditioning drops) | −1 (11/12) | **+18** (TP53 +18) | +11 | +3 | −1 / **−64** | **REVERSED**: the −64 was the TP53 basin flip and it is gone. Sharing is now a free correctness change (nodes −35%, reachability identical) with no accuracy cost on either axis → **adopt** (generator default), pending Adam. |
+| **sharing** (regen on the fix; 4,094 conditioning drops) | −1 (11/12) | **+18** (TP53 +18) | +11 | +3 | −1 / **−64** | **REVERSED**: the −64 was the TP53 basin flip and it is gone. Sharing is now a free correctness change (nodes −35%, reachability identical) with no accuracy cost on either axis → **adopt** (generator default), pending sign-off. |
 | **composition** `limit_novel` (regen on the fix, vs same-catalog ctrl) | **−185** (137/322) | −174 | **+426** | −5 | +12 (DSB −62) | **REVERSED the other way**: DSB **−241**, TP53 −151, IFN α/β +100 unchanged. With the welds gone, composition edges are the derived class that closes cycles (cycle-carrying by construction: complex → containing complex → … → complex); they re-weld what the fix unwelded. Refuted as an edge on this network; off, and the LNG flag should stay off. `assembly`-semantics variant: held-out −337. |
 
 Regeneration churn control: `cat_fix_comp` with composition skipped vs `cat_fix`

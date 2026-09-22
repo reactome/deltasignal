@@ -42,7 +42,7 @@ outcome.
 
 ### User Story 1 — Know whether it is the propagator or the networks (Priority: P1)
 
-Adam needs to know which half of the system is responsible for the 42-case
+The lead needs to know which half of the system is responsible for the 42-case
 deficit before investing in either. Today it is unattributable: DeltaSignal's
 propagator and DeltaSignal's networks are only ever measured together.
 
@@ -267,7 +267,7 @@ and reported explicitly as an unshippable upper bound.
 - The four-column network files encode parent, child, polarity as ±1, and a
   conjunction flag; the exact conjunction convention is to be confirmed
   against MP-BioPath's own reader before the control is trusted.
-- Adam's account that loops were removed manually is taken as given; this
+- the account that loops were removed manually is taken as given; this
   feature measures the consequence rather than re-deriving the provenance.
 - Non-convergence is out of scope here. It is being addressed in
   `specs/003-solver-objective`, and 179 of 564 cases currently do not

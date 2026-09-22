@@ -7,11 +7,11 @@ session history.
 ## The goal
 
 Model positive and negative feedback loops so they behave as biology expects,
-with parameters that can be **learned** from perturbation data. Adam:
-*"I want to be able to model loops where positive feedback and negative
-feedback loops act the way you would biologically expect them to and to have
-parameters associated that we can learn to make it align with biological data.
-I am not tied to a particular model."*
+with parameters that can be **learned** from perturbation data.
+
+Stated intent: positive and negative feedback loops should behave the way they
+would biologically, with associated parameters that can be learned so the model
+aligns with biological data. No particular model form is required.
 
 ## What the system is
 

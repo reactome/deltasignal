@@ -12,7 +12,7 @@
 
 ### There IS a per-node id, and we are throwing it away
 
-Adam's premise is that Reactome has no unique id for a diagram node. It does.
+The premise was that Reactome has no unique id for a diagram node. It does.
 Every glyph in a diagram layout carries its own `id`, distinct from the
 `reactomeId` naming the entity it draws — measured, R-HSA-1257604 has 114
 glyphs with 114 unique ids, and R-HSA-69620 has 154 with 154. That id is
@@ -29,7 +29,7 @@ our own export, and the fix is to stop discarding what we already handle.
 
 ### The duplicate-glyph problem is real and measured
 
-Adam's "same thing in two different places" happens: R-HSA-1257604 draws 4
+The "same thing in two different places" case happens: R-HSA-1257604 draws 4
 entities more than once, accounting for 24 of its 114 glyphs (ADP 9, ATP 9,
 H2O 3); R-HSA-69620 draws 4 entities across 43 of its 154 (ADP 19, ATP 19,
 Ub 3). These are mostly cofactors, which Reactome deliberately draws once
@@ -117,7 +117,7 @@ For any entity in a pathway, state which nodes represent it and how — or
 state explicitly that it is not represented and why. The same in reverse:
 for any node, which entity or entities it stands for.
 
-**Why this priority**: this is Adam's actual requirement, it is what makes
+**Why this priority**: this is the actual requirement, it is what makes
 User Story 1 a consequence rather than a special case, and without the
 reverse direction a solved result cannot be explained back to a user.
 
@@ -145,7 +145,7 @@ In the pathway browser, clicking one of the two ATP glyphs must resolve to
 what that glyph means, and a solved node must resolve back to the glyph to
 highlight — not to every glyph that happens to draw the same entity.
 
-**Why this priority**: it is the interaction Adam named, but it depends on
+**Why this priority**: it is the interaction named in the request, but it depends on
 User Story 2's mapping existing first, and the benchmark does not need it.
 
 **Independent Test**: a glyph identifier resolves to nodes, and a node
@@ -259,7 +259,7 @@ reported with macro-F1 and a per-pathway breakdown.
 - **Entity**: a Reactome biological entity, identified by its stable
   identifier.
 - **Glyph**: one drawing of an entity in one diagram, with its own
-  identifier. An entity may have many; this is the identity Adam needs and
+  identifier. An entity may have many; this is the identity required and
   the one currently discarded.
 - **Node**: one node in a generated network, identified by its uuid.
 - **Resolution**: one entity-to-node correspondence, carrying the

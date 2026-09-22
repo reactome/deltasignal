@@ -458,7 +458,7 @@ results.
 
 ![Top UUID-level logic responses](images/gsoc-2026/logic-nodes-and-edges.png)
 
-Adam suggested a raw nodes-and-edges view as the practical starting point for
+A raw nodes-and-edges view was suggested as the practical starting point for
 showing what LNG produced. This view keeps the 40 UUID-level nodes with the
 largest absolute changes, plus every perturbed input. It draws an edge only if
 both endpoints are visible.

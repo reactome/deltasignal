@@ -146,8 +146,8 @@ def silo_analysis(dirname, effective=False):
 def name_lookup(stids):
     """Best-effort Reactome name lookup. Returns dict stid → displayName."""
     try:
-        from py2neo import Graph
-        g = Graph("bolt://localhost:7687", auth=("neo4j", "reactome"))
+        import _common as C
+        g = C.graph()
         Q = """UNWIND $stids AS s
         MATCH (p {stId: s})
         OPTIONAL MATCH (p)-[:referenceEntity]->(re)

@@ -18,10 +18,16 @@ each pass. This driver does that via docker compose then calls /api/parse and
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
 from urllib.request import Request, urlopen
+
+# The repository this file lives in, so the driver does not carry a hardcoded
+# home directory. Overridable for an out-of-tree checkout.
+REPO_ROOT = os.environ.get("DELTASIGNAL_REPO", str(Path(__file__).resolve().parents[1]))
+
 
 DS = "http://127.0.0.1:8080"
 
@@ -89,7 +95,7 @@ def restart_api_with_mode(mode, **kwargs):
     env = {"DS_AND_MODE": "signed", "DS_INHIBITION_MODE": mode, "DS_OR_MODE": "max", **kwargs}
     env_str = " ".join(f"{k}={v}" for k, v in env.items())
     subprocess.run(
-        f"cd /home/awright/gitroot/deltasignal && {env_str} "
+        f"cd {REPO_ROOT} && {env_str} "
         "docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api",
         shell=True, capture_output=True, timeout=60,
     )

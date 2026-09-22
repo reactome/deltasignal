@@ -40,7 +40,7 @@
 
 - [ ] **T014** Decide whether to adopt `gate` + `LNG_SET_MEMBERS_OR` as
       defaults. Trade: faithful curator semantics + a logically correct
-      combination rule, at statistically neutral accuracy. **Needs Adam's call.**
+      combination rule, at statistically neutral accuracy. **Needs a decision from the lead.**
 - [ ] **T015** Re-measure T014 on a wider slice than the 3 MP-BioPath-eligible
       pathways (e.g. the curator ground truth, 72 pathways) before adopting —
       223 cases cannot resolve a ±2-case effect.

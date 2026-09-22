@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Adam's steer — "understand the breaking of loops without wanting to necessarily break them ourselves … make some rules with DS to improve its accuracy and not do something that is not extensible to making the tool represent the biology correctly later." Findings in [research.md](research.md) §1–3.
+**Input**: steer — understand how loops are broken without necessarily breaking them ourselves, and make rules that improve accuracy without foreclosing a later, biologically faithful representation. Findings in [research.md](research.md) §1–3.
 
 ## Why
 

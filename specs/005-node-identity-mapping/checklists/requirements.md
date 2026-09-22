@@ -42,13 +42,13 @@ Validation notes, iteration 2 (iteration 1 failed two items; both fixed):
   than a prescribed solution. The plan is the right place for the artifact's
   shape.
 - **Iteration 1 failure — untestable requirement.** "The mapping must be
-  perfect" was Adam's phrasing and is not checkable. Fixed by splitting it
+  perfect" was the original phrasing and is not checkable. Fixed by splitting it
   into FR-001/FR-002 (both directions return labelled results), FR-006
   (absence must be declared with a reason) and FR-007 (the check must be
   demonstrated to fail), with SC-001/SC-002 giving the zero-unexplained-
   absences target. "Perfect" is now "no unexplained absence in either
   direction".
-- **The spec contradicts its own Input, deliberately.** Adam wrote "there
+- **The spec contradicts its own Input, deliberately.** The input said "there
   really should be an id for each node to uniquely identify them but there
   isn't." There is one, it is measured, and the generator already reads and
   discards it. Stating this in the spec is necessary because it changes the

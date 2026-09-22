@@ -78,7 +78,7 @@ python bench/run_mpbiopath_factorial.py \
 
 This crosses each frozen graph catalog with legacy/current propagation and
 flat/SCC solving. Stoichiometric weighting is intentionally absent: current
-production defaults do not use it, and Adam's perturbation tests found no
+production defaults do not use it, and the lead's perturbation tests found no
 accuracy improvement from enabling it.
 
 After completing the current-SCC diagram-on and diagram-off runs, generate the

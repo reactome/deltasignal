@@ -6,7 +6,7 @@
 
 **Status**: Amended 2026-09-19 after adversarial review (see research.md §Review); measurement in progress
 
-**Input**: User description: Adam's proposal — "if you have a loop you could treat it like a node somehow. where say there are four things going in A,B,C,D with values 1,1,3,2 then the cycle should have the value of 1*1*3*2=6 around. unfortunately you lose the granularity of different parts of the loop having different values and I don't know how you handle negative interactions." Treat a strongly-connected component as one pool whose level is set by what flows into it, instead of iterating around it.
+**Input**: proposal to treat a loop as a single node — if four inputs A, B, C, D carry values 1, 1, 3, 2, the cycle takes their product (6) as its level. The stated open problems were that per-member granularity inside the loop is lost, and that the handling of negative interactions was undecided. Treat a strongly-connected component as one pool whose level is set by what flows into it, instead of iterating around it.
 
 ## Why
 
@@ -73,7 +73,7 @@ iterated components; a misspelt mode is a startup error.
 
 ### User Story 3 - Negative edges inside the loop are measured, not assumed (Priority: P2)
 
-Adam is not sure how internal negative interactions should be treated. Two
+It is undecided how internal negative interactions should be treated. Two
 rules are shipped and measured against each other:
 
 - **`pool`** (conservative): a component containing any internal inhibitor or
@@ -211,7 +211,7 @@ before the arms run.
 - "Negative internal edge" means an inhibitor or depletion edge whose source and
   target are both in the component; activator edges are positive regardless of
   edge type.
-- The product rule follows Adam's statement literally across *entries*; within
+- The product rule follows the statement literally across *entries*; within
   a reaction the existing AND/OR rules apply, so alternative producers do not
   multiply.
 - *(corrected)* Components with an internal negative edge are **60 of 258**

@@ -106,7 +106,7 @@ network-structure question for a separate feature.
 
 ## R5 — Two departures from the design, not one; together worth +31
 
-Adam identified the AND design intent: multiply the fold-changes with a
+The AND design intent was identified: multiply the fold-changes with a
 Hill-like curve, constrained to 0-100, and "if it is near 1 I want it to be
 extremely close to pure multiplication" — 0.5*0.5=0.25, 1*1=1, 2*0.5=1, and
 sig(100)*sig(100)=100 rather than 10,000.
@@ -195,7 +195,7 @@ hypothesis this feature was written to test, now confirmed on the ground
 truth it was *not* tuned against.
 
 The trade-off T012 was reserved for does not exist on this catalog, so no
-decision is being deferred to Adam. Two honest caveats:
+decision is being deferred to the lead. Two honest caveats:
 
 - **DOWN F1 drops slightly** (0.5949 -> 0.5814) even though DOWN recall is
   flat, because the arm predicts DOWN 764 -> 808 times. Precision, not

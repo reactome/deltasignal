@@ -249,7 +249,7 @@ not a patch.
 
 ## Why R-HSA-5686410 produces 8 variants and not 6
 
-Adam's question, resolved. The reaction has two EntitySet participants, both
+Question resolved. The reaction has two EntitySet participants, both
 outputs: R-HSA-5685980 with 3 `hasMember`, and R-HSA-9707299 with 2. The naive
 product is 3 × 2 = 6.
 

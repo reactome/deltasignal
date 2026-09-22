@@ -86,7 +86,7 @@ Level-2 candidates, all measured (US4), default unchanged until then:
 
 | rule | meaning | note |
 |---|---|---|
-| `mean` | pool semantics | with uniform baseline x₀, `Σxᵢ/(n·x₀) = mean(xᵢ)/x₀`, so mean **is** the sum-of-abundances reading; matches Adam's "OR should be an average" |
+| `mean` | pool semantics | with uniform baseline x₀, `Σxᵢ/(n·x₀) = mean(xᵢ)/x₀`, so mean **is** the sum-of-abundances reading; matches the stated intent that OR should be an average |
 | `max` | up if any member is up | today's multi-uuid default; expected to over-call UP |
 | `mean_reachable` | mean over members reachable from the perturbation | guards the dilution failure where inert members drag the set toward no-change |
 

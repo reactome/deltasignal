@@ -53,7 +53,7 @@ with two different signs from the same entry marks the component
 **Rationale**: in an SCC every node is reachable from every entry, so every
 member gets a sign; inconsistency is exactly an odd negative cycle reachable
 from that entry, which is genuine negative feedback and is the case the spec
-leaves to iteration. Multiple entries combine as a product per Adam's rule,
+leaves to iteration. Multiple entries combine as a product per the stated rule,
 each with its own parity.
 
 **Determinism**: fold multiplication is not associative in floating point, so
@@ -194,7 +194,7 @@ and it is a property of the rule, not a bug.
 
 | # | finding | action |
 |---|---|---|
-| 1 | A pinned member does not sever the pool; entries on both sides of a pin multiply into one fold (the fixed point treats a pin as a boundary). `fourentry` with C pinned at baseline + E1 = 3x: fixed point D = 1, pool D = 3. | Recorded as a consequence of the rule (the granularity loss Adam accepted); documented in `pool_component!`; not changed. |
+| 1 | A pinned member does not sever the pool; entries on both sides of a pin multiply into one fold (the fixed point treats a pin as a boundary). `fourentry` with C pinned at baseline + E1 = 3x: fixed point D = 1, pool D = 3. | Recorded as a consequence of the rule (the granularity loss that was accepted); documented in `pool_component!`; not changed. |
 | 2 | Exact `f != 1.0` entry test: hill_sat's smooth cap returns bl·(1 + 3e-15) at pure baseline, so ~97% of member reactions were "entries" (TP53 808 of 837). | **Fixed**: relative tolerance 1e-9; test asserts a resting loop pools with a real product of 1. `pool`/`pool_parity` arms ran with the exact test (factors of 1 + 3e-15, numerically inert); later arms carry the fix. |
 | 3 | `converged` is false for every solve that pools a real entry (a pooled state is not a fixed point of F). | Documented; asserted in the test. The benchmark's "both arms converged" statistic is void under pooling. |
 | 4 | The rule overrides well-posed contracting loops (OR-producer loop: unique stable fixed point 2.0, pool 5/3), double-counts one signal entering by two member reactions (4 vs the fixed point's rail), and lets two entries of opposite parity cancel exactly. | Consequences of the product rule, now stated as such in the docstring rather than pinned as truths. |

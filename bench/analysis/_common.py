@@ -261,3 +261,31 @@ def mcnemar_exact(fixed: int, broke: int) -> float:
     k = min(fixed, broke)
     tail = sum(comb(n, i) for i in range(k + 1)) / 2 ** n
     return min(1.0, 2 * tail)
+
+
+# --- Neo4j connection -------------------------------------------------------
+# Read from the environment, never hardcoded. These scripts talk to a LOCAL
+# Reactome graph database; the defaults match Reactome's own published
+# convention so a standard local instance works out of the box, but any real
+# deployment must set NEO4J_PASSWORD rather than rely on a literal committed to
+# a public repository.
+NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
+NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
+
+_graph = None
+
+
+def graph():
+    """Lazily connect, so importing this module never requires a live Neo4j."""
+    global _graph
+    if _graph is None:
+        from py2neo import Graph
+        if not NEO4J_PASSWORD:
+            raise SystemExit(
+                "NEO4J_PASSWORD is not set. Export it (with NEO4J_URL and "
+                "NEO4J_USER if they differ from bolt://localhost:7687 and "
+                "'neo4j') before running a script that queries Reactome."
+            )
+        _graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    return _graph
