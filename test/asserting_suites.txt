@@ -1,0 +1,22 @@
+# The test files that actually assert. Single source of truth: CI, the docker
+# test-runner and the CLAUDE.md count check all read this list, so they cannot
+# drift apart.
+#
+# The other seven files in test/ execute code and print output. They pass
+# whatever the code does, so running them proves nothing and they are
+# deliberately NOT listed here.
+#
+# Adding a file here without assertions, or removing one that has them, is
+# caught by scripts/check_doc_counts.py in CI.
+test_config_validation
+test_and_curves
+test_cycle_handling
+test_worked_example
+test_observation_pinning
+test_propagator_invariants
+test_cli_observations
+test_api_errors
+test_loop_elasticity
+test_solver_determinism
+test_loop_pool
+test_scc_break_roles

@@ -41,21 +41,27 @@ jobs:
       - name: Instantiate
         run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Run the suites that actually assert
-        # Twelve test files contain assertions; the other seven execute code
-        # and print, and pass whatever the code does. Running the twelve by
-        # name keeps a green tick meaningful, and this job's log is the source
-        # of the per-file counts in CLAUDE.md -- read them here, not there.
+        # The suites that assert are listed in test/asserting_suites.txt --
+        # a single source of truth shared with the docker test-runner and with
+        # the count check below, so they cannot drift apart. The other seven
+        # files in test/ execute code and print, and pass whatever the code
+        # does, so running them proves nothing.
         #
         # Deliberately NO DS_* environment here. The code defaults ARE the
         # validated config and the suites pin them; setting overrides in CI
         # would measure a configuration production never runs, which is exactly
         # how docker-compose.dev.yml drifted for six days.
         run: |
-          set -u
+          # pipefail is load-bearing: the suite is piped through tee so its
+          # output can be checked afterwards, and without this the `if` would
+          # test tee's exit status and report a failing suite as PASSED.
+          set -u -o pipefail
           failed=""
-          for f in test_config_validation test_and_curves test_cycle_handling test_worked_example test_observation_pinning test_propagator_invariants test_cli_observations test_api_errors test_loop_elasticity test_solver_determinism test_loop_pool test_scc_break_roles; do
+          mkdir -p test-output
+          suites=$(grep -v "^#" test/asserting_suites.txt | grep -v "^$")
+          for f in $suites; do
             echo "::group::test/$f.jl"
-            if julia --project=. "test/$f.jl"; then
+            if julia --project=. "test/$f.jl" 2>&1 | tee "test-output/$f.out"; then
               echo "  $f PASSED"
             else
               echo "  $f FAILED"
@@ -67,3 +73,15 @@ jobs:
             echo "Failing suites:$failed"
             exit 1
           fi
+
+      - name: CLAUDE.md's assertion table must match what the suites printed
+        # Three counts in that table were wrong from the day they were written
+        # and survived months, while the table claimed to be CI-verified.
+        # The numbers are printed every run; this turns them into an assertion.
+        run: python3 scripts/check_doc_counts.py test-output
+
+      - name: No dangling quotes in markdown
+        # A bulk paraphrasing pass once left five closing quotes stranded --
+        # it rewrote an attribution and the first line of a multi-line quote
+        # and left the rest behind. Cheap to check, invisible to review.
+        run: python3 scripts/check_quote_balance.py

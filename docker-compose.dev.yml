@@ -141,17 +141,34 @@ services:
       - ./src:/app/src:ro
       - ./test:/app/test:ro
       - ./examples:/app/examples:ro
+      # Project.toml is NOT baked-in-and-forgotten: without this mount the
+      # image's copy wins, and adding any dependency to the repo silently
+      # breaks every suite in the container with "does not have X in its
+      # dependencies". A new EXTERNAL dependency still needs a rebuild; a
+      # stdlib one only needs this.
+      - ./Project.toml:/app/Project.toml:ro
       - julia-cache:/root/.julia
     profiles:
       - test
+    # Runs the suites that actually assert, read from test/asserting_suites.txt
+    # so this cannot drift from CI. It used to run test_basic.jl and
+    # test_steady_state.jl -- which contain ZERO assertions between them --
+    # then chain a test_full_pipeline.jl that does not exist, and print
+    # "All tests passed". A green tick here now means something.
     command: |
-      sh -c "
-        echo '🧪 Running Julia tests...'
-        julia --project=/app /app/test/test_basic.jl &&
-        julia --project=/app /app/test/test_steady_state.jl &&
-        julia --project=/app /app/test/test_full_pipeline.jl &&
-        echo '✅ All tests passed!'
-      "
+      sh -c '
+        set -u
+        failed=""
+        for f in $$(grep -v "^#" /app/test/asserting_suites.txt | grep -v "^$$"); do
+          echo "--- test/$$f.jl"
+          julia --project=/app "/app/test/$$f.jl" || failed="$$failed $$f"
+        done
+        if [ -n "$$failed" ]; then
+          echo "FAILED:$$failed"
+          exit 1
+        fi
+        echo "All asserting suites passed."
+      '
 
   # CLI Runner - Interactive command execution
   cli:

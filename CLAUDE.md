@@ -370,20 +370,24 @@ inside one outer testset so failures accumulate and everything runs.
 print output; they pass whatever the code does. Treat a green run of those as
 "it did not throw", nothing more.
 
-The documented docker runner is also broken: `docker-compose.dev.yml`'s
-`test-runner` chains `test/test_full_pipeline.jl`, which does not exist.
+**The docker runner used to be a false green and is now fixed.** It ran
+`test_basic.jl` and `test_steady_state.jl` — zero assertions between them —
+then chained a `test_full_pipeline.jl` that does not exist, and printed "All
+tests passed". It now runs the suites in `test/asserting_suites.txt`, the same
+list CI reads, and mounts `Project.toml` so the package can actually load.
 
-**And as of 2026-09-21 no test loads in the dev container at all.** The compose
-file mounts `src`, `cli`, `test`, `bench` and `examples`, but **not
+**The dev container could not load DeltaSignal at all until 2026-09-22.** The
+compose file mounted `src`, `cli`, `test`, `bench` and `examples`, but **not
 `Project.toml`** — so the dependency set is frozen at image-build time while
 the source is live. `/app/Project.toml` in the running image is dated May 25
 and predates the `SparseArrays` dependency, so every test file dies at load
 with `Package DeltaSignal does not have SparseArrays in its dependencies`.
-CI is unaffected: it instantiates from the repo. Rebuild the image
-(`docker compose -f docker-compose.dev.yml build julia-api`) before trusting a
-local run, and note that adding any dependency silently breaks the container
-again until someone does. `Manifest.toml` is gitignored, so mounting it is not
-a fix.
+CI was unaffected: it instantiates from the repo. `test-runner` now mounts
+`Project.toml`, which fixes the stdlib case; a genuinely new **external**
+dependency still needs `docker compose -f docker-compose.dev.yml build`.
+`Manifest.toml` is gitignored, so mounting it is not a fix. **`julia-api` still
+does not mount it** — that service is long-running and a mount change there
+would restart in-flight benchmarks, so it is left for a deliberate rebuild.
 
 When adding behaviour, add assertions to one of the twelve files that assert,
 or start a new one — do not extend a file from the zero-assertion list and assume it is
