@@ -329,3 +329,116 @@ with path depth, both pre-specified.
 Sources: [decryptM 2.0 dataset](https://zenodo.org/records/17533475) ·
 [Science 2023](https://www.science.org/doi/10.1126/science.ade3925) ·
 [ProteomicsDB decryptM explorer](https://www.proteomicsdb.org/decryptm)
+
+---
+
+## Can we say the magnitudes mean something?
+
+> "also as I said it would be good to be able to say the magnitudes mean
+> something. I don't have an idea of how to do this."
+
+### First, the blocker: there is barely any magnitude to validate
+
+Measured on `cat_prod`, all 24,100 curator cases, baseline = 1.0 on the UI
+scale:
+
+| predicted value | cases | share |
+|---|---|---|
+| exactly baseline (no change) | 15,527 | **64.4%** |
+| at the floor (0) | 2,660 | 11.0% |
+| at the ceiling (100x) | 1,528 | 6.3% |
+| interior, below baseline | 1,602 | 6.6% |
+| interior, above baseline | 2,783 | 11.5% |
+
+**82% of predictions are baseline, zero, or full saturation**, and even the
+18.2% interior is pushed to the top (median 10x, 2,326 of 4,385 above 10x).
+Cases carrying a genuinely graded prediction between 0.5x and 10x are
+**1,036 of 24,100 — 4.3%.**
+
+So the model is close to three-valued in practice. That is a consequence of the
+AND semantics we deliberately chose: `hill_sat` multiplies fold-changes capped
+at 100, which saturates quickly along any cascade, and a knockout propagates to
+exact zero. specs/010 adopted that for depth-invariance, and the cost is
+dynamic range.
+
+**Therefore a quantitative magnitude claim ("a predicted 5x means 5x") is not
+available and should not be attempted.** Any correlation computed over these
+values would be dominated by the rails.
+
+### What IS supportable today, from data already in hand
+
+Magnitude is a **calibrated confidence signal**. Direction accuracy against the
+curator, by predicted fold:
+
+| predicted fold | cases | direction correct |
+|---|---|---|
+| knockout to 0 | 2,660 | **88.6%** |
+| 0–0.5x | 1,023 | 75.1% |
+| 0.5–0.9x | 428 | 57.7% |
+| **1.1–2x** | **204** | **37.3%** |
+| 2–10x | 226 | 63.3% |
+| 10–100x | 2,326 | **88.3%** |
+| railed at 100x | 1,528 | 78.5% |
+| ~baseline (0.9–1.1x) | 15,705 | 85.8% |
+
+The shape is a **U**: confident at both extremes, worst in the middle. A
+predicted 1.1–2x change is right 37.3% of the time on a three-class problem —
+barely above chance, and *worse than saying nothing*. And full saturation
+(78.5%) is worse than 10–100x (88.3%), which matches the earlier finding that
+railing destroys information.
+
+That is a real claim about magnitude meaning something, it is defensible
+without any external data, and it is **useful for shipping**: a small predicted
+change should be suppressed or greyed out in the Reactome view rather than
+displayed as a call. The publishable form is a reliability curve plus a
+precision/coverage trade-off — "discarding the smallest predicted changes
+raises precision from X to Y at Z% coverage".
+
+### The test that makes the claim falsifiable
+
+Replace every predicted magnitude with the mean magnitude of its own predicted
+class and re-run the analysis. If the calibration survives that, the magnitude
+carries **no** information beyond the direction call and the claim is empty.
+This must be run and reported; without it "magnitude means something" is
+unfalsifiable.
+
+### The stronger claims, and what each needs
+
+| claim | test | needs | verdict |
+|---|---|---|---|
+| ordinal | Spearman of predicted magnitude rank against measured effect-size rank, change cases only | decryptM | achievable; needs no unit calibration |
+| calibrated | binned predicted fold against mean measured log2 fold, monotone | decryptM | interpretable, stronger than a correlation |
+| **dynamics** | **EC50 ordering along a cascade: sites nearer the inhibited kinase should saturate at lower dose** | decryptM dose curves | **the best one — see below** |
+| quantitative | predicted log-fold ≈ measured log-fold, slope ≈ 1 | decryptM | do not attempt; the rails forbid it |
+
+**Why the EC50 ordering test is the one to aim for.** decryptM fits a
+dose-response curve per phosphosite, so it yields a *potency* per site, not
+just an effect size. Reactome's topology says which sites are one step from the
+inhibited kinase and which are three. A graded loss of kinase activity should
+reach proximal sites at lower dose than distal ones, so our networks predict an
+**ordering of EC50s** along each cascade. Testing rank agreement of that
+ordering:
+
+- needs no calibration of our units, only their order;
+- is a statement about *dynamics*, which is what magnitude is supposed to
+  encode;
+- has no reason to come out right in a model that merely tracks the curator's
+  representation, which makes it the sharpest available discriminator;
+- and it is testable on the knockdown arm alone, which is all an inhibitor
+  series provides.
+
+### Necessary internal checks, to run before any external work
+
+Cheap, local, and if either fails there is no point going further:
+
+1. **Dose monotonicity.** Perturb one input at 2x, 5x, 20x, 80x and confirm
+   every readout's predicted fold is monotone in the input. Non-monotonicity
+   would mean the magnitude is an artefact of the solver, not a response.
+2. **Depth behaviour.** specs/010 chose `hill_sat` *for* depth-invariant
+   magnitudes, so predicted fold should **not** decay with path length. That is
+   a design claim currently untested at catalog scale, and it is in tension
+   with the EC50-ordering test above, which expects proximal and distal sites
+   to differ. Resolving that tension is a prerequisite, not a detail: if our
+   magnitudes are genuinely depth-invariant, we predict *no* EC50 ordering and
+   the test becomes a falsification of the design rather than a confirmation
+   of it.
