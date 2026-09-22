@@ -265,37 +265,70 @@ for the last feature that touched it rather than re-deriving from the code.
   (7,013 reactions, 15.8%); deduplicating is −15 held-out, p=0.0015. Both
   mechanisms are real and both are load-bearing — on these networks,
   *bounding* a runaway operator has paid off and *deleting* a wrong term has not.
-- `specs/003-solver-objective/` — the solver runs a damped fixed-point
-  iteration, not the specified minimisation; `mu` and `gamma` are reported
-  but read by nothing. Open.
+- `specs/003-solver-objective/` — **RESOLVED, negative.** Levenberg-Marquardt
+  made the minimiser fast but it loses at every gamma (held-out −71 / −87 /
+  −148). The mechanism findings stand (with gamma = 0 the all-zero state is a
+  global minimum); the accuracy claim does not. `mu` and `gamma` are still
+  reported and read by nothing.
+- `specs/013-solver-label-invariance/` — relabelling a verified-isomorphic
+  network **moves predictions**, because sweep order inside a strongly
+  connected component comes from Julia `Dict` hash order. Quantified, not
+  fixed, and it is the blocking prerequisite for parameter learning.
+- `specs/014-loop-elasticity/` — the positive-cycle knife-edge and the
+  sigmoid-epsilon arms.
+- `specs/016-curator-oracle/` — read the pathway from Neo4j and diff it
+  against the generated network. Also the composition-edge arms, declined on
+  concentration rather than on harm.
+- `specs/017-loop-pool/` — treating a cyclic component as a conserved pool.
+  Refuted on both axes by a traced case.
+- `specs/018-derived-edge-loops/` — **the largest accuracy finding.** Our own
+  boundary expansion welded cycles Reactome does not contain (1,994 of 2,077
+  cycle-carrying assembly edges). Fixing it is held-out **+173**, p < 1e-4,
+  94% concentrated in DSB Repair. Records one residual defect, measured at 4
+  edges in 2 pathways and therefore not a lever.
+- `specs/019-sink-bridges/` — three interventions in the sink-bridge family,
+  all null or negative. The Interferon α/β result (+100 fixed, 0 broken) is
+  recorded as live and unclaimed.
+- `specs/020-variant-node-sharing/` — variant sharing adopted: nodes −34.6%,
+  edges −21.5%, no pathway gains cyclic nodes, held-out net zero on both axes.
+  Also the flag-expiry policy: a flag is removed once its question is answered.
+- `specs/021-empirical-holdout-axis/` — the phospho-site validation design,
+  the target list, and what a magnitude claim can and cannot be. Open.
 - `.specify/memory/constitution.md` — project principles the specs are
   checked against.
 
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Only three files contain assertions:
+**Most of the test suite cannot fail.** Twelve files contain assertions; the
+other seven execute code and print output.
 
-| file | `@test`s |
-|---|---|
-| `test/test_config_validation.jl` | 192 |
+| file | assertions | note |
+|---|---|---|
+| `test/test_config_validation.jl` | 192 | |
+| `test/test_loop_elasticity.jl` | 150 | + 1 `@test_broken` |
+| `test/test_propagator_invariants.jl` | 120 | |
+| `test/test_loop_pool.jl` | 81 | |
+| `test/test_solver_determinism.jl` | 80 | |
+| `test/test_and_curves.jl` | 71 | |
+| `test/test_scc_break_roles.jl` | 56 | |
+| `test/test_cli_observations.jl` | 39 | |
+| `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
+| `test/test_api_errors.jl` | 26 | |
+| `test/test_observation_pinning.jl` | 23 | |
+| `test/test_worked_example.jl` | 9 | |
 
-| `test/test_and_curves.jl` | 17 |
-| `test/test_cycle_handling.jl` | 39 + 2 `@test_broken` |
-| `test/test_worked_example.jl` | 9 |
-| `test/test_observation_pinning.jl` | 23 |
-| `test/test_propagator_invariants.jl` | 120 |
-| `test/test_loop_pool.jl` | 81 |
-| `test/test_scc_break_roles.jl` | 56 |
-| `test/test_cli_observations.jl` | 20 |
-| `test/test_api_errors.jl` | 26 |
-| `test/test_loop_elasticity.jl` | 150 + 1 broken |
-| `test/test_solver_determinism.jl` | 80 |
+Counts are the `Pass` column of each file's outer `Test Summary`, not `@test`
+occurrences — several testsets generate assertions in loops. **Verified
+2026-09-22 from CI run 35684497165**; `.github/workflows/test.yml` runs all
+twelve by name and prints each summary, so that log is how to re-read them.
+They are not currently re-checkable locally — see the dev-container note below.
 
-Counts are CI-verified (`.github/workflows/test.yml` runs these four by name
-and prints each `Test Summary`), not `@test` occurrences — several
-testsets generate assertions in loops. The earlier figures in this table (42 /
-22 / 8) were wrong in both directions.
+Earlier revisions of this table were wrong in several places at once: they said
+"three files" while listing twelve, split the table with a stray blank line,
+and gave `test_and_curves.jl` as 17 (actually 71), `test_cli_observations.jl`
+as 20 (39) and `test_cycle_handling.jl` as 39 + 2 (34 + 2). Re-read them from
+CI rather than trusting a figure in this file.
 
 **A failing testset used to hide every later one.** A top-level `@testset`
 throws when it finishes with a failure, which aborts the file. In the dev
@@ -304,7 +337,6 @@ container, where `DS_*` overrides contradict the code defaults, that meant
 the cofactor tests, the silo-bridge tests and the observation-membership test
 all looked green because they never executed. The files now nest their testsets
 inside one outer testset so failures accumulate and everything runs.
-| the other seven | **0** |
 
 `test_basic.jl`, `test_steady_state.jl`, `test_hill_function.jl`,
 `test_feedback_loops.jl`, `test_inhibition_focused.jl`,
