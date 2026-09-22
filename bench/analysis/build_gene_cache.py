@@ -23,8 +23,8 @@ def main(dump_path=DEFAULT_DUMP, cache_path=DEFAULT_CACHE):
         open(dump_path), delimiter="\t")})
     print(f"{len(genes)} unique genes to resolve", file=sys.stderr)
 
-    from py2neo import Graph
-    g = Graph("bolt://localhost:7687", auth=("neo4j", "reactome"))
+    import _common as C
+    g = C.graph()
     rows = g.run(
         "UNWIND $names AS gn "
         "MATCH (re:ReferenceEntity)<-[:referenceEntity]-(pe:PhysicalEntity) "

@@ -1,6 +1,6 @@
 # Flag cleanup: a flag is a measurement instrument with an expiry
 
-**Decided with Adam, 2026-09-21.** The generator carries 19 `LNG_*` variables
+**Decided with the project lead, 2026-09-21.** The generator carries 19 `LNG_*` variables
 and the solver 47 `DS_*`; most are answered questions. Constitution IV says new
 behaviour arrives behind a flag "**until it is measured**" — the second half was
 never honoured, so measurement scaffolding accumulated as permanent surface.

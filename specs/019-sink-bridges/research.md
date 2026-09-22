@@ -51,7 +51,7 @@ Regenerate `cat_fix2_sb` (LNG `2387c88`, `LNG_SINK_BRIDGES=1`) and
   If held-out < 0, the sink design stands as measured (specs/015) and the
   acyclic guard was not the missing piece.
 
-## Side question (Adam, 2026-09-20): are the depletion edges necessary?
+## Side question (raised 2026-09-20): are the depletion edges necessary?
 
 Pre-registered before the arm: `cat_fix2`, production solver, client-side
 `DS_SKIP_EDGE_TYPES=depletion` vs the same catalog with them (zero churn), both

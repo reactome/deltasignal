@@ -3,7 +3,7 @@
 ```bash
 export S=/tmp/claude-1001/.../scratchpad
 export W=~/codes_and_results
-export PATH=/home/awright/julia-1.10.10/bin:$PATH
+export PATH=$HOME/julia-1.10.10/bin:$PATH
 ```
 
 ## 1. See the defect before changing anything

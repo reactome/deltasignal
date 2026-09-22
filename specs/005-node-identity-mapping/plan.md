@@ -4,7 +4,7 @@
 
 ## Summary
 
-Adam asked for a perfect two-way mapping between Reactome entities and
+The request was for a perfect two-way mapping between Reactome entities and
 generated nodes, and specifically for knowing which *diagram glyph* a node
 came from, since the same entity can be drawn in two places.
 

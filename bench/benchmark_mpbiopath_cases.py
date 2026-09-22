@@ -609,7 +609,7 @@ def aggregate_set(members: dict[str, list[float]], mode: str) -> float:
 
     ``mean`` is the pool reading and the default this project's design intent
     points at: every node shares baseline x0, so a set's fold is
-    sum(xi) / (n * x0) = mean(xi) / x0 — mean IS sum-of-abundances, and Adam's
+    sum(xi) / (n * x0) = mean(xi) / x0 — mean IS sum-of-abundances, and the lead's
     stated rule is that OR configurations average. ``max`` means "up if any
     member is up", which over-calls UP; it is kept because it is the existing
     multi-uuid behaviour and the arms have to be measured, not asserted.

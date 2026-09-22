@@ -114,7 +114,13 @@ class Networks:
 
 
 def load_gene_stids(cache_path="/tmp/gene_to_stids.json"):
-    """Returns dict gene_name → set of stable_ids (from Reactome ReferenceEntity)."""
+    """Returns dict gene_name → set of stable_ids (from Reactome ReferenceEntity).
+
+    Raises SystemExit, deliberately, unlike graph() below which raises
+    RuntimeError. Its one best-effort caller, report.maybe_classify, catches
+    `(ImportError, SystemExit)` explicitly -- so changing this type would break
+    that guard rather than fix anything.
+    """
     if not os.path.exists(cache_path):
         raise SystemExit(
             f"No gene→stids cache at {cache_path}. "
@@ -261,3 +267,36 @@ def mcnemar_exact(fixed: int, broke: int) -> float:
     k = min(fixed, broke)
     tail = sum(comb(n, i) for i in range(k + 1)) / 2 ** n
     return min(1.0, 2 * tail)
+
+
+# --- Neo4j connection -------------------------------------------------------
+# Read from the environment, never hardcoded. These scripts talk to a LOCAL
+# Reactome graph database; the defaults match Reactome's own published
+# convention so a standard local instance works out of the box, but any real
+# deployment must set NEO4J_PASSWORD rather than rely on a literal committed to
+# a public repository.
+NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
+NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
+
+_graph = None
+
+
+def graph():
+    """Lazily connect, so importing this module never requires a live Neo4j."""
+    global _graph
+    if _graph is None:
+        from py2neo import Graph
+        if not NEO4J_PASSWORD:
+            # RuntimeError, deliberately, not SystemExit. SystemExit derives
+            # from BaseException, so it would escape an `except Exception`
+            # guard -- and check_silo_bug.name_lookup() is exactly such a
+            # best-effort caller, which degraded gracefully before and would
+            # have been killed outright.
+            raise RuntimeError(
+                "NEO4J_PASSWORD is not set. Export it (with NEO4J_URL and "
+                "NEO4J_USER if they differ from bolt://localhost:7687 and "
+                "'neo4j') before running a script that queries Reactome."
+            )
+        _graph = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    return _graph

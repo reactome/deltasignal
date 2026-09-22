@@ -37,7 +37,7 @@ Deliberate choices worth recording:
   formula in the requirements, stating them as observable behaviour instead
   ("returns a result", "reports how far from self-consistency"). The formula
   belongs in the plan.
-- **SC1 says exceed, not match.** Matching a comparator is a floor. Adam's
+- **SC1 says exceed, not match.** Matching a comparator is a floor. The lead's
   framing was explicit and the criterion reflects it.
 - **SC5 protects the stable subset.** The temptation with a large solver
   change is to celebrate fixing 122 broken cases while quietly regressing the

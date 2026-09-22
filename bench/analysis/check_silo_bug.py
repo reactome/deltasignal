@@ -48,7 +48,7 @@ single-number proxy for whether the fix worked.
 import csv, sys
 from collections import defaultdict, deque
 from pathlib import Path
-from _common import CATALOG, EXP_PATHWAYS, pw_dir
+from _common import CATALOG, EXP_PATHWAYS, graph, pw_dir
 
 
 def _bfs_reach(out_map, sources, sinks, max_depth=15):
@@ -146,8 +146,7 @@ def silo_analysis(dirname, effective=False):
 def name_lookup(stids):
     """Best-effort Reactome name lookup. Returns dict stid → displayName."""
     try:
-        from py2neo import Graph
-        g = Graph("bolt://localhost:7687", auth=("neo4j", "reactome"))
+        g = graph()
         Q = """UNWIND $stids AS s
         MATCH (p {stId: s})
         OPTIONAL MATCH (p)-[:referenceEntity]->(re)

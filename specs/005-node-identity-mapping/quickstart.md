@@ -2,7 +2,7 @@
 
 ```bash
 export S=/tmp/claude-1001/.../scratchpad
-export PATH=/home/awright/julia-1.10.10/bin:$PATH
+export PATH=$HOME/julia-1.10.10/bin:$PATH
 export PYTHONHASHSEED=0
 export LNG_DIAGRAM_DIR=~/reactome-diagrams/97
 ```

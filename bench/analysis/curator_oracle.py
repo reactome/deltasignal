@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Curator oracle: read a pathway straight from Reactome and ask what the solver can reach.
 
-Adam's method (2026-09-19): the curators reasoned about the pathway; do the same
+Method (2026-09-19): the curators reasoned about the pathway; do the same
 reading from Neo4j and check whether the network the solver runs on arrives
 where that reading arrives. Where it does not, that is a construction defect on
 our side regardless of what the 2019 curator wrote. It found three (specs/016):

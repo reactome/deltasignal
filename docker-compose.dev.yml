@@ -32,7 +32,7 @@ services:
       # [0.0005, 0.01].
       - DS_INHIBITOR_EPS=${DS_INHIBITOR_EPS:-1e-12}
       # Floor for divide-form H. 0 = full repression possible; 0.95 = each
-      # inhibitor edge can only repress by 5% (Adam's idea for negative-feedback
+      # inhibitor edge can only repress by 5% (proposed for negative-feedback
       # loops that otherwise over-repress through compounding).
       - DS_INHIBITOR_FLOOR=${DS_INHIBITOR_FLOOR:-0.0}
       # Scope: "loops" (default) applies the floor only to inhibitor edges in

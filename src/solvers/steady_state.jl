@@ -646,7 +646,7 @@ function solve_scc_ordered!(
     #       with gamma = 0 the all-zero state is a stationary point AND a
     #       global minimum (gradient exactly 0, L = 0), tied with the correct
     #       answer, so nothing prefers the right root -- which is the defect
-    #       Adam described. With gamma = 0.1 the correct state scores ~1e28
+    #       described in review. With gamma = 0.1 the correct state scores ~1e28
     #       better. See specs/003 research.md section 2.
     #
     # Observations stay pinned here; making them weighted is FR4, Stage 3.

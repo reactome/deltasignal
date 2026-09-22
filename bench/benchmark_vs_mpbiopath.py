@@ -56,7 +56,7 @@ DS_BASE = os.environ.get("DELTASIGNAL_BASE", "http://127.0.0.1:8080")
 # Neo4j (read-only; uses the same image the generator uses)
 NEO4J_URL = os.environ.get("NEO4J_URL", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "test")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
 
 DOWN, NORMAL, UP = 0, 1, 2
 

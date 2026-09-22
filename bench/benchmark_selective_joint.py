@@ -26,13 +26,24 @@ from py2neo import Graph
 
 DS = os.environ.get("DS_URL", "http://127.0.0.1:8080")
 CAT = Path(os.environ.get("PATHWAY_CATALOG",
-                          "/home/awright/gitroot/logic-network-generator/output"))
+                          str(Path.home() / "gitroot" / "logic-network-generator" / "output")))
 MPBIO = Path(os.environ.get("MPBIO_ROOT",
-                            "/home/awright/gitroot/mp-biopath-pathways"))
+                            str(Path.home() / "gitroot" / "mp-biopath-pathways")))
 
-graph = Graph(os.environ.get("NEO4J_URL", "bolt://localhost:7687"),
-              auth=(os.environ.get("NEO4J_USER", "neo4j"),
-                    os.environ.get("NEO4J_PASSWORD", "test")))
+# Connected lazily: constructing a Graph at import time made importing this
+# module require a live Neo4j.
+_graph = None
+
+
+def graph_conn():
+    global _graph
+    if _graph is None:
+        pw = os.environ.get("NEO4J_PASSWORD", "")
+        if not pw:
+            raise RuntimeError("NEO4J_PASSWORD is not set; see .env.example")
+        _graph = Graph(os.environ.get("NEO4J_URL", "bolt://localhost:7687"),
+                       auth=(os.environ.get("NEO4J_USER", "neo4j"), pw))
+    return _graph
 
 def api(path, body):
     r = Request(f"{DS}{path}", data=json.dumps(body).encode(),
@@ -155,7 +166,7 @@ def main():
 
     # Gene → stids (bulk)
     gene_names = sorted({c["gene"] for c in cases})
-    rows = graph.run(
+    rows = graph_conn().run(
         "UNWIND $names AS gn MATCH (re:ReferenceEntity)<-[:referenceEntity]-(pe:PhysicalEntity) "
         "WHERE gn IN re.geneName RETURN gn AS gene, COLLECT(DISTINCT pe.stId) AS stids",
         names=gene_names).data()

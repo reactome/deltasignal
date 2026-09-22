@@ -6,7 +6,7 @@
 
 ## 1. How this was found
 
-Tracing `no_path` cases end to end, per Adam's rule (trace cases, not
+Tracing `no_path` cases end to end, per the project rule (trace cases, not
 aggregates). `no_path` is the largest wrong-case bucket on the current dump:
 **1,478 of 3,979** wrong cases, every one predicted NORMAL because no route
 exists from the perturbed gene to the readout at the uuid level.
@@ -81,8 +81,8 @@ boundary expansion:
 readout_uuid = str(uuid.uuid4())
 ```
 
-Adam specified it (2026-05-27): "entities should come out separately so we can
-say this part is active, that part isn't." It followed an A/B on the held-out
+Specified 2026-05-27: entities should come out separately so that one part can
+be reported active while another is not. That followed an A/B on the held-out
 set:
 
 | boundary edges the solver used | held-out e2e | false-positive change |

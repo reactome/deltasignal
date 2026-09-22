@@ -60,7 +60,7 @@ class TestSummaryMetrics:
     def test_lazy_all_normal_predictor_scores_zero_on_change(self):
         """The whole reason macro-F1 is the primary metric.
 
-        Adam's rule: do not reward "say no change". A predictor that answers
+        Project rule: do not reward "say no change". A predictor that answers
         NORMAL to everything must score 0 on both change classes, so accuracy
         can look good while macro-F1 does not.
         """

@@ -6,8 +6,8 @@
 
 **Status**: Implemented — see Outcome
 
-**Input**: User description: "Small molecules like ATP must not act as signal
-conduits, but the logic networks must keep them."
+**Input**: small molecules such as ATP must not act as signal conduits, but
+the logic networks must keep them.
 
 ## Context
 

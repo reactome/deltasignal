@@ -8,10 +8,11 @@
 
 ## Why this exists
 
-The specification for AND is multiplication of fold-changes capped at 100 —
-Adam, 2026-09-17: *"making sure the math comes out when numbers are below 1 is
-as important as those above one. 1/2 * 1/2 should be close to 1/4"* and
-*"100*100 should be 100"*.
+The specification for AND is multiplication of fold-changes capped at 100. The
+requirement restated on 2026-09-17 is that the maths must come out for numbers
+**below** 1 as well as above it, with two worked cases given as the
+specification: `1/2 * 1/2` should be close to `1/4`, and `100 * 100` should be
+`100`.
 
 Measured against that specification, the shipped default was accurate above
 baseline and badly wrong below it, and a knockout was not a knockout.

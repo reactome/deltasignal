@@ -78,7 +78,7 @@ python bench/run_mpbiopath_factorial.py \
 
 This crosses each frozen graph catalog with legacy/current propagation and
 flat/SCC solving. Stoichiometric weighting is intentionally absent: current
-production defaults do not use it, and Adam's perturbation tests found no
+production defaults do not use it, and the lead's perturbation tests found no
 accuracy improvement from enabling it.
 
 After completing the current-SCC diagram-on and diagram-off runs, generate the
@@ -275,3 +275,19 @@ seed. UUID-labeled CSV hashes differed because LNG still creates random UUID4
 identifiers, but a 20-round attributed graph-refinement check produced the same
 semantic graph hash for both runs. Deterministic UUID5 identifiers would make
 byte-level provenance and run comparison much cleaner.
+
+## Scripts that query Reactome Neo4j
+
+`bench/analysis/build_gene_cache.py`, `check_silo_bug.py`,
+`curated_reachability.py` and `bench/benchmark_vs_mpbiopath.py` read a local
+Reactome graph database. They take their connection from the environment and
+**will not run until `NEO4J_PASSWORD` is set** — there is deliberately no
+default, because this repository is public. See `.env.example`.
+
+```bash
+export NEO4J_URL=bolt://localhost:7687 NEO4J_USER=neo4j NEO4J_PASSWORD=...
+```
+
+A missing password raises `RuntimeError`, not `SystemExit`, so a best-effort
+caller (for example the display-name lookup in `check_silo_bug.py`) still
+degrades to no names rather than aborting the run.

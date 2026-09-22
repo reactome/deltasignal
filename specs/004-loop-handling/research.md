@@ -28,7 +28,7 @@ Zero self-loops in any MP-BioPath network. Four of the nine published are
 fully acyclic; the largest component anywhere is eleven nodes. Catalog-wide
 the LNG networks hold 4,561 cycle-resident nodes.
 
-Adam's account is confirmed by the artifacts. **Consequence: the published
+That account is confirmed by the artifacts. **Consequence: the published
 365-versus-407 comparison is not like-for-like and never has been.**
 
 ## R2 — NEGATIVE, and a bug I nearly reported that is not one
@@ -237,7 +237,7 @@ more effort goes into loop interventions.
 - **A new candidate has appeared that is cheaper than any loop
   intervention**: the 204-case proxy bucket. It belongs in this feature's
   reporting because it changes the denominator of every comparison, but the
-  decision to enable proxies is a benchmark-methodology change and is Adam's
+  decision to enable proxies is a benchmark-methodology change and is the lead's
   call, not one to make silently mid-feature.
 
 ---
@@ -332,7 +332,7 @@ where nearly all the effort has historically gone.
 3. **004's loop interventions are correctness work, not accuracy work**, and
    should be framed and measured as such.
 
-## R13 — Overfitting audit (Adam: "make sure we are not overfitting")
+## R13 — Overfitting audit (requested review: confirm we are not overfitting)
 
 Three checks passed, one correction to R12, and three risks that stand.
 

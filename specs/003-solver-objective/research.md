@@ -26,10 +26,10 @@ derivative-free method is needed.** The `where {T<:Real}` scaffolding on
 
 ## 2. The all-zero root is a global minimum when γ = 0
 
-The `x = 0.0` row above is not an artifact. It is Adam's observation, stated
-exactly: *"if we had a loop and the numbers should all be 1 or higher, in the
-way we are doing the optimization if all the nodes of the loop are zero the
-math works even though all the inputs to the loop are either one or greater."*
+The `x = 0.0` row above is not an artifact. It is exactly the behaviour flagged
+in review: in a loop whose values should all be at or above baseline, the
+optimisation is satisfied by every node of the loop sitting at zero, even when
+every input feeding the loop is at or above baseline.
 
 With `L = μ‖F(x) − x‖² + γ‖x − x₀‖²`, evaluated at the all-zero state against
 the correct baseline state:
@@ -229,7 +229,7 @@ Survives — all independently measured:
 - Loops have multiple roots; the solve is not a function of the graph
   (0.47pp from UUID relabelling alone, specs/013).
 - At γ=0 the all-zero state is a stationary point AND a global minimum, tied
-  with the correct answer (section 2). Adam's mechanism was right.
+  with the correct answer (section 2). The proposed mechanism was right.
 - A collapsed loop reports `converged = true` at residual 5e-10.
 - More iterations makes divergence worse, not better (section 3).
 - LM makes the minimisation affordable: 814s catalog wall, same as the fixed

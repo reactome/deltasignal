@@ -8,7 +8,7 @@ a Release97 Neo4j only if you re-derive the identifier check).
 ```bash
 export S=/tmp/claude-1001/.../scratchpad
 export W=~/codes_and_results
-export PATH=/home/awright/julia-1.10.10/bin:$PATH
+export PATH=$HOME/julia-1.10.10/bin:$PATH
 export MPB=~/gitroot/mp-biopath-pathways
 ```
 
