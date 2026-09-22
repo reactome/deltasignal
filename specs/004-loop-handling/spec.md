@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "when we made the pathways for mp-biopath that we published we removed loops manually. the LNG pathways retain both positive and negative loops. the MP-BioPath optimization model didn't really handle loops properly. we need to handle them properly here. perhaps our issues are caused by loops?"
+**Input**: the loops published with MP-BioPath were removed manually, while the LNG pathways retain both positive and negative loops. The MP-BioPath optimisation model did not handle loops properly, so DeltaSignal has to. Open question raised with it: are our accuracy problems caused by loops?
 
 ## Why this feature exists
 

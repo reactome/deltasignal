@@ -190,8 +190,9 @@ was one of three things it was silently deciding.
 
 ## R7 — The best solution is no epsilon at all, and this is the same bug twice
 
-On being shown the attribution, the design intent was restated: epsilon was only supposed
-to avoid divide by zero errors."* It was. It wasn't doing that.
+On being shown the attribution, the design intent was restated: epsilon existed
+only to avoid divide-by-zero errors. That was its whole job, and it was not
+doing it.
 
 A divide-by-zero guard has to be small enough to be invisible. Internal
 activities live in [0,1] and Float64 handles 1e-300, so a real guard could be
@@ -325,11 +326,11 @@ the −5 is the lead's call to accept, not mine to absorb.
 
 # R10 — The original suggestion was right: the fix is one line, and my rewrite earned nothing
 
-On the proposed formula change, the design intent was restated: it was needed to avoid
-divide by zero and I thought the solution would just be to make it really
-really small."*
+On the proposed formula change, the design intent was restated: epsilon was
+needed only to avoid divide-by-zero, and the intended fix was simply to make it
+very small.
 
-That is correct, and I should have tested it before building anything. The
+That was correct, and I should have tested it before building anything. The
 blow-up as x → 0 was **never unhandled** — `clamp(result, 0, 10.0)` already
 sat at the end of the branch. So a tiny epsilon gives an exact `bl/x` curve
 in the interior, and the existing clamp handles the division.

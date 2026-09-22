@@ -193,9 +193,10 @@ double count and which are regulation).
 
 ### The generator-side cause, and pre-registered P7 (committed before the regeneration)
 
-Diagnosis raised in review: if these edges are the breaking apart of complexes in terminal outputs
-and root inputs, they should not create loops as they would get different
-uuids." They should, and they do not: boundary expansion's `_leaf_uuid`
+Diagnosis raised in review: if these edges are the breaking apart of
+complexes in terminal outputs and root inputs, they should not create loops,
+because the pieces would get different uuids. They should not, and they do
+not: boundary expansion's `_leaf_uuid`
 reuses a leaf's *existing* node whenever the protein already has one anywhere
 in the network, including a copy that a reaction **produces** downstream of
 the root complex. Census on `cat_os`: of 2,077 cycle-carrying assembly edges,
@@ -332,8 +333,9 @@ against `cat_fix` (next section).
 
 ## Re-evaluation of the welded-era A/Bs on the fixed catalog (pre-registered 2026-09-20 01:50)
 
-Raised in review once the fix landed: with a real fix in place, re-evaluate a
-lot of the other things we were looking into?" Yes: every A/B this month whose
+Raised in review once the fix landed: with a real fix in place, the other
+things under investigation should be re-evaluated. They should, because every
+A/B this month whose
 gain or loss lived in a loop-heavy pathway was partly measuring which side of
 a welded knife-edge a coin landed. Control for all arms below: `ab_fix.tsv`
 (`cat_fix`, production solver). Solver knobs are single-catalog (zero churn);

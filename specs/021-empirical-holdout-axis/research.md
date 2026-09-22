@@ -437,3 +437,36 @@ Cheap, local, and if either fails there is no point going further:
    magnitudes are genuinely depth-invariant, we predict *no* EC50 ordering and
    the test becomes a falsification of the design rather than a confirmation
    of it.
+
+
+---
+
+## Method recovered from a deleted script
+
+`bench/analysis/ependymoma_io_scan.py` was removed because its docstring named
+a collaborator, their lab and their unpublished data. The *method* in it is
+dataset-independent, was not recorded anywhere else, and is the same shape as
+the sizing above, so it is written down here rather than lost.
+
+**The method.** Given a gene set of interest and a pathway catalog, classify
+every member that appears in a pathway as:
+
+- **input-only** — feeds reactions but is not produced in-pathway (a root);
+- **output-only** — produced by a reaction but feeds nothing (a terminal);
+- **both** — an intermediate.
+
+Then find pathways that contain input-only members *and* output-only members
+with a **directed path** between them. Those are the testable cases: pin the
+inputs to their measured values, predict the outputs, and compare the predicted
+direction against the measured one. It is a way of turning any differential
+gene or protein list into a set of "pin these, predict those" cases without
+needing a designed perturbation.
+
+**One helper went with it.** The script carried a *forward* reachability BFS
+(`forward_reachable(outgoing, sources, targets, max_depth)`).
+`bench/analysis/_common.py` has only backward helpers (`bfs_upstream`,
+`shortest_path_back`), so the repo currently has no forward equivalent. Any
+revival of this method needs it rebuilt.
+
+Nothing else was lost: the Cypher gene-to-stable-id query was byte-identical to
+`build_gene_cache.py`, and the loader duplicated `_common.load_one`.

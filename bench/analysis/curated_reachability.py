@@ -25,7 +25,6 @@ part of something larger and the readout is often a complex.
 from __future__ import annotations
 
 import collections
-import os
 
 # Connection details come from _common, which reads the environment and
 # refuses to run without NEO4J_PASSWORD rather than carrying a literal.

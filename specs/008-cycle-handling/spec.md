@@ -10,9 +10,9 @@ gap is a between-pathway confound, not a loop effect. Kept in full as a negative
 result per constitution III. Do not restart this without new evidence that
 survives a within-pathway control.
 
-**Input**: User description: "we need deltasignal to do the right thing with
-these sorts of things where two reactions are connected by inputs and outputs
-making it a loop of two. or other cases."
+**Input**: DeltaSignal must do the right thing where two reactions are
+connected by each other's inputs and outputs, forming a loop of two — and in
+the analogous larger cases.
 
 ## Context
 

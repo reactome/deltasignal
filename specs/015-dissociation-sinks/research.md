@@ -81,8 +81,8 @@ boundary expansion:
 readout_uuid = str(uuid.uuid4())
 ```
 
-Specified 2026-05-27: entities should come out separately so they can
-say this part is active, that part isn't." It followed an A/B on the held-out
+Specified 2026-05-27: entities should come out separately so that one part can
+be reported active while another is not. That followed an A/B on the held-out
 set:
 
 | boundary edges the solver used | held-out e2e | false-positive change |

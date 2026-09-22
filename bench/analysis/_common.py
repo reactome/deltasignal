@@ -282,7 +282,12 @@ def graph():
     if _graph is None:
         from py2neo import Graph
         if not NEO4J_PASSWORD:
-            raise SystemExit(
+            # RuntimeError, deliberately, not SystemExit. SystemExit derives
+            # from BaseException, so it would escape an `except Exception`
+            # guard -- and check_silo_bug.name_lookup() is exactly such a
+            # best-effort caller, which degraded gracefully before and would
+            # have been killed outright.
+            raise RuntimeError(
                 "NEO4J_PASSWORD is not set. Export it (with NEO4J_URL and "
                 "NEO4J_USER if they differ from bolt://localhost:7687 and "
                 "'neo4j') before running a script that queries Reactome."

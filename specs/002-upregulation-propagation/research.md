@@ -107,8 +107,8 @@ network-structure question for a separate feature.
 ## R5 — Two departures from the design, not one; together worth +31
 
 The AND design intent was identified: multiply the fold-changes with a
-Hill-like curve, constrained to 0-100, and "if it is near 1 I want it to be
-extremely close to pure multiplication" — 0.5*0.5=0.25, 1*1=1, 2*0.5=1, and
+Hill-like curve, constrained to 0-100, and near baseline it must behave as
+close to pure multiplication as possible — 0.5*0.5=0.25, 1*1=1, 2*0.5=1, and
 sig(100)*sig(100)=100 rather than 10,000.
 
 Checked against the two implemented curves:

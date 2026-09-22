@@ -2,7 +2,7 @@
 #
 # The AND design intent, pinned at the magnitudes signals actually reach.
 #
-# Adam's specification: AND multiplies fold-changes with a Hill-like curve,
+# Specification: AND multiplies fold-changes with a Hill-like curve,
 # constrained to 0-100 so that 100 x 100 gives 100 rather than 10,000, and
 # "if it is near 1 I want it to be extremely close to pure multiplication" —
 # 0.5*0.5 = 0.25, 1*1 = 1, 2*0.5 = 1.
@@ -110,8 +110,8 @@ end
 @testset "defaults ARE the design intent (specs/010)" begin
     # An honest name, because these two disagree and the tension is real.
     #
-    # specs/002 R5 argued `hill_sat` implements Adam's stated AND intent --
-    # "if it is near 1 I want it to be extremely close to pure multiplication"
+    # specs/002 R5 argued `hill_sat` implements the stated AND intent -- near
+    # baseline it should behave as close to pure multiplication as possible
     # -- and it does: 10x10 reads 99.98 under hill_sat against 74.06 under
     # hill_log, and a lone node at UI 50 reads 50.00 against 41.43. By that
     # argument hill_log is wrong, and the testsets above still pin those
@@ -207,8 +207,8 @@ end
 end
 
 @testset "hill_sat implements the stated AND intent exactly" begin
-    # Adam's specification: AND multiplies fold-changes, capped at 100, and
-    # "1/2 * 1/2 should be close to 1/4" -- below baseline matters as much as
+    # The specification: AND multiplies fold-changes, capped at 100, and
+    # `1/2 * 1/2` should be close to `1/4` -- below baseline matters as much as
     # above it. hill_sat is the mode that implements that shape; it had two
     # epsilons standing in the way, both now removed.
     sat(folds) = and_fold(folds; mode="hill_sat")

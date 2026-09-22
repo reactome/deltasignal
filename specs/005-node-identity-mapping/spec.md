@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "we need to be able to map every node in the database to the LNG node perfectly. and same with the other way around" — and: "two nodes in the reactome pathway diagram that are in the same compartment could be the same thing but in two different places. We need to be able to know which one the uuid was from. this is especially important when interacting with deltasignal through the pathwaydiagram. I know this is confusing. there really should be an id for each node to uniquely identify them but there isn't."
+**Input**: every node in the database must map to an LNG node, and back again. Two glyphs in the same compartment of a Reactome pathway diagram can draw the same entity in two different places, and it must be possible to tell which of them a uuid came from — this matters most when driving DeltaSignal from the pathway diagram. The request was made on the premise that Reactome has no per-node identifier; §"There IS a per-node id" below shows it does.
 
 ## Why this feature exists
 

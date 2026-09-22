@@ -4,7 +4,7 @@ Prerequisites: the dev image `deltasignal-julia-api`, the `deltasignal_julia-cac
 volume, and the production catalog mounted as in `bench/` scripts.
 
 ```bash
-REPO=$(git rev-parse --show-toplevel)
+REPO=$(git rev-parse --show-toplevel) || exit 1   # must be run inside the repo
 run() { docker run --rm -v $REPO/src:/app/src -v $REPO/test:/app/test -v $REPO/examples:/app/examples \
   -v $REPO/Project.toml:/app/Project.toml -v deltasignal_julia-cache:/root/.julia deltasignal-julia-api "$@"; }
 

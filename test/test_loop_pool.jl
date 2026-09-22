@@ -111,7 +111,7 @@ RELABELLINGS = (s -> "zz_" * s, s -> string(hash(s)), s -> reverse(s) * "_q")
         # the knife-edge it replaces: fixed_point does NOT read 2x (it rails or collapses)
         rf = solve(posloop(), Dict("U" => (2.0, 1.0)), "fixed_point")
         @test !(1.5 < fold(rf, "A") < 2.5)
-        # four co-required entries at 1,1,3,2 -> pool 6 (Adam's example)
+        # four co-required entries at 1,1,3,2 -> pool 6 (the worked example from the proposal)
         r4 = solve(fourentry(), Dict("E1" => (1.0, 1.0), "E2" => (1.0, 1.0), "E3" => (3.0, 1.0), "E4" => (2.0, 1.0)), "pool")
         for m in ("A", "B", "C", "D"); @test fold(r4, m) ≈ 6.0 rtol=1e-9; end
         # OR-alternative producers of A: the OR combination mean(3, 1, 1) = 5/3, not the product 3
