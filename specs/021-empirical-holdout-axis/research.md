@@ -268,3 +268,64 @@ functions. State it, and prefer genetic perturbation where the data exists.
 Check, for these 34 sites and 134 perturbed genes, which appear in a dataset
 where the upstream gene is perturbed and the site is measured. That requires
 third-party data and has not been done.
+
+---
+
+## A matching public dataset exists: decryptM 2.0
+
+Searched 2026-09-21. The design proposed above — dose-resolved
+phosphoproteomics under kinase inhibition — has a public dataset built for
+almost exactly it.
+
+**decryptM 2.0**: **17 million peptidoform dose-response curves for 133
+clinical kinase inhibitors** across 5 cell lines (A204, A431, MESSA, SKES1,
+SKLMS1), phosphoproteome and full proteome, with fitted dose-response curves
+per peptidoform. Zenodo `10.5281/zenodo.17533475`; the earlier decryptM
+(Science 2023, `10.1126/science.ade3925`) is the 31-drug predecessor.
+Per-site browsing without a bulk download is possible through ProteomicsDB's
+decryptM explorer, which makes a cheap pilot feasible before committing to the
+full pipeline.
+
+Why it fits the argument we need:
+
+- **site-level** phosphorylation, which is the entity Reactome models;
+- **graded doses**, so the same dataset tests direction *and* magnitude;
+- **clinical kinase inhibitors**, so the perturbed node is a named kinase that
+  our networks contain;
+- dose-response curves are already fitted, so the comparison is against a
+  curve parameter rather than a single noisy measurement.
+
+### What must be checked before this is a plan
+
+1. **The drug-to-target table.** 133 inhibitors, but the list is in the paper's
+   Table S1 and was not enumerated on the record page. The gating question is
+   how many of our **134 perturbed genes** are the primary target of one of
+   them. The classes we need are well represented among clinical kinase
+   inhibitors — EGFR, PI3K, AKT, MEK, ATR, CHK1, WEE1, PLK1, Aurora — but
+   "well represented" is a prior, not a measurement.
+2. **Cell-line coverage is the real risk.** Five lines, and they are sarcoma
+   and epidermoid (rhabdoid, epidermoid carcinoma, uterine sarcoma, Ewing,
+   leiomyosarcoma). A site is only measurable where the protein is expressed
+   and phosphorylated in those lines. DNA-damage and PI3K/AKT readouts are
+   plausible; several of our 16 pathways almost certainly are not represented.
+   **This will shrink 418 triples substantially, and the shrinkage must be
+   reported as coverage, not hidden by quoting only the surviving cases.**
+3. **Inhibition is not knockdown.** Already stated above; with dose-resolved
+   data it is partially testable, since a dose series should look like graded
+   loss of function rather than a switch.
+4. **Direction mapping.** Our benchmark direction codes are knockdown (0) and
+   over-expression (2). An inhibitor series only supplies the knockdown arm, so
+   **half of each triple pair is unavailable** and the over-expression
+   predictions stay untested by this route.
+
+### Pre-registration sketch (to be written properly before any arm)
+
+Score only sites present in both, report coverage first and accuracy second,
+use the knockdown arm only, and make **no tuning decision** against this axis —
+its first outing must be as a held-out witness. The magnitude test is separate
+and stricter: monotonicity of our predicted fold against dose, and attenuation
+with path depth, both pre-specified.
+
+Sources: [decryptM 2.0 dataset](https://zenodo.org/records/17533475) ·
+[Science 2023](https://www.science.org/doi/10.1126/science.ade3925) ·
+[ProteomicsDB decryptM explorer](https://www.proteomicsdb.org/decryptm)
