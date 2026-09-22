@@ -443,8 +443,9 @@ Cheap, local, and if either fails there is no point going further:
 
 ## Method recovered from a deleted script
 
-`bench/analysis/ependymoma_io_scan.py` was removed because its docstring named
-a collaborator, their lab and their unpublished data. The *method* in it is
+A feasibility-scan script under `bench/analysis/` was removed because its
+docstring named a collaborator, their lab and their unpublished data. It is not
+named here either, since the filename carried the disease area. The *method* in it is
 dataset-independent, was not recorded anywhere else, and is the same shape as
 the sizing above, so it is written down here rather than lost.
 
