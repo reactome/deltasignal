@@ -193,3 +193,78 @@ upstream gene is also perturbed?** That needs third-party data.
    design (drug or knockout, measured before and after) does not. Prefer the
    perturbation design even at much smaller n, because the argument is the
    point.
+
+---
+
+## Two different claims, and not mixing them (Adam, 2026-09-21)
+
+> "I think the tcga work was promising. cancer is complicated but showing that
+> we can predict which pathways were effected and correlate it to clusters for
+> clinical outcomes like survival. this might be too hard to make it seam
+> correct as it is messy when we are trying to prove the tool works or is
+> useful."
+
+That is the right split, and it should be enforced in how we write:
+
+| claim | evidence | why it fits |
+|---|---|---|
+| the tool is **correct** | named phospho-sites under perturbation of the responsible kinase | mechanistically specific, protein-level, no proxy step |
+| the tool is **useful** | TCGA pathway-level calls clustered against survival | clinically meaningful, and messiness is tolerable because the claim is weaker |
+
+The failure mode is using the second to argue the first. Tumour data cannot
+establish correctness — co-occurring alterations, lineage effects and selection
+mean a correct prediction and a confounded one look the same. Survival
+association is a genuine result about *utility* and should be presented as
+exactly that, downstream of correctness rather than as a substitute for it.
+
+## The target list (committed: `phosphosite-targets.tsv`)
+
+836 rows — every case whose readout is a named residue on a named protein,
+with the perturbed gene, our prediction, the curator call and whether they
+agree. **34 sites, 418 triples, 134 perturbed genes, 16 pathways.**
+
+The list is favourable, because the canonical kinase-substrate pairs are in it
+and each has a well-characterised inhibitor that phosphoproteomics studies
+routinely profile:
+
+| site | perturbed upstream | cases | curator agreement |
+|---|---|---|---|
+| `p-S317_S345-CHEK1` | ATM, ATR, CHEK1, BRCA1/2 … (48 genes) | 138 | 119/138 |
+| `p-S133-CREB1` | AKT1/2, MAP2K1, MAPK1, EGFR … (33) | 68 | 52/68 |
+| `p-S216-CDC25C` | ATM, ATR, CHEK2, PKN1-3 … (18) | 36 | 32/36 |
+| `p-T369_S640_S964_S975-RBL1` | CDK4, CCND1, CCNE1, MYC … (17) | 34 | **16/34** |
+| `p-S183_T246-AKT1S1` (PRAS40) | AKT1/2, PIK3CA/B, PDPK1 … (16) | 32 | 30/32 |
+| `p-S939_T1462-TSC2` | AKT1/2, PIK3CA/B, PDPK1 … (16) | 32 | 30/32 |
+| `p-S166_S188-MDM2` | AKT1/2, PIK3CA/B, PDPK1 … (16) | 32 | 30/32 |
+| `p-S99-BAD` | AKT1/2, PIK3CA/B, PDPK1 … (16) | 32 | 30/32 |
+| `p-T210-PLK1` | AURKA, PLK1, BORA, TPX2 (6) | 24 | **24/24** |
+| `p-T308_S473-AKT1` | PIK3CA, AKT1, KDR, SRC (7) | 14 | 10/14 |
+| `p-S123-CDC25A` | ATM, ATR, CHEK2, WEE1, TP53 (7) | 14 | **14/14** |
+| `p-Y705-STAT3` | EGFR, ERBB2/3/4, PTK6, DOK1 (7) | 14 | 12/14 |
+
+`p-S345-CHEK1` is the standard readout in every ATR-inhibitor paper.
+`p-T246-PRAS40`, `p-T308/S473-AKT`, `p-S99-BAD` and `p-TSC2` are standard
+PI3K/AKT phospho-panel members. `p-T210-PLK1` is the canonical Aurora-A→PLK1
+readout. These are not obscure assertions we would be asking anyone to take on
+trust.
+
+The weak sites are informative too, not embarrassing: `p-T369…-RBL1` at 16/34
+and `p-S95-PHLDA1` at 6/12 are where we already disagree with the curator, so
+a phospho measurement there discriminates between "we are wrong" and "the
+curator expectation is wrong", which no curator-only comparison can do.
+
+### The one assumption to state out loud
+
+Our benchmark perturbation is gene **knockdown or over-expression**;
+phosphoproteomics perturbation is usually a **small-molecule inhibitor**.
+Treating kinase inhibition as loss-of-function is defensible *for downstream
+phosphorylation specifically* — an inhibited kinase does not phosphorylate its
+substrate — but it is an assumption, not an identity: inhibitors have
+off-targets, and inhibition does not remove scaffolding or non-catalytic
+functions. State it, and prefer genetic perturbation where the data exists.
+
+### Next step
+
+Check, for these 34 sites and 134 perturbed genes, which appear in a dataset
+where the upstream gene is perturbed and the site is measured. That requires
+third-party data and has not been done.
