@@ -69,9 +69,10 @@ docker compose -f docker-compose.dev.yml run --rm julia-api sh -c \
 docker compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/cli/deltasignal.jl solve \
   --network /app/data/output/network.json \
   --observations /app/examples/sample_observations.csv \
-  --output /app/data/output/results.json \
-  --mu 1.0 \
-  --gamma 0.1
+  --output /app/data/output/results.json
+# --mu / --gamma exist but are read ONLY by DS_SCC_METHOD=minimize. Under the
+# default they are inert and reported as `nothing`. Do not copy `--gamma 0.1`:
+# it is measured harmful under the minimiser (a 100x perturbation reads 51x).
 
 # 3. Export results in various formats
 docker compose -f docker-compose.dev.yml run --rm julia-api julia --project=/app /app/cli/deltasignal.jl export \
@@ -234,7 +235,8 @@ env vars only override for benchmark sweeps:
   destroys isoform redundancy), not adopted.
 - `DS_SCC_BREAK_ROLES` (default empty): derived-edge recycling closures
   (assembly, depletion; catalyst) read at their entry value and excluded from
-  component detection — specs/018; measurement in progress.
+  component detection — specs/018. Measured: the generator-side fix absorbed
+  it (the `assembly` arm is now ≈0), so it stays off as the record.
 - `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
   byte-identical defaults for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
@@ -265,22 +267,38 @@ for the last feature that touched it rather than re-deriving from the code.
   (7,013 reactions, 15.8%); deduplicating is −15 held-out, p=0.0015. Both
   mechanisms are real and both are load-bearing — on these networks,
   *bounding* a runaway operator has paid off and *deleting* a wrong term has not.
-- `specs/003-solver-objective/` — **RESOLVED, negative.** Levenberg-Marquardt
+- `specs/003-solver-objective/` — **negative on accuracy.** Levenberg-Marquardt
   made the minimiser fast but it loses at every gamma (held-out −71 / −87 /
   −148). The mechanism findings stand (with gamma = 0 the all-zero state is a
-  global minimum); the accuracy claim does not. `mu` and `gamma` are still
-  reported and read by nothing.
+  global minimum); the accuracy claim does not. `mu` and `gamma` are read
+  **only** by `DS_SCC_METHOD=minimize`; under the default fixed-point method
+  they are inert and are reported as `nothing` with `mu_gamma_read = false`,
+  deliberately, so they cannot be read as having shaped the answer. One design
+  term is still untested (FR4, soft observations), and `minimize` stays
+  reachable because the parameter-learning direction needs it.
+- `specs/006-bounded-derepression/` — the de-repression ceiling in the list
+  above, and the epsilon attribution behind it.
+- `specs/007-cofactor-conduction/` — the record for `DS_COFACTOR_MODE=inert`.
 - `specs/013-solver-label-invariance/` — relabelling a verified-isomorphic
   network **moves predictions**, because sweep order inside a strongly
   connected component comes from Julia `Dict` hash order. Quantified, not
-  fixed, and it is the blocking prerequisite for parameter learning.
+  fixed. It is the blocking prerequisite for parameter learning, which
+  specs/014 and specs/003 state rather than 013 itself.
 - `specs/014-loop-elasticity/` — the positive-cycle knife-edge and the
   sigmoid-epsilon arms.
+- `specs/015-dissociation-sinks/` — released-subunit readout handles traced
+  end to end; the largest class of severed curator routes, and not a lever.
 - `specs/016-curator-oracle/` — read the pathway from Neo4j and diff it
-  against the generated network. Also the composition-edge arms, declined on
-  concentration rather than on harm.
+  against the generated network. Also the composition-edge arms: **an
+  Interferon α/β fix and a loss everywhere else.** The apparent +40 held-out
+  is **−60 outside IFN α/β** (016 E4), and re-measured once the welds were
+  gone it is **−185** (018), because composition edges are the derived class
+  that closes cycles. Refuted, not merely concentrated — an earlier revision
+  of this file said "declined on concentration rather than on harm", which was
+  wrong.
 - `specs/017-loop-pool/` — treating a cyclic component as a conserved pool.
-  Refuted on both axes by a traced case.
+  A traced case refuted it as a blanket rule; the `pool_all` arm refuted it on
+  both axes. Nothing adopted.
 - `specs/018-derived-edge-loops/` — **the largest accuracy finding.** Our own
   boundary expansion welded cycles Reactome does not contain (1,994 of 2,077
   cycle-carrying assembly edges). Fixing it is held-out **+173**, p < 1e-4,
@@ -332,7 +350,8 @@ CI rather than trusting a figure in this file.
 
 **A failing testset used to hide every later one.** A top-level `@testset`
 throws when it finishes with a failure, which aborts the file. In the dev
-container, where `DS_*` overrides contradict the code defaults, that meant
+container, whose `DS_*` overrides then contradicted the code defaults (since
+fixed), that meant
 `test_config_validation.jl` ran 10 assertions and silently skipped **141** —
 the cofactor tests, the silo-bridge tests and the observation-membership test
 all looked green because they never executed. The files now nest their testsets
@@ -359,8 +378,8 @@ local run, and note that adding any dependency silently breaks the container
 again until someone does. `Manifest.toml` is gitignored, so mounting it is not
 a fix.
 
-When adding behaviour, add assertions to one of the three real files or start
-a new one — do not extend a file from the zero-assertion list and assume it is
+When adding behaviour, add assertions to one of the twelve files that assert,
+or start a new one — do not extend a file from the zero-assertion list and assume it is
 covering anything.
 
 ## Project Dependencies

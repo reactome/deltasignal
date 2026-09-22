@@ -41,9 +41,10 @@ jobs:
       - name: Instantiate
         run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - name: Run the suites that actually assert
-        # Only four test files contain assertions; the other seven execute code
-        # and print, and pass whatever the code does. Running the four by name
-        # keeps a green tick meaningful. See CLAUDE.md.
+        # Twelve test files contain assertions; the other seven execute code
+        # and print, and pass whatever the code does. Running the twelve by
+        # name keeps a green tick meaningful, and this job's log is the source
+        # of the per-file counts in CLAUDE.md -- read them here, not there.
         #
         # Deliberately NO DS_* environment here. The code defaults ARE the
         # validated config and the suites pin them; setting overrides in CI

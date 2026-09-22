@@ -42,12 +42,18 @@ this repo's own specs. Verified corrections:
   default, as the measured record". `specs/019:165` says sink bridges are
   "**kept** as an off-by-default generator flag". A policy may override a
   spec, but the queue presented the specs as agreeing with it. They do not.
-- **"Composition: refuted twice" is wrong.** The two numbers are different
-  interventions (default `max`, −79; `limit_novel`, −185 on v1), and between
-  them `specs/016:1132-1135` records `limit_novel` at **+12 held-out alone and
-  +40 with elasticity (p 0.013)**. 016 declined it on *concentration*, not
-  harm, and asked for a re-measure on the share-deduplicated catalog that was
-  never run.
+- **"Composition: refuted twice" was called wrong, and that objection was
+  itself wrong.** I cited `specs/016:1132-1135` (`limit_novel` at +12 held-out
+  alone, +40 with elasticity, p 0.013) and concluded 016 had declined it on
+  *concentration* rather than harm. That reading stopped above the erratum.
+  **016 E4** records the +40 as **−60 outside Interferon α/β** (43/103,
+  p < 0.0001) and concludes verbatim: *"composition edges are an Interferon
+  α/β fix and a loss everywhere else."* Re-measured once the welds were gone,
+  **specs/018 puts it at −185** (137/322; DSB −241, TP53 −151) and calls it
+  *"refuted as an edge on this network"*, because composition edges are the
+  derived class that closes cycles and they re-weld what the fix unwelded.
+  **So "refuted" was right and my correction was wrong.** The lesson is the
+  one this file exists for: read a spec's errata before quoting its headline.
 - **Sink bridges are a null, not a refutation** — p 0.59 and p 0.87. Interferon
   α/β **+100 fixed / 0 broken** is real and unclaimed.
 - **Five of nine rows rest on `cat_os` or the v1 fix catalog**, both superseded.
