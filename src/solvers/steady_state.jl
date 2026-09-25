@@ -109,8 +109,8 @@ function solve_steady_state(
     # Convert network to reactions
     reactions = convert_to_reaction_network(network)
 
-    # specs/022: inhibitors that contain their own reaction's input. Built only
-    # when DS_SELF_INHIBITOR_WEIGHT is set, so the default path is untouched.
+    # specs/022: inhibitors that contain their own reaction's input. Built unless
+    # DS_SELF_INHIBITOR_WEIGHT=off.
     self_shared = _self_inhibitor_weight_env() >= 0 ?
         self_contained_inhibitor_map(network) : Dict{Tuple{String, String}, Vector{String}}()
     
@@ -185,7 +185,7 @@ Depletion edges are not inhibitors here and are never included.
 function self_contained_inhibitor_map(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
     out = Dict{Tuple{String, String}, Vector{String}}()
     if isempty(network.containment)
-        @warn "DS_SELF_INHIBITOR_WEIGHT is set but this network carries no containment table; the rule is inert for this solve."
+        @warn "DS_SELF_INHIBITOR_WEIGHT is on but this network carries no containment table; the rule is inert for this solve." maxlog = 1
         return out
     end
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)

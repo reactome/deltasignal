@@ -80,7 +80,7 @@ services:
       # overexpressing one subunit of a many-membered complex no longer drives
       # the whole complex up. Selective (only assembly edges), so catalytic /
       # signaling propagation is untouched. See core/reaction_model.jl.
-      - DS_ASSEMBLY_LIMITING=${DS_ASSEMBLY_LIMITING:-1}
+      - DS_ASSEMBLY_LIMITING=${DS_ASSEMBLY_LIMITING:-0}
       # SCC-aware solving. 0 = off (default, original behaviour). When set,
       # the solver computes strongly-connected components and relaxes catalyst
       # edges that close a recycling cycle (catalyst source in the same SCC as

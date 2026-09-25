@@ -61,20 +61,20 @@ curl localhost:8080/api/health | jq .catalog    # what the RUNNING API is servin
 
 ## Benchmark protocol: what gets pinned
 
-A perturbed gene resolves to the entities that reference it in Reactome. Then,
-controlled by `DS_PIN_SCOPE` (benchmark-side):
+**Protocol of record (Adam, 2026-09-25): perturb only ROOT inputs that are, or
+contain, the gene**, as the MP-BioPath publication does. The perturbation then
+propagates from root input to terminal readout; if the ends are right, the
+middle is taken to be right. `DS_PIN_SCOPE` (benchmark-side) selects it:
 
-- `all` (**default, and every number since 2026-07-14, `0bd4565`**): every node
-  whose `member_leaves` include the gene is pinned, wherever it sits. That is
-  9,378 pins over 856 perturbations, **89% of them mid-pathway complexes**. A
-  pinned complex is *set*, not computed from the gene, and a generic set
-  complex (e.g. `WLS:WNT`) pinned at 0 knocks out every member ligand.
-- `entry`: only where the gene enters the network, i.e. resolved nodes that no
-  other resolved node reaches. This is the intended protocol: A + B -> AB ->
-  reaction, pin A. Measured in specs/023 at held-out **−402** even with
-  `DS_ASSEMBLY_LIMITING=0`: part of the headline accuracy comes from the pin,
-  not the propagation. **Which protocol is the benchmark of record is an open
-  decision (Adam).** Until it is made, quote numbers with that caveat.
+- `root` (**default**): nodes with no incoming edge that are or contain the
+  gene. A gene with no root form is not perturbed, and its cases are invalid.
+- `entry`: the resolved nodes no other resolved node reaches. It also pins a
+  gene's first mid-pathway occurrence. Measured, not adopted.
+- `all`: every node whose `member_leaves` include the gene. This was the
+  protocol from 2026-07-14 (`0bd4565`) to 2026-09-25: 9,378 pins, 89% of them
+  mid-pathway complexes, which were *set* rather than computed. It is kept only
+  to reproduce numbers from that period, which are **not comparable** to root
+  numbers (specs/023).
 
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
 of inferring the protocol from flags.
@@ -260,7 +260,10 @@ solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
 `reaction_model.jl`). The **code defaults are the validated winning config** —
 env vars only override for benchmark sweeps:
 - `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_sat`, `DS_OR_MODE=mean`,
-  `DS_ASSEMBLY_LIMITING=1`, `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-9`,
+  `DS_ASSEMBLY_LIMITING=0` (**since 2026-09-25, specs/023**: under root pinning
+  the min() blocked every single-subunit overexpression; off is held-out +401),
+  `DS_SELF_INHIBITOR_WEIGHT=0.1` (specs/022+023, below),
+  `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-9`,
   `DS_DEPLETION_H_MIN=0.1` (= 1/`DS_DEPLETION_H_MAX`, so depletion may suppress
   at most as hard as it may de-repress — it was previously floored at ZERO and
   could suppress without limit; +28 held-out at p<0.0001, and it costs PIP3
@@ -313,13 +316,15 @@ env vars only override for benchmark sweeps:
   de-repress it).
   Both A/B'd on the shared catalog, neither adopted; `specs/016` has the arms
   and the traced mechanisms.
-- `DS_SELF_INHIBITOR_WEIGHT` (default unset = off): an inhibitor that
-  *contains* its own reaction's input (a sequestering complex such as WIF1:WNT)
-  counts that input twice under `divide` — one such inhibitor cancels it, two
-  invert it. With `w` in [0, 1] the shared part of the inhibitor's fold is kept
-  only at power `w`, so the reaction reads `x^(1-w)`. Needs the bundle's
-  `containment.csv`; `self_inhibitors` in the solve response counts what was
-  damped. specs/022 holds the pre-registration and the A/B.
+- `DS_SELF_INHIBITOR_WEIGHT=0.1` (default; `off` restores the old product): an
+  inhibitor that *contains* its own reaction's input (a sequestering complex
+  such as WIF1:WNT, or RUNX1 mRNA:miR-675 RISC) counts that input twice under
+  `divide`: one such inhibitor cancels it, two invert it. With `w` the shared
+  part of the inhibitor's fold is kept only at power `w`, so the reaction reads
+  `x^(1-w)`; the independent part keeps full strength. It needs the bundle's
+  `containment.csv`, and `self_inhibitors` in the solve response counts what
+  was damped. Under root pinning it is held-out +90 (+57 without the top
+  pathway). specs/022 has the rule; specs/023 has the adoption.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -409,14 +414,14 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 192 | |
+| `test/test_config_validation.jl` | 193 | |
 | `test/test_loop_elasticity.jl` | 150 | + 1 `@test_broken` |
-| `test/test_propagator_invariants.jl` | 120 | |
+| `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
 | `test/test_solver_determinism.jl` | 80 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 40 | specs/022, added 2026-09-25 |
+| `test/test_self_inhibition.jl` | 42 | specs/022, added 2026-09-25 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

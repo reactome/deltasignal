@@ -939,7 +939,7 @@ struct ReactionEvalConfig
     composition_group::Bool
     composition_mode::String
     depletion_own_product::String
-    self_inhibitor_weight::Float64   # < 0 = off (default). specs/022.
+    self_inhibitor_weight::Float64   # < 0 = off. Default 0.1. specs/022.
 end
 
 """
@@ -1106,7 +1106,15 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # were pinned across a median of 17 nodes, some adjacent to the
         # readout — conditions where an increase barely had to cross a complex
         # and the clamp therefore cost almost nothing.
-        _bool_env("DS_ASSEMBLY_LIMITING", true),
+        #
+        # 2026-09-25, specs/023: OFF by default. Under the protocol of record
+        # (pin only ROOT inputs, as MP-BioPath does) the min() made every
+        # single-subunit overexpression unable to raise its complex -- KMT2C
+        # 80x into MLL3 read min(80,1,1,1,1) = 1 -- and the old broad pins had
+        # hidden that by setting complexes directly. Measured under root pins:
+        # limiting off is held-out +401 (565 / 164), 50 of 58 pathways up,
+        # experimental +89. Set DS_ASSEMBLY_LIMITING=1 for the min() rule.
+        _bool_env("DS_ASSEMBLY_LIMITING", false),
         # 1e-5, not 1e-3. The epsilon smooths the saturation corners, but at
         # 1e-3 it EXCEEDS the internal values where knockouts live (~0.0006)
         # and acts as a floor on the whole network: 0.25x0.25 read 0.09
@@ -1284,19 +1292,25 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # by the shared input is kept only at power w (split across the
         # reaction's self-contained inhibitors), so the input sets the
         # direction and the inhibitor damps it: the reaction reads x^(1-w).
-        # The inhibitor's independent part keeps full strength. Unset = off,
-        # byte-identical. w is a single structural weight, fixed a priori and
-        # meant to be learned later.
+        # The inhibitor's independent part keeps full strength. Default 0.1
+        # (adopted in specs/023); "off" is the old product. w is a single
+        # structural weight, fixed a priori and meant to be learned later.
         _self_inhibitor_weight_env(),
     )
 end
 
+# Default 0.1 since 2026-09-25 (specs/022, re-measured under root pinning in
+# specs/023: held-out +90, +57 without the top pathway). "off" restores the old
+# product, where a self-contained inhibitor counts its input twice.
+const SELF_INHIBITOR_WEIGHT_DEFAULT = 0.1
+
 function _self_inhibitor_weight_env()::Float64
     raw = strip(get(ENV, "DS_SELF_INHIBITOR_WEIGHT", ""))
-    isempty(raw) && return -1.0
+    isempty(raw) && return SELF_INHIBITOR_WEIGHT_DEFAULT
+    lowercase(raw) == "off" && return -1.0
     w = _float_env("DS_SELF_INHIBITOR_WEIGHT", -1.0)
     0.0 <= w <= 1.0 || throw(ArgumentError(
-        "DS_SELF_INHIBITOR_WEIGHT=$raw must be in [0, 1] (unset = off); a weight " *
+        "DS_SELF_INHIBITOR_WEIGHT=$raw must be in [0, 1] or \"off\"; a weight " *
         "above 1 would invert the input, below 0 would amplify the double count."))
     return w
 end

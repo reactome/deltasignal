@@ -139,6 +139,7 @@ end
 @testset "defaults are the validated winning config" begin
     for name in ("DS_INHIBITION_MODE", "DS_AND_MODE", "DS_OR_MODE",
                  "DS_ASSEMBLY_LIMITING", "DS_OR_COMBINE", "DS_INHIBITOR_OR",
+                 "DS_SELF_INHIBITOR_WEIGHT",
                  "DS_HILL_SAT_EPS")
         haskey(ENV, name) && delete!(ENV, name)
     end
@@ -155,7 +156,10 @@ end
     # are reverted here. Attribution and numbers: specs/009-solver-defaults.
     @test config.and_mode == "hill_sat"
     @test config.or_mode == "mean"
-    @test config.assembly_limiting == true
+    # specs/023 (2026-09-25): off under the root-pinning protocol of record.
+    @test config.assembly_limiting == false
+    # specs/022, adopted in specs/023.
+    @test config.self_inhibitor_weight == 0.1
     # Only consulted when and_mode is hill_sat, so inert at the current
     # default. Kept sized correctly so switching AND mode does not also
     # silently re-introduce a 10%-of-baseline epsilon.

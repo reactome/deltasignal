@@ -62,7 +62,9 @@ end
         @test cfg.and_mode == "hill_sat"
         @test cfg.inhibition_mode == "divide"
         @test cfg.or_mode == "mean"
-        @test cfg.assembly_limiting
+        # Off since specs/023 (root pinning protocol); w = 0.1 since specs/022+023.
+        @test !cfg.assembly_limiting
+        @test cfg.self_inhibitor_weight == 0.1
         if cfg.and_mode != "hill_sat" || cfg.inhibition_mode != "divide"
             @warn "Propagator invariants describe and_mode=hill_sat / " *
                   "inhibition_mode=divide. The resolved config differs, so the " *
@@ -197,10 +199,17 @@ end
         # component caps the container, a plain AND input does not.
         # (A=0 would make both sides 0 under hill_sat's 0 x anything = 0 and
         # the assertion vacuous; A=0.5 discriminates: 0.005 vs 0.25)
-        obs = Dict("A" => (0.5, 1.0), "B" => (50.0, 1.0))
-        c = DeltaSignal.solve_steady_state(comp_net("composition"), obs, P).node_activities["X"]
-        i = DeltaSignal.solve_steady_state(comp_net("input"), obs, P).node_activities["X"]
-        @test c < i
+        # Pinned ON here: this asserts what the limiting rule does, and the
+        # default has been off since specs/023.
+        prev = get(ENV, "DS_ASSEMBLY_LIMITING", nothing); ENV["DS_ASSEMBLY_LIMITING"] = "1"
+        try
+            obs = Dict("A" => (0.5, 1.0), "B" => (50.0, 1.0))
+            c = DeltaSignal.solve_steady_state(comp_net("composition"), obs, P).node_activities["X"]
+            i = DeltaSignal.solve_steady_state(comp_net("input"), obs, P).node_activities["X"]
+            @test c < i
+        finally
+            prev === nothing ? delete!(ENV, "DS_ASSEMBLY_LIMITING") : (ENV["DS_ASSEMBLY_LIMITING"] = prev)
+        end
     end
 
     @testset "DS_COMPOSITION_MODE=limit: a component can lower its container, never raise it" begin
@@ -403,6 +412,10 @@ end
         # sit at baseline. Grouping composition inputs by base entity -- max
         # within a group, min across groups -- makes copies of one entity
         # alternatives and distinct components co-required.
+        # Grouping is "max within a group, MIN across groups", i.e. a refinement
+        # of the limiting rule, so it is exercised with DS_ASSEMBLY_LIMITING=1
+        # (off by default since specs/023). Restored at the end of the testset.
+        prev_lim = get(ENV, "DS_ASSEMBLY_LIMITING", nothing); ENV["DS_ASSEMBLY_LIMITING"] = "1"
         N(id, stid) = DeltaSignal.NetworkNode(id, stid, "unknown", nothing, id, 0.01)
         # two shards of BCDX2 (same stable id, one a ::variant), one CX3, one container
         nodes = Dict("b1" => N("b1", "R-HSA-5685316"), "b2" => N("b2", "R-HSA-5685316::variant::R-HSA-1"),
@@ -446,6 +459,7 @@ end
                 @test_throws ArgumentError DeltaSignal.solve_steady_state(net, ko_one_shard, P)
             end
         end
+        prev_lim === nothing ? delete!(ENV, "DS_ASSEMBLY_LIMITING") : (ENV["DS_ASSEMBLY_LIMITING"] = prev_lim)
     end
 end
 

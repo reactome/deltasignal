@@ -37,7 +37,7 @@ function fixture(; containment = Dict("R-C1" => Set(["R-L", "R-X"]), "R-C2" => S
 end
 
 "Fold of T with L, C1, C2 pinned at `x` (UI = fold) and C3 at `c3`."
-function t_fold(net; x, c1 = x, c2 = x, c3 = 1.0, w = nothing)
+function t_fold(net; x, c1 = x, c2 = x, c3 = 1.0, w = "off")
     with_env("DS_SELF_INHIBITOR_WEIGHT" => w) do
         obs = Dict("L" => (x, 1.0), "F" => (1.0, 1.0), "C1" => (c1, 1.0),
                    "C2" => (c2, 1.0), "C3" => (c3, 1.0))
@@ -48,10 +48,14 @@ end
 
 @testset "self-contained inhibition (specs/022)" begin
 
-@testset "off by default: the double count is reproduced exactly" begin
+@testset "default is 0.1 (specs/023); off reproduces the double count exactly" begin
     with_env("DS_SELF_INHIBITOR_WEIGHT" => nothing) do
+        @test DS.resolve_reaction_eval_config().self_inhibitor_weight == 0.1
+    end
+    with_env("DS_SELF_INHIBITOR_WEIGHT" => "off") do
         @test DS.resolve_reaction_eval_config().self_inhibitor_weight == -1.0
     end
+    @test t_fold(fixture(); x = 0.5, w = nothing)[1] ≈ 0.5^0.9 rtol = 1e-6   # unset = the default
     net = fixture()
     for (x, want) in ((0.5, 2.0), (0.2, 2.0), (0.05, 0.5), (2.0, 0.5))
         got, n = t_fold(net; x = x)
