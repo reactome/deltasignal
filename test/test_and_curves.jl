@@ -132,7 +132,9 @@ end
     end
     config = resolve_reaction_eval_config()
     @test config.and_mode == "hill_sat"
-    @test config.assembly_limiting == true
+    # Off since specs/023: under root pinning min() blocked every single-subunit
+    # overexpression (held-out +401 with it off).
+    @test config.assembly_limiting == false
     # Inert while and_mode is hill_log; kept correctly sized so switching the
     # AND mode cannot silently restore a 10%-of-baseline epsilon.
     @test config.hill_sat_eps ≈ 1e-9

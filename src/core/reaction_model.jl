@@ -67,7 +67,7 @@ struct Reaction
     # activator_uuids. Assembly edges are the synthetic member→complex edges of
     # a decomposed complex: a Complex is the AND of its subunits and cannot
     # exceed the abundance of its scarcest subunit (hard stoichiometric cap).
-    # Used by DS_ASSEMBLY_LIMITING to aggregate assembly inputs with a
+    # Used by DS_ASSEMBLY_LIMITING (off by default since specs/023) to aggregate assembly inputs with a
     # limiting-reactant (min) rule instead of the permissive DS_AND_MODE, so
     # overexpressing one subunit of a many-membered complex doesn't spuriously
     # drive the whole complex up (the dominant curator OE false-positive mode).
@@ -420,6 +420,11 @@ struct IndexedReaction
                                             # strong proportional repression is
                                             # unphysical; protein-level feedback
                                             # (no gene input) keeps full strength.
+    inhibitor_shared::Vector{Vector{Int}}   # per-inhibitor: node indices of this
+                                            # reaction's activators that the
+                                            # inhibitor CONTAINS and is computed
+                                            # from (specs/022). Empty when
+                                            # DS_SELF_INHIBITOR_WEIGHT=off.
     depletion_indices::Vector{Int}          # catalyst→substrate "consumption"
     depletion_break::Vector{Bool}           # per-depletion: a recycling CLOSURE
                                             # (source and target in one SCC) under
@@ -506,6 +511,8 @@ function index_reactions(
     baselines::Dict{String, Float64},
     gene_uuids::Set{String} = Set{String}();
     stats::Union{Nothing, Dict{String, Any}} = nothing,
+    self_shared::Dict{Tuple{String, String}, Vector{String}} =
+        Dict{Tuple{String, String}, Vector{String}}(),
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # Node indices that are gene entities (inputs to transcription/expression
     # reactions). Used to detect transcriptional autoregulation loops.
@@ -591,13 +598,20 @@ function index_reactions(
         # is missing (legacy Reaction constructors).
         inh_is_and = [k <= length(r.inhibitor_is_and) ? r.inhibitor_is_and[k] : r.is_and_gate
                       for k in inh_orig]
+        # specs/022: which of this reaction's activators each inhibitor contains,
+        # keyed by (inhibitor uuid, target uuid) and aligned with inh_indices.
+        inh_shared = [Int[uuid_to_idx[a]
+                          for a in get(self_shared, (r.inhibitor_uuids[k], r.target_uuid), String[])
+                          if haskey(uuid_to_idx, a)]
+                      for k in inh_orig]
 
         push!(raw, (
             target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
             act_indices=act_indices, act_is_and=act_is_and,
             act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
             act_group=act_group,
-            inh_indices=inh_indices, inh_is_and=inh_is_and, dep_indices=dep_indices,
+            inh_indices=inh_indices, inh_is_and=inh_is_and, inh_shared=inh_shared,
+            dep_indices=dep_indices,
             sub_indices=sub_indices, params=params,
         ))
     end
@@ -814,10 +828,13 @@ function index_reactions(
             rec.target_idx, rec.baseline,
             rec.act_indices, rec.act_is_and, act_break, act_in_loop,
             rec.act_is_assembly, comp_redundant, rec.act_group,
-            rec.inh_indices, rec.inh_is_and, in_loop, in_transcription,
+            rec.inh_indices, rec.inh_is_and, in_loop, in_transcription, rec.inh_shared,
             rec.dep_indices, closure_dep[ri], dep_own,
             rec.sub_indices, rec.params,
         ))
+    end
+    if stats !== nothing
+        stats["self_inhibitors"] = sum((count(!isempty, r.inhibitor_shared) for r in indexed); init = 0)
     end
     return indexed, comp_id, n_comp
 end
@@ -922,6 +939,7 @@ struct ReactionEvalConfig
     composition_group::Bool
     composition_mode::String
     depletion_own_product::String
+    self_inhibitor_weight::Float64   # < 0 = off. Default 0.1. specs/022.
 end
 
 """
@@ -1052,7 +1070,7 @@ Invalid values raise `ArgumentError` here, at the single resolution point,
 rather than silently selecting a different model deeper in the dispatch.
 """
 function resolve_reaction_eval_config()::ReactionEvalConfig
-    return ReactionEvalConfig(
+    cfg = ReactionEvalConfig(
         _mode_env("DS_INHIBITION_MODE", "divide"),
         # hill_sat. AND is multiplication of fold-changes capped at 100 --
         # 0.5*0.5 = 0.25, 0.1*0.1 = 0.01, 0*x = 0, 10*10 = 100, 100*100 = 100 --
@@ -1088,7 +1106,15 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # were pinned across a median of 17 nodes, some adjacent to the
         # readout — conditions where an increase barely had to cross a complex
         # and the clamp therefore cost almost nothing.
-        _bool_env("DS_ASSEMBLY_LIMITING", true),
+        #
+        # 2026-09-25, specs/023: OFF by default. Under the protocol of record
+        # (pin only ROOT inputs, as MP-BioPath does) the min() made every
+        # single-subunit overexpression unable to raise its complex -- KMT2C
+        # 80x into MLL3 read min(80,1,1,1,1) = 1 -- and the old broad pins had
+        # hidden that by setting complexes directly. Measured under root pins:
+        # limiting off is held-out +401 (565 / 164), 50 of 58 pathways up,
+        # experimental +89. Set DS_ASSEMBLY_LIMITING=1 for the min() rule.
+        _bool_env("DS_ASSEMBLY_LIMITING", false),
         # 1e-5, not 1e-3. The epsilon smooths the saturation corners, but at
         # 1e-3 it EXCEEDS the internal values where knockouts live (~0.0006)
         # and acts as a floor on the whole network: 0.25x0.25 read 0.09
@@ -1259,7 +1285,44 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         #       propagator cannot tell the two apart at the node; which the
         #       curators expect more often is the A/B.
         _mode_env("DS_DEPLETION_OWN_PRODUCT", "full"),
+        # specs/022. An inhibitor that CONTAINS one of its reaction's inputs
+        # (a sequestering complex such as WIF1:WNT) moves with that input, and
+        # `divide` then counts the input twice: one such inhibitor cancels it,
+        # two invert it. With w set, the part of the inhibitor's fold explained
+        # by the shared input is kept only at power w (split across the
+        # reaction's self-contained inhibitors), so the input sets the
+        # direction and the inhibitor damps it: the reaction reads x^(1-w).
+        # The inhibitor's independent part keeps full strength. Default 0.1
+        # (adopted in specs/023); "off" is the old product. w is a single
+        # structural weight, fixed a priori and meant to be learned later.
+        _self_inhibitor_weight_env(),
     )
+    # DS_COMPOSITION_GROUP refines the limiting rule (max within a group, min
+    # across groups). With limiting off -- the default since specs/023 -- it
+    # would be silently inert, which is the silent-substitution failure these
+    # guard rails exist to stop.
+    if cfg.composition_group && !cfg.assembly_limiting
+        throw(ArgumentError("DS_COMPOSITION_GROUP=1 only acts under DS_ASSEMBLY_LIMITING=1 " *
+                            "(off by default since specs/023); set both or neither."))
+    end
+    return cfg
+end
+
+# Default 0.1 since 2026-09-25 (specs/022, re-measured under root pinning in
+# specs/023: held-out +90, +57 without the top pathway). "off" restores the old
+# product, where a self-contained inhibitor counts its input twice.
+const SELF_INHIBITOR_WEIGHT_DEFAULT = 0.1
+const SELF_INHIBITOR_FOLD_FLOOR = 1e-3
+
+function _self_inhibitor_weight_env()::Float64
+    raw = strip(get(ENV, "DS_SELF_INHIBITOR_WEIGHT", ""))
+    isempty(raw) && return SELF_INHIBITOR_WEIGHT_DEFAULT
+    lowercase(raw) == "off" && return -1.0
+    w = _float_env("DS_SELF_INHIBITOR_WEIGHT", -1.0)
+    0.0 <= w <= 1.0 || throw(ArgumentError(
+        "DS_SELF_INHIBITOR_WEIGHT=$raw must be in [0, 1] or \"off\"; a weight " *
+        "above 1 would invert the input, below 0 would amplify the double count."))
+    return w
 end
 
 function _loop_elasticity_hi_env()::Float64
@@ -1343,8 +1406,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # aggregated with a limiting-reactant (min) rule and injected as a SINGLE
     # AND input below: a complex cannot exceed the abundance of its scarcest
     # subunit, so overexpressing one member of a many-subunit complex must not
-    # drive the complex up. When off, assembly inputs fall through to the normal
-    # AND/OR handling (byte-for-byte unchanged default).
+    # drive the complex up. When off -- the DEFAULT since specs/023 -- assembly
+    # inputs fall through to the normal AND/OR handling, so an overexpressed
+    # subunit raises its complex (what the root-pinned benchmark expects).
     assembly_limiting = config.assembly_limiting
     assembly_min = typemax(T)
     have_assembly = false
@@ -1833,8 +1897,44 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         result = one(T)
         or_h = one(T)
         have_or = false
+        w_self = config.self_inhibitor_weight
+        n_self = w_self >= 0 ? count(!isempty, rxn.inhibitor_shared) : 0
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
+            if n_self > 0 && !isempty(rxn.inhibitor_shared[k])
+                # specs/022. Split the inhibitor's change, in log space, into
+                # the part its shared inputs explain and the independent rest,
+                # and keep the explained part only at weight w/n.
+                #
+                #   l_i = log fold of the inhibitor, l_s = log fold of the
+                #   shared inputs. Explained e = the overlap: same sign as
+                #   both, magnitude min(|l_i|, |l_s|); 0 if they move apart.
+                #   Effective l = (l_i - e) + (w/n) e.
+                #
+                # Tracking fully (l_i = l_s): reads x^(1-w). Tracking partly
+                # (l_i = 0.3 l_s, e.g. an OR-mean with other producers): that
+                # partial response is DAMPED, not deleted. The first version
+                # divided the whole input fold out (l_i - l_s) and, after the
+                # weaken-only clamp, removed the inhibitor outright in 722 of
+                # 1,214 probed catalog cases (re-review of PR #72) -- which is
+                # the edge deletion specs/012 measured as harmful, not this
+                # rule. Moving apart: untouched. Since |l - l_i| never exceeds
+                # |e| and has the opposite sign to l_i, the rule can only
+                # weaken an inhibitor; the clamp below is a safety net.
+                # Folds are floored at SELF_INHIBITOR_FOLD_FLOOR (1e-3) so a
+                # knockdown near 0 cannot swing the logs.
+                fl = T(SELF_INHIBITOR_FOLD_FLOOR)
+                f_s = one(T)
+                for a in rxn.inhibitor_shared[k]
+                    f_s *= clamp(x[a], zero(T), one(T)) / bl
+                end
+                l_s = log(max(f_s, fl))
+                l_i = log(max(x_inh / bl, fl))
+                e = (l_s * l_i > 0) ? sign(l_i) * min(abs(l_i), abs(l_s)) : zero(T)
+                l_eff = (l_i - e) + (T(w_self) / n_self) * e
+                x_new = clamp(bl * exp(l_eff), zero(T), one(T))
+                x_inh = clamp(x_new, min(x_inh, bl), max(x_inh, bl))
+            end
             h_k = (bl + eps_T) / (x_inh + eps_T)
             apply_floor = floor_scope == "all" ||
                           (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k]) ||

@@ -317,13 +317,19 @@ def grab(log):
 r = {"catalog_build": build, "solver_commit": ds,
      "run_at": datetime.datetime.now().isoformat(timespec="seconds"),
      "curator": grab("curator.log"), "experimental": grab("experimental.log")}
+# The perturbation protocol is part of the result (specs/023: pins had silently
+# become every complex containing the gene for two months).
+cur = open(f"{out}/curator.log").read()
+for key, pat in (("protocol", r"^Protocol: (.*)$"), ("pinned", r"^Pinned: (.*)$")):
+    m = re.search(pat, cur, re.M)
+    r[key] = m.group(1) if m else None
 h = open(f"{out}/holdout.txt").read()
 m = re.search(r"HELD-OUT \(report this\)\s+\d+\s+(\d+)\s+([\d.]+)\s+([\d.]+)", h)
 r["curator_held_out"] = ({"cases": int(m.group(1)), "accuracy": float(m.group(2)),
                           "macro_f1": float(m.group(3))} if m else None)
 # A result with a missing metric is not a result. Recording nulls and exiting 0
 # would look like a successful run.
-missing = [k for k in ("curator", "experimental", "curator_held_out") if r[k] is None]
+missing = [k for k in ("curator", "experimental", "curator_held_out", "protocol") if r[k] is None]
 if missing:
     sys.exit(f"catalog: could not parse {', '.join(missing)} from the benchmark output; "
              f"the output format may have changed. Nothing recorded as RESULTS.json.")

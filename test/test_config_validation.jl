@@ -136,9 +136,25 @@ end
     end
 end
 
+@testset "DS_COMPOSITION_GROUP without limiting is a startup error" begin
+    # It refines the limiting rule; under the default (limiting off, specs/023)
+    # it would silently do nothing.
+    with_env("DS_COMPOSITION_GROUP", "1") do
+        with_env("DS_ASSEMBLY_LIMITING", "0") do
+            err = try resolve_reaction_eval_config() catch e; e end
+            @test err isa ArgumentError
+            @test occursin("DS_ASSEMBLY_LIMITING", err.msg)
+        end
+        with_env("DS_ASSEMBLY_LIMITING", "1") do
+            @test resolve_reaction_eval_config().composition_group
+        end
+    end
+end
+
 @testset "defaults are the validated winning config" begin
     for name in ("DS_INHIBITION_MODE", "DS_AND_MODE", "DS_OR_MODE",
                  "DS_ASSEMBLY_LIMITING", "DS_OR_COMBINE", "DS_INHIBITOR_OR",
+                 "DS_SELF_INHIBITOR_WEIGHT",
                  "DS_HILL_SAT_EPS")
         haskey(ENV, name) && delete!(ENV, name)
     end
@@ -155,7 +171,10 @@ end
     # are reverted here. Attribution and numbers: specs/009-solver-defaults.
     @test config.and_mode == "hill_sat"
     @test config.or_mode == "mean"
-    @test config.assembly_limiting == true
+    # specs/023 (2026-09-25): off under the root-pinning protocol of record.
+    @test config.assembly_limiting == false
+    # specs/022, adopted in specs/023.
+    @test config.self_inhibitor_weight == 0.1
     # Only consulted when and_mode is hill_sat, so inert at the current
     # default. Kept sized correctly so switching AND mode does not also
     # silently re-introduce a 10%-of-baseline epsilon.

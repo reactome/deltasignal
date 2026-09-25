@@ -105,6 +105,21 @@ SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").s
 # 150 reactions catalog-wide, 22.7% of those carrying both an activator and an
 # inhibitor, across 37 pathways.
 SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
+# Which of the nodes a gene resolves to get pinned. specs/023.
+#   root  (DEFAULT, the protocol of record -- Adam, 2026-09-25, following the
+#         MP-BioPath publication): only ROOT inputs (no incoming edge) that are
+#         or contain the gene. Everything downstream is computed. A gene with no
+#         root form is not perturbed, and its cases are invalid, not scored.
+#   entry: where the gene ENTERS the network -- resolved nodes no other resolved
+#         node reaches, so a gene with no root form gets its first occurrence.
+#   all   (the protocol from 0bd4565, 2026-07-14, to 2026-09-25): every node
+#         whose members include the gene, wherever it sits -- 89% of pins were
+#         mid-pathway complexes, SET rather than computed. Kept only so older
+#         results can be reproduced.
+PIN_SCOPE = os.environ.get("DS_PIN_SCOPE", "root")
+PIN_TALLY: Counter = Counter()
+if PIN_SCOPE not in ("all", "entry", "root"):
+    raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'root', 'entry' or 'all'")
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
 # same reaction. An entity that is both the catalyst and a substrate of one
 # reaction currently contributes TWICE to the AND product, so its fold-change
@@ -220,6 +235,38 @@ def build_adjacency(pathway_dir: Path) -> dict:
         for row in reader:
             adj[row["source_id"]].append(row["target_id"])
     return adj
+
+
+def root_occurrences(uuids: list, indeg: Mapping) -> list:
+    """The members of `uuids` with no incoming edge: root inputs that are or
+    contain the gene (specs/023, the MP-BioPath protocol). Order kept,
+    duplicates dropped. Empty when the gene has no root form."""
+    seen = set()
+    return [u for u in uuids if indeg.get(u, 0) == 0 and not (u in seen or seen.add(u))]
+
+
+def entry_occurrences(uuids: list, adj: dict) -> list:
+    """The members of `uuids` that no OTHER member reaches (specs/023).
+
+    A member reachable from another is downstream of the gene's entry into the
+    network and should be computed, not pinned. If every member is reached
+    (they all sit in one cycle), there is no entry point, so all are returned
+    and the old protocol applies."""
+    members = set(uuids)
+    reached = set()
+    for start in members:
+        seen = {start}
+        stack = list(adj.get(start, ()))
+        while stack:
+            n = stack.pop()
+            if n in seen:
+                continue
+            seen.add(n)
+            if n in members and n != start:
+                reached.add(n)
+            stack.extend(adj.get(n, ()))
+    entry = [u for u in uuids if u not in reached]
+    return entry or list(uuids)
 
 
 def duplicate_activator_edges(edges: list) -> set:
@@ -542,6 +589,23 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         for sid in gene_to_stids.get(g, []):
             uuids.extend(stid_to_uuids.get(sid, []))
         gene_to_uuids[g] = uuids
+    indeg = Counter()
+    with open(pathway_dir / "logic_network.csv") as f:
+        for row in csv.DictReader(f):
+            indeg[row["target_id"]] += 1
+    if PIN_SCOPE == "entry":
+        pin_adj = build_adjacency(pathway_dir)
+        gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
+                         for g, us in gene_to_uuids.items()}
+    elif PIN_SCOPE == "root":
+        gene_to_uuids = {g: root_occurrences(us, indeg) for g, us in gene_to_uuids.items()}
+    # Record what was actually pinned, so a run's protocol is on the record
+    # rather than inferred from its flags (specs/023: 89% of pins had silently
+    # become mid-pathway complexes for two months).
+    for us in gene_to_uuids.values():
+        PIN_TALLY["perturbations"] += bool(us)
+        PIN_TALLY["pinned"] += len(set(us))
+        PIN_TALLY["pinned_roots"] += sum(1 for u in set(us) if indeg[u] == 0)
 
     # Resolve key_output dbIds to their REAL stIds (may be R-ALL-, R-NUL-, not
     # just R-HSA-) so species that are genuinely in the network are found.
@@ -740,7 +804,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                                          reachable_cache[gene])
                 failure_categories[cat] += 1
             case_log.append((gene, direction, ko, predicted, expected, is_valid,
-                             len(uuids), len(ko_uuids), cat, pred_ui))
+                             len(uuids), len(ko_uuids), cat, pred_ui,
+                             "|".join(sorted(set(uuids))), "|".join(sorted(set(ko_uuids)))))
 
     return {
         "status": "ok",
@@ -870,6 +935,8 @@ def main():
         pathways = pathways[: args.limit]
 
     print(f"Running benchmark on {len(pathways)} pathway(s) …", flush=True)
+    print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
+          f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG}", flush=True)
     cache = {}
     results = []
     grand_total = 0
@@ -952,19 +1019,25 @@ def main():
             f.write(f"{r['name']}\t{r['id']}\t{r['status']}\t"
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
+    print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
+          f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")
 
     if args.dump_cases:
         with open(args.dump_cases, "w") as f:
             f.write("pathway\tgene\tdirection\tkey_output\tpredicted\texpected\t"
-                    "valid\tn_gene_uuids\tn_ko_uuids\tcategory\tpred_ui\n")
+                    "valid\tn_gene_uuids\tn_ko_uuids\tcategory\tpred_ui\t"
+                    # The uuids actually pinned and read, so a failure can be
+                    # classified on the network without re-deriving resolution
+                    # (bench/analysis/case_cyclicity.py expects these).
+                    "gene_uuids\toutput_uuids\n")
             for r in results:
                 if r["status"] != "ok":
                     continue
                 for (gene, direction, ko, pred, exp, valid,
-                     ng, nk, cat, pred_ui) in r.get("case_log", []):
+                     ng, nk, cat, pred_ui, gus, kus) in r.get("case_log", []):
                     f.write(f"{r['name']}\t{gene}\t{direction}\t{ko}\t{pred}\t{exp}\t"
-                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\n")
+                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\t{gus}\t{kus}\n")
         print(f"Per-case dump: {args.dump_cases}")
 
 

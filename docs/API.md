@@ -94,9 +94,15 @@ Response:
   "edges": [
     { "parent_uuid": "...", "child_uuid": "...", "is_and": false,
       "is_positive": true, "stoichiometry": 1.0, "edge_type": "output" } ],
-  "pathways": [ { "id": "...", "name": "...", "members": ["uuid", ...] } ]
+  "pathways": [ { "id": "...", "name": "...", "members": ["uuid", ...] } ],
+  "containment": { "<stable_id>": ["<contained stable_id>", ...] },
+  "cofactor_stids": ["R-ALL-113592", ...]
 }
 ```
+`containment` (restricted to stable ids in this network) and `cofactor_stids`
+are what the solver needs to run the default model; send them back with an
+inline network.
+
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is
 down — names fall back to the stable id).
@@ -118,7 +124,9 @@ Solve the steady state under a set of perturbations. JSON body:
 }
 ```
 - **Network source** (in priority order): `network_id` (from a prior parse) →
-  inline `network` (same shape as the parse response's nodes/edges/pathways) →
+  inline `network` (same shape as the parse response's nodes/edges/pathways,
+  plus its `containment` and `cofactor_stids`; without `containment` the
+  self-inhibitor rule is inert and the response says so) →
   bundled sample. A `network_id` that is present but unknown is a `400`, not a
   fall-through: naming a network the server does not have is an error, whereas
   naming none at all still selects the sample.
@@ -140,6 +148,8 @@ Response:
 ```
 - **`node_activities`**: `uuid → activity` on the **0–1 internal scale**
   (`× 100` for display — see Conventions).
+- **`self_inhibitors`** (additive, specs/022): the number of inhibitor slots FLAGGED as self-contained (the inhibitor contains one of its own reaction's inputs AND is reachable from it in the network). A flagged slot is damped only when the inhibitor moves with that input. On by default (`DS_SELF_INHIBITOR_WEIGHT=0.1`; `off` disables it).
+- **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`scc`** (additive, specs/017): how the cyclic components were resolved —
   `method` (the `DS_SCC_METHOD` in force), `pooled`, `iterated`,
   `fallback_negative`, `fallback_inconsistent`, `pooled_nodes`. Under the

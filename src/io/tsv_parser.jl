@@ -36,10 +36,17 @@ struct ReactionNetwork
     # lets an artifact bundle pulled from S3 answer "which of these nodes is
     # ATP" without a second, separately-versioned copy of the answer.
     cofactor_stids::Set{String}
+    # stable id -> the stable ids it CONTAINS (itself excluded), from the
+    # generator's `containment.csv`. Read only by DS_SELF_INHIBITOR_WEIGHT
+    # (specs/022) to find inhibitors built from their own reaction's input.
+    # Empty when the bundle has no such file, or when a network arrives as JSON
+    # (the rule is then inert, which the solve reports).
+    containment::Dict{String, Set{String}}
 
     ReactionNetwork(nodes, edges, set_mappings,
-                    cofactor_stids = Set{String}()) =
-        new(nodes, edges, set_mappings, cofactor_stids)
+                    cofactor_stids = Set{String}(),
+                    containment = Dict{String, Set{String}}()) =
+        new(nodes, edges, set_mappings, cofactor_stids, containment)
 end
 
 """
@@ -307,6 +314,7 @@ function parse_complete_network(
     resolved = cofactor_path === nothing ?
         default_cofactor_path(logic_network_path) : cofactor_path
     stids = parse_cofactor_list(resolved; required = cofactor_path !== nothing)
+    containment = parse_containment(logic_network_path)
 
     if isempty(stids)
         # A file that declares nothing in-network is NOT the same as no file,
@@ -326,7 +334,8 @@ function parse_complete_network(
                       file = resolved, builtin_would_match = builtin_here)
             end
         end
-        return network
+        return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
+                               Set{String}(), containment)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -354,7 +363,52 @@ function parse_complete_network(
               not_treated_as_cofactors = first(unique(examples), 5))
     end
 
-    return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids)
+    return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
+                           containment)
+end
+
+"""
+The network's containment table as JSON-ready `stid => [stids]`, restricted to
+stable ids that are nodes of this network (the rest can never match).
+"""
+function network_containment_json(network::ReactionNetwork)::Dict{String, Vector{String}}
+    present = Set(n.reactome_id for n in values(network.nodes) if n.reactome_id !== nothing)
+    return Dict(k => sort(collect(v)) for (k, v) in network.containment if k in present)
+end
+
+"""
+Inverse of `network_containment_json`. `nothing` (a payload without the key)
+gives an empty table, which the solver then reports as "inert".
+"""
+function containment_from_json(raw)::Dict{String, Set{String}}
+    out = Dict{String, Set{String}}()
+    raw === nothing && return out
+    raw isa AbstractDict || throw(ArgumentError("containment must map a stable id to a list"))
+    for (k, v) in pairs(raw)
+        v isa AbstractVector || throw(ArgumentError("containment[$k] must be a list of stable ids"))
+        out[String(k)] = Set(String.(collect(v)))
+    end
+    return out
+end
+
+"""
+Read the generator's `containment.csv` beside a logic network: stable id ->
+the stable ids it contains, itself excluded. Empty when there is no file.
+"""
+function parse_containment(logic_network_path::String)::Dict{String, Set{String}}
+    out = Dict{String, Set{String}}()
+    path = joinpath(dirname(logic_network_path), "containment.csv")
+    isfile(path) || return out
+    df = CSV.read(path, DataFrame; types = String)
+    for col in ("stable_id", "contains_stable_id")
+        col in names(df) || throw(ArgumentError("$path has no `$col` column"))
+    end
+    for row in eachrow(df)
+        (ismissing(row.stable_id) || ismissing(row.contains_stable_id)) && continue
+        row.stable_id == row.contains_stable_id && continue
+        push!(get!(out, String(row.stable_id), Set{String}()), String(row.contains_stable_id))
+    end
+    return out
 end
 
 """

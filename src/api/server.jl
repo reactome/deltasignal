@@ -315,7 +315,12 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     # not silently lose the list that shipped with the bundle.
     cofactor_stids = haskey(data, :cofactor_stids) && data.cofactor_stids !== nothing ?
         Set(String[String(x) for x in data.cofactor_stids]) : Set{String}()
-    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids)
+    containment = try
+        DeltaSignal.containment_from_json(get(data, :containment, nothing))
+    catch
+        throw(ArgumentError("`containment` must be an object mapping a stable id to a list of stable ids."))
+    end
+    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment)
 end
 
 """
@@ -686,7 +691,14 @@ function parse_handler(req)
             "network_id" => network_id,
             "nodes" => nodes_array,
             "edges" => edges_array,
-            "pathways" => pathways_array
+            "pathways" => pathways_array,
+            # specs/022: what contains what, for the self-inhibitor rule, so a
+            # client that round-trips parse -> solve runs the same model as a
+            # solve by network_id. Only entries for stable ids in this network.
+            "containment" => DeltaSignal.network_containment_json(network),
+            # The bundle's cofactor list, so a parse -> POSTed solve keeps it
+            # (reaction_network_from_json reads it back; it was never sent).
+            "cofactor_stids" => sort(collect(network.cofactor_stids)),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
@@ -806,7 +818,7 @@ function solve_handler(req)
         
         # Create influence scores (simplified - could be enhanced)
         reactions = DeltaSignal.convert_to_reaction_network(network)
-        influence_scores = DeltaSignal.compute_influence_scores(solver_result, reactions)
+        influence_scores = DeltaSignal.compute_influence_scores(solver_result, reactions; network = network)
         
         result = Dict(
             "status" => "success",
@@ -821,6 +833,9 @@ function solve_handler(req)
             "solve_time" => solver_result.solve_time,
             # specs/017 (additive): how the cyclic components were resolved, so a
             # client can tell a pooled solve from an iterated one.
+            # specs/022 (additive): inhibitor slots damped as self-contained.
+            "self_inhibitors" => get(solver_result.diagnostics, "self_inhibitors", 0),
+            "self_inhibitor_rule" => get(solver_result.diagnostics, "self_inhibitor_rule", "unknown"),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),
@@ -889,6 +904,11 @@ function start_server(host="127.0.0.1", port=8080; test_mode=false)
         # Apply middleware
         handler = cors_middleware(logging_middleware(router))
         
+        # Resolve the DS_* config once before serving, so a misconfiguration
+        # (a typo, or DS_COMPOSITION_GROUP without limiting) stops the server
+        # here instead of turning every solve into a 400 that looks like a
+        # client error.
+        DeltaSignal.resolve_reaction_eval_config()
         println("Server starting on http://$host:$port")
         println("Available endpoints:")
         println("  GET  /api/health")

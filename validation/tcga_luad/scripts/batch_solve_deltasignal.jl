@@ -143,7 +143,13 @@ function load_network(network_path::String)::ReactionNetwork
         end
     end
 
-    return ReactionNetwork(nodes, edges, set_mappings)
+    # Carry what the CLI's parse wrote, so this runs the same model as the CLI
+    # and the API: the bundle's cofactor list and the containment table the
+    # self-inhibitor rule needs (specs/022).
+    cofactor_stids = haskey(network_json, "cofactor_stids") ?
+        Set(String.(collect(network_json["cofactor_stids"]))) : Set{String}()
+    containment = containment_from_json(get(network_json, "containment", nothing))
+    return ReactionNetwork(nodes, edges, set_mappings, cofactor_stids, containment)
 end
 
 

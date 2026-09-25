@@ -59,6 +59,36 @@ curl localhost:8080/api/health | jq .catalog    # what the RUNNING API is servin
   from the database's own `DBInfo` node, because the same generator commit
   against a different release builds a different catalog.
 
+## Benchmark protocol: what gets pinned
+
+**Protocol of record (Adam, 2026-09-25): perturb only ROOT inputs that are, or
+contain, the gene**, as the MP-BioPath publication does. The perturbation then
+propagates from root input to terminal readout; if the ends are right, the
+middle is taken to be right. `DS_PIN_SCOPE` (benchmark-side) selects it:
+
+- `root` (**default**): nodes with no incoming edge that are or contain the
+  gene. A gene with no root form is not perturbed, and its cases are invalid.
+- `entry`: the resolved nodes no other resolved node reaches. It also pins a
+  gene's first mid-pathway occurrence. Measured, not adopted.
+- `all`: every node whose `member_leaves` include the gene. This was the
+  protocol from 2026-07-14 (`0bd4565`) to 2026-09-25: 9,378 pins, 89% of them
+  mid-pathway complexes, which were *set* rather than computed. It is kept only
+  to reproduce numbers from that period, which are **not comparable** to root
+  numbers (specs/023).
+
+Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
+of inferring the protocol from flags.
+
+**Run arms with `scripts/run_arm.sh NAME [--server DS_X=v] [--bench DS_Y=v]`,
+not ad-hoc scripts.** It pins a detached worktree at HEAD, serves it with the
+dev compose environment plus the named overrides on the resolved build, and
+refuses to run in three cases:
+- the container does not show an override;
+- the pinned code never reads it;
+- `src/` or `bench/` is dirty.
+
+It writes `ARM.json` next to the results.
+
 ## Development Commands
 
 ### Running Tests
@@ -230,7 +260,10 @@ solve into a `ReactionEvalConfig` (see `resolve_reaction_eval_config` in
 `reaction_model.jl`). The **code defaults are the validated winning config** —
 env vars only override for benchmark sweeps:
 - `DS_INHIBITION_MODE=divide`, `DS_AND_MODE=hill_sat`, `DS_OR_MODE=mean`,
-  `DS_ASSEMBLY_LIMITING=1`, `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-9`,
+  `DS_ASSEMBLY_LIMITING=0` (**since 2026-09-25, specs/023**: under root pinning
+  the min() blocked every single-subunit overexpression; off is held-out +401),
+  `DS_SELF_INHIBITOR_WEIGHT=0.1` (specs/022+023, below),
+  `DS_INHIBITOR_EPS=1e-12`, `DS_HILL_SAT_EPS=1e-9`,
   `DS_DEPLETION_H_MIN=0.1` (= 1/`DS_DEPLETION_H_MAX`, so depletion may suppress
   at most as hard as it may de-repress — it was previously floored at ZERO and
   could suppress without limit; +28 held-out at p<0.0001, and it costs PIP3
@@ -283,6 +316,18 @@ env vars only override for benchmark sweeps:
   de-repress it).
   Both A/B'd on the shared catalog, neither adopted; `specs/016` has the arms
   and the traced mechanisms.
+- `DS_SELF_INHIBITOR_WEIGHT=0.1` (default; `off` restores the old product): an
+  inhibitor that *contains* its own reaction's input (a sequestering complex
+  such as WIF1:WNT, or RUNX1 mRNA:miR-675 RISC) counts that input twice under
+  `divide`: one such inhibitor cancels it, two invert it. The part of the
+  inhibitor's change that the shared input explains (their log-fold overlap)
+  is kept only at weight `w`; the rest keeps full strength. A fully tracking
+  inhibitor reads `x^(1-w)`; a partly tracking one is damped, not deleted. It
+  applies only where the shared input reaches the inhibitor in the network,
+  and it can only weaken an inhibitor. It needs the bundle's
+  `containment.csv`; the solve reports `self_inhibitor_rule` (on / off /
+  inert) and how many inhibitor slots were flagged. Measured numbers are in
+  specs/023. specs/022 has the rule; specs/023 has the adoption.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -352,6 +397,8 @@ for the last feature that touched it rather than re-deriving from the code.
   Also the flag-expiry policy: a flag is removed once its question is answered.
 - `specs/021-empirical-holdout-axis/` — the phospho-site validation design,
   the target list, and what a magnitude claim can and cannot be. Open.
+- `specs/022-self-contained-inhibition/` — inhibitors built from their own
+  reaction's input; the `DS_SELF_INHIBITOR_WEIGHT` rule and its A/B.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -365,18 +412,19 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twelve files contain assertions; the
+**Most of the test suite cannot fail.** Thirteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 192 | |
+| `test/test_config_validation.jl` | 196 | |
 | `test/test_loop_elasticity.jl` | 150 | + 1 `@test_broken` |
-| `test/test_propagator_invariants.jl` | 120 | |
+| `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
 | `test/test_solver_determinism.jl` | 80 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
+| `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
@@ -384,10 +432,11 @@ other seven execute code and print output.
 | `test/test_worked_example.jl` | 9 | |
 
 Counts are the `Pass` column of each file's outer `Test Summary`, not `@test`
-occurrences — several testsets generate assertions in loops. **Verified
-2026-09-22 from CI run 35684497165**; `.github/workflows/test.yml` runs all
-twelve by name and prints each summary, so that log is how to re-read them.
-They are not currently re-checkable locally — see the dev-container note below.
+occurrences — several testsets generate assertions in loops. **Enforced on
+every CI run:** `.github/workflows/test.yml` runs every suite in
+`test/asserting_suites.txt`, and `scripts/check_doc_counts.py` fails the build
+if this table disagrees with what they print (it caught the 2026-09-25
+changes). Locally, the loop in the test-runner service re-reads them.
 
 Earlier revisions of this table were wrong in several places at once: they said
 "three files" while listing twelve, split the table with a stray blank line,
@@ -431,7 +480,7 @@ crash-looping on exactly this error, and recreating it with the mount brought
 dependency still needs `docker compose -f docker-compose.dev.yml build`.
 `Manifest.toml` is gitignored, so mounting it is not an option.
 
-When adding behaviour, add assertions to one of the twelve files that assert,
+When adding behaviour, add assertions to one of the files that assert,
 or start a new one — do not extend a file from the zero-assertion list and assume it is
 covering anything.
 
