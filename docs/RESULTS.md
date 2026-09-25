@@ -152,7 +152,7 @@ that says "nothing broke badly", not as evidence of improvement.
 
 ## 2. On our own networks
 
-### The headline has a regeneration-noise floor of ~80 cases, all in TP53
+### The headline has a regeneration-noise floor of ~105 cases, mostly in TP53
 
 Measured 2026-09-21 and worth knowing before quoting any cross-catalog number.
 Two catalogs were built from the **same generator commit with the same flags**
@@ -180,18 +180,52 @@ Julia `Dict` hash order, so relabelling flips which basin TP53's MDM2 loop
 settles into. It reproduces the earlier observation that two bridge-free
 regenerations differed by 96 predictions, all in TP53, zero held-out.
 
+**Revised 2026-09-25 with a third scoring — the floor is wider than one pair
+showed.** The two catalogs above were lost in a reboot (they lived on a
+tmpfs), and a fresh durable build from the same content was scored a third
+time. The solver is logically identical across all three — the only `src/`
+changes between the scoring commits are comment rewording — so every difference
+below is relabelling alone:
+
+| scoring of identical content | headline | held-out | experimental |
+|---|---|---|---|
+| `cat_prod`, solver `dea0577` | 20,324 | 16,494 | 596 |
+| `cat_share2`, solver `72015ce` | 20,400 | 16,490 | 609 |
+| build `20260925-1039_d4f4f64`, solver `ae84de9` | 20,429 | 16,505 | 611 |
+| **range** | **105 (0.44pp)** | **15 (0.08pp)** | **15 (1.8pp)** |
+
+The single-pair estimate of ~80 on the headline and +4 on held-out was an
+**under**estimate by roughly a quarter and a factor of four respectively. Three
+draws is still few, so treat these as a lower bound on the floor, not its value.
+
 **Consequences.**
-1. **The headline accuracy figure is not reproducible to better than ~0.3pp
-   across regenerations**, with no real change behind the swing. Do not read a
-   sub-0.3pp cross-catalog difference in the headline as an effect.
-2. **Quote held-out.** It moved +4 of 19,000 here, so it is stable at the
-   level the headline is not — which is the reason the split exists.
-3. Any cross-catalog A/B must carry this as its control bound. Same-catalog
+1. **The headline accuracy figure is not reproducible to better than about
+   half a point across regenerations**, with no real change behind the swing.
+   Do not read a sub-0.5pp cross-catalog headline difference as an effect.
+2. **Quote held-out.** Its range across three relabellings is 15 of 19,000
+   (0.08pp) — larger than the first pair suggested, still about six times
+   tighter than the headline in proportion, which is the reason the split
+   exists.
+3. **The experimental axis is noise-dominated at this scale.** A 15-case range
+   on 849 cases is 1.8 points with nothing behind it. No cross-catalog
+   experimental difference under ~2 points means anything.
+4. Any cross-catalog A/B must carry this as its control bound. Same-catalog
    arms (client-side switches) do not pay it.
 
-**Current production baseline**, generator `f2842bc`, solver `dea0577`,
-catalog `cat_prod`: held-out **86.81% / macro-F1 0.8291**, headline 84.33% /
-0.8072, experimental 70.20% / 0.6310.
+**Current production baseline** — durable, reproducible, and what the dev API
+serves: catalog build **`20260925-1039_d4f4f64`** (generator `d4f4f64`), solver
+**`ae84de9`**, results at
+`~/deltasignal-catalogs/builds/20260925-1039_d4f4f64/results/ae84de9/`.
+
+| split | cases | accuracy | macro-F1 |
+|---|---|---|---|
+| **held-out (71 pathways)** | 19,000 | **86.87%** | **0.8299** |
+| headline (82 pathways) | 24,100 | 84.77% | 0.8145 |
+| experimental | 849 | 71.97% | 0.6451 |
+
+These supersede the `cat_prod` figures (86.81% / 84.33% / 70.20%), which were
+the same content scored under different node ids — the differences are the
+floor above, not an improvement.
 
 ### Scope: why the catalog is 92 pathways, not 93
 
