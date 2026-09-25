@@ -804,7 +804,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                                          reachable_cache[gene])
                 failure_categories[cat] += 1
             case_log.append((gene, direction, ko, predicted, expected, is_valid,
-                             len(uuids), len(ko_uuids), cat, pred_ui))
+                             len(uuids), len(ko_uuids), cat, pred_ui,
+                             "|".join(sorted(set(uuids))), "|".join(sorted(set(ko_uuids)))))
 
     return {
         "status": "ok",
@@ -1025,14 +1026,18 @@ def main():
     if args.dump_cases:
         with open(args.dump_cases, "w") as f:
             f.write("pathway\tgene\tdirection\tkey_output\tpredicted\texpected\t"
-                    "valid\tn_gene_uuids\tn_ko_uuids\tcategory\tpred_ui\n")
+                    "valid\tn_gene_uuids\tn_ko_uuids\tcategory\tpred_ui\t"
+                    # The uuids actually pinned and read, so a failure can be
+                    # classified on the network without re-deriving resolution
+                    # (bench/analysis/case_cyclicity.py expects these).
+                    "gene_uuids\toutput_uuids\n")
             for r in results:
                 if r["status"] != "ok":
                     continue
                 for (gene, direction, ko, pred, exp, valid,
-                     ng, nk, cat, pred_ui) in r.get("case_log", []):
+                     ng, nk, cat, pred_ui, gus, kus) in r.get("case_log", []):
                     f.write(f"{r['name']}\t{gene}\t{direction}\t{ko}\t{pred}\t{exp}\t"
-                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\n")
+                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\t{gus}\t{kus}\n")
         print(f"Per-case dump: {args.dump_cases}")
 
 
