@@ -324,7 +324,9 @@ env vars only override for benchmark sweeps:
   `x^(1-w)`; the independent part keeps full strength. It needs the bundle's
   `containment.csv`, and `self_inhibitors` in the solve response counts what
   was damped. Under root pinning it is held-out +90 (+57 without the top
-  pathway). specs/022 has the rule; specs/023 has the adoption.
+  pathway; 33 of its 37 held-out breaks are RUNX2). It applies only where the
+  shared input actually reaches the inhibitor, and it can only weaken an
+  inhibitor (review of PR #72). specs/022 has the rule; specs/023 has the adoption.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live

@@ -181,7 +181,7 @@ cases as NORMAL.
 
 | arm (commit / name) | curator held-out acc / mF1 | vs previous row, held-out net | experimental acc / mF1 |
 |---|---|---|---|
-| broad pins, production (`ae84de9`) | 0.8816 / 0.8428 (n 18,238) | — | 0.7224 / 0.6501 |
+| broad pins, production (`ae84de9`) | 0.8795 / 0.8452 on its own 18,238; **0.8816 / 0.8428 on the shared 17,420** | — | 0.7224 / 0.6501 |
 | root pins, code defaults (`1eca749/root_baseline`) | 0.8352 / 0.7625 (n 17,420) | −809 (134 / 943) | 0.5528 / 0.5163 |
 | + `DS_ASSEMBLY_LIMITING=0` (`1eca749/root_nolimit`) | 0.8582 / 0.8031 | **+401** (565 / 164), p 2e-52, 50 of 58 pathways up | 0.6622 / 0.5809 (+89) |
 | + `DS_SELF_INHIBITOR_WEIGHT=0.1` (`1a10ed2/root_nolimit_selfinh_w0.1`) | **0.8634 / 0.8135** | **+90** (127 / 37), p 1e-12, 10 of 11 up | **0.6732 / 0.5896** (+9) |
@@ -208,9 +208,18 @@ very complexes whose inhibitors the rule corrects.
 - `DS_ASSEMBLY_LIMITING=0`, by the arm 2 rule above;
 - `DS_SELF_INHIBITOR_WEIGHT=0.1`, by the specs/022 rule, now met.
 
-Both axes improve at every step after the protocol change. The new baseline
-is still below the broad-pin numbers (held-out 0.8634 vs 0.8816 on different
-valid sets), because part of those came from the pins.
+Both axes improve at every step after the protocol change. **On identical
+cases, the new defaults are below the old broad-pin numbers**: held-out
+0.8634 vs 0.8816 on the same 17,420, net **−318** (104 / 422), and
+experimental −40 (9 / 49). Part of the old accuracy came from the pins. Two
+further caveats (review of PR #72):
+- **Survivorship.** The 1,144 cases lost to invalidity were 79% correct under
+  the broad pins (908 / 1,144), so valid-only accuracy flatters. The
+  every-case row in docs/RESULTS.md is the honest one.
+- **Concentration.** 33 of the 37 held-out breaks from w = 0.1 are in RUNX2,
+  which alone is 31 fixed / 33 broke over 152 changed predictions. Excluding
+  both RUNX1 and RUNX2 leaves 60 fixed / 1 broke. The McNemar p treats about
+  25 perturbations' correlated readouts as independent, so it is optimistic.
 
 ## Where the adopted configuration still fails (`bench/analysis/failure_structure.py`)
 
@@ -227,24 +236,33 @@ pinned roots and its readout.
 - It spans 267 perturbations and 250 readouts.
 - This is connectivity, not propagation; a propagator change cannot reach it.
 
-**2. With a route (5,712 cases, 21.8% wrong).** Loop and structure effects,
-checked within pathway because pooled loop effects have been between-pathway
-confounds before (the retracted "loops are the lever"):
+**2. With a route (5,712 cases, 21.8% wrong).** Loop and structure effects
+are given within pathway, because pooled loop effects have been
+between-pathway confounds before (the retracted "loops are the lever").
 
-| on the route | pooled error rate | within-pathway difference | pathways |
+The estimator is the committed Mantel-Haenszel risk difference in
+`failure_structure.py` (`mh_risk_difference`), run on
+`d4f2bda/new_defaults`. An earlier version of this table used ad hoc code
+whose values depended on the estimator; the review of PR #72 found the
+negative-loop sign flipped between estimators.
+
+| on the route | pooled error rate | MH within-pathway difference | pathways |
 |---|---|---|---|
-| positive loop | 28.1% vs 14.8% | **+9.6%** | 22 |
-| negative loop (contains an inhibition) | 28.7% vs 14.8% | −0.7% | 14 |
-| giant loop (≥ 100 nodes) | 28.6% vs 14.8% | +8.5% | 8 |
-| welded loop (only derived edges close it) | 24.2% vs 14.8% | +10.8% | 4 |
-| self-contained inhibitor | 25.1% vs 21.0% | **+12.5%** | 15 |
-| assembly step | 25.1% vs 18.4% | +7.4% | 49 |
+| any loop | 28.4% vs 14.8% | +7.5% | 39 |
+| loop with only activating edges | 28.1% vs 14.8% | **+8.0%** | 30 |
+| loop containing any inhibitory edge | 28.7% vs 14.8% | +2.2% | 16 |
+| giant loop (≥ 100 nodes) | 28.6% vs 14.8% | +9.1% | 9 |
+| welded loop (only derived edges close it) | 24.2% vs 14.8% | +10.4% | 6 |
+| self-contained inhibitor (solver's definition) | 25.1% vs 21.0% | **+12.2%** | 18 |
+| assembly step | 25.1% vs 18.4% | +7.7% | 62 |
 
-- **Positive loops survive stratification; negative loops do not.** The
-  negative-loop gap is a between-pathway confound.
-- False change dominates the failures with a route: 298 through positive loops,
-  244 through negative loops, 228 through none.
-- **Self-contained inhibitors are still a problem** after w = 0.1.
+- **All-positive loops carry most of the loop excess within pathway.** Loops
+  containing an inhibition carry a smaller one (+2.2%). "Contains an
+  inhibitory edge" is not the same as negative feedback: the label is now
+  `has_inhibition`.
+- False change dominates the failures with a route.
+- **Self-contained inhibitors remain the largest structural excess** after
+  w = 0.1.
 
 **Traced: CREBBP knockdown, DDX58/IFIH1 interferon induction** (IFNB1
 expected DOWN, predicted 2.75x):

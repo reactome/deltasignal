@@ -23,14 +23,19 @@ commit.
 > benchmark now perturbs only ROOT inputs that are, or contain, the gene, as
 > the MP-BioPath publication does (Adam's decision), with the solver defaults
 > re-measured under it (`DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`).
-> Build `20260925-1039_d4f4f64`, solver `44e733b`, run through
-> `scripts/run_arm.sh` (`results/44e733b/new_defaults`, ARM.json records the
-> protocol). It reproduces the measured arm byte-for-byte.
+> Build `20260925-1039_d4f4f64`, solver `d4f2bda` (the review fixes to the
+> self-inhibitor rule change no scored prediction), run through
+> `scripts/run_arm.sh` (`results/d4f2bda/new_defaults`; ARM.json and
+> server.env record exactly what ran).
 >
 > | | curator held-out | curator all | experimental |
 > |---|---|---|---|
 > | valid cases only | 86.34% / mF1 0.8135 (n 17,420) | 84.44% / 0.8018 (n 22,124) | 67.32% / 0.5896 (n 814) |
 > | every case (unperturbable = NORMAL) | 82.89% / 0.7678 (n 19,000) | 81.00% / 0.7592 (n 24,100) | 64.55% / 0.5661 (n 849) |
+>
+> The every-case row is the honest one: the 1,144 cases lost to invalidity
+> were 79% correct under the old pins. On identical cases the new protocol is
+> held-out −318 against the old one.
 >
 > **Everything below this box on our networks was measured under the old
 > protocol**, which pinned every node containing the gene (89% of them
