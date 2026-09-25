@@ -143,3 +143,24 @@ a mechanism. It **bounded** one that was unbounded in a single direction.
 
 That is the pattern worth carrying forward: on these networks, *constraining* a
 runaway operator has paid off, and *deleting* a structurally-wrong term has not.
+
+## Addendum 2026-09-25: the DS_SKIP_SELF_INH arm is not reproducible as recorded
+
+`self_contained_inhibitor_pairs` (the flag set behind `DS_SKIP_SELF_INH`) chose
+each node's stid by inverting a multi-key index, so its output depended on
+`PYTHONHASHSEED`. On build `20260925-1039_d4f4f64` it flagged 145, 180 or 146
+pairs in PIP3 alone for seeds 1, 2 and 3. It also pooled activators across
+variant nodes of one reaction. The **−61 held-out** result above was therefore
+measured on one random flagged set, and the "150 reactions" count may also be
+seed-specific.
+
+The function is now deterministic: it uses each node's own `diagram_entity_id`
+and collects activators per target node, pinned by
+`bench/test_self_contained_inhibitors.py`. The arm must be re-run before the
+negative result is cited again. The structure itself is unchanged: 628 flagged
+pairs catalog-wide; 174 target nodes with two or more, which is 26 distinct
+reactions.
+
+Related: specs/021 traced a dose-response reversal through a reaction with two
+such inhibitors. There the tracking is produced by the benchmark pinning a
+set-containing complex, not by self-containment alone.

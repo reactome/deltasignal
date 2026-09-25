@@ -300,7 +300,9 @@ for the last feature that touched it rather than re-deriving from the code.
   the PIP3 regression it costs.
 - `specs/012-self-contained-inhibitors/` — TWO NEGATIVE results on structural
   double-counts. An inhibitor containing its own substrate cancels the signal
-  exactly (150 reactions); dropping those edges is −61 held-out, p<0.0001. An
+  exactly (150 reactions); dropping those edges is −61 held-out, p<0.0001 —
+  **but that arm's flag set was hash-seed dependent** (fixed 2026-09-25), so
+  the −61 is not reproducible as recorded and must be re-run before citing. An
   entity that is both catalyst and substrate squares its own fold-change
   (7,013 reactions, 15.8%); deduplicating is −15 held-out, p=0.0015. Both
   mechanisms are real and both are load-bearing — on these networks,
