@@ -7,6 +7,8 @@ actually remove composition.
 import os
 import sys
 
+import math
+
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -90,3 +92,97 @@ def test_permutation_p_is_small_for_signal_and_large_for_noise():
         lambda r: r["pathway"])
     obs, _ = stratified_auc(noise)
     assert permutation_p(noise, obs, 300, 0) > 0.05
+
+
+# --- Pins added after review: eight mutants survived the first version. ---
+
+from magnitude_calibration import (  # noqa: E402
+    load, report, shuffle_within, split_rows,
+)
+from holdout_report import TUNING_PATHWAYS  # noqa: E402
+
+
+def test_shuffle_is_within_strata_not_across():
+    """Each stratum must keep exactly its own values. Shuffling across strata
+    would destroy the composition the null is meant to preserve."""
+    strata = [(np.array([1.0, 2.0, 3.0]), np.array([True, False, True])),
+              (np.array([10.0, 20.0]), np.array([False, True]))]
+    out = shuffle_within(strata, np.random.default_rng(0))
+    for (s0, c0), (s1, c1) in zip(strata, out):
+        assert sorted(s0) == sorted(s1)                       # same values
+        assert (c0 == c1).all()                               # outcomes untouched
+
+
+def test_p_is_never_zero():
+    signal = build_strata(
+        [{"pathway": "A", "cls": "0", "correct": i >= 20, "s": float(i)} for i in range(40)],
+        lambda r: r["pathway"])
+    obs, _ = stratified_auc(signal)
+    assert permutation_p(signal, obs, 10, 0) >= 1 / 11
+
+
+def test_ties_with_the_observed_count_as_at_least_as_good():
+    """All strengths tied: every permutation equals the observed 0.5, so with
+    `>=` the p is exactly 1. A `>` would report 1/(n+1) -- a false signal."""
+    tied = build_strata(
+        [{"pathway": "A", "cls": "0", "correct": i % 2 == 0, "s": 1.0} for i in range(20)],
+        lambda r: r["pathway"])
+    obs, _ = stratified_auc(tied)
+    assert obs == 0.5
+    assert permutation_p(tied, obs, 50, 0) == 1.0
+
+
+def test_strata_are_combined_by_pairs_not_by_equal_weight():
+    """The pre-registered statistic weights strata by correct x incorrect pairs.
+    This pins that choice: a big flat stratum must dominate a small perfect one."""
+    big_flat = (np.array([1.0] * 20 + [1.0] * 20), np.array([True] * 20 + [False] * 20))
+    small_perfect = (np.array([2.0, 1.0]), np.array([True, False]))
+    auc, pairs = stratified_auc([big_flat, small_perfect])
+    assert pairs == 400 + 1
+    assert abs(auc - (0.5 * 400 + 1.0 * 1) / 401) < 1e-12     # pair-weighted
+    assert abs(auc - 0.75) > 0.2                              # not the equal-weight mean
+
+
+def _write(path, rows):
+    cols = ["pathway", "gene", "direction", "key_output", "predicted", "expected", "pred_ui"]
+    with open(path, "w") as fh:
+        fh.write("\t".join(cols) + "\n")
+        for r in rows:
+            fh.write("\t".join(str(r[c]) for c in cols) + "\n")
+
+
+def test_load_excludes_normal_and_scores_correctness(tmp_path):
+    p = tmp_path / "cases.tsv"
+    _write(p, [
+        {"pathway": "P", "gene": "G", "direction": "0", "key_output": "1",
+         "predicted": "0", "expected": "0", "pred_ui": "0.1"},       # DOWN, right
+        {"pathway": "P", "gene": "G", "direction": "0", "key_output": "2",
+         "predicted": "2", "expected": "0", "pred_ui": "5"},         # UP, wrong
+        {"pathway": "P", "gene": "G", "direction": "0", "key_output": "3",
+         "predicted": "1", "expected": "1", "pred_ui": "1"},         # NORMAL: excluded
+    ])
+    rows = load(str(p))
+    assert len(rows) == 2
+    assert [r["correct"] for r in rows] == [True, False]
+    assert abs(rows[0]["s"] - 1.0) < 1e-12 and abs(rows[1]["s"] - math.log10(5)) < 1e-12
+
+
+def test_split_puts_tuning_pathways_on_the_tuning_side():
+    tuning_name = sorted(TUNING_PATHWAYS)[0]
+    rows = [{"pathway": tuning_name}, {"pathway": "Some_held_out_pathway"}]
+    held, tune = split_rows(rows)
+    assert [r["pathway"] for r in tune] == [tuning_name]
+    assert [r["pathway"] for r in held] == ["Some_held_out_pathway"]
+
+
+def test_report_decides_on_pathway_and_class_strata():
+    """The decision is made on (pathway, class) strata. One pathway with two
+    predicted classes must yield two strata; a pathway-only stratification
+    would pool them into one."""
+    rows = []
+    for i in range(20):
+        rows.append({"pathway": "P", "cls": "0", "correct": i >= 10, "s": float(i)})        # signal
+        rows.append({"pathway": "P", "cls": "2", "correct": i >= 10, "s": float(i)})        # signal
+    r = report("x", rows, 20, 0)
+    assert r["within (pathway, class)"]["strata"] == 2
+    assert r["within (pathway, class)"]["auc"] > 0.95

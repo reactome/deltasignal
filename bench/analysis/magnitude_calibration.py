@@ -108,15 +108,31 @@ def stratified_auc(strata) -> tuple[float, int]:
     return (total_u / total_pairs if total_pairs else float("nan")), total_pairs
 
 
+def shuffle_within(strata, rng):
+    """Shuffle strength WITHIN each stratum. Each stratum keeps exactly its own
+    values and outcomes; only which case holds which value changes. Shuffling
+    across strata would destroy the composition the null must preserve."""
+    return [(rng.permutation(s), c) for s, c in strata]
+
+
 def permutation_p(strata, observed: float, n_perm: int, seed: int) -> float:
-    """One-sided: how often a within-stratum shuffle does at least as well."""
+    """One-sided: how often a within-stratum shuffle does at least as well.
+    The +1 counts the observed arrangement as one of the permutations, so p can
+    never be reported as zero. NOTE: this assumes cases within a stratum are
+    exchangeable; strata here are overdispersed, so the p is anti-conservative."""
     rng = np.random.default_rng(seed)
     hits = 0
     for _ in range(n_perm):
-        shuffled = [(rng.permutation(s), c) for s, c in strata]
-        if stratified_auc(shuffled)[0] >= observed:
+        if stratified_auc(shuffle_within(strata, rng))[0] >= observed:
             hits += 1
     return (hits + 1) / (n_perm + 1)
+
+
+def split_rows(rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    """(held-out, tuning). Held-out decides; tuning is reported only."""
+    held = [r for r in rows if r["pathway"] not in TUNING_PATHWAYS]
+    tune = [r for r in rows if r["pathway"] in TUNING_PATHWAYS]
+    return held, tune
 
 
 def report(label: str, rows: list[dict], n_perm: int, seed: int) -> dict:
@@ -142,8 +158,7 @@ def main() -> int:
     a = ap.parse_args()
 
     rows = load(a.cases)
-    held = [r for r in rows if r["pathway"] not in TUNING_PATHWAYS]
-    tune = [r for r in rows if r["pathway"] in TUNING_PATHWAYS]
+    held, tune = split_rows(rows)
 
     for label, subset in (("HELD-OUT (decides)", held), ("TUNING (reported only)", tune)):
         r = report(label, subset, a.permutations, a.seed)

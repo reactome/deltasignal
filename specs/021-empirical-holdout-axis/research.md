@@ -522,7 +522,7 @@ stratified Mann-Whitney). Null: permute strength within strata, 2,000 times.
 **Data.** Catalog build `20260925-1039_d4f4f64`, solver `ae84de9`, file
 `results/ae84de9/curator_cases.tsv` (24,100 cases).
 
-### Result: P2 FAILS. No magnitude claim is made.
+### Result: P2 fails as pre-registered. Case-level calibration is NOT ESTABLISHED.
 
 Run 2026-09-25 against build `20260925-1039_d4f4f64`, solver `ae84de9`, by
 `bench/analysis/magnitude_calibration.py` (7 tests, including one that pins the
@@ -544,45 +544,79 @@ statistic removing pure composition). 2,000 within-stratum permutations.
 | within predicted class | 0.5717 | 2 | 541,808 | — |
 | within (pathway, class) | 0.6791 | 21 | 98,770 | 0.0005 |
 
-**P1 holds, P2 fails.** The aggregate U-shape is real, but on held-out almost all
-of it is composition: stratifying by predicted class takes the AUC from 0.560 to
-0.548, and by pathway as well to 0.513, which is not significant and is close to
-a coin flip even if it were. Power is not the explanation — an AUC of 0.513 would
-be practically useless as a confidence signal at any sample size.
+**P1 holds; P2 fails as pre-registered**, and withdrawing the "suppress small
+predicted changes" recommendation under the pre-registered rule is correct.
+**What P2's failure does not show is that magnitude carries no case-level
+signal.** An earlier revision of this section said it did. Adversarial review
+showed that overstated the test, in three places.
 
-**What this means.** "A small predicted change is less trustworthy" is true as a
-*population* statement: small changes come disproportionately from pathways
-that are harder for the model. It is **not** a case-level signal. Within one
-pathway and direction, magnitude does not tell you which predictions to trust.
+**1. The pre-registered weighting is the one standard choice that hides the
+signal.** Pair weighting (correct x incorrect cases per stratum) gave 30% of all
+weight to the two DSB Repair strata, whose within-stratum AUCs are 0.461 and
+0.530 — flat. The same 85 held-out strata under other standard combinations:
 
-**Consequences, as pre-registered.**
-- The earlier section "What IS supportable today" claimed magnitude is "a
-  calibrated confidence signal" and recommended suppressing small predicted
-  changes in a user-facing view. **That recommendation is withdrawn as
-  unsupported at the case level.** Suppressing small changes within a pathway
-  would not meaningfully raise precision.
-- **X2 stands and widens:** there is no quantitative magnitude claim, and now no
-  case-level calibration claim either. The only magnitude statement supported is
-  the aggregate one, which says more about pathway difficulty than about the
-  prediction.
-- The EC50-ordering test remains the one route by which magnitude could still be
-  shown to mean something, because it asks a different question (order along a
-  cascade, against external measurement) rather than whether magnitude predicts
-  curator agreement.
+| weighting (exploratory, post hoc) | AUC | p |
+|---|---|---|
+| pairs — pre-registered | 0.5134 | 0.11 |
+| van Elteren, the textbook stratified Wilcoxon | 0.5475 | 1.7e-7 |
+| equal weight per stratum | 0.5806 | 6e-8 |
+| pathway sign test, weighting-free | 29 of 42 pathways positive | 0.0098 |
 
-**The tuning/held-out divergence is itself a finding.** Within-stratum AUC is
-0.679 (p = 0.0005) on the ten tuning pathways and 0.513 (n.s.) on the 71
-held-out. The signal exists where the solver was tuned and does not generalise —
-the shape overfitting leaves. It is also consistent with the tuning set being
-dominated by cyclic pathways (TP53 and the cell-cycle set), where predicted
-magnitude reflects which loop basin a solve settles into.
+A logistic regression with (pathway x class) fixed effects gives a positive
+strength slope (likelihood-ratio statistic 152). So "almost all of it is
+composition" was also wrong: under van Elteren, adding pathway to the
+stratification leaves the AUC at 0.5475, unchanged. The drop to 0.513 came from
+the change of weighting, not from removing composition.
 
-**Pattern.** This is the tenth candidate case-level signal in the project to
-vanish within pathway, after saturation, path length, readout in-degree and six
-earlier levers. Between-pathway composition keeps producing signals that look
-real in aggregate and are not.
+**2. "Power is not the explanation" was false.** Simulating on the real stratum
+structure, 80% power at p < 0.01 needs a pair-weighted AUC of about 0.536. The
+test could not have resolved an effect of the size the other analyses find.
 
----
+**3. The honest uncertainty is wide.** Strata are heavily overdispersed (sum of
+z-squared 530 on 79 df), so every within-stratum permutation p here, the
+pre-registered one included, is anti-conservative. Resampling whole pathways
+gives van Elteren AUC **[0.494, 0.618]** with P(AUC <= 0.5) = 0.06.
+
+**What can be said.** There is moderate, not decisive, evidence of a small
+within-pathway effect: cases predicted to change only slightly are less often
+right than strong ones in the same pathway and direction (exploratory: held-out
+cases below 5x are 60.2% correct against 88.6% for strong cases in the same
+strata). But the practical gain is small. Suppressing predictions below 5x
+raises held-out precision from 84.65% to 85.80% (+1.15pp), and below 2x by
++0.27pp. The recommendation is not reinstated: it was not supported by its own
+test, and it buys about a point.
+
+**Why a regeneration is not a replication.** Rerunning on a freshly built
+catalog would not settle this: held-out predictions differ by only ~15 cases
+across relabellings of identical content, so it would re-find the same result
+from the same cases. A real replication needs new ground truth, which is what
+the phosphosite axis is for.
+
+**The tuning result is one pathway, not an overfitting signature.** An earlier
+revision read the tuning AUC (0.679, p = 0.0005) as "the shape overfitting
+leaves". It is not. The Transcriptional Regulation by TP53 strata carry more
+than 100% of the excess over 0.5 — the TP53 UP stratum alone has AUC 0.875 and
+45% of the pairs — and dropping TP53 takes tuning to 0.459. Within a single
+perturbation, tuning is 0.508 (p = 0.39). So it is between-perturbation
+composition inside TP53, the pathway already known to be dominated by the MDM2
+loop basin. The p = 0.0005 is also just the permutation floor (1/2001).
+
+**Corrections to the motivating numbers.** The U-shape figures that motivated
+this test (88.6% / 88.3% / 37.3%) came from the lost `cat_prod`, not the tested
+build. On the tested build the held-out 1.1–2x bin holds only 24 cases in 7
+pathways, against 175 on tuning, so the 37.3% was largely a tuning phenomenon.
+The tuning set is also 11 pathways in `TUNING_PATHWAYS`, not ten.
+
+**Design limitation, recorded.** A monotone score (|log10 fold|) applied to a
+U-shape that turns down at the very top — for up-predictions of 10x or more,
+10–100x beats railed 100x within stratum (Mantel-Haenszel OR 2.17) — dilutes
+the signal. Combined with pair weighting, the pre-registered test was
+structurally tilted toward a null. It stands as the record; the lesson is to
+pre-register van Elteren or a pathway sign test next time.
+
+**Status.** Not refuted, not established. Unlike the saturation, path-length and
+in-degree levers, this is an unresolved result rather than a dead one, and it
+should not be counted among them.
 
 ## Pre-registration: dose-response (committed before running)
 

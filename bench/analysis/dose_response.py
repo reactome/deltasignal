@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+"""Dose-response: does moving an input further from baseline move the outputs
+further from baseline? Pre-registered in specs/021.
+
+The benchmark perturbs every gene at one fixed strength, so this reruns the
+identical pipeline at graded strengths (DS_PERTURB_UI_DOWN / _UP) and joins the
+results per (pathway, gene, direction, readout).
+
+  M1 monotonicity -- the pass/fail. Across increasing input strength a readout
+     should move consistently (up, or down if it is inhibited). A reversal is a
+     solver defect.
+  M2 graded vs switched -- is a moving readout already at a rail (0 or the 100
+     cap) at the mildest input? If most are, magnitude carries no dose
+     information for them.
+  M3 transfer -- for readouts that never rail, the slope of |log output fold|
+     against |log input fold|.
+
+Usage:
+  python bench/analysis/dose_response.py --dir <results>/dose
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import math
+import os
+import sys
+from collections import defaultdict
+
+import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from holdout_report import TUNING_PATHWAYS  # noqa: E402
+
+# (knockdown value, overexpression value) per run, mildest first.
+LADDER = [(0.5, 2.0), (0.2, 5.0), (0.05, 20.0), (0.0, 80.0)]
+BASELINE = 1.0
+MOVE_TOL = 1e-6       # an output within this of baseline has not moved
+MONO_TOL = 1e-9       # float noise allowed between steps
+ZERO_RAIL = 1e-6      # output at or below this is railed at zero
+CAP_RAIL = 99.99      # output at or above this is railed at the 100 cap
+ZERO_FLOOR = 1e-6     # for logs of a zero output or input
+
+
+def fname(down: float, up: float) -> str:
+    fmt = lambda v: f"{v:g}"
+    return f"cases_down{fmt(down)}_up{fmt(up)}.tsv"
+
+
+def load_ladder(directory: str) -> dict[tuple, list[float]]:
+    """case key -> [output at each strength, mildest first], valid cases only."""
+    per_run = []
+    for down, up in LADDER:
+        path = os.path.join(directory, fname(down, up))
+        with open(path, newline="") as fh:
+            rows = {}
+            for r in csv.DictReader(fh, delimiter="\t"):
+                if r.get("valid") != "1" or r["direction"] not in ("0", "2"):
+                    continue
+                rows[(r["pathway"], r["gene"], r["direction"], r["key_output"])] = float(r["pred_ui"])
+        per_run.append(rows)
+    common = set(per_run[0]).intersection(*per_run[1:])
+    return {k: [run[k] for run in per_run] for k in common}
+
+
+def input_values(direction: str) -> list[float]:
+    idx = 0 if direction == "0" else 1
+    return [pair[idx] for pair in LADDER]
+
+
+def moves(outs: list[float]) -> bool:
+    return any(abs(o - BASELINE) > MOVE_TOL for o in outs)
+
+
+def monotone(outs: list[float]) -> bool:
+    """Consistent in one direction as the input strengthens (either way)."""
+    up = all(b >= a - MONO_TOL for a, b in zip(outs, outs[1:]))
+    down = all(b <= a + MONO_TOL for a, b in zip(outs, outs[1:]))
+    return up or down
+
+
+def railed(v: float) -> bool:
+    return v <= ZERO_RAIL or v >= CAP_RAIL
+
+
+def transfer_slope(ins: list[float], outs: list[float]) -> float | None:
+    """Least-squares slope of |log10 output fold| on |log10 input fold|."""
+    x = np.array([abs(math.log10(max(i, ZERO_FLOOR) / BASELINE)) for i in ins])
+    y = np.array([abs(math.log10(max(o, ZERO_FLOOR) / BASELINE)) for o in outs])
+    if np.ptp(x) == 0:
+        return None
+    return float(np.polyfit(x, y, 1)[0])
+
+
+def summarise(cases: dict[tuple, list[float]]) -> dict:
+    moving = {k: v for k, v in cases.items() if moves(v)}
+    mono = {k: v for k, v in moving.items() if monotone(v)}
+    railed_mild = [k for k, v in moving.items() if railed(v[0])]
+    changes = [k for k, v in moving.items() if abs(v[-1] - v[0]) > MOVE_TOL]
+    never_railed = {k: v for k, v in moving.items() if not any(railed(o) for o in v)}
+    slopes = [s for k, v in never_railed.items()
+              if (s := transfer_slope(input_values(k[2]), v)) is not None]
+    reversals = sorted(
+        ((k, v) for k, v in moving.items() if not monotone(v)),
+        key=lambda kv: -(max(kv[1]) - min(kv[1])))
+    return {
+        "cases": len(cases), "moving": len(moving), "monotone": len(mono),
+        "railed_at_mildest": len(railed_mild), "change_mild_to_strong": len(changes),
+        "never_railed": len(never_railed), "slopes": slopes, "reversals": reversals,
+    }
+
+
+def pct(a: int, b: int) -> str:
+    return f"{100 * a / b:5.1f}%" if b else "  n/a"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dir", required=True)
+    a = ap.parse_args()
+    cases = load_ladder(a.dir)
+    split = defaultdict(dict)
+    for k, v in cases.items():
+        split["HELD-OUT" if k[0] not in TUNING_PATHWAYS else "TUNING"][k] = v
+        split["ALL"][k] = v
+
+    for label in ("ALL", "HELD-OUT", "TUNING"):
+        s = summarise(split[label])
+        print(f"\n{label}: {s['cases']:,} resolved cases, {s['moving']:,} move at some strength")
+        print(f"  M1 monotone in input strength     {s['monotone']:>6,}  {pct(s['monotone'], s['moving'])}"
+              f"   (P1 needs >= 95%)")
+        print(f"  M2 already railed at mildest       {s['railed_at_mildest']:>6,}  {pct(s['railed_at_mildest'], s['moving'])}"
+              f"   (> 50% = effectively a switch)")
+        print(f"     output changes mild -> strong   {s['change_mild_to_strong']:>6,}  {pct(s['change_mild_to_strong'], s['moving'])}")
+        if s["slopes"]:
+            q = np.percentile(s["slopes"], [10, 25, 50, 75, 90])
+            print(f"  M3 transfer slope, {len(s['slopes']):,} never-railed:  "
+                  f"p10 {q[0]:.2f}  p25 {q[1]:.2f}  median {q[2]:.2f}  p75 {q[3]:.2f}  p90 {q[4]:.2f}")
+        if label == "ALL" and s["reversals"]:
+            print(f"  largest reversals ({len(s['reversals'])} total):")
+            for (pw, gene, d, ko), outs in s["reversals"][:8]:
+                ins = input_values(d)
+                path = "  ".join(f"{i:g}->{o:.3g}" for i, o in zip(ins, outs))
+                print(f"    {pw[:34]:<34} {gene:<8} {'KD' if d == '0' else 'OE'}  ko {ko:<8} {path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
