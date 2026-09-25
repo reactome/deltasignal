@@ -143,3 +143,12 @@ a mechanism. It **bounded** one that was unbounded in a single direction.
 
 That is the pattern worth carrying forward: on these networks, *constraining* a
 runaway operator has paid off, and *deleting* a structurally-wrong term has not.
+
+## Addendum 2026-09-25: two self-contained inhibitors invert the signal
+
+specs/021 traced a dose-response reversal (WNT5A, Signaling by WNT) to a
+reaction with **two** self-contained inhibitors. One such inhibitor cancels
+(x · 1/x = 1), as recorded above. Two give x · min(x^-2, 10): a knockdown reads
+UP until the de-repression ceiling binds, then DOWN. 94 reactions catalog-wide
+have two or more (PIP3 61, WNT 16). The full trace and the untested bounded
+alternative (combine them by min) are in `specs/021-empirical-holdout-axis/research.md`.

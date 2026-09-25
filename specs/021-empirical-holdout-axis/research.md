@@ -767,3 +767,62 @@ Case-level calibration also remains not established (above).
 - `load_ladder` warns on dropped cases; none was dropped here (23,268 in every
   run).
 - `benchmark_selective_joint.py` ignores `DS_PERTURB_UI_*` and now says so.
+
+### Traced: the WNT5A reversal starts in one acyclic reaction, not in the loop
+
+Case: Signaling by WNT (`R-HSA-195721`), WNT5A knockdown, readout 3322393.
+Readout 100, 100, 1.3e-5, 1.6e-5 at KD 0.5, 0.2, 0.05, 0. It reproduces
+exactly on re-solve, and every solve reports converged. Build
+`20260925-1039_d4f4f64`, solver `a22d752`.
+
+1. **The readout is not in a loop.** A 168-node strongly connected component
+   upstream of it flips entirely between KD 0.2 and 0.05 (all 168 members), and
+   559 acyclic nodes downstream follow. The flip costs iterations: 90 sweeps
+   in the high basin, 266 in the low one.
+2. **The loop only amplifies.** Its perturbed entries are 48 edges from
+   `WNT:FZD:LRP5/6`, which reads **2, 2, 0.5, 0**, a non-monotone input
+   computed outside every loop.
+3. **The source is one reaction, *WNT binds to FZD and LRP5/6*.** Its activator
+   is the WNT ligand (x = 0.5, 0.2, 0.05, 0). Its two negative regulators,
+   `WIF1:WNT` and `WNT3A:sFRP`, are sequestration complexes that *contain the
+   ligand*, so each also reads x. Under `divide`, each contributes 1/x, and the
+   product is clamped at the de-repression ceiling of 10
+   (`reaction_model.jl:1859`):
+
+       output = x * min(x^-2, 10)   ->   2, 2, 0.5, 0      (matches exactly)
+
+   A knockdown therefore reads as **up** (1/x) until the ceiling binds at
+   x = 1/sqrt(10) ≈ 0.32. Below that it reads 10x, which falls under baseline
+   once x < 0.1.
+4. **This is the specs/012 self-contained-inhibitor structure.**
+   `self_contained_inhibitor_pairs` flags both regulators of this reaction.
+   specs/012 recorded that *one* such inhibitor cancels the signal exactly
+   (x · 1/x = 1). With *two*, the substrate is double-counted into an
+   inversion, 1/x. Across the catalog, 580 reactions have exactly one
+   self-contained inhibitor and **94 have two or more**, in 10 pathways: PIP3 61,
+   WNT 16, and one more (`R-HSA-177929`) with 7. PIP3 carries 16 of the 92 large
+   reversals. That is suggestive, not traced.
+
+**Consequences for the result above.**
+- The "large reversals are loop basin flips" reading is only half right. In
+  this case the loop is the amplifier and the cause is acyclic operator
+  composition.
+- `x * min(x^-2, 10)` gives 2, 2, 0.5, 0, which is non-increasing, so `monotone`
+  accepts it. In an acyclic pathway this readout would count as monotone under
+  M1, even though it crosses baseline. Only `away` rejects it. The "0 reversals
+  among 205 acyclic readouts" therefore cannot exclude this mechanism in acyclic
+  pathways.
+
+**A second, separate observation (not assessed).** The 37 uuids pinned for
+"WNT5A" include generic complexes whose WNT component is a set (`WLS:WNT`,
+`WIF1:WNT`). Pinning them knocks down every WNT ligand (WNT1, 3A, 4, 8A, 8B,
+9A), not only WNT5A. That is the benchmark's rule of pinning every entity
+containing the gene. Whether it over-perturbs set-containing complexes is its
+own question.
+
+**Not done: no fix is claimed.** specs/012 measured *deleting* these edges as
+−61 held-out. The bounded alternative, consistent with what has paid off on
+these networks, would be for the self-contained inhibitors of one reaction to
+contribute **once**: combine them by min rather than product, so x · 1/x = 1
+(the specs/012 single-inhibitor behaviour) and the response stays monotone. It
+needs its own pre-registration and a held-out A/B on both axes.
