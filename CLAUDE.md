@@ -414,14 +414,14 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 193 | |
+| `test/test_config_validation.jl` | 196 | |
 | `test/test_loop_elasticity.jl` | 150 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
 | `test/test_solver_determinism.jl` | 80 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 42 | specs/022, added 2026-09-25 |
+| `test/test_self_inhibition.jl` | 73 | specs/022, added 2026-09-25 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
@@ -429,10 +429,11 @@ other seven execute code and print output.
 | `test/test_worked_example.jl` | 9 | |
 
 Counts are the `Pass` column of each file's outer `Test Summary`, not `@test`
-occurrences — several testsets generate assertions in loops. **Verified
-2026-09-22 from CI run 35684497165**; `.github/workflows/test.yml` runs all
-all of them by name and prints each summary, so that log is how to re-read them.
-They are not currently re-checkable locally — see the dev-container note below.
+occurrences — several testsets generate assertions in loops. **Enforced on
+every CI run:** `.github/workflows/test.yml` runs every suite in
+`test/asserting_suites.txt`, and `scripts/check_doc_counts.py` fails the build
+if this table disagrees with what they print (it caught the 2026-09-25
+changes). Locally, the loop in the test-runner service re-reads them.
 
 Earlier revisions of this table were wrong in several places at once: they said
 "three files" while listing twelve, split the table with a stray blank line,
