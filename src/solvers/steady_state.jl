@@ -111,8 +111,7 @@ function solve_steady_state(
 
     # specs/022: inhibitors that contain their own reaction's input. Built unless
     # DS_SELF_INHIBITOR_WEIGHT=off.
-    self_shared = _self_inhibitor_weight_env() >= 0 ?
-        self_contained_inhibitor_map(network) : Dict{Tuple{String, String}, Vector{String}}()
+    self_shared, self_rule = self_inhibitor_setup(network)
     
     # Initialize node activities
     all_nodes = collect(keys(network.nodes))
@@ -171,8 +170,24 @@ function solve_steady_state(
     # compatibility but only "penalty" is supported.
     params.method == "penalty" ||
         error("Unsupported solver method $(params.method); only \"penalty\" is available.")
-    return solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
-                                      self_shared = self_shared)
+    result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
+                                        self_shared = self_shared)
+    # Say which model ran: "on", "off", or inert because nothing told the solver
+    # what contains what (a POSTed network or an older bundle).
+    result.diagnostics["self_inhibitor_rule"] = self_rule
+    return result
+end
+
+"""
+(map, status) for DS_SELF_INHIBITOR_WEIGHT on this network. status is "off",
+"on", or "inert: no containment table" -- the last means the default model is
+NOT the one being run, which a caller must be able to see.
+"""
+function self_inhibitor_setup(network::ReactionNetwork)
+    empty = Dict{Tuple{String, String}, Vector{String}}()
+    _self_inhibitor_weight_env() < 0 && return empty, "off"
+    isempty(network.containment) && return empty, "inert: no containment table"
+    return self_contained_inhibitor_map(network), "on"
 end
 
 """
@@ -184,14 +199,32 @@ Depletion edges are not inhibitors here and are never included.
 """
 function self_contained_inhibitor_map(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
     out = Dict{Tuple{String, String}, Vector{String}}()
-    if isempty(network.containment)
-        @warn "DS_SELF_INHIBITOR_WEIGHT is on but this network carries no containment table; the rule is inert for this solve." maxlog = 1
-        return out
-    end
+    isempty(network.containment) && return out
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
     acts = Dict{String, Vector{String}}()
     for e in network.edges
         e.is_positive && push!(get!(acts, e.child_uuid, String[]), e.parent_uuid)
+    end
+    # Containment alone is not enough: the rule divides the shared input's fold
+    # out of the inhibitor, which is only right if the inhibitor is actually
+    # COMPUTED from that input here. 71 of 625 catalog pairs name an input that
+    # cannot reach the inhibitor at all (all 48 in Signaling by ERBB2).
+    fwd = Dict{String, Vector{String}}()
+    for e in network.edges
+        push!(get!(fwd, e.parent_uuid, String[]), e.child_uuid)
+    end
+    reach_cache = Dict{String, Set{String}}()
+    function reaches(a::String)
+        get!(reach_cache, a) do
+            seen = Set{String}(); stack = copy(get(fwd, a, String[]))
+            while !isempty(stack)
+                n = pop!(stack)
+                n in seen && continue
+                push!(seen, n)
+                append!(stack, get(fwd, n, String[]))
+            end
+            seen
+        end
     end
     for e in network.edges
         (e.is_positive || e.edge_type == "depletion") && continue
@@ -200,7 +233,7 @@ function self_contained_inhibitor_map(network::ReactionNetwork)::Dict{Tuple{Stri
         inside = get(network.containment, s, nothing)
         inside === nothing && continue
         shared = String[a for a in unique(get(acts, e.child_uuid, String[]))
-                        if (as = sid(a)) !== nothing && as in inside]
+                        if (as = sid(a)) !== nothing && as in inside && e.parent_uuid in reaches(a)]
         isempty(shared) || (out[(e.parent_uuid, e.child_uuid)] = sort(shared))
     end
     return out
@@ -1253,7 +1286,8 @@ Returns ranking of input nodes by their influence on the solution.
 """
 function compute_influence_scores(
     result::SolverResult,
-    reactions::Vector{Reaction}
+    reactions::Vector{Reaction};
+    network::Union{Nothing, ReactionNetwork} = nothing,
 )::Dict{String, Float64}
 
     # Influence = Σ_r |∂F_r/∂x_input| at the solved operating point, computed
@@ -1270,7 +1304,12 @@ function compute_influence_scores(
     # Baselines are the universal spec x₀ = 0.01 (see tsv_parser). Passing an
     # empty dict lets index_reactions default every target to 0.01, matching
     # exactly what the solver built.
-    indexed, _, _ = index_reactions(reactions, uuid_to_idx, Dict{String, Float64}())
+    # Pass `network` so the self-inhibitor rule (specs/022) is applied here too;
+    # without it the scores describe the old double-counting model.
+    self_shared = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
+                  first(self_inhibitor_setup(network))
+    indexed, _, _ = index_reactions(reactions, uuid_to_idx, Dict{String, Float64}();
+                                    self_shared = self_shared)
 
     x = Vector{Float64}(undef, length(all_nodes))
     @inbounds for (i, uuid) in enumerate(all_nodes)

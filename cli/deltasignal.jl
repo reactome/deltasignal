@@ -201,6 +201,8 @@ function execute_parse_command(args)
             # drops the bundled cofactor list and falls back to the built-in
             # one, so the CLI and the API disagree about the model.
             "cofactor_stids" => collect(network.cofactor_stids),
+            # Same reason, for the self-inhibitor rule (specs/022).
+            "containment" => network_containment_json(network),
             "set_mappings" => Dict(set_id => Dict(
                 "original_set_id" => mapping.original_set_id,
                 "original_name" => mapping.original_name,
@@ -376,7 +378,8 @@ function execute_solve_command(args)
 
         cofactor_stids = haskey(network_json, "cofactor_stids") ?
             Set(String.(network_json["cofactor_stids"])) : Set{String}()
-        network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids)
+        containment = containment_from_json(get(network_json, "containment", nothing))
+        network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids, containment)
         println("✓ Network loaded: $(length(nodes)) nodes, $(length(edges)) edges")
 
         # Load observations CSV
@@ -436,7 +439,7 @@ function execute_solve_command(args)
 
         # Compute influence scores
         reactions = convert_to_reaction_network(network)
-        influence_scores = compute_influence_scores(result, reactions)
+        influence_scores = compute_influence_scores(result, reactions; network = network)
 
         # Convert activities back to 0-100 UI scale for output
         activities_ui = Dict(uuid => activity * 100.0 for (uuid, activity) in result.node_activities)

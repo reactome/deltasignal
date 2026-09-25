@@ -45,6 +45,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Nothing may reach an arm except what the command line names. A DS_* exported
+# in the caller's shell would reach the benchmark directly, and would resolve
+# ${DS_X:-default} in the compose file for the solver -- silently, and without
+# appearing in ARM.json (review of PR #72).
+leaked=$(env | grep -oE '^DS_[A-Z0-9_]+' | sort -u | tr '\n' ' ')
+[ -z "$leaked" ] || die "the calling shell exports $leaked-- unset them, or pass them with --server/--bench"
+
 REPO=$(git rev-parse --show-toplevel) || die "not in a git repo"
 cd "$REPO"
 dirty=$(git status --porcelain -- src bench | wc -l)
@@ -59,14 +66,21 @@ PY="$(cd "$HOME/gitroot/logic-network-generator" && poetry env info -p)/bin/pyth
 [ -x "$PY" ] || die "generator venv python not found (the benchmark needs py2neo)"
 
 WT=$(mktemp -d "$HOME/gitroot/.arm-$NAME-XXXX")
-git worktree add --detach "$WT" "$SHA" -q || die "worktree failed"
+git worktree add --detach "$WT" "$SHA" -q || { rmdir "$WT"; die "worktree failed"; }
 # An override the pinned code never reads is set, verified, recorded -- and
-# inert. That silently measures the control. Refuse it.
+# inert. That silently measures the control. Refuse it. The check looks for an
+# actual READ -- an env accessor in src/ for a solver knob, os.environ in the
+# benchmark script for a bench knob -- not the name appearing anywhere (a solver
+# knob passed as --bench used to pass because some other bench script names it).
 for kv in "${SERVER[@]}"; do
-  grep -rqF "\"${kv%%=*}\"" "$WT/src" || { git worktree remove --force "$WT"; die "${kv%%=*} is not read anywhere in src/ at $SHA"; }
+  n=${kv%%=*}
+  grep -rqE "(_env\(|ENV, |ENV\[)\"$n\"" "$WT/src" \
+    || { git worktree remove --force "$WT"; die "$n is not read by the solver (src/) at $SHA"; }
 done
 for kv in "${BENCH[@]}"; do
-  grep -rqF "\"${kv%%=*}\"" "$WT/bench" || { git worktree remove --force "$WT"; die "${kv%%=*} is not read anywhere in bench/ at $SHA"; }
+  n=${kv%%=*}
+  grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" \
+    || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py at $SHA"; }
 done
 CNAME="arm-$NAME-$$"
 cleanup() { docker rm -f "$CNAME" >/dev/null 2>&1; git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1; }
@@ -75,7 +89,7 @@ trap cleanup EXIT
 # The solver environment is the dev compose file's, so an arm differs from the
 # dev API only by what is named on the command line.
 ENVF="$WT/.arm.env"
-docker compose -f "$WT/docker-compose.dev.yml" config --format json 2>/dev/null |
+env -i HOME="$HOME" PATH="$PATH" docker compose -f "$WT/docker-compose.dev.yml" config --format json 2>/dev/null |
   python3 -c 'import json,sys; e=json.load(sys.stdin)["services"]["julia-api"].get("environment") or {}
 [print(f"{k}={v}") for k,v in sorted(e.items()) if v is not None]' > "$ENVF" || die "could not read compose env"
 EXTRA=(); for kv in "${SERVER[@]}"; do EXTRA+=(-e "$kv"); done
@@ -96,6 +110,9 @@ for kv in "${SERVER[@]}"; do
 done
 
 mkdir -p "$OUT"
+# Archive exactly what the solver ran with: the compose env, then the overrides
+# (later -e wins over --env-file, and the container check above confirmed it).
+{ cat "$ENVF"; for kv in "${SERVER[@]}"; do echo "$kv"; done; } > "$OUT/server.env"
 STARTED=$(date -Is); status=0
 for gt in curator experimental; do
   env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \

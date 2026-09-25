@@ -44,6 +44,7 @@ export LogicNetworkEdge, ReactionParams, SolverResult
 
 # Parsing functions
 export parse_logic_network, parse_uuid_mapping, parse_set_mappings, parse_complete_network, create_reaction_network
+export parse_containment, network_containment_json, containment_from_json
 export convert_to_reaction_network, aggregate_to_pathway_view, validate_network_pathway_mapping
 export compute_influence_scores, SteadyStateParams
 

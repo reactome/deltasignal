@@ -368,6 +368,28 @@ function parse_complete_network(
 end
 
 """
+The network's containment table as JSON-ready `stid => [stids]`, restricted to
+stable ids that are nodes of this network (the rest can never match).
+"""
+function network_containment_json(network::ReactionNetwork)::Dict{String, Vector{String}}
+    present = Set(n.reactome_id for n in values(network.nodes) if n.reactome_id !== nothing)
+    return Dict(k => sort(collect(v)) for (k, v) in network.containment if k in present)
+end
+
+"""
+Inverse of `network_containment_json`. `nothing` (a payload without the key)
+gives an empty table, which the solver then reports as "inert".
+"""
+function containment_from_json(raw)::Dict{String, Set{String}}
+    out = Dict{String, Set{String}}()
+    raw === nothing && return out
+    for (k, v) in pairs(raw)
+        out[String(k)] = Set(String.(collect(v)))
+    end
+    return out
+end
+
+"""
 Read the generator's `containment.csv` beside a logic network: stable id ->
 the stable ids it contains, itself excluded. Empty when there is no file.
 """

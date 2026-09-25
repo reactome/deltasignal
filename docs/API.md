@@ -140,7 +140,8 @@ Response:
 ```
 - **`node_activities`**: `uuid → activity` on the **0–1 internal scale**
   (`× 100` for display — see Conventions).
-- **`self_inhibitors`** (additive, specs/022): the number of inhibitor slots damped as self-contained under `DS_SELF_INHIBITOR_WEIGHT` (the inhibitor contains one of its own reaction's inputs). `0` when the flag is off, which is the default, or when the network carries no containment table.
+- **`self_inhibitors`** (additive, specs/022): the number of inhibitor slots damped as self-contained (the inhibitor contains one of its own reaction's inputs AND is computed from it in the network). On by default (`DS_SELF_INHIBITOR_WEIGHT=0.1`; `off` disables it).
+- **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`scc`** (additive, specs/017): how the cyclic components were resolved —
   `method` (the `DS_SCC_METHOD` in force), `pooled`, `iterated`,
   `fallback_negative`, `fallback_inconsistent`, `pooled_nodes`. Under the

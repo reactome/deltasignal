@@ -136,6 +136,21 @@ end
     end
 end
 
+@testset "DS_COMPOSITION_GROUP without limiting is a startup error" begin
+    # It refines the limiting rule; under the default (limiting off, specs/023)
+    # it would silently do nothing.
+    with_env("DS_COMPOSITION_GROUP", "1") do
+        with_env("DS_ASSEMBLY_LIMITING", "0") do
+            err = try resolve_reaction_eval_config() catch e; e end
+            @test err isa ArgumentError
+            @test occursin("DS_ASSEMBLY_LIMITING", err.msg)
+        end
+        with_env("DS_ASSEMBLY_LIMITING", "1") do
+            @test resolve_reaction_eval_config().composition_group
+        end
+    end
+end
+
 @testset "defaults are the validated winning config" begin
     for name in ("DS_INHIBITION_MODE", "DS_AND_MODE", "DS_OR_MODE",
                  "DS_ASSEMBLY_LIMITING", "DS_OR_COMBINE", "DS_INHIBITOR_OR",

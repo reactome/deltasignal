@@ -67,7 +67,7 @@ struct Reaction
     # activator_uuids. Assembly edges are the synthetic member→complex edges of
     # a decomposed complex: a Complex is the AND of its subunits and cannot
     # exceed the abundance of its scarcest subunit (hard stoichiometric cap).
-    # Used by DS_ASSEMBLY_LIMITING to aggregate assembly inputs with a
+    # Used by DS_ASSEMBLY_LIMITING (off by default since specs/023) to aggregate assembly inputs with a
     # limiting-reactant (min) rule instead of the permissive DS_AND_MODE, so
     # overexpressing one subunit of a many-membered complex doesn't spuriously
     # drive the whole complex up (the dominant curator OE false-positive mode).
@@ -422,9 +422,9 @@ struct IndexedReaction
                                             # (no gene input) keeps full strength.
     inhibitor_shared::Vector{Vector{Int}}   # per-inhibitor: node indices of this
                                             # reaction's activators that the
-                                            # inhibitor CONTAINS (specs/022).
-                                            # Empty unless DS_SELF_INHIBITOR_WEIGHT
-                                            # is set, so the default never reads it.
+                                            # inhibitor CONTAINS and is computed
+                                            # from (specs/022). Empty when
+                                            # DS_SELF_INHIBITOR_WEIGHT=off.
     depletion_indices::Vector{Int}          # catalyst→substrate "consumption"
     depletion_break::Vector{Bool}           # per-depletion: a recycling CLOSURE
                                             # (source and target in one SCC) under
@@ -1070,7 +1070,7 @@ Invalid values raise `ArgumentError` here, at the single resolution point,
 rather than silently selecting a different model deeper in the dispatch.
 """
 function resolve_reaction_eval_config()::ReactionEvalConfig
-    return ReactionEvalConfig(
+    cfg = ReactionEvalConfig(
         _mode_env("DS_INHIBITION_MODE", "divide"),
         # hill_sat. AND is multiplication of fold-changes capped at 100 --
         # 0.5*0.5 = 0.25, 0.1*0.1 = 0.01, 0*x = 0, 10*10 = 100, 100*100 = 100 --
@@ -1297,12 +1297,22 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # structural weight, fixed a priori and meant to be learned later.
         _self_inhibitor_weight_env(),
     )
+    # DS_COMPOSITION_GROUP refines the limiting rule (max within a group, min
+    # across groups). With limiting off -- the default since specs/023 -- it
+    # would be silently inert, which is the silent-substitution failure these
+    # guard rails exist to stop.
+    if cfg.composition_group && !cfg.assembly_limiting
+        throw(ArgumentError("DS_COMPOSITION_GROUP=1 only acts under DS_ASSEMBLY_LIMITING=1 " *
+                            "(off by default since specs/023); set both or neither."))
+    end
+    return cfg
 end
 
 # Default 0.1 since 2026-09-25 (specs/022, re-measured under root pinning in
 # specs/023: held-out +90, +57 without the top pathway). "off" restores the old
 # product, where a self-contained inhibitor counts its input twice.
 const SELF_INHIBITOR_WEIGHT_DEFAULT = 0.1
+const SELF_INHIBITOR_FOLD_FLOOR = 1e-3
 
 function _self_inhibitor_weight_env()::Float64
     raw = strip(get(ENV, "DS_SELF_INHIBITOR_WEIGHT", ""))
@@ -1396,8 +1406,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     # aggregated with a limiting-reactant (min) rule and injected as a SINGLE
     # AND input below: a complex cannot exceed the abundance of its scarcest
     # subunit, so overexpressing one member of a many-subunit complex must not
-    # drive the complex up. When off, assembly inputs fall through to the normal
-    # AND/OR handling (byte-for-byte unchanged default).
+    # drive the complex up. When off -- the DEFAULT since specs/023 -- assembly
+    # inputs fall through to the normal AND/OR handling, so an overexpressed
+    # subunit raises its complex (what the root-pinned benchmark expects).
     assembly_limiting = config.assembly_limiting
     assembly_min = typemax(T)
     have_assembly = false
@@ -1898,9 +1909,25 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 for a in rxn.inhibitor_shared[k]
                     f_s *= clamp(x[a], zero(T), one(T)) / bl
                 end
-                f_i = x_inh / bl
-                indep = f_s > T(1e-12) ? f_i / f_s : one(T)
-                x_inh = clamp(bl * indep * f_s^(T(w_self) / n_self), zero(T), one(T))
+                # Folds are floored at SELF_INHIBITOR_FOLD_FLOOR (1e-3, three
+                # orders below baseline) when splitting. Near zero the inhibitor
+                # stops tracking the input exactly (the AND rule's smoothing
+                # epsilon), and the raw ratio f_i / f_s then swung T between
+                # 0.5 and 5 across L = 1e-6 .. 0. Below the floor the shared
+                # input is simply treated as gone.
+                fl = T(SELF_INHIBITOR_FOLD_FLOOR)
+                f_s = max(f_s, fl)
+                f_i = max(x_inh / bl, fl)
+                indep = f_i / f_s
+                x_new = clamp(bl * indep * f_s^(T(w_self) / n_self), zero(T), one(T))
+                # The rule may only WEAKEN this inhibitor, never strengthen or
+                # reverse it: its effective level stays between its own level
+                # and baseline. Without this, an inhibitor that does not track
+                # the shared input (or tracks it only partly) had the input's
+                # fold divided out of it anyway and AMPLIFIED the reaction
+                # (L = 5x read 5^1.9 = 21x; review of PR #72), and a knockout at
+                # exactly 0 jumped to full de-repression.
+                x_inh = clamp(x_new, min(x_inh, bl), max(x_inh, bl))
             end
             h_k = (bl + eps_T) / (x_inh + eps_T)
             apply_floor = floor_scope == "all" ||

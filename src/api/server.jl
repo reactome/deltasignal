@@ -315,7 +315,8 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     # not silently lose the list that shipped with the bundle.
     cofactor_stids = haskey(data, :cofactor_stids) && data.cofactor_stids !== nothing ?
         Set(String[String(x) for x in data.cofactor_stids]) : Set{String}()
-    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids)
+    containment = DeltaSignal.containment_from_json(get(data, :containment, nothing))
+    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment)
 end
 
 """
@@ -686,7 +687,11 @@ function parse_handler(req)
             "network_id" => network_id,
             "nodes" => nodes_array,
             "edges" => edges_array,
-            "pathways" => pathways_array
+            "pathways" => pathways_array,
+            # specs/022: what contains what, for the self-inhibitor rule, so a
+            # client that round-trips parse -> solve runs the same model as a
+            # solve by network_id. Only entries for stable ids in this network.
+            "containment" => DeltaSignal.network_containment_json(network),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
@@ -806,7 +811,7 @@ function solve_handler(req)
         
         # Create influence scores (simplified - could be enhanced)
         reactions = DeltaSignal.convert_to_reaction_network(network)
-        influence_scores = DeltaSignal.compute_influence_scores(solver_result, reactions)
+        influence_scores = DeltaSignal.compute_influence_scores(solver_result, reactions; network = network)
         
         result = Dict(
             "status" => "success",
@@ -823,6 +828,7 @@ function solve_handler(req)
             # client can tell a pooled solve from an iterated one.
             # specs/022 (additive): inhibitor slots damped as self-contained.
             "self_inhibitors" => get(solver_result.diagnostics, "self_inhibitors", 0),
+            "self_inhibitor_rule" => get(solver_result.diagnostics, "self_inhibitor_rule", "unknown"),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),
