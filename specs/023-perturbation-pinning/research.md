@@ -217,7 +217,7 @@ further caveats (review of PR #72):
   the broad pins (908 / 1,144), so valid-only accuracy flatters. The
   every-case row in docs/RESULTS.md is the honest one.
 - **Concentration.** 33 of the 37 held-out breaks from w = 0.1 are in RUNX2,
-  which alone is 31 fixed / 33 broke over 152 changed predictions. Excluding
+  which alone is 31 fixed / 33 broke (66 changed scored predictions). Excluding
   both RUNX1 and RUNX2 leaves 60 fixed / 1 broke. The McNemar p treats about
   25 perturbations' correlated readouts as independent, so it is optimistic.
 
@@ -291,3 +291,31 @@ Two things are needed first:
 - a definition of the shared fold when that component is not this variant's
   input;
 - Adam's call on whether to go by reaction or by variant.
+
+
+## The self-inhibitor rule after two reviews of PR #72
+
+The rule was revised twice after it was measured. Each revision is
+re-measured through `scripts/run_arm.sh` on the same build:
+
+| version | what changed | commit | vs the version before |
+|---|---|---|---|
+| 1 | inhibitor fold divided by the shared input's fold | `1a10ed2` / `44e733b` | (the +90 above) |
+| 2 | + requires the input to reach the inhibitor; + weaken-only clamp; + 1e-3 fold floor | `d4f2bda` | **0 scored changes**; 213 raw values moved |
+| 3 | split by the **log-fold overlap** of inhibitor and input | `5f7b9c7` | **0 scored changes**; 173 raw values moved (max 1.5x) |
+
+- **Why version 3 exists.** Version 1 amplified where the inhibitor did not
+  track the input (L = 5x read 21x). Version 2 fixed that, but where an
+  inhibitor tracked only partly, its clamp deleted the inhibitor outright
+  (722 of 1,214 probed catalog cases, 588 in PIP3). That is the edge deletion
+  specs/012 measured as harmful, not Adam's rule.
+- **What version 3 does.** It attributes to the input only the overlap of the
+  two changes, keeps that at weight w, and keeps the rest whole. A fully
+  tracking inhibitor still reads x^(1-w).
+- **What the measurement means.** All three versions give identical class
+  predictions on this catalog. The scored gain (+90 held-out over limiting-off)
+  comes entirely from fully tracking inhibitors, where the versions agree. The
+  revisions change behaviour off the benchmark's cases: partial tracking,
+  non-tracking inhibitors, OR inputs, and knockdowns near 0. That behaviour is
+  pinned by `test/test_self_inhibition.jl` (80 assertions).
+- **Canonical numbers are unchanged.**

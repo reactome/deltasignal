@@ -23,9 +23,9 @@ commit.
 > benchmark now perturbs only ROOT inputs that are, or contain, the gene, as
 > the MP-BioPath publication does (Adam's decision), with the solver defaults
 > re-measured under it (`DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`).
-> Build `20260925-1039_d4f4f64`, solver `d4f2bda` (the review fixes to the
-> self-inhibitor rule change no scored prediction), run through
-> `scripts/run_arm.sh` (`results/d4f2bda/new_defaults`; ARM.json and
+> Build `20260925-1039_d4f4f64`, solver `5f7b9c7` (two review revisions of the
+> self-inhibitor rule change no scored prediction; specs/023), run through
+> `scripts/run_arm.sh` (`results/5f7b9c7/new_defaults`; ARM.json and
 > server.env record exactly what ran).
 >
 > | | curator held-out | curator all | experimental |
