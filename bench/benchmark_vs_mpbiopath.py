@@ -106,16 +106,20 @@ SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").s
 # inhibitor, across 37 pathways.
 SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
 # Which of the nodes a gene resolves to get pinned. specs/023.
-#   all   (default, the protocol since 0bd4565): every node whose members include
-#         the gene, wherever it sits -- 89% of pins are mid-pathway complexes,
-#         which are then SET rather than computed from the perturbed gene.
-#   entry: only where the gene ENTERS the network -- the resolved nodes no other
-#         resolved node reaches. Roots always qualify; everything downstream
-#         propagates. Adam's stated intent.
-PIN_SCOPE = os.environ.get("DS_PIN_SCOPE", "all")
+#   root  (DEFAULT, the protocol of record -- Adam, 2026-09-25, following the
+#         MP-BioPath publication): only ROOT inputs (no incoming edge) that are
+#         or contain the gene. Everything downstream is computed. A gene with no
+#         root form is not perturbed, and its cases are invalid, not scored.
+#   entry: where the gene ENTERS the network -- resolved nodes no other resolved
+#         node reaches, so a gene with no root form gets its first occurrence.
+#   all   (the protocol from 0bd4565, 2026-07-14, to 2026-09-25): every node
+#         whose members include the gene, wherever it sits -- 89% of pins were
+#         mid-pathway complexes, SET rather than computed. Kept only so older
+#         results can be reproduced.
+PIN_SCOPE = os.environ.get("DS_PIN_SCOPE", "root")
 PIN_TALLY: Counter = Counter()
-if PIN_SCOPE not in ("all", "entry"):
-    raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'all' or 'entry'")
+if PIN_SCOPE not in ("all", "entry", "root"):
+    raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'root', 'entry' or 'all'")
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
 # same reaction. An entity that is both the catalyst and a substrate of one
 # reaction currently contributes TWICE to the AND product, so its fold-change
@@ -231,6 +235,14 @@ def build_adjacency(pathway_dir: Path) -> dict:
         for row in reader:
             adj[row["source_id"]].append(row["target_id"])
     return adj
+
+
+def root_occurrences(uuids: list, indeg: Mapping) -> list:
+    """The members of `uuids` with no incoming edge: root inputs that are or
+    contain the gene (specs/023, the MP-BioPath protocol). Order kept,
+    duplicates dropped. Empty when the gene has no root form."""
+    seen = set()
+    return [u for u in uuids if indeg.get(u, 0) == 0 and not (u in seen or seen.add(u))]
 
 
 def entry_occurrences(uuids: list, adj: dict) -> list:
@@ -577,17 +589,19 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         for sid in gene_to_stids.get(g, []):
             uuids.extend(stid_to_uuids.get(sid, []))
         gene_to_uuids[g] = uuids
-    if PIN_SCOPE == "entry":
-        pin_adj = build_adjacency(pathway_dir)
-        gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
-                         for g, us in gene_to_uuids.items()}
-    # Record what was actually pinned, so a run's protocol is on the record
-    # rather than inferred from its flags (specs/023: 89% of pins had silently
-    # become mid-pathway complexes for two months).
     indeg = Counter()
     with open(pathway_dir / "logic_network.csv") as f:
         for row in csv.DictReader(f):
             indeg[row["target_id"]] += 1
+    if PIN_SCOPE == "entry":
+        pin_adj = build_adjacency(pathway_dir)
+        gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
+                         for g, us in gene_to_uuids.items()}
+    elif PIN_SCOPE == "root":
+        gene_to_uuids = {g: root_occurrences(us, indeg) for g, us in gene_to_uuids.items()}
+    # Record what was actually pinned, so a run's protocol is on the record
+    # rather than inferred from its flags (specs/023: 89% of pins had silently
+    # become mid-pathway complexes for two months).
     for us in gene_to_uuids.values():
         PIN_TALLY["perturbations"] += bool(us)
         PIN_TALLY["pinned"] += len(set(us))

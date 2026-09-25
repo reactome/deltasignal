@@ -33,3 +33,25 @@ def test_members_that_only_reach_each_other_fall_back_to_all():
 def test_a_cycle_downstream_of_the_root_is_not_pinned():
     adj = {"A": ["C1"], "C1": ["C2"], "C2": ["C1"]}
     assert entry_occurrences(["A", "C1", "C2"], adj) == ["A"]
+
+
+from benchmark_vs_mpbiopath import root_occurrences  # noqa: E402
+
+
+def test_root_scope_keeps_only_nodes_with_no_incoming_edge():
+    indeg = {"AB": 2, "R": 1, "ABC": 1}           # A and B are roots
+    assert root_occurrences(["A", "AB", "ABC"], indeg) == ["A"]
+
+
+def test_a_root_complex_containing_the_gene_is_pinned():
+    # A root complex that is not decomposed still counts: it contains the gene.
+    assert root_occurrences(["AB", "ABC"], {"ABC": 1}) == ["AB"]
+
+
+def test_root_scope_does_not_invent_a_pin_for_a_gene_with_no_root_form():
+    # Unlike `entry`, a gene only produced mid-pathway is NOT perturbed.
+    assert root_occurrences(["P", "PC"], {"P": 1, "PC": 1}) == []
+
+
+def test_root_scope_drops_duplicates():
+    assert root_occurrences(["A", "A", "B"], {}) == ["A", "B"]

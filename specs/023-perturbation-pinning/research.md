@@ -142,3 +142,31 @@ claims.
    expectations say yes.
 
 Nothing is adopted until then. The flag stays, default `all`.
+
+## Decision (Adam, 2026-09-25): root pinning is the protocol of record
+
+*"These tests from the mpbiopath publication perturb only root inputs that are
+or contain an entity. So that is what we should go with."*
+
+`DS_PIN_SCOPE=root` is now the benchmark default. It pins only nodes with no
+incoming edge that are, or contain, the gene. This is narrower than `entry`: a
+gene with no root form is not perturbed, and its cases become invalid rather
+than scored (77 perturbations had no root occurrence). `all` is kept only to
+reproduce results from 2026-07-14 to 2026-09-25.
+
+## Pre-registration: the new baseline and the assembly question under it
+
+The protocol is decided; it is not being A/B'd. What is measured:
+
+- **Arm R (new baseline):** root pinning, solver code defaults. Its numbers
+  replace the production baseline in docs/RESULTS.md, reported against the old
+  broad-pin baseline for continuity, **on the shared valid set**, with the count
+  of cases that became invalid.
+- **Arm R0:** root pinning + `DS_ASSEMBLY_LIMITING=0`. This asks whether a
+  single overexpressed subunit should raise its complex, a modelling question
+  the broad pins had hidden. It is decided against arm R on curator held-out
+  (net, McNemar, concentration), with the experimental axis reported.
+  - Adopt limiting-off as the solver default only if held-out net > +15 with
+    p < 0.05, not concentrated, and experimental no worse than −15.
+  - Otherwise keep the default and record.
+- Both run through `scripts/run_arm.sh`.
