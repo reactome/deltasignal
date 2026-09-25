@@ -383,7 +383,9 @@ gives an empty table, which the solver then reports as "inert".
 function containment_from_json(raw)::Dict{String, Set{String}}
     out = Dict{String, Set{String}}()
     raw === nothing && return out
+    raw isa AbstractDict || throw(ArgumentError("containment must map a stable id to a list"))
     for (k, v) in pairs(raw)
+        v isa AbstractVector || throw(ArgumentError("containment[$k] must be a list of stable ids"))
         out[String(k)] = Set(String.(collect(v)))
     end
     return out

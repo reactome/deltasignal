@@ -125,6 +125,34 @@ end
     @test solve(net3; x = 1.0, c3 = 2.0, w = "0.1").diagnostics["self_inhibitors"] == 2
 end
 
+@testset "an inhibitor that tracks the input only partly is damped, not deleted" begin
+    # Re-review of PR #72, probe A: C = OR-mean(L, Z), so at L = 5 it reads 3,
+    # not 5. Dividing out the whole input fold overshot baseline and the clamp
+    # then removed C outright (T = 5, exactly as with no inhibitor) -- edge
+    # deletion, not damping. The overlap split keeps C's response at weight w.
+    nodes = Dict(node.(["T", "L", "F", "C", "Z"]))
+    edges = [edge("L", "T", true, "input"), edge("F", "T", true, "input"),
+             edge("C", "T", false, "regulator"; and = false),
+             edge("L", "C", true, "input"; and = false), edge("Z", "C", true, "input"; and = false)]
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict("R-C" => Set(["R-L"])))
+    for x in (5.0, 20.0, 0.2)
+        on, off = t_fold(net; x = x, w = "0.1"), t_fold(net; x = x)
+        c = (x + 1) / 2                                  # C's own fold
+        @test on ≈ x / c^0.1 rtol = 1e-6                 # C's response kept at weight w (n = 1)
+        @test min(off, x) < on < max(off, x)             # strictly damped: neither kept nor deleted
+    end
+end
+
+@testset "under DS_INHIBITOR_OR=1 the damping is w/n per reaction (documented)" begin
+    # The OR path keeps only the dominant inhibitor, each damped by w/n, so two
+    # fully tracking inhibitors give x^(1-w/2) there, not x^(1-w).
+    net = fixture()
+    with_env("DS_INHIBITOR_OR" => "1") do
+        @test t_fold(net; x = 0.2, w = "0.1") ≈ 0.2^0.95 rtol = 1e-6
+    end
+end
+
 @testset "a knockout at exactly 0 does not jump to full de-repression" begin
     # OR inputs, so T survives L = 0. The review found the rule then read the
     # inhibitor as 0 and de-repressed to the 10x ceiling (T = 5 against 0.5 off).

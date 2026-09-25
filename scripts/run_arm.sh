@@ -27,6 +27,12 @@
 #
 # The control for an arm is the production scoring of the same build at a
 # solver-identical commit, or an arm run with no overrides.
+#
+# Known limit: "read" is not "active". The check confirms the code reads a
+# knob, not that it matters under the other settings -- DS_MU / DS_GAMMA are
+# read only by DS_SCC_METHOD=minimize, DS_INHIBITOR_K / _BETA only by their
+# inhibition modes. ARM.json records the overrides; judge them against the
+# solver config.
 set -u -o pipefail
 
 die() { echo "run_arm: $*" >&2; exit 1; }
@@ -49,7 +55,8 @@ done
 # in the caller's shell would reach the benchmark directly, and would resolve
 # ${DS_X:-default} in the compose file for the solver -- silently, and without
 # appearing in ARM.json (review of PR #72).
-leaked=$(env | grep -oE '^DS_[A-Z0-9_]+' | sort -u | tr '\n' ' ')
+# DS_CATALOG_ROOT is exempt: this script sets it explicitly for the benchmark.
+leaked=$(env | grep -oE '^DS_[A-Z0-9_]+' | grep -vx DS_CATALOG_ROOT | sort -u | tr '\n' ' ')
 [ -z "$leaked" ] || die "the calling shell exports $leaked-- unset them, or pass them with --server/--bench"
 
 REPO=$(git rev-parse --show-toplevel) || die "not in a git repo"
@@ -79,6 +86,9 @@ for kv in "${SERVER[@]}"; do
 done
 for kv in "${BENCH[@]}"; do
   n=${kv%%=*}
+  case "$n" in DS_CATALOG_ROOT|DELTASIGNAL_BASE)
+    git worktree remove --force "$WT"; die "$n is set by run_arm.sh itself and cannot be overridden" ;;
+  esac
   grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" \
     || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py at $SHA"; }
 done

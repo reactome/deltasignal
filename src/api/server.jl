@@ -315,7 +315,11 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     # not silently lose the list that shipped with the bundle.
     cofactor_stids = haskey(data, :cofactor_stids) && data.cofactor_stids !== nothing ?
         Set(String[String(x) for x in data.cofactor_stids]) : Set{String}()
-    containment = DeltaSignal.containment_from_json(get(data, :containment, nothing))
+    containment = try
+        DeltaSignal.containment_from_json(get(data, :containment, nothing))
+    catch
+        throw(ArgumentError("`containment` must be an object mapping a stable id to a list of stable ids."))
+    end
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment)
 end
 
@@ -692,6 +696,9 @@ function parse_handler(req)
             # client that round-trips parse -> solve runs the same model as a
             # solve by network_id. Only entries for stable ids in this network.
             "containment" => DeltaSignal.network_containment_json(network),
+            # The bundle's cofactor list, so a parse -> POSTed solve keeps it
+            # (reaction_network_from_json reads it back; it was never sent).
+            "cofactor_stids" => sort(collect(network.cofactor_stids)),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
@@ -897,6 +904,11 @@ function start_server(host="127.0.0.1", port=8080; test_mode=false)
         # Apply middleware
         handler = cors_middleware(logging_middleware(router))
         
+        # Resolve the DS_* config once before serving, so a misconfiguration
+        # (a typo, or DS_COMPOSITION_GROUP without limiting) stops the server
+        # here instead of turning every solve into a 400 that looks like a
+        # client error.
+        DeltaSignal.resolve_reaction_eval_config()
         println("Server starting on http://$host:$port")
         println("Available endpoints:")
         println("  GET  /api/health")

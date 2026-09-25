@@ -47,7 +47,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cycle_structure import tarjan_sccs  # noqa: E402
 from holdout_report import TUNING_PATHWAYS  # noqa: E402
-from benchmark_vs_mpbiopath import self_contained_inhibitor_pairs  # noqa: E402
 
 DERIVED = {"assembly", "depletion", "catalyst"}
 
@@ -86,20 +85,40 @@ class Network:
                     core[u].append(v)
             self.comp_derived_only[i] = not any(
                 len(cc) > 1 for cc in tarjan_sccs(core, cs))
-        # The solver's definition (steady_state.jl self_contained_inhibitor_map):
-        # no depletion edges, and the shared input must reach the inhibitor.
-        etype = {(u, v): et for u, es in self.fwd.items() for v, _, et in es}
+        # Exactly the solver's definition (steady_state.jl
+        # self_contained_inhibitor_map): a non-depletion inhibitor edge S -| T
+        # where S's containment includes the identity of one of T's activators
+        # A, and A reaches S in the network.
+        ident = {}
+        with open(pathway_dir / "nodes.csv", newline="") as fh:
+            for r in csv.DictReader(fh):
+                if r.get("diagram_entity_id"):
+                    ident[r["uuid"]] = r["diagram_entity_id"]
+        contains = defaultdict(set)
+        cpath = pathway_dir / "containment.csv"
+        if cpath.exists():
+            with open(cpath, newline="") as fh:
+                for r in csv.DictReader(fh):
+                    if r["stable_id"] != r["contains_stable_id"]:
+                        contains[r["stable_id"]].add(r["contains_stable_id"])
         acts = defaultdict(set)
+        inh_edges = []
         for u, es in self.fwd.items():
-            for v, neg, _ in es:
+            for v, neg, et in es:
                 if not neg:
                     acts[v].add(u)
+                elif et != "depletion":
+                    inh_edges.append((u, v))
+        reach = {}
+        def reaches(a):
+            if a not in reach:
+                reach[a] = self._bfs(list(v for v, _, _ in self.fwd.get(a, ())),
+                                     lambda n: (v for v, _, _ in self.fwd.get(n, ())))
+            return reach[a]
         pairs = set()
-        for s_, t_ in self_contained_inhibitor_pairs(pathway_dir):
-            if etype.get((s_, t_)) == "depletion":
-                continue
-            if any(s_ in self._bfs([a], lambda n: (v for v, _, _ in self.fwd.get(n, ())))
-                   for a in acts[t_]):
+        for s_, t_ in set(inh_edges):
+            inside = contains.get(ident.get(s_), set())
+            if any(ident.get(a) in inside and s_ in reaches(a) for a in acts[t_]):
                 pairs.add((s_, t_))
         self.self_inh = pairs
 

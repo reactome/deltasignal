@@ -1902,31 +1902,37 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
             if n_self > 0 && !isempty(rxn.inhibitor_shared[k])
-                # specs/022: split the inhibitor's fold into the part its shared
-                # inputs explain (kept at power w/n) and the independent rest
-                # (kept whole). All folds are relative to the reaction baseline.
+                # specs/022. Split the inhibitor's change, in log space, into
+                # the part its shared inputs explain and the independent rest,
+                # and keep the explained part only at weight w/n.
+                #
+                #   l_i = log fold of the inhibitor, l_s = log fold of the
+                #   shared inputs. Explained e = the overlap: same sign as
+                #   both, magnitude min(|l_i|, |l_s|); 0 if they move apart.
+                #   Effective l = (l_i - e) + (w/n) e.
+                #
+                # Tracking fully (l_i = l_s): reads x^(1-w). Tracking partly
+                # (l_i = 0.3 l_s, e.g. an OR-mean with other producers): that
+                # partial response is DAMPED, not deleted. The first version
+                # divided the whole input fold out (l_i - l_s) and, after the
+                # weaken-only clamp, removed the inhibitor outright in 722 of
+                # 1,214 probed catalog cases (re-review of PR #72) -- which is
+                # the edge deletion specs/012 measured as harmful, not this
+                # rule. Moving apart: untouched. Since |l - l_i| never exceeds
+                # |e| and has the opposite sign to l_i, the rule can only
+                # weaken an inhibitor; the clamp below is a safety net.
+                # Folds are floored at SELF_INHIBITOR_FOLD_FLOOR (1e-3) so a
+                # knockdown near 0 cannot swing the logs.
+                fl = T(SELF_INHIBITOR_FOLD_FLOOR)
                 f_s = one(T)
                 for a in rxn.inhibitor_shared[k]
                     f_s *= clamp(x[a], zero(T), one(T)) / bl
                 end
-                # Folds are floored at SELF_INHIBITOR_FOLD_FLOOR (1e-3, three
-                # orders below baseline) when splitting. Near zero the inhibitor
-                # stops tracking the input exactly (the AND rule's smoothing
-                # epsilon), and the raw ratio f_i / f_s then swung T between
-                # 0.5 and 5 across L = 1e-6 .. 0. Below the floor the shared
-                # input is simply treated as gone.
-                fl = T(SELF_INHIBITOR_FOLD_FLOOR)
-                f_s = max(f_s, fl)
-                f_i = max(x_inh / bl, fl)
-                indep = f_i / f_s
-                x_new = clamp(bl * indep * f_s^(T(w_self) / n_self), zero(T), one(T))
-                # The rule may only WEAKEN this inhibitor, never strengthen or
-                # reverse it: its effective level stays between its own level
-                # and baseline. Without this, an inhibitor that does not track
-                # the shared input (or tracks it only partly) had the input's
-                # fold divided out of it anyway and AMPLIFIED the reaction
-                # (L = 5x read 5^1.9 = 21x; review of PR #72), and a knockout at
-                # exactly 0 jumped to full de-repression.
+                l_s = log(max(f_s, fl))
+                l_i = log(max(x_inh / bl, fl))
+                e = (l_s * l_i > 0) ? sign(l_i) * min(abs(l_i), abs(l_s)) : zero(T)
+                l_eff = (l_i - e) + (T(w_self) / n_self) * e
+                x_new = clamp(bl * exp(l_eff), zero(T), one(T))
                 x_inh = clamp(x_new, min(x_inh, bl), max(x_inh, bl))
             end
             h_k = (bl + eps_T) / (x_inh + eps_T)

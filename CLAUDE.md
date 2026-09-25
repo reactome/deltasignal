@@ -319,14 +319,15 @@ env vars only override for benchmark sweeps:
 - `DS_SELF_INHIBITOR_WEIGHT=0.1` (default; `off` restores the old product): an
   inhibitor that *contains* its own reaction's input (a sequestering complex
   such as WIF1:WNT, or RUNX1 mRNA:miR-675 RISC) counts that input twice under
-  `divide`: one such inhibitor cancels it, two invert it. With `w` the shared
-  part of the inhibitor's fold is kept only at power `w`, so the reaction reads
-  `x^(1-w)`; the independent part keeps full strength. It needs the bundle's
-  `containment.csv`, and `self_inhibitors` in the solve response counts what
-  was damped. Under root pinning it is held-out +90 (+57 without the top
-  pathway; 33 of its 37 held-out breaks are RUNX2). It applies only where the
-  shared input actually reaches the inhibitor, and it can only weaken an
-  inhibitor (review of PR #72). specs/022 has the rule; specs/023 has the adoption.
+  `divide`: one such inhibitor cancels it, two invert it. The part of the
+  inhibitor's change that the shared input explains (their log-fold overlap)
+  is kept only at weight `w`; the rest keeps full strength. A fully tracking
+  inhibitor reads `x^(1-w)`; a partly tracking one is damped, not deleted. It
+  applies only where the shared input reaches the inhibitor in the network,
+  and it can only weaken an inhibitor. It needs the bundle's
+  `containment.csv`; the solve reports `self_inhibitor_rule` (on / off /
+  inert) and how many inhibitor slots were flagged. Measured numbers are in
+  specs/023. specs/022 has the rule; specs/023 has the adoption.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -423,7 +424,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 80 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 73 | specs/022, added 2026-09-25 |
+| `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
