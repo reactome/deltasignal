@@ -211,3 +211,65 @@ very complexes whose inhibitors the rule corrects.
 Both axes improve at every step after the protocol change. The new baseline
 is still below the broad-pin numbers (held-out 0.8634 vs 0.8816 on different
 valid sets), because part of those came from the pins.
+
+## Where the adopted configuration still fails (`bench/analysis/failure_structure.py`)
+
+Arm `1a10ed2/root_nolimit_selfinh_w0.1`, which is equivalent to the new
+defaults. Held-out: 17,420 scored, 2,380 wrong (13.7%): 1,403 missed, 770 false
+change, 207 wrong direction. Each case is classified on the region between its
+pinned roots and its readout.
+
+**1. No route at all: 1,137 missed changes (48% of held-out errors).**
+- Only 122 of them (11%) were right under the old broad pins, so this class
+  mostly predates the protocol change.
+- It is concentrated: Interferon α/β 256 (the severed branch of specs/016 and
+  019), MET 80, PDGF 80, RUNX1 78.
+- It spans 267 perturbations and 250 readouts.
+- This is connectivity, not propagation; a propagator change cannot reach it.
+
+**2. With a route (5,712 cases, 21.8% wrong).** Loop and structure effects,
+checked within pathway because pooled loop effects have been between-pathway
+confounds before (the retracted "loops are the lever"):
+
+| on the route | pooled error rate | within-pathway difference | pathways |
+|---|---|---|---|
+| positive loop | 28.1% vs 14.8% | **+9.6%** | 22 |
+| negative loop (contains an inhibition) | 28.7% vs 14.8% | −0.7% | 14 |
+| giant loop (≥ 100 nodes) | 28.6% vs 14.8% | +8.5% | 8 |
+| welded loop (only derived edges close it) | 24.2% vs 14.8% | +10.8% | 4 |
+| self-contained inhibitor | 25.1% vs 21.0% | **+12.5%** | 15 |
+| assembly step | 25.1% vs 18.4% | +7.4% | 49 |
+
+- **Positive loops survive stratification; negative loops do not.** The
+  negative-loop gap is a between-pathway confound.
+- False change dominates the failures with a route: 298 through positive loops,
+  244 through negative loops, 228 through none.
+- **Self-contained inhibitors are still a problem** after w = 0.1.
+
+**Traced: CREBBP knockdown, DDX58/IFIH1 interferon induction** (IFNB1
+expected DOWN, predicted 2.75x):
+- *CREBBP, EP300 binds p-IRF3 dimer* has two variants. The CREBBP variant
+  correctly reads 0.
+- The EP300 variant's negative regulator is **CREBBP:NS1**, influenza NS1
+  sequestering CREBBP. It contains the knocked-down gene but not this variant's
+  input (EP300), so it is not self-contained per variant. It falls to 0 and
+  de-represses the EP300 variant to the 10x ceiling.
+- OR-mean of the two variants gives 5; with the IRF7 branch, the readout
+  reads 2.75.
+- **The mechanism: a sequestration complex falls because the sequestered
+  protein fell, and that is read as the sequestering agent disappearing.** Here
+  it happens across sibling variants of one Reactome reaction, which the
+  per-variant rule cannot see.
+- It is the same class as WNT3A:sFRP in the WNT5A trace.
+- A second issue in this case: **NS1 is a viral protein** held at "normal"
+  level in an uninfected human pathway.
+
+**Candidate next rule (not implemented):** for a complex inhibitor, only the
+change in its *non-shared* components (the sequestering agent, NS1 or WIF1)
+should count as inhibition. A drop caused by the sequestered partner should
+not de-repress. That is the specs/022 split generalised from "the reaction's
+own input" to "any component that is an input of the same Reactome reaction".
+Two things are needed first:
+- a definition of the shared fold when that component is not this variant's
+  input;
+- Adam's call on whether to go by reaction or by variant.
