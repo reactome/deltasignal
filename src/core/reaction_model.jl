@@ -420,6 +420,11 @@ struct IndexedReaction
                                             # strong proportional repression is
                                             # unphysical; protein-level feedback
                                             # (no gene input) keeps full strength.
+    inhibitor_shared::Vector{Vector{Int}}   # per-inhibitor: node indices of this
+                                            # reaction's activators that the
+                                            # inhibitor CONTAINS (specs/022).
+                                            # Empty unless DS_SELF_INHIBITOR_WEIGHT
+                                            # is set, so the default never reads it.
     depletion_indices::Vector{Int}          # catalyst→substrate "consumption"
     depletion_break::Vector{Bool}           # per-depletion: a recycling CLOSURE
                                             # (source and target in one SCC) under
@@ -506,6 +511,8 @@ function index_reactions(
     baselines::Dict{String, Float64},
     gene_uuids::Set{String} = Set{String}();
     stats::Union{Nothing, Dict{String, Any}} = nothing,
+    self_shared::Dict{Tuple{String, String}, Vector{String}} =
+        Dict{Tuple{String, String}, Vector{String}}(),
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # Node indices that are gene entities (inputs to transcription/expression
     # reactions). Used to detect transcriptional autoregulation loops.
@@ -591,13 +598,20 @@ function index_reactions(
         # is missing (legacy Reaction constructors).
         inh_is_and = [k <= length(r.inhibitor_is_and) ? r.inhibitor_is_and[k] : r.is_and_gate
                       for k in inh_orig]
+        # specs/022: which of this reaction's activators each inhibitor contains,
+        # keyed by (inhibitor uuid, target uuid) and aligned with inh_indices.
+        inh_shared = [Int[uuid_to_idx[a]
+                          for a in get(self_shared, (r.inhibitor_uuids[k], r.target_uuid), String[])
+                          if haskey(uuid_to_idx, a)]
+                      for k in inh_orig]
 
         push!(raw, (
             target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
             act_indices=act_indices, act_is_and=act_is_and,
             act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
             act_group=act_group,
-            inh_indices=inh_indices, inh_is_and=inh_is_and, dep_indices=dep_indices,
+            inh_indices=inh_indices, inh_is_and=inh_is_and, inh_shared=inh_shared,
+            dep_indices=dep_indices,
             sub_indices=sub_indices, params=params,
         ))
     end
@@ -814,10 +828,13 @@ function index_reactions(
             rec.target_idx, rec.baseline,
             rec.act_indices, rec.act_is_and, act_break, act_in_loop,
             rec.act_is_assembly, comp_redundant, rec.act_group,
-            rec.inh_indices, rec.inh_is_and, in_loop, in_transcription,
+            rec.inh_indices, rec.inh_is_and, in_loop, in_transcription, rec.inh_shared,
             rec.dep_indices, closure_dep[ri], dep_own,
             rec.sub_indices, rec.params,
         ))
+    end
+    if stats !== nothing
+        stats["self_inhibitors"] = sum((count(!isempty, r.inhibitor_shared) for r in indexed); init = 0)
     end
     return indexed, comp_id, n_comp
 end
@@ -922,6 +939,7 @@ struct ReactionEvalConfig
     composition_group::Bool
     composition_mode::String
     depletion_own_product::String
+    self_inhibitor_weight::Float64   # < 0 = off (default). specs/022.
 end
 
 """
@@ -1259,7 +1277,28 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         #       propagator cannot tell the two apart at the node; which the
         #       curators expect more often is the A/B.
         _mode_env("DS_DEPLETION_OWN_PRODUCT", "full"),
+        # specs/022. An inhibitor that CONTAINS one of its reaction's inputs
+        # (a sequestering complex such as WIF1:WNT) moves with that input, and
+        # `divide` then counts the input twice: one such inhibitor cancels it,
+        # two invert it. With w set, the part of the inhibitor's fold explained
+        # by the shared input is kept only at power w (split across the
+        # reaction's self-contained inhibitors), so the input sets the
+        # direction and the inhibitor damps it: the reaction reads x^(1-w).
+        # The inhibitor's independent part keeps full strength. Unset = off,
+        # byte-identical. w is a single structural weight, fixed a priori and
+        # meant to be learned later.
+        _self_inhibitor_weight_env(),
     )
+end
+
+function _self_inhibitor_weight_env()::Float64
+    raw = strip(get(ENV, "DS_SELF_INHIBITOR_WEIGHT", ""))
+    isempty(raw) && return -1.0
+    w = _float_env("DS_SELF_INHIBITOR_WEIGHT", -1.0)
+    0.0 <= w <= 1.0 || throw(ArgumentError(
+        "DS_SELF_INHIBITOR_WEIGHT=$raw must be in [0, 1] (unset = off); a weight " *
+        "above 1 would invert the input, below 0 would amplify the double count."))
+    return w
 end
 
 function _loop_elasticity_hi_env()::Float64
@@ -1833,8 +1872,22 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         result = one(T)
         or_h = one(T)
         have_or = false
+        w_self = config.self_inhibitor_weight
+        n_self = w_self >= 0 ? count(!isempty, rxn.inhibitor_shared) : 0
         @inbounds for k in 1:length(rxn.inhibitor_indices)
             x_inh = clamp(x[rxn.inhibitor_indices[k]], zero(T), one(T))
+            if n_self > 0 && !isempty(rxn.inhibitor_shared[k])
+                # specs/022: split the inhibitor's fold into the part its shared
+                # inputs explain (kept at power w/n) and the independent rest
+                # (kept whole). All folds are relative to the reaction baseline.
+                f_s = one(T)
+                for a in rxn.inhibitor_shared[k]
+                    f_s *= clamp(x[a], zero(T), one(T)) / bl
+                end
+                f_i = x_inh / bl
+                indep = f_s > T(1e-12) ? f_i / f_s : one(T)
+                x_inh = clamp(bl * indep * f_s^(T(w_self) / n_self), zero(T), one(T))
+            end
             h_k = (bl + eps_T) / (x_inh + eps_T)
             apply_floor = floor_scope == "all" ||
                           (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k]) ||

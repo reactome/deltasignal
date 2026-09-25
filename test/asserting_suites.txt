@@ -20,3 +20,4 @@ test_loop_elasticity
 test_solver_determinism
 test_loop_pool
 test_scc_break_roles
+test_self_inhibition

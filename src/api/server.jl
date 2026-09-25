@@ -821,6 +821,8 @@ function solve_handler(req)
             "solve_time" => solver_result.solve_time,
             # specs/017 (additive): how the cyclic components were resolved, so a
             # client can tell a pooled solve from an iterated one.
+            # specs/022 (additive): inhibitor slots damped as self-contained.
+            "self_inhibitors" => get(solver_result.diagnostics, "self_inhibitors", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),

@@ -313,6 +313,13 @@ env vars only override for benchmark sweeps:
   de-repress it).
   Both A/B'd on the shared catalog, neither adopted; `specs/016` has the arms
   and the traced mechanisms.
+- `DS_SELF_INHIBITOR_WEIGHT` (default unset = off): an inhibitor that
+  *contains* its own reaction's input (a sequestering complex such as WIF1:WNT)
+  counts that input twice under `divide` — one such inhibitor cancels it, two
+  invert it. With `w` in [0, 1] the shared part of the inhibitor's fold is kept
+  only at power `w`, so the reaction reads `x^(1-w)`. Needs the bundle's
+  `containment.csv`; `self_inhibitors` in the solve response counts what was
+  damped. specs/022 holds the pre-registration and the A/B.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -382,6 +389,8 @@ for the last feature that touched it rather than re-deriving from the code.
   Also the flag-expiry policy: a flag is removed once its question is answered.
 - `specs/021-empirical-holdout-axis/` — the phospho-site validation design,
   the target list, and what a magnitude claim can and cannot be. Open.
+- `specs/022-self-contained-inhibition/` — inhibitors built from their own
+  reaction's input; the `DS_SELF_INHIBITOR_WEIGHT` rule and its A/B.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -395,7 +404,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twelve files contain assertions; the
+**Most of the test suite cannot fail.** Thirteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -407,6 +416,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 80 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
+| `test/test_self_inhibition.jl` | 40 | specs/022, added 2026-09-25 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
@@ -416,7 +426,7 @@ other seven execute code and print output.
 Counts are the `Pass` column of each file's outer `Test Summary`, not `@test`
 occurrences — several testsets generate assertions in loops. **Verified
 2026-09-22 from CI run 35684497165**; `.github/workflows/test.yml` runs all
-twelve by name and prints each summary, so that log is how to re-read them.
+all of them by name and prints each summary, so that log is how to re-read them.
 They are not currently re-checkable locally — see the dev-container note below.
 
 Earlier revisions of this table were wrong in several places at once: they said
@@ -461,7 +471,7 @@ crash-looping on exactly this error, and recreating it with the mount brought
 dependency still needs `docker compose -f docker-compose.dev.yml build`.
 `Manifest.toml` is gitignored, so mounting it is not an option.
 
-When adding behaviour, add assertions to one of the twelve files that assert,
+When adding behaviour, add assertions to one of the files that assert,
 or start a new one — do not extend a file from the zero-assertion list and assume it is
 covering anything.
 
