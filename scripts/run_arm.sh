@@ -60,6 +60,14 @@ PY="$(cd "$HOME/gitroot/logic-network-generator" && poetry env info -p)/bin/pyth
 
 WT=$(mktemp -d "$HOME/gitroot/.arm-$NAME-XXXX")
 git worktree add --detach "$WT" "$SHA" -q || die "worktree failed"
+# An override the pinned code never reads is set, verified, recorded -- and
+# inert. That silently measures the control. Refuse it.
+for kv in "${SERVER[@]}"; do
+  grep -rqF "\"${kv%%=*}\"" "$WT/src" || { git worktree remove --force "$WT"; die "${kv%%=*} is not read anywhere in src/ at $SHA"; }
+done
+for kv in "${BENCH[@]}"; do
+  grep -rqF "\"${kv%%=*}\"" "$WT/bench" || { git worktree remove --force "$WT"; die "${kv%%=*} is not read anywhere in bench/ at $SHA"; }
+done
 CNAME="arm-$NAME-$$"
 cleanup() { docker rm -f "$CNAME" >/dev/null 2>&1; git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1; }
 trap cleanup EXIT
