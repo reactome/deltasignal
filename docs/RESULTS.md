@@ -18,6 +18,14 @@ commit.
 
 ---
 
+
+> **Protocol caveat (2026-09-25, specs/023).** Every number here was measured
+> with the benchmark pinning *every* node containing the perturbed gene, 89% of
+> them mid-pathway complexes, rather than only where the gene enters the
+> network. Under entry pinning the same solver scores held-out 84.75% /
+> mF1 0.7952 (with `DS_ASSEMBLY_LIMITING=0`) against 86.87% / 0.8299. Which
+> protocol is of record is undecided.
+
 ## 1. The headline: same networks, same ground truth
 
 The fair comparison against MP-BioPath is on **MP-BioPath's own published

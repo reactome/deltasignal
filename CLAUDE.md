@@ -59,6 +59,36 @@ curl localhost:8080/api/health | jq .catalog    # what the RUNNING API is servin
   from the database's own `DBInfo` node, because the same generator commit
   against a different release builds a different catalog.
 
+## Benchmark protocol: what gets pinned
+
+A perturbed gene resolves to the entities that reference it in Reactome. Then,
+controlled by `DS_PIN_SCOPE` (benchmark-side):
+
+- `all` (**default, and every number since 2026-07-14, `0bd4565`**): every node
+  whose `member_leaves` include the gene is pinned, wherever it sits. That is
+  9,378 pins over 856 perturbations, **89% of them mid-pathway complexes**. A
+  pinned complex is *set*, not computed from the gene, and a generic set
+  complex (e.g. `WLS:WNT`) pinned at 0 knocks out every member ligand.
+- `entry`: only where the gene enters the network, i.e. resolved nodes that no
+  other resolved node reaches. This is the intended protocol: A + B -> AB ->
+  reaction, pin A. Measured in specs/023 at held-out **−402** even with
+  `DS_ASSEMBLY_LIMITING=0`: part of the headline accuracy comes from the pin,
+  not the propagation. **Which protocol is the benchmark of record is an open
+  decision (Adam).** Until it is made, quote numbers with that caveat.
+
+Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
+of inferring the protocol from flags.
+
+**Run arms with `scripts/run_arm.sh NAME [--server DS_X=v] [--bench DS_Y=v]`,
+not ad-hoc scripts.** It pins a detached worktree at HEAD, serves it with the
+dev compose environment plus the named overrides on the resolved build, and
+refuses to run in three cases:
+- the container does not show an override;
+- the pinned code never reads it;
+- `src/` or `bench/` is dirty.
+
+It writes `ARM.json` next to the results.
+
 ## Development Commands
 
 ### Running Tests
