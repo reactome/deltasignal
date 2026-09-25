@@ -19,13 +19,25 @@ commit.
 ---
 
 
-> **Protocol caveat (2026-09-25, specs/023).** Every number on OUR networks
-> (section 2 onward) was measured with the benchmark pinning *every* node containing the perturbed gene, 89% of
-> them mid-pathway complexes, rather than only where the gene enters the
-> network. Under entry pinning the same solver scores held-out 84.75% /
-> mF1 0.7952 (with `DS_ASSEMBLY_LIMITING=0`) against 86.87% / 0.8299. Which
-> protocol is of record is undecided. Section 1 (MP-BioPath's networks, a
-> separate adapter) has not been checked for the same issue.
+> **2026-09-25: new protocol and new canonical numbers (specs/023).** The
+> benchmark now perturbs only ROOT inputs that are, or contain, the gene, as
+> the MP-BioPath publication does (Adam's decision), with the solver defaults
+> re-measured under it (`DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`).
+> Build `20260925-1039_d4f4f64`, solver `44e733b`, run through
+> `scripts/run_arm.sh` (`results/44e733b/new_defaults`, ARM.json records the
+> protocol). It reproduces the measured arm byte-for-byte.
+>
+> | | curator held-out | curator all | experimental |
+> |---|---|---|---|
+> | valid cases only | 86.34% / mF1 0.8135 (n 17,420) | 84.44% / 0.8018 (n 22,124) | 67.32% / 0.5896 (n 814) |
+> | every case (unperturbable = NORMAL) | 82.89% / 0.7678 (n 19,000) | 81.00% / 0.7592 (n 24,100) | 64.55% / 0.5661 (n 849) |
+>
+> **Everything below this box on our networks was measured under the old
+> protocol**, which pinned every node containing the gene (89% of them
+> mid-pathway complexes), from 2026-07-14 to 2026-09-25. Those numbers are
+> higher partly because the pins set complexes directly, and they are **not
+> comparable** to the table above. Section 1 (MP-BioPath's networks, a separate
+> adapter) has not been checked for the same issue.
 
 ## 1. The headline: same networks, same ground truth
 
