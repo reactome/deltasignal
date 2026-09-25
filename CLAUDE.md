@@ -21,6 +21,44 @@ docker compose -f docker-compose.prod.yml up
 curl http://localhost:8080/api/health
 ```
 
+## Catalogs: what is being served, and what produced it
+
+Generated networks live on **real disk** under `~/deltasignal-catalogs/`,
+never in `/tmp`. On this machine `/tmp` is a tmpfs; a reboot on 2026-09-24
+wiped every catalog behind specs/018–021, which still cite them by name. Nothing
+recorded what the dev API was serving either, and it quietly served a July
+catalog for two months while every benchmark ran against newer ones.
+
+```bash
+scripts/catalog.sh build    # generate from generator HEAD, verify, move `current`
+scripts/catalog.sh status   # what `current` is, and whether the generator has moved on
+scripts/catalog.sh list     # every build and which one is current
+scripts/catalog.sh bench    # benchmark `current` on both axes, filed under the build
+curl localhost:8080/api/health | jq .catalog    # what the RUNNING API is serving
+```
+
+- Each build is `builds/<date>_<generator-sha>/` with a `BUILD.json` recording
+  the generator commit, environment, the exact pathway list given, and whether
+  every pathway built. `current` only moves after a build verifies complete, so
+  a partial build can never become what the API serves.
+- The pathway list is versioned in `bench/catalog_pathways.tsv`.
+- `docker-compose.dev.yml` mounts `~/deltasignal-catalogs/current`. **The link
+  is resolved every time the container STARTS**, not when it is created — so a
+  plain restart, a crash-restart under `restart: unless-stopped`, or a reboot
+  picks up a newly moved `current`. After a build, recreate the API to switch
+  deliberately: `docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api`.
+- The mount uses `create_host_path: false`, so a missing catalog **fails the
+  container start** instead of docker silently creating an empty directory.
+- `bench` resolves the build once, refuses unless `/api/health` reports it, and
+  re-checks after each axis in case the container restarted mid-run. It also
+  refuses if `src/` or `bench/` is uncommitted, and records nothing if a metric
+  cannot be parsed. Results go to `builds/<id>/results/<solver-sha>/`, so every
+  number is traceable to a catalog build and a solver commit. **Cite that pair
+  in a spec, not a scratch path.**
+- `BUILD.json` records the Reactome release, release date and content checksum
+  from the database's own `DBInfo` node, because the same generator commit
+  against a different release builds a different catalog.
+
 ## Development Commands
 
 ### Running Tests
@@ -338,8 +376,8 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_cli_observations.jl` | 39 | |
+| `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
-| `test/test_api_errors.jl` | 26 | |
 | `test/test_observation_pinning.jl` | 23 | |
 | `test/test_worked_example.jl` | 9 | |
 

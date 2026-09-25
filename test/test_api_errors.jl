@@ -69,4 +69,77 @@ const SRV = DeltaSignal
             @test SRV.user_facing_error(e)[1] == 400
         end
     end
+
+    # The dev API served a two-month-old catalog while every benchmark ran
+    # against newer ones, and nothing said so. /api/health now reports which
+    # catalog is being served, and must not look healthy while serving nothing.
+    @testset "health reports the catalog it is serving" begin
+        mktempdir() do root
+            # a recorded, complete build
+            built = joinpath(root, "built")
+            for p in ("R-HSA-1", "R-HSA-2")
+                mkpath(joinpath(built, p))
+                write(joinpath(built, p, "logic_network.csv"), "source_id,target_id\n")
+            end
+            write(joinpath(built, "BUILD.json"),
+                  """{"build_id":"20260925-1200_abc1234","status":"complete",
+                      "generator_commit":"abc1234","pathways_built":2}""")
+            info = SRV.catalog_provenance(built)
+            @test info["build_id"] == "20260925-1200_abc1234"
+            @test info["generator_commit"] == "abc1234"
+            @test info["status"] == "complete"
+            @test info["pathways"] == 2
+            @test !haskey(info, "warning")
+
+            # a catalog with no manifest is reported as such, never guessed at
+            legacy = joinpath(root, "legacy")
+            mkpath(joinpath(legacy, "R-HSA-9"))
+            write(joinpath(legacy, "R-HSA-9", "logic_network.csv"), "source_id,target_id\n")
+            linfo = SRV.catalog_provenance(legacy)
+            @test linfo["build_id"] == "unrecorded"
+            @test linfo["pathways"] == 1
+
+            # docker creates an EMPTY directory when a mount path is missing:
+            # that must carry a warning, not read as a healthy catalog
+            empty = joinpath(root, "empty"); mkpath(empty)
+            einfo = SRV.catalog_provenance(empty)
+            @test einfo["pathways"] == 0
+            @test haskey(einfo, "warning")
+
+            # a pathway directory without a network does not count as served
+            partial = joinpath(root, "partial"); mkpath(joinpath(partial, "R-HSA-5"))
+            @test SRV.catalog_provenance(partial)["pathways"] == 0
+
+            # a path that does not exist at all
+            @test SRV.catalog_provenance(joinpath(root, "nope"))["pathways"] == 0
+
+            # a truncated BUILD.json is reported, not raised (kills the mutant
+            # that removes the JSON try/catch)
+            trunc = joinpath(root, "trunc")
+            mkpath(joinpath(trunc, "R-HSA-3"))
+            write(joinpath(trunc, "R-HSA-3", "logic_network.csv"), "source_id,target_id\n")
+            write(joinpath(trunc, "BUILD.json"), """{"build_id": "20260925-12""")
+            @test SRV.catalog_provenance(trunc)["build_id"] == "unreadable BUILD.json"
+
+            # a self-referencing symlink makes isfile throw ELOOP; health must
+            # still answer rather than return 500
+            loopy = joinpath(root, "loopy"); mkpath(loopy)
+            symlink("R-HSA-7", joinpath(loopy, "R-HSA-7"))
+            linfo2 = SRV.catalog_provenance(loopy)
+            @test linfo2 isa Dict
+            @test haskey(linfo2, "warning")
+        end
+    end
+
+    # The whole point is that the RUNNING service reports its catalog, so test
+    # the handler itself, not only the helper (kills the mutant that drops the
+    # "catalog" key from the response).
+    @testset "/api/health answers 200 and carries the catalog" begin
+        resp = SRV.health_handler(nothing)
+        @test resp.status == 200
+        body = SRV.JSON3.read(String(resp.body))
+        @test haskey(body, :catalog)
+        @test haskey(body[:catalog], :build_id)
+        @test body[:status] == "ok"
+    end
 end
