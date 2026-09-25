@@ -39,7 +39,10 @@ MOVE_TOL = 1e-6       # an output within this of baseline has not moved
 MONO_TOL = 1e-9       # the pre-registered tolerance between steps
 PRINT_UNIT = 1e-6     # pred_ui is written with %.6f, so steps below this are
                       # print noise; reported as a sensitivity, not the decision
-IDENTITY_TOL = 1e-4   # an output this close to the input at every step copies it
+IDENTITY_REL = 1e-4   # an output within this RELATIVE distance of the input at
+                      # every step copies it (absolute would be 2e-3 relative at
+                      # KD 0.05 but 1e-6 at OE 80)
+LOG_PRINT_TOL = 1e-5  # |log10 fold| steps smaller than this are print noise
 ZERO_RAIL = 1e-6      # output at or below this is railed at zero
 CAP_RAIL = 99.99      # output at or above this is railed at the 100 cap
 ZERO_FLOOR = 1e-6     # for logs of a zero output or input
@@ -89,20 +92,20 @@ def monotone(outs: list[float], tol: float = MONO_TOL) -> bool:
     return up or down
 
 
-def away(outs: list[float], tol: float = MONO_TOL) -> bool:
+def away(outs: list[float], tol: float = MONO_TOL, log_tol: float = 1e-9) -> bool:
     """What the question actually asks: every output on one side of baseline,
     and |log fold| never shrinking as the input strengthens."""
     if not (all(o >= BASELINE - tol for o in outs) or all(o <= BASELINE + tol for o in outs)):
         return False
     d = [abs(math.log10(max(o, ZERO_FLOOR) / BASELINE)) for o in outs]
-    return all(b >= a - 1e-9 for a, b in zip(d, d[1:]))
+    return all(b >= a - log_tol for a, b in zip(d, d[1:]))
 
 
 def identity(ins: list[float], outs: list[float]) -> bool:
     """The readout equals the pinned input at every step: it is the perturbed
     node itself, or a single-input pass-through. Monotone by construction, so it
     cannot test anything and is reported separately."""
-    return all(abs(o - i) <= IDENTITY_TOL for i, o in zip(ins, outs))
+    return all(abs(o - i) <= max(IDENTITY_REL * i, PRINT_UNIT) for i, o in zip(ins, outs))
 
 
 def railed(v: float) -> bool:
@@ -128,8 +131,10 @@ def summarise(cases: dict[tuple, list[float]]) -> dict:
     ident = {k for k, v in moving.items() if identity(input_values(k[2]), v)}
     nontrivial = {k: v for k, v in moving.items() if k not in ident}
     mono = {k: v for k, v in moving.items() if monotone(v)}
-    railed_mild = [k for k, v in moving.items() if railed(v[0])]
-    changes = [k for k, v in moving.items() if abs(v[-1] - v[0]) > MOVE_TOL]
+    # M2 on the non-identity readouts: an input copy is never railed at 2x, so
+    # counting it would halve the railed fraction for no reason.
+    railed_mild = [k for k, v in nontrivial.items() if railed(v[0])]
+    changes = [k for k, v in nontrivial.items() if abs(v[-1] - v[0]) > MOVE_TOL]
     never_railed = {k: v for k, v in nontrivial.items() if not any(railed(o) for o in v)}
     slopes = [s for k, v in never_railed.items()
               if (s := transfer_slope(input_values(k[2]), v)) is not None]
@@ -141,7 +146,8 @@ def summarise(cases: dict[tuple, list[float]]) -> dict:
         "identity": len(ident), "nontrivial": len(nontrivial),
         "nt_monotone": sum(monotone(v) for v in nontrivial.values()),
         "nt_monotone_print": sum(monotone(v, PRINT_UNIT) for v in nontrivial.values()),
-        "nt_away": sum(away(v, PRINT_UNIT) for v in nontrivial.values()),
+        "nt_away": sum(away(v) for v in nontrivial.values()),
+        "nt_away_print": sum(away(v, PRINT_UNIT, LOG_PRINT_TOL) for v in nontrivial.values()),
         "railed_at_mildest": len(railed_mild), "change_mild_to_strong": len(changes),
         "never_railed": len(never_railed), "slopes": slopes, "reversals": reversals,
     }
@@ -170,12 +176,16 @@ def main() -> int:
         print(f"     of which copy the input (identity) {s['identity']:>6,}  -- monotone by construction")
         print(f"  M1 on the {n:,} non-identity readouts {s['nt_monotone']:>6,}  {pct(s['nt_monotone'], n)}"
               f"   (tolerance one print unit: {pct(s['nt_monotone_print'], n)})")
-        print(f"     further from baseline, same side  {s['nt_away']:>6,}  {pct(s['nt_away'], n)}")
-        print(f"  M2 already railed at mildest       {s['railed_at_mildest']:>6,}  {pct(s['railed_at_mildest'], s['moving'])}"
+        print(f"     further from baseline, same side  {s['nt_away']:>6,}  {pct(s['nt_away'], n)}"
+              f"   (print tolerance: {pct(s['nt_away_print'], n)})")
+        print(f"  M2 non-identity railed at mildest {s['railed_at_mildest']:>6,}  {pct(s['railed_at_mildest'], n)}"
               f"   (> 50% = effectively a switch)")
-        print(f"     output changes mild -> strong   {s['change_mild_to_strong']:>6,}  {pct(s['change_mild_to_strong'], s['moving'])}")
+        print(f"     output changes mild -> strong   {s['change_mild_to_strong']:>6,}  {pct(s['change_mild_to_strong'], n)}")
         if s["slopes"]:
             q = np.percentile(s["slopes"], [10, 25, 50, 75, 90])
+            neg = sum(x < 0 for x in s["slopes"])
+            print(f"     never railed: {len(s['slopes']):,} of {n:,} (slopes below exclude the strongest"
+                  f" transmitters); negative slopes {neg:,} ({pct(neg, len(s['slopes'])).strip()})")
             print(f"  M3 transfer slope, {len(s['slopes']):,} never-railed non-identity, finite steps:  "
                   f"p10 {q[0]:.2f}  p25 {q[1]:.2f}  median {q[2]:.2f}  p75 {q[3]:.2f}  p90 {q[4]:.2f}")
         if label == "ALL" and s["reversals"]:

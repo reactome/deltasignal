@@ -105,3 +105,24 @@ def test_load_ladder_joins_on_the_case_key_and_warns_on_drops(tmp_path, capsys):
     assert list(cases) == [("P", "G", "2", "k")]
     assert cases[("P", "G", "2", "k")] == [u for _, u in LADDER]
     assert "1 cases are not valid in every run" in capsys.readouterr().err
+
+
+def test_identity_tolerance_is_relative_so_both_ends_of_the_ladder_match():
+    kd = input_values("0")                                    # 0.5 .. 0.05, 0
+    assert identity(kd, [0.5, 0.2, 0.05, 0.0])
+    assert not identity(kd, [0.5, 0.2, 0.0501, 0.0])          # 0.2% off at 0.05: not a copy
+    oe = input_values("2")
+    assert identity(oe, [2.0, 5.0, 20.0, 80.004])            # 5e-5 relative: a copy
+
+
+def test_away_print_tolerance_reaches_the_distance_check():
+    outs = [0.5, 0.4, 0.400001, 0.3]                          # one rounding step back toward 1
+    assert not away(outs)
+    assert away(outs, 1e-6, 1e-5)
+
+
+def test_m2_counts_non_identity_readouts_only():
+    ins = input_values("2")
+    s = summarise({("P", "G", "2", "self"): list(ins),
+                   ("P", "G", "2", "k"): [100.0, 100.0, 100.0, 100.0]})
+    assert s["railed_at_mildest"] == 1 and s["nontrivial"] == 1
