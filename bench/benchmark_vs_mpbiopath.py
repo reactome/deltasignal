@@ -113,6 +113,7 @@ SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
 #         resolved node reaches. Roots always qualify; everything downstream
 #         propagates. Adam's stated intent.
 PIN_SCOPE = os.environ.get("DS_PIN_SCOPE", "all")
+PIN_TALLY: Counter = Counter()
 if PIN_SCOPE not in ("all", "entry"):
     raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'all' or 'entry'")
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
@@ -580,6 +581,17 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         pin_adj = build_adjacency(pathway_dir)
         gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
                          for g, us in gene_to_uuids.items()}
+    # Record what was actually pinned, so a run's protocol is on the record
+    # rather than inferred from its flags (specs/023: 89% of pins had silently
+    # become mid-pathway complexes for two months).
+    indeg = Counter()
+    with open(pathway_dir / "logic_network.csv") as f:
+        for row in csv.DictReader(f):
+            indeg[row["target_id"]] += 1
+    for us in gene_to_uuids.values():
+        PIN_TALLY["perturbations"] += bool(us)
+        PIN_TALLY["pinned"] += len(set(us))
+        PIN_TALLY["pinned_roots"] += sum(1 for u in set(us) if indeg[u] == 0)
 
     # Resolve key_output dbIds to their REAL stIds (may be R-ALL-, R-NUL-, not
     # just R-HSA-) so species that are genuinely in the network are found.
@@ -908,6 +920,8 @@ def main():
         pathways = pathways[: args.limit]
 
     print(f"Running benchmark on {len(pathways)} pathway(s) …", flush=True)
+    print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
+          f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG}", flush=True)
     cache = {}
     results = []
     grand_total = 0
@@ -990,6 +1004,8 @@ def main():
             f.write(f"{r['name']}\t{r['id']}\t{r['status']}\t"
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
+    print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
+          f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")
 
     if args.dump_cases:
