@@ -662,3 +662,54 @@ depth-invariance, so a single-input chain should pass a fold through unchanged
 
 **No accuracy claim is made from these runs.** The ground truth is defined at
 full strength, so accuracy at a partial strength is not comparable to anything.
+
+### Result: P1 passes. Outputs move further from baseline as the input does.
+
+Build `20260925-1039_d4f4f64`, solver `3328b5f` (runs 1–3); run 4 is the
+`ae84de9` production scoring of the same build, whose solver code is identical
+(only the health endpoint changed between them). `bench/analysis/dose_response.py`.
+
+| | resolved | move | **M1 monotone** | M2 railed at mildest | M3 median slope (p25) |
+|---|---|---|---|---|---|
+| all | 23,268 | 8,604 | **96.6%** | 17.7% | 0.90 (0.05), n = 4,225 |
+| **held-out** | 18,238 | 6,063 | **97.0%** | 15.3% | **1.00** (0.32), n = 2,908 |
+| tuning | 5,030 | 2,541 | 95.5% | 23.4% | 0.11 (0.01), n = 1,317 |
+
+**M1 — P1 passes** on held-out (97.0% ≥ 95%) and, narrowly, on tuning. For
+97 in 100 moving readouts, a stronger input gives an output at least as far
+from baseline in a consistent direction.
+
+**M2 — graded, not switched.** 15.3% of held-out moving readouts are already at
+a rail at a 2x / 0.5x input, well under the 50% reading rule; 82.4% (all) still
+change between the mildest and the strongest input. Magnitude carries dose
+information for most readouts.
+
+**M3 — transfer is bimodal.** The held-out median is exactly 1.00: a typical
+unrailed readout passes the input fold through undamped, which is the
+`hill_sat` depth-invariance claim holding on real networks. But the lower
+quartile is near zero — a large minority move a little and barely scale with
+the input — and tuning's median is 0.11. The quartiles, not the median, are the
+honest summary: "fold passes through" is true of roughly half the readouts.
+
+**The 295 reversals (3.4%) are entirely a loop phenomenon.** Classified by
+pathway: the 18 pathways with no strongly connected component have **0
+reversals among 857 moving readouts**; all 295 are in the 62 cyclic pathways.
+They come from 85 distinct perturbations in 35 pathways and are concentrated:
+Transcriptional regulation by RUNX2 carries 89 (44% of its 201 moving readouts,
+led by ESR1, CBFB and PPM1D in both directions), Signaling by WNT 47, TP53 24.
+The worst are sign changes, not wobbles — WNT5A knockdown in Signaling by WNT
+drives readouts to 100x at 0.5 and 0.2, then to ~1e-5 at 0.05 and 0: the
+component lands in the opposite basin once the input is strong enough. That is
+the loop knife-edge of specs/014 seen from the dose axis, and it is further
+evidence that sweep-order/basin selection inside SCCs (specs/013) is the
+solver's outstanding defect.
+
+**Caveats.** Cyclicity here is per pathway, not per case, because the case
+table records uuid counts rather than uuids; the 0-of-857 figure is the strong
+half of the claim. No accuracy statement follows from these runs (pre-stated).
+
+**What this licenses.** "A larger perturbation produces a larger predicted
+response" is supported internally for ~97% of moving readouts, with a stated,
+localised exception in cyclic components. It does not make the magnitudes
+correct — that still needs the external axis above — and it does not rescue the
+case-level calibration claim, which remains not established.
