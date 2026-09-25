@@ -122,7 +122,16 @@ services:
       # records what produced it; /api/health reports which build is served.
       # It used to default to logic-network-generator/output, which was last
       # built in July and was silently served for two months.
-      - ${PATHWAY_CATALOG:-${HOME}/deltasignal-catalogs/current}:/app/pathway_catalog:ro
+      # Long syntax so a MISSING catalog fails loudly. With the short form,
+      # docker silently creates the missing source as an empty root-owned
+      # directory, the API reports a healthy service serving nothing, and the
+      # empty directory then blocks `catalog.sh` from creating `current`.
+      - type: bind
+        source: ${PATHWAY_CATALOG:-${HOME}/deltasignal-catalogs/current}
+        target: /app/pathway_catalog
+        read_only: true
+        bind:
+          create_host_path: false
       - julia-cache:/root/.julia
     command: julia --project=/app /app/src/api/server.jl --port=8080 --host=0.0.0.0
     restart: unless-stopped

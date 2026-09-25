@@ -86,6 +86,21 @@ docker silently creates an empty directory when a catalog mount path does not
 exist, and the service would otherwise report healthy while serving nothing.
 """
 function catalog_provenance(dir::AbstractString)
+    # Health is LIVENESS. Nothing about a catalog's contents may make it fail:
+    # a self-referencing symlink (ELOOP) or an unreadable directory (EACCES,
+    # under rootless docker or root_squash) made readdir/isfile throw and
+    # /api/health return 500. So the whole inspection is guarded, and a failure
+    # is reported as data rather than raised.
+    try
+        return _catalog_provenance(dir)
+    catch e
+        return Dict{String,Any}(
+            "path" => dir, "pathways" => 0, "build_id" => "uninspectable",
+            "warning" => "could not inspect the catalog: " * sprint(showerror, e))
+    end
+end
+
+function _catalog_provenance(dir::AbstractString)
     n = isdir(dir) ? count(p -> startswith(p, "R-HSA-") &&
                              isfile(joinpath(dir, p, "logic_network.csv")),
                         readdir(dir)) : 0

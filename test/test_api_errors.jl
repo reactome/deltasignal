@@ -112,6 +112,34 @@ const SRV = DeltaSignal
 
             # a path that does not exist at all
             @test SRV.catalog_provenance(joinpath(root, "nope"))["pathways"] == 0
+
+            # a truncated BUILD.json is reported, not raised (kills the mutant
+            # that removes the JSON try/catch)
+            trunc = joinpath(root, "trunc")
+            mkpath(joinpath(trunc, "R-HSA-3"))
+            write(joinpath(trunc, "R-HSA-3", "logic_network.csv"), "source_id,target_id\n")
+            write(joinpath(trunc, "BUILD.json"), """{"build_id": "20260925-12""")
+            @test SRV.catalog_provenance(trunc)["build_id"] == "unreadable BUILD.json"
+
+            # a self-referencing symlink makes isfile throw ELOOP; health must
+            # still answer rather than return 500
+            loopy = joinpath(root, "loopy"); mkpath(loopy)
+            symlink("R-HSA-7", joinpath(loopy, "R-HSA-7"))
+            linfo2 = SRV.catalog_provenance(loopy)
+            @test linfo2 isa Dict
+            @test haskey(linfo2, "warning")
         end
+    end
+
+    # The whole point is that the RUNNING service reports its catalog, so test
+    # the handler itself, not only the helper (kills the mutant that drops the
+    # "catalog" key from the response).
+    @testset "/api/health answers 200 and carries the catalog" begin
+        resp = SRV.health_handler(nothing)
+        @test resp.status == 200
+        body = SRV.JSON3.read(String(resp.body))
+        @test haskey(body, :catalog)
+        @test haskey(body[:catalog], :build_id)
+        @test body[:status] == "ok"
     end
 end
