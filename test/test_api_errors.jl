@@ -69,4 +69,49 @@ const SRV = DeltaSignal
             @test SRV.user_facing_error(e)[1] == 400
         end
     end
+
+    # The dev API served a two-month-old catalog while every benchmark ran
+    # against newer ones, and nothing said so. /api/health now reports which
+    # catalog is being served, and must not look healthy while serving nothing.
+    @testset "health reports the catalog it is serving" begin
+        mktempdir() do root
+            # a recorded, complete build
+            built = joinpath(root, "built")
+            for p in ("R-HSA-1", "R-HSA-2")
+                mkpath(joinpath(built, p))
+                write(joinpath(built, p, "logic_network.csv"), "source_id,target_id\n")
+            end
+            write(joinpath(built, "BUILD.json"),
+                  """{"build_id":"20260925-1200_abc1234","status":"complete",
+                      "generator_commit":"abc1234","pathways_built":2}""")
+            info = SRV.catalog_provenance(built)
+            @test info["build_id"] == "20260925-1200_abc1234"
+            @test info["generator_commit"] == "abc1234"
+            @test info["status"] == "complete"
+            @test info["pathways"] == 2
+            @test !haskey(info, "warning")
+
+            # a catalog with no manifest is reported as such, never guessed at
+            legacy = joinpath(root, "legacy")
+            mkpath(joinpath(legacy, "R-HSA-9"))
+            write(joinpath(legacy, "R-HSA-9", "logic_network.csv"), "source_id,target_id\n")
+            linfo = SRV.catalog_provenance(legacy)
+            @test linfo["build_id"] == "unrecorded"
+            @test linfo["pathways"] == 1
+
+            # docker creates an EMPTY directory when a mount path is missing:
+            # that must carry a warning, not read as a healthy catalog
+            empty = joinpath(root, "empty"); mkpath(empty)
+            einfo = SRV.catalog_provenance(empty)
+            @test einfo["pathways"] == 0
+            @test haskey(einfo, "warning")
+
+            # a pathway directory without a network does not count as served
+            partial = joinpath(root, "partial"); mkpath(joinpath(partial, "R-HSA-5"))
+            @test SRV.catalog_provenance(partial)["pathways"] == 0
+
+            # a path that does not exist at all
+            @test SRV.catalog_provenance(joinpath(root, "nope"))["pathways"] == 0
+        end
+    end
 end

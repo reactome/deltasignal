@@ -118,7 +118,11 @@ services:
       # Pre-generated Reactome pathway catalog from the upstream
       # logic-network-generator project. Mounted read-only. Override the host
       # path with PATHWAY_CATALOG (e.g. in a .env file) for other checkouts.
-      - ${PATHWAY_CATALOG:-${HOME}/gitroot/logic-network-generator/output}:/app/pathway_catalog:ro
+      # The catalog is the latest VERIFIED build from scripts/catalog.sh, which
+      # records what produced it; /api/health reports which build is served.
+      # It used to default to logic-network-generator/output, which was last
+      # built in July and was silently served for two months.
+      - ${PATHWAY_CATALOG:-${HOME}/deltasignal-catalogs/current}:/app/pathway_catalog:ro
       - julia-cache:/root/.julia
     command: julia --project=/app /app/src/api/server.jl --port=8080 --host=0.0.0.0
     restart: unless-stopped

@@ -72,13 +72,50 @@ function logging_middleware(handler)
 end
 
 # Health check endpoint
+"""
+    catalog_provenance(dir) -> Dict
+
+Which catalog this server is serving, read from `BUILD.json` written by
+`scripts/catalog.sh build`.
+
+Why this exists: for two months the dev API served a July catalog while every
+benchmark ran against newer ones, and nothing anywhere said so. Asking the
+running service is now the answer. A catalog with no manifest is reported as
+`"unrecorded"` rather than guessed at, and an empty one carries a warning --
+docker silently creates an empty directory when a catalog mount path does not
+exist, and the service would otherwise report healthy while serving nothing.
+"""
+function catalog_provenance(dir::AbstractString)
+    n = isdir(dir) ? count(p -> startswith(p, "R-HSA-") &&
+                             isfile(joinpath(dir, p, "logic_network.csv")),
+                        readdir(dir)) : 0
+    info = Dict{String,Any}("path" => dir, "pathways" => n)
+    manifest = joinpath(dir, "BUILD.json")
+    if isfile(manifest)
+        try
+            m = JSON3.read(read(manifest, String))
+            for k in ("build_id", "status", "generator_commit", "created",
+                      "pathways_built", "nodes", "edges")
+                haskey(m, Symbol(k)) && (info[k] = m[Symbol(k)])
+            end
+        catch
+            info["build_id"] = "unreadable BUILD.json"
+        end
+    else
+        info["build_id"] = "unrecorded"
+    end
+    n == 0 && (info["warning"] = "no pathways found at $dir; the catalog mount may be missing or empty")
+    return info
+end
+
 function health_handler(req)
     health_info = Dict(
         "status" => "ok",
         "timestamp" => string(time()),
         "version" => "0.1.0",
         "service" => "deltasignal-api",
-        "julia_version" => string(VERSION)
+        "julia_version" => string(VERSION),
+        "catalog" => catalog_provenance(CATALOG_DIR),
     )
     
     return HTTP.Response(200, ["Content-Type" => "application/json"], JSON3.write(health_info))
