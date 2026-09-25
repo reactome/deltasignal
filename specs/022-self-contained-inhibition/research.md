@@ -126,3 +126,16 @@ not claimed as that mechanism.
 structural weight. It is not adopted: the evidence is one gene. The next
 evidence would come from learning w on data, as Adam proposed, rather than
 from sweeping it on this benchmark.
+
+## Re-measured under root pinning (specs/023): ADOPTED
+
+With the protocol of record, w = 0.1 on top of `DS_ASSEMBLY_LIMITING=0` gives:
+- curator held-out **+90** (127 / 37, p 1e-12), 10 of 11 moved pathways up,
+  25 perturbations;
+- **+57** without the top pathway (RUNX1);
+- tuning +37; experimental +9.
+
+It meets every condition of the pre-registered reading rule, so it is the
+default. The broad-pin result above (+27, one gene) was real but masked. The
+pins set the complexes whose inhibitors this rule corrects. Full table in
+specs/023.

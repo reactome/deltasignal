@@ -170,3 +170,44 @@ The protocol is decided; it is not being A/B'd. What is measured:
     p < 0.05, not concentrated, and experimental no worse than −15.
   - Otherwise keep the default and record.
 - Both run through `scripts/run_arm.sh`.
+
+## Results under root pinning (build `20260925-1039_d4f4f64`, all through `scripts/run_arm.sh`)
+
+All comparisons are paired on the cases valid in both arms
+(`bench/analysis/arm_compare.py`). Root pinning makes 1,144 curator cases
+invalid (a gene with no root form), so accuracies here are on the valid set and
+are not comparable to earlier holdout_report figures, which scored invalid
+cases as NORMAL.
+
+| arm (commit / name) | curator held-out acc / mF1 | vs previous row, held-out net | experimental acc / mF1 |
+|---|---|---|---|
+| broad pins, production (`ae84de9`) | 0.8816 / 0.8428 (n 18,238) | — | 0.7224 / 0.6501 |
+| root pins, code defaults (`1eca749/root_baseline`) | 0.8352 / 0.7625 (n 17,420) | −809 (134 / 943) | 0.5528 / 0.5163 |
+| + `DS_ASSEMBLY_LIMITING=0` (`1eca749/root_nolimit`) | 0.8582 / 0.8031 | **+401** (565 / 164), p 2e-52, 50 of 58 pathways up | 0.6622 / 0.5809 (+89) |
+| + `DS_SELF_INHIBITOR_WEIGHT=0.1` (`1a10ed2/root_nolimit_selfinh_w0.1`) | **0.8634 / 0.8135** | **+90** (127 / 37), p 1e-12, 10 of 11 up | **0.6732 / 0.5896** (+9) |
+
+Checks:
+- The merged commit's root baseline (`bf6cfc1`) reproduces the pre-merge one
+  byte-for-byte on the scored columns.
+- w = 0.1 with limiting on (`bf6cfc1/root_selfinh_w0.1`) is +59 held-out, so
+  the weight helps under either assembly rule.
+
+**Concentration of the w = 0.1 gain.**
+- The top held-out pathway is RUNX1 (+33).
+- Without it, held-out is **+57** (91 / 34, p 3.5e-7) over 24 perturbations.
+- The next largest are Pre-NOTCH (+23), IL-4/13 (+11), ROCKs (+8) and AP-2
+  (+8).
+- It passes the specs/022 rule that failed under broad pins, where it was one
+  gene.
+
+**Adam predicted this**, as *"this change we made earlier should have fixed a
+bunch of cases"*. It did not show under broad pins because the pins set the
+very complexes whose inhibitors the rule corrects.
+
+**Adopted as solver defaults under the root protocol:**
+- `DS_ASSEMBLY_LIMITING=0`, by the arm 2 rule above;
+- `DS_SELF_INHIBITOR_WEIGHT=0.1`, by the specs/022 rule, now met.
+
+Both axes improve at every step after the protocol change. The new baseline
+is still below the broad-pin numbers (held-out 0.8634 vs 0.8816 on different
+valid sets), because part of those came from the pins.
