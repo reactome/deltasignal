@@ -59,7 +59,7 @@ def classify(ui_value):
     return 1
 
 PERTURB_UI_DOWN = 0.0
-PERTURB_UI_UP = 80.0
+PERTURB_UI_UP = 80.0   # fixed: DS_PERTURB_UI_* is read by benchmark_vs_mpbiopath.py only
 
 # Pathways that get joint treatment (cross-pathway biology dominates failures).
 # Pathways NOT listed here are solved single-pathway.

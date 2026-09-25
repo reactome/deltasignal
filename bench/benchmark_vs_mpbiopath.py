@@ -12,7 +12,9 @@ Headline numbers we're aiming to beat:
   - Curator vs experimental:                   ~81% (their human ceiling)
 
 Discretization for deltasignal:
-  Pinned perturbation: direction=0 → activity=0,  direction=2 → activity=80.
+  Pinned perturbation: direction=0 → activity=0,  direction=2 → activity=80
+  (DS_PERTURB_UI_DOWN / DS_PERTURB_UI_UP override these, for the specs/021
+  dose-response runs only).
   Read key-output's solved UI value (max over its UUIDs).
   Classify:
     < 0.5  → DOWN (0)

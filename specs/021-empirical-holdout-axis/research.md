@@ -663,53 +663,98 @@ depth-invariance, so a single-input chain should pass a fold through unchanged
 **No accuracy claim is made from these runs.** The ground truth is defined at
 full strength, so accuracy at a partial strength is not comparable to anything.
 
-### Result: P1 passes. Outputs move further from baseline as the input does.
+### Result: P1 passes as registered, and FAILS once readouts that copy the input are removed
 
 Build `20260925-1039_d4f4f64`, solver `3328b5f` (runs 1–3); run 4 is the
-`ae84de9` production scoring of the same build, whose solver code is identical
-(only the health endpoint changed between them). `bench/analysis/dose_response.py`.
+`ae84de9` production scoring of the same build, **copied, not rerun**. The
+solver is identical between the two commits (only the health endpoint changed),
+so the knob being inert at its default is established by reading the code (its
+one use is the pin value), not by an experiment.
+`bench/analysis/dose_response.py`.
 
-| | resolved | move | **M1 monotone** | M2 railed at mildest | M3 median slope (p25) |
-|---|---|---|---|---|---|
-| all | 23,268 | 8,604 | **96.6%** | 17.7% | 0.90 (0.05), n = 4,225 |
-| **held-out** | 18,238 | 6,063 | **97.0%** | 15.3% | **1.00** (0.32), n = 2,908 |
-| tuning | 5,030 | 2,541 | 95.5% | 23.4% | 0.11 (0.01), n = 1,317 |
+An earlier version of this section said "P1 passes, 97.0%" and "M3 median is
+exactly 1.00, depth-invariance holding on real networks". The adversarial review
+of PR #69 showed both rest on an artifact, and this section replaces it.
 
-**M1 — P1 passes** on held-out (97.0% ≥ 95%) and, narrowly, on tuning. For
-97 in 100 moving readouts, a stronger input gives an output at least as far
-from baseline in a consistent direction.
+**The artifact.** 3,569 of the 8,604 moving readouts (2,986 held-out) equal the
+pinned input at every step. They are the perturbed node itself (a key-output
+uuid set can include the gene's own pinned node) or an exact single-input
+pass-through; the case table records uuid counts, not uuids, so the two cannot
+be told apart here. Either way they are monotone and slope 1 by construction.
+The pre-registration did not exclude them, which it should have.
 
-**M2 — graded, not switched.** 15.3% of held-out moving readouts are already at
-a rail at a 2x / 0.5x input, well under the 50% reading rule; 82.4% (all) still
-change between the mildest and the strongest input. Magnitude carries dose
-information for most readouts.
+| held-out | as registered | **non-identity** | non-identity, one print unit tolerance |
+|---|---|---|---|
+| moving readouts | 6,063 | **3,077** | 3,077 |
+| M1 monotone | 97.0% | **94.2%** | 95.2% |
+| further from baseline, same side | — | 91.1% | |
+| M2 railed at the mildest input | 15.3% | 30.2% | |
+| M3 median slope (p25–p75), finite steps | — | 0.48 (0.04–0.90), n = 1,267 | |
 
-**M3 — transfer is bimodal.** The held-out median is exactly 1.00: a typical
-unrailed readout passes the input fold through undamped, which is the
-`hill_sat` depth-invariance claim holding on real networks. But the lower
-quartile is near zero — a large minority move a little and barely scale with
-the input — and tuning's median is 0.11. The quartiles, not the median, are the
-honest summary: "fold passes through" is true of roughly half the readouts.
+Tuning, non-identity: M1 94.1%, further from baseline 77.6%, M2 30.4%, M3
+median 0.12.
 
-**The 295 reversals (3.4%) are entirely a loop phenomenon.** Classified by
-pathway: the 18 pathways with no strongly connected component have **0
-reversals among 857 moving readouts**; all 295 are in the 62 cyclic pathways.
-They come from 85 distinct perturbations in 35 pathways and are concentrated:
-Transcriptional regulation by RUNX2 carries 89 (44% of its 201 moving readouts,
-led by ESR1, CBFB and PPM1D in both directions), Signaling by WNT 47, TP53 24.
-The worst are sign changes, not wobbles — WNT5A knockdown in Signaling by WNT
-drives readouts to 100x at 0.5 and 0.2, then to ~1e-5 at 0.05 and 0: the
-component lands in the opposite basin once the input is strong enough. That is
-the loop knife-edge of specs/014 seen from the dose axis, and it is further
-evidence that sweep-order/basin selection inside SCCs (specs/013) is the
-solver's outstanding defect.
+**M1.** As literally registered, P1 passes (97.0%). On the readouts that can
+actually test anything it is **94.2%, below the 95% gate**, and the honest
+verdict is that P1 fails, narrowly. The tolerance question is real but does not
+rescue it cleanly. `pred_ui` is written to six decimals, so the registered
+1e-9 step tolerance sits below the file's own resolution. At one print unit
+(1e-6), M1 is 95.2%, just over the gate. That tolerance was chosen after
+seeing the data, so it is reported as a sensitivity, not as the result.
 
-**Caveats.** Cyclicity here is per pathway, not per case, because the case
-table records uuid counts rather than uuids; the 0-of-857 figure is the strong
-half of the claim. No accuracy statement follows from these runs (pre-stated).
+**What M1 measures is weaker than the question.** `monotone` requires the raw
+output to move in one direction. It does not require the output to move further
+*from baseline*, so a readout that crosses 1 or drifts back toward it counts as
+monotone. The question asked was "further from baseline". Scored that way
+(same side of 1, |log fold| never shrinking), the result is 91.1% held-out and
+77.6% tuning.
 
-**What this licenses.** "A larger perturbation produces a larger predicted
-response" is supported internally for ~97% of moving readouts, with a stated,
-localised exception in cyclic components. It does not make the magnitudes
-correct — that still needs the external axis above — and it does not rescue the
-case-level calibration claim, which remains not established.
+**M2 — still graded, not switched.** 30% of non-identity moving readouts are at
+a rail at a 2x / 0.5x input, which is under the 50% reading rule but twice the
+15% first reported.
+
+**M3 — transfer is damped, not passed through.** Two corrections to the first
+version:
+- Identity readouts are excluded.
+- The knockdown-to-0 step is left out of the fit. It has no finite log, and
+  flooring it at 1e-6 put one point at x = 6 against x ≤ 1.3, which dominated
+  the fit.
+
+The held-out median slope is **0.48**, with an interquartile range of 0.04–0.90
+and a tuning median of 0.12. A typical readout carries about half the input's
+log fold, and a quarter barely respond. The "depth-invariance holds on real
+networks" claim in the earlier version is **withdrawn**. `hill_sat` passes a
+fold through a single-input chain exactly (`test/test_and_curves.jl`), but on
+real networks the multi-input reactions and saturation damp it.
+
+**Reversals.** 244 non-identity readouts reverse by more than one print unit.
+Only **92 reverse by ≥ 1e-3 UI**: 52 held-out and 40 tuning, in 12 pathways,
+led by RUNX2 (34), TP53 (17) and PIP3 (16). None of those 92 is in an
+acyclic pathway. In the 10 acyclic pathways with non-identity movers there are
+0 reversals among 205 readouts, and 92 of 4,830 in cyclic pathways.
+
+That count is too small to carry "entirely a loop phenomenon". It is also
+partly by construction: an acyclic component is solved exactly in one pass, so
+iterative-tolerance noise cannot occur there, though a genuine incoherent
+feed-forward reversal could. What the data does support: the large reversals
+are real sign changes in cyclic pathways. WNT5A knockdown in Signaling by WNT
+drives readouts to 100x at 0.5 and 0.2, then to ~1e-5 at 0.05 and 0. CHEK2 in
+Cell Cycle Checkpoints does the same. These are consistent with the specs/014
+basin flip, but not traced here.
+
+**What this licenses.** Nothing stronger than: "a larger perturbation usually
+(about 94%) moves a readout monotonically, and typically by about half the
+input's log fold". Magnitudes are graded, not binary, but they are **not
+depth-invariant** in practice, and a stated minority of cyclic cases
+reverse. The dose-response claim is **not established** at the pre-registered
+bar once the trivial readouts are removed. Case-level calibration also remains
+not established (above).
+
+**Fixed in the analysis after review:**
+- Identity readouts are reported separately.
+- The fit uses finite-input steps only.
+- "Further from baseline" is reported alongside M1.
+- `load_ladder` warns if any case is not valid in every run. None was dropped
+  here: 23,268 in every run.
+- `benchmark_selective_joint.py` ignores `DS_PERTURB_UI_*`, so it cannot be
+  used for these runs. It now says so.

@@ -6,7 +6,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from dose_response import (  # noqa: E402
-    input_values, monotone, moves, railed, summarise, transfer_slope,
+    away, identity, input_values, load_ladder, monotone, moves, railed,
+    summarise, transfer_slope, fname, LADDER,
 )
 
 
@@ -58,3 +59,49 @@ def test_summary_counts_a_reversal_and_a_switch():
     assert s["monotone"] == 2
     assert s["railed_at_mildest"] == 1
     assert len(s["reversals"]) == 1
+
+
+# --- Pins added after review of PR #69 ---
+
+def test_identity_readouts_are_recognised_and_excluded_from_m1_denominator():
+    ins = input_values("2")                                   # 2, 5, 20, 80
+    assert identity(ins, list(ins))
+    assert not identity(ins, [2.0, 5.0, 20.0, 60.0])
+    s = summarise({("P", "G", "2", "self"): list(ins),
+                   ("P", "G", "2", "k"): [1.5, 3.0, 2.0, 4.0]})
+    assert s["identity"] == 1 and s["nontrivial"] == 1
+    assert s["nt_monotone"] == 0                              # identity cannot prop it up
+
+
+def test_away_requires_growing_distance_not_just_one_direction():
+    assert away([0.9, 0.5, 0.1, 0.0])
+    assert away([1.5, 3.0, 3.0, 9.0])
+    assert monotone([0.5, 0.8, 1.5, 3.0]) and not away([0.5, 0.8, 1.5, 3.0])   # crosses baseline
+    assert monotone([3.0, 2.0, 1.5, 1.2]) and not away([3.0, 2.0, 1.5, 1.2])   # falls back to baseline
+
+
+def test_print_unit_tolerance_absorbs_a_single_rounding_step():
+    outs = [0.5, 0.400001, 0.4, 0.400001]                     # one 1e-6 print unit back
+    assert not monotone(outs)
+    assert monotone(outs, 1e-6)
+
+
+def test_knockdown_slope_ignores_the_zero_step():
+    # Output passes the finite steps through exactly, then reads 1e-3 at input 0.
+    # With 0 floored to 1e-6 that one point would drag the slope far below 1.
+    ins = input_values("0")
+    outs = ins[:3] + [1e-3]
+    assert abs(transfer_slope(ins, outs) - 1.0) < 1e-9
+
+
+def test_load_ladder_joins_on_the_case_key_and_warns_on_drops(tmp_path, capsys):
+    cols = "pathway\tgene\tdirection\tkey_output\tvalid\tpred_ui\n"
+    for n, (d, u) in enumerate(LADDER):
+        rows = cols + f"P\tG\t2\tk\t1\t{u}\n"
+        if n == 0:
+            rows += "P\tG\t2\tonly_here\t1\t3\n"
+        (tmp_path / fname(d, u)).write_text(rows)
+    cases = load_ladder(str(tmp_path))
+    assert list(cases) == [("P", "G", "2", "k")]
+    assert cases[("P", "G", "2", "k")] == [u for _, u in LADDER]
+    assert "1 cases are not valid in every run" in capsys.readouterr().err
