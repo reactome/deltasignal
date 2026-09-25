@@ -241,35 +241,60 @@ def duplicate_activator_edges(edges: list) -> set:
     return drop
 
 
+def node_identity_stids(pathway_dir: Path) -> dict:
+    """uuid -> the stable ids that ARE this node (not the ones it contains).
+
+    From nodes.csv this is the node's own ``diagram_entity_id``. It must not be
+    derived by inverting ``load_stid_to_uuids``: that index also files every
+    node under each of its ``member_leaves``, so an inverse ``{u: s}`` keeps
+    whichever stid came last in set-iteration order. The flagged pairs then
+    changed with PYTHONHASHSEED (PIP3: 38 or 73 targets with two or more
+    flagged inhibitors, on one catalog), and so did the DS_SKIP_SELF_INH arm
+    of specs/012."""
+    out: dict = defaultdict(set)
+    nodes_csv = pathway_dir / "nodes.csv"
+    if nodes_csv.exists():
+        with open(nodes_csv) as f:
+            for row in csv.DictReader(f):
+                de = (row.get("diagram_entity_id") or "").strip()
+                if de:
+                    out[str(row["uuid"])].add(de)
+        return out
+    with open(pathway_dir / "stid_to_uuid_mapping.csv") as f:
+        for row in csv.DictReader(f):
+            out[str(row["uuid"])].add(str(row["stable_id"]))
+    return out
+
+
 def self_contained_inhibitor_pairs(pathway_dir: Path) -> set:
     """(source, target) of inhibitor edges whose source contains an activator
-    of the same reaction. Uses the containment table the generator ships, so
-    nothing is inferred here."""
+    of the SAME target node. Uses the containment table the generator ships, so
+    nothing is inferred here. Activators are collected per target uuid, not per
+    target stid: pooling by stid would flag an inhibitor on one variant because
+    it contains the activator of a sibling variant."""
     cf = pathway_dir / "containment.csv"
     if not cf.exists():
         return set()
-    stid_to_uuids = load_stid_to_uuids(pathway_dir)
-    uuid_to_stid = {u: s for s, us in stid_to_uuids.items() for u in us}
+    ident = node_identity_stids(pathway_dir)
     contains: dict = {}
     with open(cf) as f:
         for row in csv.DictReader(f):
             contains.setdefault(row["stable_id"], set()).add(row["contains_stable_id"])
-    acts: dict = {}
+    acts: dict = defaultdict(set)
     inh_rows = []
     with open(pathway_dir / "logic_network.csv") as f:
         for row in csv.DictReader(f):
-            tgt = uuid_to_stid.get(str(row["target_id"]))
-            src = uuid_to_stid.get(str(row["source_id"]))
-            if not (tgt and src):
-                continue
+            su, tu = str(row["source_id"]), str(row["target_id"])
             if row.get("pos_neg") == "neg":
-                inh_rows.append((str(row["source_id"]), str(row["target_id"]), src, tgt))
+                inh_rows.append((su, tu))
             else:
-                acts.setdefault(tgt, set()).add(src)
+                acts[tu] |= ident.get(su, set())
     pairs = set()
-    for su, tu, src, tgt in inh_rows:
-        inside = contains.get(src, set()) - {src}
-        if inside & acts.get(tgt, set()):
+    for su, tu in inh_rows:
+        inside = set()
+        for sid in ident.get(su, ()):
+            inside |= contains.get(sid, set()) - {sid}
+        if inside & acts.get(tu, set()):
             pairs.add((su, tu))
     return pairs
 
