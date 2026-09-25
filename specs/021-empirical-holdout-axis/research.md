@@ -777,7 +777,8 @@ exactly on re-solve, and every solve reports converged. Build
 
 1. **The readout is not in a loop.** A 168-node strongly connected component
    upstream of it flips entirely between KD 0.2 and 0.05 (all 168 members), and
-   559 acyclic nodes downstream follow. The flip costs iterations: 90 sweeps
+   559 further nodes outside every loop flip with it (not checked to be all
+   downstream). The flip costs iterations: 90 sweeps
    in the high basin, 266 in the low one.
 2. **The loop only amplifies.** Its perturbed entries are 48 edges from
    `WNT:FZD:LRP5/6`, which reads **2, 2, 0.5, 0**, a non-monotone input
