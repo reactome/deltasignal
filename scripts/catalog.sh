@@ -169,13 +169,16 @@ cmd_bench() {
   local out="$cur/results/$ds"
   mkdir -p "$out"
   echo "catalog: benchmarking build $build with solver $ds -> $out"
+  # The benchmark needs py2neo, which lives in the generator's venv, not the
+  # system python -- the first run of this command died on exactly that.
+  [ -x "$PY" ] || die "no generator python at $PY (set LNG_PYTHON)"
   for gt in curator experimental; do
     env DELTASIGNAL_BASE="$api" DS_CATALOG_ROOT="$(readlink -f "$cur")" \
-      python3 "$DS_REPO/bench/benchmark_vs_mpbiopath.py" --max-edges 40000 \
+      "$PY" "$DS_REPO/bench/benchmark_vs_mpbiopath.py" --max-edges 40000 \
         --ground-truth "$gt" --report "$out/${gt}_report.tsv" --dump-cases "$out/${gt}_cases.tsv" \
         > "$out/${gt}.log" 2>&1 || die "$gt benchmark failed; see $out/${gt}.log"
   done
-  python3 "$DS_REPO/bench/analysis/holdout_report.py" --cases "$out/curator_cases.tsv" \
+  "$PY" "$DS_REPO/bench/analysis/holdout_report.py" --cases "$out/curator_cases.tsv" \
       > "$out/holdout.txt" 2>&1 || true
   python3 - "$out" "$build" "$ds" <<'PY'
 import json, re, sys, datetime
