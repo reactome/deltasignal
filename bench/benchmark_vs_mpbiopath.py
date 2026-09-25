@@ -105,6 +105,16 @@ SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").s
 # 150 reactions catalog-wide, 22.7% of those carrying both an activator and an
 # inhibitor, across 37 pathways.
 SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
+# Which of the nodes a gene resolves to get pinned. specs/023.
+#   all   (default, the protocol since 0bd4565): every node whose members include
+#         the gene, wherever it sits -- 89% of pins are mid-pathway complexes,
+#         which are then SET rather than computed from the perturbed gene.
+#   entry: only where the gene ENTERS the network -- the resolved nodes no other
+#         resolved node reaches. Roots always qualify; everything downstream
+#         propagates. Adam's stated intent.
+PIN_SCOPE = os.environ.get("DS_PIN_SCOPE", "all")
+if PIN_SCOPE not in ("all", "entry"):
+    raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'all' or 'entry'")
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
 # same reaction. An entity that is both the catalyst and a substrate of one
 # reaction currently contributes TWICE to the AND product, so its fold-change
@@ -220,6 +230,30 @@ def build_adjacency(pathway_dir: Path) -> dict:
         for row in reader:
             adj[row["source_id"]].append(row["target_id"])
     return adj
+
+
+def entry_occurrences(uuids: list, adj: dict) -> list:
+    """The members of `uuids` that no OTHER member reaches (specs/023).
+
+    A member reachable from another is downstream of the gene's entry into the
+    network and should be computed, not pinned. If every member is reached
+    (they all sit in one cycle), there is no entry point, so all are returned
+    and the old protocol applies."""
+    members = set(uuids)
+    reached = set()
+    for start in members:
+        seen = {start}
+        stack = list(adj.get(start, ()))
+        while stack:
+            n = stack.pop()
+            if n in seen:
+                continue
+            seen.add(n)
+            if n in members and n != start:
+                reached.add(n)
+            stack.extend(adj.get(n, ()))
+    entry = [u for u in uuids if u not in reached]
+    return entry or list(uuids)
 
 
 def duplicate_activator_edges(edges: list) -> set:
@@ -542,6 +576,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         for sid in gene_to_stids.get(g, []):
             uuids.extend(stid_to_uuids.get(sid, []))
         gene_to_uuids[g] = uuids
+    if PIN_SCOPE == "entry":
+        pin_adj = build_adjacency(pathway_dir)
+        gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
+                         for g, us in gene_to_uuids.items()}
 
     # Resolve key_output dbIds to their REAL stIds (may be R-ALL-, R-NUL-, not
     # just R-HSA-) so species that are genuinely in the network are found.
