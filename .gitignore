@@ -68,3 +68,7 @@ validation/**/example_results/**/parsed_networks/
 validation/**/example_results/**/observations/
 validation/**/example_results/**/solve_results/
 validation/**/example_results/**/logs/
+
+# Per-suite test output, written by CI and by the docker test-runner so
+# scripts/check_doc_counts.py can read the printed assertion counts.
+test-output/
