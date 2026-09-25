@@ -9,14 +9,17 @@ readout. For each scored case this computes, on that region:
 
   reach        no path / a path exists but none with the expected sign /
                a path with the expected sign exists
-  loop         the largest strongly connected component the region passes
-               through, and whether that loop is
-                 negative   it contains an inhibitory edge (negative feedback)
-                 positive   every edge in it is activating
+  loop         whether the region passes through a strongly connected
+               component, and if so
+                 has_inhibition  some component on the route contains an
+                                 inhibitory edge (NOT necessarily negative
+                                 feedback: any inhibition inside the loop)
+                 all_positive    every edge of every component is activating
   derived      whether the loop survives without derived edges (assembly,
                depletion, catalyst); if not it is welded by our own expansion
-  self_inh     a self-contained inhibitor inside the region: an inhibitor that
-               contains an input of the same reaction (specs/012, 022)
+  self_inh     a self-contained inhibitor inside the region, by the SOLVER's
+               definition (specs/022): a non-depletion inhibitor that contains
+               an input of the same reaction AND is reachable from that input
   assembly     an assembly edge inside the region (a complex built from the
                perturbed branch; matters for overexpression)
 
@@ -83,7 +86,22 @@ class Network:
                     core[u].append(v)
             self.comp_derived_only[i] = not any(
                 len(cc) > 1 for cc in tarjan_sccs(core, cs))
-        self.self_inh = self_contained_inhibitor_pairs(pathway_dir)
+        # The solver's definition (steady_state.jl self_contained_inhibitor_map):
+        # no depletion edges, and the shared input must reach the inhibitor.
+        etype = {(u, v): et for u, es in self.fwd.items() for v, _, et in es}
+        acts = defaultdict(set)
+        for u, es in self.fwd.items():
+            for v, neg, _ in es:
+                if not neg:
+                    acts[v].add(u)
+        pairs = set()
+        for s_, t_ in self_contained_inhibitor_pairs(pathway_dir):
+            if etype.get((s_, t_)) == "depletion":
+                continue
+            if any(s_ in self._bfs([a], lambda n: (v for v, _, _ in self.fwd.get(n, ())))
+                   for a in acts[t_]):
+                pairs.add((s_, t_))
+        self.self_inh = pairs
 
     def region(self, sources, targets):
         fwd = self._bfs(sources, lambda n: (v for v, _, _ in self.fwd.get(n, ())))
@@ -150,7 +168,7 @@ def classify(net: Network, row: dict) -> dict:
     if comps:
         big = max(comps, key=lambda c: net.comp_size[c])
         size = net.comp_size[big]
-        out["loop"] = ("negative" if any(net.comp_neg[c] for c in comps) else "positive")
+        out["loop"] = ("has_inhibition" if any(net.comp_neg[c] for c in comps) else "all_positive")
         out["loop_size"] = "small(<10)" if size < 10 else "medium(<100)" if size < 100 else "giant(>=100)"
         out["derived_only"] = "welded" if all(net.comp_derived_only[c] for c in comps) else "curated"
     else:
@@ -163,6 +181,42 @@ def classify(net: Network, row: dict) -> dict:
 
 
 FEATURES = ("reach", "loop", "loop_size", "derived_only", "self_inh", "assembly")
+
+
+def mh_risk_difference(rows, feature, exposed, unexposed, stratum="pathway"):
+    """Mantel-Haenszel risk difference in error rate, exposed minus unexposed,
+    stratified by `stratum`. Weights n1*n0/(n1+n0). This is the committed
+    within-pathway estimator: pooled rates across pathways have repeatedly been
+    between-pathway confounds here, and ad hoc estimators disagreed on sign
+    (review of PR #72). Returns (rd, strata_used, n_exposed, n_unexposed)."""
+    cells = defaultdict(lambda: [0, 0, 0, 0])   # a1, n1, a0, n0
+    for r in rows:
+        v = r[feature]
+        if v in exposed:
+            c = cells[r[stratum]]; c[0] += not r["correct"]; c[1] += 1
+        elif v in unexposed:
+            c = cells[r[stratum]]; c[2] += not r["correct"]; c[3] += 1
+    num = den = 0.0
+    used = n1 = n0 = 0
+    for a1, m1, a0, m0 in cells.values():
+        if m1 == 0 or m0 == 0:
+            continue
+        w = m1 * m0 / (m1 + m0)
+        num += w * (a1 / m1 - a0 / m0)
+        den += w
+        used += 1; n1 += m1; n0 += m0
+    return (num / den if den else float("nan")), used, n1, n0
+
+
+CONTRASTS = (
+    ("loop", {"has_inhibition", "all_positive"}, {"none"}),
+    ("loop", {"has_inhibition"}, {"none"}),
+    ("loop", {"all_positive"}, {"none"}),
+    ("loop_size", {"giant(>=100)"}, {"none"}),
+    ("derived_only", {"welded"}, {"none"}),
+    ("self_inh", {"yes"}, {"no"}),
+    ("assembly", {"yes"}, {"no"}),
+)
 
 
 def main() -> int:
@@ -218,6 +272,14 @@ def main() -> int:
         print("  wrong, by error type x reach:")
         for (e, rc), n in Counter((r["error"], r["reach"]) for r in wrong).most_common(8):
             print(f"    {e:<16} {rc:<16} {n:,}")
+
+    routed = [r for r in held if r["reach"] != "no_path"]
+    print(f"\nHELD-OUT cases with a route ({len(routed):,}): Mantel-Haenszel risk difference in "
+          f"error rate, within pathway")
+    for feat, yes, no in CONTRASTS:
+        rd, used, n1, n0 = mh_risk_difference(routed, feat, yes, no)
+        print(f"  {feat:<13} {'/'.join(sorted(yes)):<30} vs {'/'.join(sorted(no)):<5} "
+              f"{rd:+.1%}  over {used} pathways (n {n1:,} vs {n0:,})")
 
     if a.out:
         cols = list(rows[0].keys()) + [c for c in ("correct", "error") + FEATURES if c not in rows[0]]

@@ -43,11 +43,11 @@ def test_negative_and_positive_loops_and_welding(tmp_path):
     net = _net(tmp_path, [("A", "L1", "pos", "input"), ("L1", "L2", "pos", "input"),
                           ("L2", "L1", "neg", "regulator"), ("L2", "Z", "pos", "input")])
     r = classify(net, case("1", "0"))
-    assert (r["loop"], r["loop_size"], r["derived_only"]) == ("negative", "small(<10)", "curated")
+    assert (r["loop"], r["loop_size"], r["derived_only"]) == ("has_inhibition", "small(<10)", "curated")
     net2 = _net(tmp_path, [("A", "L1", "pos", "input"), ("L1", "L2", "pos", "input"),
                            ("L2", "L1", "pos", "assembly"), ("L2", "Z", "pos", "input")])
     r2 = classify(net2, case("1", "0"))
-    assert (r2["loop"], r2["derived_only"]) == ("positive", "welded")
+    assert (r2["loop"], r2["derived_only"]) == ("all_positive", "welded")
 
 
 def test_self_contained_inhibitor_on_the_route(tmp_path):
@@ -56,3 +56,33 @@ def test_self_contained_inhibitor_on_the_route(tmp_path):
                containment=[("R-C", "R-A")])
     r = classify(net, case("1", "0"))
     assert r["self_inh"] == "yes" and r["assembly"] == "yes"
+
+
+from failure_structure import mh_risk_difference  # noqa: E402
+
+
+def test_mh_removes_pure_between_pathway_composition():
+    # P: all exposed, all wrong-prone; Q: all unexposed, all right -- but WITHIN
+    # each pathway exposure makes no difference. Pooled differs; MH must be 0.
+    rows = []
+    for i in range(20):
+        rows.append({"pathway": "P", "f": "y", "correct": i % 2 == 0})
+        rows.append({"pathway": "P", "f": "n", "correct": i % 2 == 0})
+        rows.append({"pathway": "Q", "f": "n", "correct": True})
+    rd, used, n1, n0 = mh_risk_difference(rows, "f", {"y"}, {"n"})
+    assert abs(rd) < 1e-12 and used == 1 and (n1, n0) == (20, 20)
+
+
+def test_mh_recovers_a_real_within_pathway_effect():
+    rows = [{"pathway": p, "f": "y", "correct": False} for p in "AB" for _ in range(10)]
+    rows += [{"pathway": p, "f": "n", "correct": True} for p in "AB" for _ in range(10)]
+    rd, used, _, _ = mh_risk_difference(rows, "f", {"y"}, {"n"})
+    assert abs(rd - 1.0) < 1e-12 and used == 2
+
+
+def test_self_inh_needs_a_path_from_the_shared_input(tmp_path):
+    # C contains A but is not computed from A: the solver ignores it, so must this.
+    net = _net(tmp_path, [("A", "R", "pos", "input"), ("B", "C", "pos", "assembly"),
+                          ("C", "R", "neg", "regulator"), ("R", "Z", "pos", "output")],
+               containment=[("R-C", "R-A")])
+    assert net.self_inh == set()
