@@ -111,6 +111,10 @@ services:
       - ./test:/app/test:ro
       - ./bench:/app/bench:ro
       - ./examples:/app/examples:ro
+      # Same reason as test-runner: without this the image's baked Project.toml
+      # wins and the service crash-loops on any dependency added since the
+      # image was built.
+      - ./Project.toml:/app/Project.toml:ro
       # Pre-generated Reactome pathway catalog from the upstream
       # logic-network-generator project. Mounted read-only. Override the host
       # path with PATHWAY_CATALOG (e.g. in a .env file) for other checkouts.

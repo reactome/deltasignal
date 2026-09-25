@@ -382,12 +382,14 @@ compose file mounted `src`, `cli`, `test`, `bench` and `examples`, but **not
 the source is live. `/app/Project.toml` in the running image is dated May 25
 and predates the `SparseArrays` dependency, so every test file dies at load
 with `Package DeltaSignal does not have SparseArrays in its dependencies`.
-CI was unaffected: it instantiates from the repo. `test-runner` now mounts
-`Project.toml`, which fixes the stdlib case; a genuinely new **external**
+CI was unaffected: it instantiates from the repo. **Both `julia-api` and
+`test-runner` now mount `Project.toml`**, which is sufficient for this failure:
+it was a `[deps]`-table check and `SparseArrays` is a stdlib, so no
+`Manifest.toml` entry is needed. Verified 2026-09-25 — `julia-api` had been
+crash-looping on exactly this error, and recreating it with the mount brought
+`/api/health` back in about twelve seconds. A genuinely new **external**
 dependency still needs `docker compose -f docker-compose.dev.yml build`.
-`Manifest.toml` is gitignored, so mounting it is not a fix. **`julia-api` still
-does not mount it** — that service is long-running and a mount change there
-would restart in-flight benchmarks, so it is left for a deliberate rebuild.
+`Manifest.toml` is gitignored, so mounting it is not an option.
 
 When adding behaviour, add assertions to one of the twelve files that assert,
 or start a new one — do not extend a file from the zero-assertion list and assume it is
