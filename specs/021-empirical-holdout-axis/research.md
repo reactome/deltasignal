@@ -581,3 +581,50 @@ magnitude reflects which loop basin a solve settles into.
 vanish within pathway, after saturation, path length, readout in-degree and six
 earlier levers. Between-pathway composition keeps producing signals that look
 real in aggregate and are not.
+
+---
+
+## Pre-registration: dose-response (committed before running)
+
+**The question**, as asked: does moving an input further from baseline move the
+outputs further from baseline? The calibration test above could not answer it,
+because every benchmark perturbation is the same size — knockdown to UI 0 or
+overexpression to UI 80 — so input magnitude never varies there.
+
+**Design.** Rerun the identical benchmark pipeline at graded strengths, changing
+only `DS_PERTURB_UI_DOWN` / `DS_PERTURB_UI_UP`, so gene resolution, readout
+aggregation and every other step are unchanged:
+
+| run | knockdown to | overexpression to |
+|---|---|---|
+| 1 | 0.5 | 2 |
+| 2 | 0.2 | 5 |
+| 3 | 0.05 | 20 |
+| 4 (existing) | 0 | 80 |
+
+Unit: each (pathway, gene, direction, readout) where both the gene and the
+readout resolve in the network. Build `20260925-1039_d4f4f64`, solver = the
+commit these runs are made at.
+
+**M1 — monotonicity (the pass/fail one).** Across the four strengths in one
+direction, a readout's output should move consistently: non-decreasing or
+non-increasing (an inhibited readout legitimately falls as its input rises).
+Among readouts that move at all, **P1: at least 95% are monotone.** A readout
+whose output *reverses* as its input strengthens would be a solver defect, not a
+modelling choice, and anything below 95% means the magnitudes cannot be read as
+a response at all.
+
+**M2 — graded or switched (descriptive, with a stated reading).** Among moving
+readouts, the fraction already at a rail (output 0 or at/near the 100 cap) at
+the mildest input (2x up, 0.5x down), and the fraction whose output still
+changes between the mildest and strongest input. **Reading rule, fixed now:** if
+more than half of moving readouts are already railed at a 2x input, magnitude is
+effectively binary for them and cannot carry dose information.
+
+**M3 — transfer (descriptive).** For moving, unrailed readouts, the slope of
+|log output fold| against |log input fold|. The `hill_sat` design claims
+depth-invariance, so a single-input chain should pass a fold through unchanged
+(slope 1); multi-input reactions are expected to damp it (slope below 1).
+
+**No accuracy claim is made from these runs.** The ground truth is defined at
+full strength, so accuracy at a partial strength is not comparable to anything.

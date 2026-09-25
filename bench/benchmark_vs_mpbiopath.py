@@ -67,8 +67,18 @@ DOWN, NORMAL, UP = 0, 1, 2
 DOWN_CUTOFF = float(os.environ.get("DS_DOWN_CUTOFF", 0.85))  # UI < cutoff → DOWN
 UP_CUTOFF = float(os.environ.get("DS_UP_CUTOFF", 1.15))      # UI >= cutoff → UP
 
-PERTURB_UI_DOWN = 0.0   # direction=0 → set node to UI=0 (full knockout)
-PERTURB_UI_UP = 80.0    # direction=2 → set node to UI=80 (strong upregulation)
+# Perturbation strength. The defaults are what every benchmark number in this
+# repo was measured at. They are overridable only so a dose-response study can
+# rerun the IDENTICAL pipeline at other strengths (specs/021); the curator and
+# experimental ground truths are defined at full strength, so accuracy figures
+# at any other value are not comparable to the published ones.
+PERTURB_UI_DOWN = float(os.environ.get("DS_PERTURB_UI_DOWN", 0.0))   # direction=0: knockout
+PERTURB_UI_UP = float(os.environ.get("DS_PERTURB_UI_UP", 80.0))      # direction=2: strong upregulation
+if not (0.0 <= PERTURB_UI_DOWN < 1.0 < PERTURB_UI_UP <= 100.0):
+    raise SystemExit(
+        f"DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN} and DS_PERTURB_UI_UP={PERTURB_UI_UP} must "
+        "satisfy 0 <= down < 1 (baseline) < up <= 100; a 'knockdown' above baseline or an "
+        "'overexpression' below it would silently invert the perturbation.")
 PIN_CONFIDENCE = 1.0
 
 # How to collapse a key-output's multiple UUID activities into one prediction.
