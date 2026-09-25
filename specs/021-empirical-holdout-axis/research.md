@@ -521,3 +521,63 @@ stratified Mann-Whitney). Null: permute strength within strata, 2,000 times.
 
 **Data.** Catalog build `20260925-1039_d4f4f64`, solver `ae84de9`, file
 `results/ae84de9/curator_cases.tsv` (24,100 cases).
+
+### Result: P2 FAILS. No magnitude claim is made.
+
+Run 2026-09-25 against build `20260925-1039_d4f4f64`, solver `ae84de9`, by
+`bench/analysis/magnitude_calibration.py` (7 tests, including one that pins the
+statistic removing pure composition). 2,000 within-stratum permutations.
+
+**Held-out (decides)** — 5,891 changed predictions:
+
+| stratification | AUC | strata | pairs | permutation p |
+|---|---|---|---|---|
+| none | 0.5601 | 1 | 4,508,248 | — |
+| within predicted class | 0.5475 | 2 | 2,258,774 | — |
+| **within (pathway, class)** | **0.5134** | 85 | 72,564 | **0.1154** |
+
+**Tuning (reported only)** — 2,509 changed predictions:
+
+| stratification | AUC | strata | pairs | permutation p |
+|---|---|---|---|---|
+| none | 0.5741 | 1 | 1,078,858 | — |
+| within predicted class | 0.5717 | 2 | 541,808 | — |
+| within (pathway, class) | 0.6791 | 21 | 98,770 | 0.0005 |
+
+**P1 holds, P2 fails.** The aggregate U-shape is real, but on held-out almost all
+of it is composition: stratifying by predicted class takes the AUC from 0.560 to
+0.548, and by pathway as well to 0.513, which is not significant and is close to
+a coin flip even if it were. Power is not the explanation — an AUC of 0.513 would
+be practically useless as a confidence signal at any sample size.
+
+**What this means.** "A small predicted change is less trustworthy" is true as a
+*population* statement: small changes come disproportionately from pathways
+that are harder for the model. It is **not** a case-level signal. Within one
+pathway and direction, magnitude does not tell you which predictions to trust.
+
+**Consequences, as pre-registered.**
+- The earlier section "What IS supportable today" claimed magnitude is "a
+  calibrated confidence signal" and recommended suppressing small predicted
+  changes in a user-facing view. **That recommendation is withdrawn as
+  unsupported at the case level.** Suppressing small changes within a pathway
+  would not meaningfully raise precision.
+- **X2 stands and widens:** there is no quantitative magnitude claim, and now no
+  case-level calibration claim either. The only magnitude statement supported is
+  the aggregate one, which says more about pathway difficulty than about the
+  prediction.
+- The EC50-ordering test remains the one route by which magnitude could still be
+  shown to mean something, because it asks a different question (order along a
+  cascade, against external measurement) rather than whether magnitude predicts
+  curator agreement.
+
+**The tuning/held-out divergence is itself a finding.** Within-stratum AUC is
+0.679 (p = 0.0005) on the ten tuning pathways and 0.513 (n.s.) on the 71
+held-out. The signal exists where the solver was tuned and does not generalise —
+the shape overfitting leaves. It is also consistent with the tuning set being
+dominated by cyclic pathways (TP53 and the cell-cycle set), where predicted
+magnitude reflects which loop basin a solve settles into.
+
+**Pattern.** This is the tenth candidate case-level signal in the project to
+vanish within pathway, after saturation, path length, readout in-degree and six
+earlier levers. Between-pathway composition keeps producing signals that look
+real in aggregate and are not.
