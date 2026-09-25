@@ -21,7 +21,7 @@ jobs:
       - name: Install pytest
         # The bench suite is stdlib-only: py2neo is imported lazily inside the
         # functions that talk to Neo4j, so nothing here needs a database.
-        run: python -m pip install --upgrade pip pytest
+        run: python -m pip install --upgrade pip pytest numpy
       - name: Run the bench suite
         run: python -m pytest bench/ -q
 
