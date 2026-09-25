@@ -58,3 +58,50 @@ of G. Roots in G are always entries.
 - **Prediction:** large churn, because 94% of perturbations change their pin
   set. Direction unknown. The false-change rate should fall, because
   downstream complexes stop being set directly.
+
+## Result, arm 1: `DS_PIN_SCOPE=entry` alone — a large loss, traced
+
+Build `20260925-1039_d4f4f64`, bench `ec81afd`, solver unchanged; control =
+production `ae84de9`. Same 23,268 valid cases in both arms.
+
+| | control | entry pinning | net | fixed / broke | p |
+|---|---|---|---|---|---|
+| curator held-out | 0.8687 / mF1 0.8299 | 0.8281 / mF1 0.7617 | | | |
+| curator all | 0.8477 / 0.8145 | 0.7994 / 0.7401 | **−1,164** | 179 / 1,343 | 1e-220 |
+| experimental | | | **−137** | 3 / 140 | 9e-38 |
+
+- **Breadth:** 71 pathways got worse and 2 got better.
+- **Direction:** 1,149 of the 1,343 breaks (86%) are overexpression cases,
+  and 1,148 are UP → NORMAL.
+
+**Traced (KMT2C OE, Chromatin modifying enzymes; readout 100 → 1.0).**
+- KMT2C, ASH2L, RBBP5, WDR5 and DPY30 feed the MLL3 complex by `assembly`
+  edges. This is exactly the decomposed-root structure the protocol intends.
+- The old protocol pinned the **MLL3 complex itself** at 80x.
+- Under entry pinning only KMT2C is pinned. `DS_ASSEMBLY_LIMITING=1` makes a
+  complex its scarcest subunit: min(80, 1, 1, 1, 1) = 1. The overexpression
+  cannot pass through any complex.
+- **So the broad pin was compensating for a modelling choice.** It set every
+  complex directly, which is how 89% of pins came to be mid-pathway, and how
+  overexpression cases scored.
+
+**Status:** the pinning is now what the protocol intends, but the model cannot
+carry a single-subunit overexpression through an assembly. Adopting arm 1 alone
+would make the benchmark honest and the model worse at the thing curators score
+most.
+
+## Pre-registration, arm 2 (committed before it runs)
+
+`DS_PIN_SCOPE=entry` + `DS_ASSEMBLY_LIMITING=0`, so assembly inputs combine by
+the AND mode (`hill_sat`, multiplication capped at 100) instead of min.
+- A knockdown still pulls a complex down (0 × anything = 0).
+- An overexpressed subunit now raises it.
+- The specs/009 measurement of limiting off (−196) was taken under broad
+  pinning, which masked exactly this effect, so it does not carry over.
+
+**Reading:** compare against the production control on the same columns as
+arm 1. If held-out is within the noise floor (±15) of production or better,
+the honest protocol plus multiplication is adoptable as a pair, pending Adam's
+call on the biology. That call is whether overexpressing one subunit should
+raise a complex when its partners are at baseline. If held-out is below −15,
+record it and trace.
