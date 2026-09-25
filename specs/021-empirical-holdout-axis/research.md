@@ -475,3 +475,295 @@ which is why it is recorded here.
 
 Nothing else was lost: the Cypher gene-to-stable-id query was byte-identical to
 `build_gene_cache.py`, and the loader duplicated `_common.load_one`.
+
+---
+
+## Pre-registration: does magnitude carry case-level signal? (committed before running)
+
+**The claim under test.** Direction accuracy is U-shaped in predicted fold:
+88.6% for a predicted knockout to zero, 88.3% at 10–100x, 37.3% at 1.1–2x. The
+proposed reading is that magnitude is a *calibrated confidence signal* — a
+small predicted change is less trustworthy than a large one.
+
+**Why the obvious falsification test is useless.** "Replace each magnitude with
+its class mean and show calibration collapses" cannot fail: it removes all
+within-class variation by construction, so the calibration always collapses.
+That test would have been reported as a success whatever the data said.
+
+**The real threat is composition.** The U-shape could arise entirely from which
+cases end up where:
+- *predicted class* — extreme folds may be mostly one direction, and that
+  direction may simply be easier;
+- *pathway* — some pathways saturate more AND score higher. This is the
+  between-pathway confound that killed nine candidate levers in this project,
+  and saturation, path length and readout in-degree have all previously FAILED
+  to discriminate errors within a pathway. So the prior is against this claim.
+
+**Test.** Strength = |log10(predicted fold)|, fold on the UI scale where 1 is
+baseline, with a predicted zero floored at 1e-6. Cases predicted NORMAL are
+excluded — the claim is about the size of a predicted *change*. Within each
+(pathway, predicted class) stratum containing at least one correct and one
+incorrect case, compute the AUC of strength for predicting correctness, and
+combine strata weighted by their number of correct-incorrect pairs (a
+stratified Mann-Whitney). Null: permute strength within strata, 2,000 times.
+
+**Primary split: held-out.** Tuning reported alongside, not used to decide.
+
+**Pre-registered predictions.**
+- **P1** (reproduces the signal): unstratified AUC > 0.5.
+- **P2** (the test that matters): stratified AUC > 0.5 with permutation
+  p < 0.01 on held-out.
+- **Decision.** If P2 holds, the magnitude claim survives composition and may be
+  stated as case-level calibration. If P2 fails, the U-shape is composition and
+  **no magnitude claim is made**; this is recorded as a negative result, and the
+  "suppress small predicted changes" recommendation is withdrawn as unsupported
+  at the case level.
+
+**Data.** Catalog build `20260925-1039_d4f4f64`, solver `ae84de9`, file
+`results/ae84de9/curator_cases.tsv` (24,100 cases).
+
+### Result: P2 fails as pre-registered. Case-level calibration is NOT ESTABLISHED.
+
+Run 2026-09-25 against build `20260925-1039_d4f4f64`, solver `ae84de9`, by
+`bench/analysis/magnitude_calibration.py` (7 tests, including one that pins the
+statistic removing pure composition). 2,000 within-stratum permutations.
+
+**Held-out (decides)** — 5,891 changed predictions:
+
+| stratification | AUC | strata | pairs | permutation p |
+|---|---|---|---|---|
+| none | 0.5601 | 1 | 4,508,248 | — |
+| within predicted class | 0.5475 | 2 | 2,258,774 | — |
+| **within (pathway, class)** | **0.5134** | 85 | 72,564 | **0.1154** |
+
+**Tuning (reported only)** — 2,509 changed predictions:
+
+| stratification | AUC | strata | pairs | permutation p |
+|---|---|---|---|---|
+| none | 0.5741 | 1 | 1,078,858 | — |
+| within predicted class | 0.5717 | 2 | 541,808 | — |
+| within (pathway, class) | 0.6791 | 21 | 98,770 | 0.0005 |
+
+**P1 holds; P2 fails as pre-registered**, and withdrawing the "suppress small
+predicted changes" recommendation under the pre-registered rule is correct.
+**What P2's failure does not show is that magnitude carries no case-level
+signal.** An earlier revision of this section said it did. Adversarial review
+showed that overstated the test, in three places.
+
+**1. The pre-registered weighting is the one standard choice that hides the
+signal.** Pair weighting (correct x incorrect cases per stratum) gave 30% of all
+weight to the two DSB Repair strata, whose within-stratum AUCs are 0.461 and
+0.530 — flat. The same 85 held-out strata under other standard combinations:
+
+| weighting (exploratory, post hoc) | AUC | p |
+|---|---|---|
+| pairs — pre-registered | 0.5134 | 0.11 |
+| van Elteren, the textbook stratified Wilcoxon | 0.5475 | 1.7e-7 |
+| equal weight per stratum | 0.5806 | 6e-8 |
+| pathway sign test, weighting-free | 29 of 42 pathways positive | 0.0098 |
+
+A logistic regression with (pathway x class) fixed effects gives a positive
+strength slope (likelihood-ratio statistic 152). So "almost all of it is
+composition" was also wrong: under van Elteren, adding pathway to the
+stratification leaves the AUC at 0.5475, unchanged. The drop to 0.513 came from
+the change of weighting, not from removing composition.
+
+**2. "Power is not the explanation" was false.** Simulating on the real stratum
+structure, 80% power at p < 0.01 needs a pair-weighted AUC of about 0.536. The
+test could not have resolved an effect of the size the other analyses find.
+
+**3. The honest uncertainty is wide.** Strata are heavily overdispersed (sum of
+z-squared 530 on 79 df), so every within-stratum permutation p here, the
+pre-registered one included, is anti-conservative. Resampling whole pathways
+gives van Elteren AUC **[0.494, 0.618]** with P(AUC <= 0.5) = 0.06.
+
+**What can be said.** There is moderate, not decisive, evidence of a small
+within-pathway effect: cases predicted to change only slightly are less often
+right than strong ones in the same pathway and direction (exploratory: held-out
+cases below 5x are 60.2% correct against 88.6% for strong cases in the same
+strata). But the practical gain is small. Suppressing predictions below 5x
+raises held-out precision from 84.65% to 85.80% (+1.15pp), and below 2x by
++0.27pp. The recommendation is not reinstated: it was not supported by its own
+test, and it buys about a point.
+
+**Why a regeneration is not a replication.** Rerunning on a freshly built
+catalog would not settle this: held-out predictions differ by only ~15 cases
+across relabellings of identical content, so it would re-find the same result
+from the same cases. A real replication needs new ground truth, which is what
+the phosphosite axis is for.
+
+**The tuning result is one pathway, not an overfitting signature.** An earlier
+revision read the tuning AUC (0.679, p = 0.0005) as "the shape overfitting
+leaves". It is not. The Transcriptional Regulation by TP53 strata carry more
+than 100% of the excess over 0.5 — the TP53 UP stratum alone has AUC 0.875 and
+45% of the pairs — and dropping TP53 takes tuning to 0.459. Within a single
+perturbation, tuning is 0.508 (p = 0.39). So it is between-perturbation
+composition inside TP53, the pathway already known to be dominated by the MDM2
+loop basin. The p = 0.0005 is also just the permutation floor (1/2001).
+
+**Corrections to the motivating numbers.** The U-shape figures that motivated
+this test (88.6% / 88.3% / 37.3%) came from the lost `cat_prod`, not the tested
+build. On the tested build the held-out 1.1–2x bin holds only 24 cases in 7
+pathways, against 175 on tuning, so the 37.3% was largely a tuning phenomenon.
+The tuning set is also 11 pathways in `TUNING_PATHWAYS`, not ten.
+
+**Design limitation, recorded.** A monotone score (|log10 fold|) applied to a
+U-shape that turns down at the very top — for up-predictions of 10x or more,
+10–100x beats railed 100x within stratum (Mantel-Haenszel OR 2.17) — dilutes
+the signal. Combined with pair weighting, the pre-registered test was
+structurally tilted toward a null. It stands as the record; the lesson is to
+pre-register van Elteren or a pathway sign test next time.
+
+**Status.** Not refuted, not established. Unlike the saturation, path-length and
+in-degree levers, this is an unresolved result rather than a dead one, and it
+should not be counted among them.
+
+## Pre-registration: dose-response (committed before running)
+
+**The question**, as asked: does moving an input further from baseline move the
+outputs further from baseline? The calibration test above could not answer it,
+because every benchmark perturbation is the same size — knockdown to UI 0 or
+overexpression to UI 80 — so input magnitude never varies there.
+
+**Design.** Rerun the identical benchmark pipeline at graded strengths, changing
+only `DS_PERTURB_UI_DOWN` / `DS_PERTURB_UI_UP`, so gene resolution, readout
+aggregation and every other step are unchanged:
+
+| run | knockdown to | overexpression to |
+|---|---|---|
+| 1 | 0.5 | 2 |
+| 2 | 0.2 | 5 |
+| 3 | 0.05 | 20 |
+| 4 (existing) | 0 | 80 |
+
+Unit: each (pathway, gene, direction, readout) where both the gene and the
+readout resolve in the network. Build `20260925-1039_d4f4f64`, solver = the
+commit these runs are made at.
+
+**M1 — monotonicity (the pass/fail one).** Across the four strengths in one
+direction, a readout's output should move consistently: non-decreasing or
+non-increasing (an inhibited readout legitimately falls as its input rises).
+Among readouts that move at all, **P1: at least 95% are monotone.** A readout
+whose output *reverses* as its input strengthens would be a solver defect, not a
+modelling choice, and anything below 95% means the magnitudes cannot be read as
+a response at all.
+
+**M2 — graded or switched (descriptive, with a stated reading).** Among moving
+readouts, the fraction already at a rail (output 0 or at/near the 100 cap) at
+the mildest input (2x up, 0.5x down), and the fraction whose output still
+changes between the mildest and strongest input. **Reading rule, fixed now:** if
+more than half of moving readouts are already railed at a 2x input, magnitude is
+effectively binary for them and cannot carry dose information.
+
+**M3 — transfer (descriptive).** For moving, unrailed readouts, the slope of
+|log output fold| against |log input fold|. The `hill_sat` design claims
+depth-invariance, so a single-input chain should pass a fold through unchanged
+(slope 1); multi-input reactions are expected to damp it (slope below 1).
+
+**No accuracy claim is made from these runs.** The ground truth is defined at
+full strength, so accuracy at a partial strength is not comparable to anything.
+
+### Result: P1 passes as registered; on non-trivial readouts it straddles the gate — NOT ESTABLISHED
+
+Build `20260925-1039_d4f4f64`, solver `3328b5f` (runs 1–3); run 4 is the
+`ae84de9` production scoring of the same build, **copied, not rerun**. The
+solver is identical between the two commits (only the health endpoint changed),
+so the knob being inert at its default is established by reading the code (its
+one use is the pin value), not by an experiment.
+`bench/analysis/dose_response.py`.
+
+Two rounds of adversarial review (PR #69) replaced two earlier versions of this
+section. The first said "P1 passes, 97.0%, M3 median exactly 1.00,
+depth-invariance holding on real networks". The second said "P1 FAILS, 94.2%,
+depth-invariance withdrawn". Both overstated. What follows is what the data
+supports.
+
+**Readouts that copy the input.** 3,423 of the 8,604 moving readouts (2,858
+held-out) equal the pinned input at every step, to a relative 1e-4. They are the
+perturbed node itself (a key-output uuid set can include the gene's own pinned
+node) or an exact pass-through. The case table records uuid counts, not uuids,
+and resolving a `key_output` dbId needs Neo4j, so the two are not separated
+here. Either way they are monotone by construction and cannot test M1. The
+pre-registration did not exclude them. **Excluding them is itself a post-hoc
+choice**, made after seeing the data, exactly like the print tolerance below.
+So neither column is "the" result.
+
+| held-out | as registered | non-identity | non-identity, print tolerance |
+|---|---|---|---|
+| moving readouts | 6,063 | 3,205 | 3,205 |
+| M1 monotone | **97.0%** | **94.4%** | **95.4%** |
+| further from baseline, same side | — | 91.4% | 94.0% |
+| M2 railed at the mildest input | — | 29.0% | |
+| output changes mildest → strongest | — | 70.3% | |
+
+Tuning, non-identity: M1 94.2% (95.1% at print tolerance), further from
+baseline 77.8% (79.7%), M2 30.1%.
+
+"Print tolerance" means one 1e-6 print unit on a step, and 1e-5 on the |log10
+fold| step. `pred_ui` is written to six decimals, so the registered 1e-9 is
+below the file's own resolution.
+
+**M1 — not established.**
+- As registered, P1 passes (97.0%).
+- Removing the trivial readouts gives 94.4% (95.4% at print tolerance), which
+  straddles the 95% gate.
+- The binomial standard error at n = 3,205 is about 0.4pp, and the cases are
+  correlated within a perturbation, so the gate lies inside the noise.
+- The data says a stronger input moves a readout monotonically in about 94–95%
+  of non-trivial cases. It does not say which side of 95% that falls.
+
+**M1 is also weaker than the question.** `monotone` checks the raw direction,
+not distance from baseline. On "further from baseline, same side of 1", the
+result is 91.4–94.0% held-out but only 77.8–79.7% on tuning. The tuning
+pathways (TP53, PIP3, cell cycle) are the loopy ones.
+
+**M2 — graded, not switched.** 29% of non-identity moving readouts are at a
+rail at a 2x / 0.5x input, under the 50% reading rule. 70% still change between
+the mildest and the strongest input.
+
+**M3 — descriptive only, and biased low.** The slope is fit on finite-input
+steps only. The knockdown to 0 has no finite log, and flooring it at 1e-6
+dominated the fit in the first version.
+- Held-out median 0.57, IQR 0.07–1.00, over 1,395 never-railed non-identity
+  readouts; tuning median 0.12.
+- That sample is 44% of the non-identity movers, and it excludes by design the
+  strongest transmitters (e.g. an OE readout reaching the 100 cap). It
+  describes the unrailed subset, not the typical readout.
+- The identity readouts may include genuine multi-hop pass-throughs, which
+  would be evidence *for* depth-invariance.
+- Depth-invariance on real networks is therefore **not established**; it is
+  not withdrawn as false.
+- 10.5% of held-out slopes (21.8% tuning) are negative: those readouts move
+  *less* as the input strengthens.
+- Why transfer is damped where it is damped is not traced.
+
+**Reversals.**
+- 244 non-identity readouts reverse by more than one print unit. Only **92
+  reverse by ≥ 1e-3 UI**: 52 held-out, in 12 pathways, led by RUNX2 (34), TP53
+  (17) and PIP3 (16).
+- In the 10 acyclic pathways with non-identity movers there are 0 reversals
+  among 205 readouts, and all 205 are further from baseline. All 92 large
+  reversals are in cyclic pathways.
+- 205 is a small base, and the zero is partly by construction: an acyclic
+  component is solved exactly in one pass, so iterative noise cannot occur.
+- The largest reversals are real sign changes. WNT5A knockdown in Signaling by
+  WNT holds readouts at 100x at 0.5 and 0.2, then collapses them to ~1e-5 at
+  0.05 and 0. CHEK2 knockdown in Cell Cycle Checkpoints spikes once instead
+  (0.53 → 100 → 6.3 → 0).
+- Both are consistent with the specs/014 loop basin flip, but neither is
+  traced.
+
+**What this licenses.** Magnitudes are graded rather than binary. A stronger
+input usually (about 94–95% of non-trivial readouts) moves a readout
+monotonically. A small, identifiable set of cyclic cases reverse sign. Neither
+the pre-registered dose-response bar nor depth-invariance is established.
+Case-level calibration also remains not established (above).
+
+**Analysis fixes, each pinned by a test:**
+- Identity readouts are recognised with a relative tolerance and excluded from
+  M1-non-identity, M2 and M3.
+- `away` applies its tolerance to both of its checks.
+- Slopes are fit on finite steps only.
+- `load_ladder` warns on dropped cases; none was dropped here (23,268 in every
+  run).
+- `benchmark_selective_joint.py` ignores `DS_PERTURB_UI_*` and now says so.
