@@ -102,11 +102,17 @@ function solve_steady_state(
     if !isempty(bridges)
         @info "Adding $(length(bridges)) silo bridge edge(s)" max_reach=silo_bridge_max_reach()
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
-                                  network.set_mappings, network.cofactor_stids)
+                                  network.set_mappings, network.cofactor_stids,
+                                  network.containment)
     end
 
     # Convert network to reactions
     reactions = convert_to_reaction_network(network)
+
+    # specs/022: inhibitors that contain their own reaction's input. Built only
+    # when DS_SELF_INHIBITOR_WEIGHT is set, so the default path is untouched.
+    self_shared = _self_inhibitor_weight_env() >= 0 ?
+        self_contained_inhibitor_map(network) : Dict{Tuple{String, String}, Vector{String}}()
     
     # Initialize node activities
     all_nodes = collect(keys(network.nodes))
@@ -165,7 +171,39 @@ function solve_steady_state(
     # compatibility but only "penalty" is supported.
     params.method == "penalty" ||
         error("Unsupported solver method $(params.method); only \"penalty\" is available.")
-    return solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids)
+    return solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
+                                      self_shared = self_shared)
+end
+
+"""
+(inhibitor uuid, target uuid) -> the target's activator uuids that the
+inhibitor CONTAINS, according to the network's containment table (specs/022).
+A node's identity is its own `reactome_id`; activators are collected per target
+node, so an inhibitor is never matched against a sibling variant's input.
+Depletion edges are not inhibitors here and are never included.
+"""
+function self_contained_inhibitor_map(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
+    out = Dict{Tuple{String, String}, Vector{String}}()
+    if isempty(network.containment)
+        @warn "DS_SELF_INHIBITOR_WEIGHT is set but this network carries no containment table; the rule is inert for this solve."
+        return out
+    end
+    sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
+    acts = Dict{String, Vector{String}}()
+    for e in network.edges
+        e.is_positive && push!(get!(acts, e.child_uuid, String[]), e.parent_uuid)
+    end
+    for e in network.edges
+        (e.is_positive || e.edge_type == "depletion") && continue
+        s = sid(e.parent_uuid)
+        s === nothing && continue
+        inside = get(network.containment, s, nothing)
+        inside === nothing && continue
+        shared = String[a for a in unique(get(acts, e.child_uuid, String[]))
+                        if (as = sid(a)) !== nothing && as in inside]
+        isempty(shared) || (out[(e.parent_uuid, e.child_uuid)] = sort(shared))
+    end
+    return out
 end
 
 """
@@ -1019,14 +1057,17 @@ function solve_steady_state_penalty(
     baseline_activities::Dict{String, Float64},
     params::SteadyStateParams,
     start_time::Float64,
-    gene_uuids::Set{String} = Set{String}(),
+    gene_uuids::Set{String} = Set{String}();
+    self_shared::Dict{Tuple{String, String}, Vector{String}} =
+        Dict{Tuple{String, String}, Vector{String}}(),
 )::SolverResult
 
     all_nodes = collect(keys(x0))
     n = length(all_nodes)
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
     index_stats = Dict{String, Any}()
-    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids; stats = index_stats)
+    rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids;
+                                               stats = index_stats, self_shared = self_shared)
 
     # Resolve the per-reaction DS_* knobs ONCE here (not once per reaction per
     # iteration inside compute_reaction_output_vec). Threaded into every forward
@@ -1197,6 +1238,9 @@ function solve_steady_state_penalty(
             "scc_closures_assembly" => get(index_stats, "scc_closures_assembly", 0),
             "scc_closures_depletion" => get(index_stats, "scc_closures_depletion", 0),
             "scc_cyclic_before" => get(index_stats, "scc_cyclic_before", 0),
+            # specs/022: inhibitor slots damped by DS_SELF_INHIBITOR_WEIGHT
+            # (0 when off), so an arm cannot silently measure the old model.
+            "self_inhibitors" => get(index_stats, "self_inhibitors", 0),
             "scc_cyclic_after" => get(index_stats, "scc_cyclic_after", 0),
             "scc_largest_after" => get(index_stats, "scc_largest_after", 0),
         ),
