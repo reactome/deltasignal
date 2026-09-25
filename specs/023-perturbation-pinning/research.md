@@ -105,3 +105,40 @@ the honest protocol plus multiplication is adoptable as a pair, pending Adam's
 call on the biology. That call is whether overexpressing one subunit should
 raise a complex when its partners are at baseline. If held-out is below −15,
 record it and trace.
+
+## Result, arm 2: entry pinning + `DS_ASSEMBLY_LIMITING=0`
+
+Same build, bench `ec81afd`. The container's own environment was verified as
+`DS_ASSEMBLY_LIMITING=0` before the run.
+
+| | production | arm 1 (entry) | **arm 2 (entry + multiply)** |
+|---|---|---|---|
+| curator held-out acc / mF1 | 0.8687 / 0.8299 | 0.8281 / 0.7617 | **0.8475 / 0.7952** |
+| curator all acc / mF1 | 0.8477 / 0.8145 | 0.7994 / 0.7401 | 0.8281 / 0.7846 |
+| held-out net vs production | — | | **−402** (88 / 490), 36 of 38 moved pathways worse |
+| tuning net | — | | −69 |
+| experimental net | — | −137 | **−51** (1 / 52) |
+
+Letting an overexpressed subunit raise its complex recovers about 60% of arm
+1's loss, but the honest protocol still scores well below production on both
+axes. The remaining breaks are 339 OE and 151 KD on held-out. They are not yet
+traced.
+
+**What this means for every number reported since 2026-07-14.** Production
+accuracy (held-out 86.87%) is measured under a protocol that sets every complex
+containing the perturbed gene directly. Part of that accuracy is the pin, not
+the propagation. Until the protocol question is decided, **quote the broad-pin
+numbers with that caveat.** This affects docs/RESULTS.md and the manuscript
+claims.
+
+**Decision needed (Adam):**
+1. **Which protocol is the benchmark of record?**
+   - (a) Broad pins, as today: comparable to every result since July, but it
+     sets complexes by hand.
+   - (b) Entry pins: what the protocol intends, but about 2pp worse today, and
+     it exposes the modelling gaps.
+2. **Under (b), should an overexpressed subunit raise its complex** when its
+   partners are at baseline? Limiting-reactant biology says no; the curators'
+   expectations say yes.
+
+Nothing is adopted until then. The flag stays, default `all`.
