@@ -475,3 +475,49 @@ which is why it is recorded here.
 
 Nothing else was lost: the Cypher gene-to-stable-id query was byte-identical to
 `build_gene_cache.py`, and the loader duplicated `_common.load_one`.
+
+---
+
+## Pre-registration: does magnitude carry case-level signal? (committed before running)
+
+**The claim under test.** Direction accuracy is U-shaped in predicted fold:
+88.6% for a predicted knockout to zero, 88.3% at 10–100x, 37.3% at 1.1–2x. The
+proposed reading is that magnitude is a *calibrated confidence signal* — a
+small predicted change is less trustworthy than a large one.
+
+**Why the obvious falsification test is useless.** "Replace each magnitude with
+its class mean and show calibration collapses" cannot fail: it removes all
+within-class variation by construction, so the calibration always collapses.
+That test would have been reported as a success whatever the data said.
+
+**The real threat is composition.** The U-shape could arise entirely from which
+cases end up where:
+- *predicted class* — extreme folds may be mostly one direction, and that
+  direction may simply be easier;
+- *pathway* — some pathways saturate more AND score higher. This is the
+  between-pathway confound that killed nine candidate levers in this project,
+  and saturation, path length and readout in-degree have all previously FAILED
+  to discriminate errors within a pathway. So the prior is against this claim.
+
+**Test.** Strength = |log10(predicted fold)|, fold on the UI scale where 1 is
+baseline, with a predicted zero floored at 1e-6. Cases predicted NORMAL are
+excluded — the claim is about the size of a predicted *change*. Within each
+(pathway, predicted class) stratum containing at least one correct and one
+incorrect case, compute the AUC of strength for predicting correctness, and
+combine strata weighted by their number of correct-incorrect pairs (a
+stratified Mann-Whitney). Null: permute strength within strata, 2,000 times.
+
+**Primary split: held-out.** Tuning reported alongside, not used to decide.
+
+**Pre-registered predictions.**
+- **P1** (reproduces the signal): unstratified AUC > 0.5.
+- **P2** (the test that matters): stratified AUC > 0.5 with permutation
+  p < 0.01 on held-out.
+- **Decision.** If P2 holds, the magnitude claim survives composition and may be
+  stated as case-level calibration. If P2 fails, the U-shape is composition and
+  **no magnitude claim is made**; this is recorded as a negative result, and the
+  "suppress small predicted changes" recommendation is withdrawn as unsupported
+  at the case level.
+
+**Data.** Catalog build `20260925-1039_d4f4f64`, solver `ae84de9`, file
+`results/ae84de9/curator_cases.tsv` (24,100 cases).
