@@ -28,3 +28,17 @@
 - **The trade to watch.** `min` and `extreme` let one moving copy decide the
   readout. They can create false changes where a copy moves for an unrelated
   reason. False change is reported separately.
+
+## Result (build `20260925-2326_d4f4f64`, arms at `e3685f5`, against `184dfd5/baseline`)
+
+| `DS_KO_AGG` | held-out net | p | pathways up / down | perturbations | tuning | experimental |
+|---|---|---|---|---|---|---|
+| **mean** | **+65** (132 / 67) | 5e-6 | 17 / 6 | 132 | −8 (ns) | 0 (15 / 15) |
+| min | −33 (254 / 287) | 0.17 | 3 / 5 | 332 | −6 | −9 |
+| extreme | +29 (153 / 124) | 0.09 | 18 / 8 | 161 | −2 | +3 |
+
+- **`mean` is adopted as the benchmark default.** It meets every
+  pre-registered condition; the largest single pathway is Pre-NOTCH at +16.
+- **The trade.** On the held-out, in-release cases it fixes 132 misses and
+  creates 64 false changes. `extreme` fixes 153 misses but creates 124 false
+  changes. `min` breaks far more than it fixes.

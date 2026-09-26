@@ -84,7 +84,11 @@ if not (0.0 <= PERTURB_UI_DOWN < 1.0 < PERTURB_UI_UP <= 100.0):
 PIN_CONFIDENCE = 1.0
 
 # How to collapse a key-output's multiple UUID activities into one prediction.
-KO_AGG = os.environ.get("DS_KO_AGG", "max")
+# "mean" since 2026-09-26 (specs/027): a readout with several node copies
+# is read as the pool average. "max" hid a knockdown whenever a copy the
+# perturbation does not reach sat at 1.0 (PALB2 KD read [0, 1, 1, 0] -> 1);
+# measured under root pins, mean is held-out +65 (132 / 67), experimental 0.
+KO_AGG = os.environ.get("DS_KO_AGG", "mean")
 
 # Diagnostic: comma-separated logic_network edge_types to drop before solving
 # (e.g. "assembly,dissociation"). Empty = keep all edges.
