@@ -103,3 +103,15 @@ def test_shortest_path_ties_do_not_follow_set_order():
         adj = {"S": dict.fromkeys(order).keys(), "A": {"G"}, "B": {"G"}}
         assert shortest_path(adj, {"S"}, {"G"}) == ["S", "A", "G"]
     assert shortest_path({"S": {"A"}}, {"S", "T"}, {"A"}) == ["S", "A"]
+
+
+def test_faithful_comp_pairs_keeps_roots_and_their_nesting_only():
+    from case_oracle import faithful_comp_pairs
+    rows = [("R1", "Reaction", "X", "P", "", "", "")]      # P is produced; K is a root
+    comp = {("K", "N"), ("N", "a"), ("K", "b"), ("P", "c"), ("N2", "d"), ("P", "N2")}
+    got = faithful_comp_pairs(rows, comp)
+    # P's pairs are composition-only. N2 is nested only in the produced P, but no
+    # reaction produces it, so it is a root in its own right.
+    assert got == {("K", "N"), ("N", "a"), ("K", "b"), ("N2", "d")}
+    rows2 = rows + [("R2", "Reaction", "Y", "N2", "", "", "")]
+    assert ("N2", "d") not in faithful_comp_pairs(rows2, comp)

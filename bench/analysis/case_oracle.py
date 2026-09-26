@@ -92,6 +92,25 @@ def oracle_graph(rows, comp_pairs, set_pairs, lenient=False) -> dict:
             for a, ts in adj.items() if base(a).startswith("R-HSA-")}
 
 
+def faithful_comp_pairs(rows, comp_pairs):
+    """The (complex, component) pairs the generator can represent: those whose
+    complex no reaction of the pathway produces (a root, which the generator
+    decomposes, specs/030) or that is nested, through complexes only, inside one.
+    A route that needs a hasComponent hop into a PRODUCED complex has no reaction
+    forming that complex, which is the composition-only gap (specs/016, 029)."""
+    produced = {o for _r, _k, _i, o, _c, _g, _gk in rows if o}
+    complexes = {x for x, _ in comp_pairs}
+    allowed = complexes - produced
+    frontier = list(allowed)
+    while frontier:
+        x = frontier.pop()
+        for c, m in comp_pairs:
+            if c == x and m in complexes and m not in allowed:
+                allowed.add(m)
+                frontier.append(m)
+    return {(x, m) for x, m in comp_pairs if x in allowed}
+
+
 def fetch_one_level(pid: str):
     """(complex, component) and (set, member) pairs, one level at a time, for
     every participant of the pathway's reactions and everything nested in them."""

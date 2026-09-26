@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from case_oracle import MADE, USE, fetch_one_level, oracle_graph  # noqa: E402
+from case_oracle import MADE, USE, faithful_comp_pairs, fetch_one_level, oracle_graph  # noqa: E402
 from curator_oracle import fetch_reaction_rows, shortest_path  # noqa: E402
 
 RX = ("Reaction", "BlackBoxEvent", "Polymerisation", "Depolymerisation", "FailedReaction")
@@ -53,6 +53,8 @@ def main() -> int:
     ap.add_argument("--oracle", type=Path, required=True)
     ap.add_argument("--catalog", type=Path, required=True)
     ap.add_argument("--steps", type=Path, help="write one row per case: pathway, gene, break, from, to")
+    ap.add_argument("--faithful", action="store_true",
+                    help="walk the route using only representable hops (faithful_comp_pairs) where one exists")
     a = ap.parse_args()
     import benchmark_vs_mpbiopath as BM
     from py2neo import Graph
@@ -81,7 +83,10 @@ def main() -> int:
         pw, pid = r["pathway"], names[r["pathway"]]
         if pw not in graphs:
             comp, sets = fetch_one_level(pid)
-            adj = oracle_graph(fetch_reaction_rows(pid), comp, sets)
+            rxn_rows = fetch_reaction_rows(pid)
+            adj = oracle_graph(rxn_rows, comp, sets)
+            # Reactome's route using only hops the generator can represent.
+            fadj = oracle_graph(rxn_rows, faithful_comp_pairs(rxn_rows, comp), sets)
             members = collections.defaultdict(set)
             for x, m in sets:
                 members[x].add(m)
@@ -97,15 +102,20 @@ def main() -> int:
             for e in csv.DictReader(open(a.catalog / pid / "logic_network.csv", newline="")):
                 fwd[e["source_id"]].append(e["target_id"])
             graphs[pw] = ({k: {t for t, _ in v} for k, v in adj.items()}, ident, fwd,
-                          set(ident.values()), expand)
-        uadj, ident, fwd, present, expand = graphs[pw]
+                          set(ident.values()), expand,
+                          {k: {t for t, _ in v} for k, v in fadj.items()})
+        uadj, ident, fwd, present, expand, fuadj = graphs[pw]
         gene = BM.GENE_NAME_CORRECTIONS.get((pw, r["gene"]), r["gene"])
         starts = {v for x in BM.neo4j_gene_to_stids([gene]).get(gene, []) for v in (x, x + USE, x + MADE)}
         goal = BM.neo4j_dbid_to_stid({r["key_output"]}).get(r["key_output"])
-        path = shortest_path(uadj, starts, {goal, goal + USE, goal + MADE}) if goal else None
+        goals = {goal, goal + USE, goal + MADE} if goal else set()
+        path = shortest_path(uadj, starts, goals) if goal else None
         if not path:
             out["(no route found on re-walk)"] += 1
             continue
+        fpath = shortest_path(fuadj, starts, goals)
+        if a.faithful and fpath:
+            path = fpath      # break on the route the generator could have built
         seen = set(r["gene_uuids"].split("|"))
         stack = list(seen)
         while stack:
@@ -116,6 +126,7 @@ def main() -> int:
                     stack.append(t)
         label, frm, to = first_break([p.split("::")[0] for p in path], {ident[u] for u in seen},
                                   expand, present, klass)
+        label = f"{label} | {'faithful route' if fpath else 'composition-only'}"
         out[label] += 1
         per[(pw, label)] += 1
         steps.append((pw, r["gene"], r["direction"], r["key_output"], label, frm, to))
