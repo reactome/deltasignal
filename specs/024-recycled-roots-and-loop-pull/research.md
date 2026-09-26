@@ -116,3 +116,39 @@ deliberate step. Of the remaining 7 missing genes, only COL1A1 and COL2A1
 (GPVI, immunoregulatory, PDGF), EP300 (NER), GDI1 (Rho GTPase cycle) and FBXW7
 (RUNX2) show 0 v97 reactions in their pathway. Those are version skew, which no
 generator change can recover.
+
+## Results (build `20260925-1039_d4f4f64`, arms at `5208139`, base `5f7b9c7/new_defaults`)
+
+**Arm P, `DS_PIN_SCOPE=root_cycle`.**
+- Shared cases are identical (0 / 0), as required.
+- Pins: 1,246 over 854 perturbations, up from 1,023 over 779.
+
+| newly scorable | n | correct | as scored today (NORMAL) | under the old broad pins |
+|---|---|---|---|---|
+| curator held-out | 726 | **81.7%** | 32.0% | 87.7% |
+| curator all | 1,052 | 74.5% | 31.6% | 81.9% |
+| experimental | 32 | 50.0% | 0% | 71.9% |
+
+Every-case figures:
+- curator held-out 82.89% → **84.79%**, macro-F1 0.7678 → **0.7979**;
+- curator all 81.00% → 82.88%;
+- experimental 64.55% → 66.43%.
+
+It passes the pre-registered bar: the newly valid cases score far better than
+NORMAL. As registered, adopting it as the default protocol is **Adam's
+decision**, and it is not flipped here.
+
+**Arms L1 and L2, `DS_LOOP_ELASTICITY` = 0.99 and 0.95. Not adopted.**
+
+| ε | held-out net | pathways / perturbations | without Interferon-γ | tuning | experimental |
+|---|---|---|---|---|---|
+| 0.99 | +30 (41 / 11), p 4e-5 | 3 / 4 | −4 | −17 (TP53, RUNX) | −1 |
+| 0.95 | +48 (63 / 15), p 4e-8 | 10 / 16 | +14 | −72 (TP53 −57, PIP3 −14) | −2 |
+
+Both fail the concentration condition: Interferon-γ is +34 in each. The
+tuning split loses, mostly TP53, whose giant component the pull affects most.
+A constant elasticity on every in-loop activator edge compounds around a long
+cycle (ε^L), so it is **not** the "extremely minimal" pull the design asks for
+on large loops. A pull that is minimal per *loop* rather than per *edge*, e.g.
+ε applied once at the loop's entry, is the obvious next design. Not attempted
+here.
