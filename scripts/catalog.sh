@@ -105,7 +105,7 @@ cmd_build() {
   [ -z "$variant" ] || [[ "$variant" =~ ^[A-Za-z0-9._-]+$ ]] || die "--variant must be [A-Za-z0-9._-]+"
   # Generator flags reach a build only through --env, so they are recorded.
   # LNG_PYTHON only selects the interpreter (lng_python), not a generator flag.
-  local leaked; leaked=$(env | grep -oE '^LNG_[A-Z0-9_]+' | grep -vx LNG_PYTHON | sort -u | tr '\n' ' ')
+  local leaked; leaked=$( (env | grep -oE '^LNG_[A-Z0-9_]+' | grep -vx LNG_PYTHON | sort -u | tr '\n' ' ') || true)
   [ -z "$leaked" ] || die "the calling shell exports $leaked-- unset them, or pass them with --env"
   [ -d "$LNG/.git" ] || die "no generator checkout at $LNG"
   local py sha dirty branch id dir
