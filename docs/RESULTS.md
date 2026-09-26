@@ -38,6 +38,15 @@ commit.
 > | curator, all pathways, in release (81) | 23,625 | 83.45% | 0.7942 |
 > | experimental, in release (10 pathways) | 846 | 66.43% | 0.5823 |
 >
+> **Caveats on these numbers:**
+> - DSB Repair's answers depend on the solver's iteration budget: 5,000
+>   sweeps instead of 500 is held-out −89, 74 of it in DSB (specs/028).
+> - TP53's answers depend on the catalog's uuid draw: a fresh regeneration is
+>   +104 in TP53 alone (specs/026). Both are the loop knife-edge
+>   (specs/013, 014), still present.
+> - The paired comparison with MP-BioPath's supplementary table below was
+>   taken before the `mean` readout rule.
+>
 > - **"In release"** leaves out cases whose gene or readout is not in this
 >   Reactome release's pathway, or whose gene name matches no gene: 475
 >   curator cases. Such a case cannot measure the generator or the solver. Its

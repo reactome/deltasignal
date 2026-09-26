@@ -15,9 +15,11 @@ component (ε = 0.95 cost TP53 −57).
 ## The rule (`DS_LOOP_GAIN=g`, default 1 = off, byte-identical)
 
 Each in-loop activator edge is read at fold^(g^(1/n)), with n the size of its
-strongly connected component. A cycle's total gain is then about g, whatever
-its length, and a positive loop driven by U settles at A = U^(1/(1−g)): finite
-amplification instead of railing.
+strongly connected component. A cycle through k such edges has gain g^(k/n).
+That is g only when the cycle spans its whole component, as in the test
+fixtures, where a positive loop driven by U settles at A = U^(1/(1−g)).
+Inside a large component with short cycles the pull is much weaker (see the
+Result).
 
 This is pinned in `test/test_loop_elasticity.jl` (+23 assertions):
 - the exact root;
@@ -73,3 +75,17 @@ Canonical build `20260925-2326_d4f4f64`, current defaults (`DS_KO_AGG=mean`):
 - **The pull has to be per cycle.** For example, scale it by the length of the
   shortest cycle through each edge rather than by the component's size. That
   is the next design; it is not attempted here.
+
+
+## Corrections after review of PR #74
+
+- **Convergence was not measured.** "How many solves converge" was
+  pre-registered but not recorded. The benchmark now logs `Converged: x of y
+  solves`. The gain arms ran at the default 500-sweep budget.
+- **The iteration-budget result is a caveat on the canonical numbers
+  themselves.** DSB's answers are budget-dependent (`iters5000` −89). The
+  mechanism, "more sweeps rail the loops", is inferred from specs/014, not
+  traced here.
+- **MH positive-loop excess** on `261c94a/baseline`: all-positive loops
+  +11.3% within pathway (34 pathways); loops with an inhibition +4.2% (16);
+  giant loops +13.1% (9); welded loops +16.1% (6).

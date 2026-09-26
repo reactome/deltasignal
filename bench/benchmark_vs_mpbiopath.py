@@ -110,6 +110,14 @@ GENE_NAME_CORRECTIONS = {
     ("Mitotic_G2-G2_M_phases", "FOXM"): "FOXM1",
     ("Signaling_by_NOTCH1", "FBX7"): "FBXW7",
 }
+# specs/029. On a catalog built with LNG_COMPOSITION_EDGES=1: keep only the
+# composition edges (component -> containing complex) that do not close a
+# cycle. They bridge the routes Reactome has and our network severs (390 of
+# 438 severed held-out routes break at a component -> complex step), but as a
+# class they re-weld loops (specs/016, 018, 026).   off | acyclic
+COMPOSITION_FILTER = os.environ.get("DS_COMPOSITION_FILTER", "off")
+if COMPOSITION_FILTER not in ("off", "acyclic"):
+    raise SystemExit(f"DS_COMPOSITION_FILTER={COMPOSITION_FILTER!r} must be 'off' or 'acyclic'")
 SIBLING_REGULATORS = os.environ.get("DS_SIBLING_REGULATORS", "off")
 if SIBLING_REGULATORS not in ("off", "member_only"):
     raise SystemExit(f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS!r} must be 'off' or 'member_only'")
@@ -522,6 +530,43 @@ def self_contained_inhibitor_pairs(pathway_dir: Path) -> set:
         if inside & acts.get(tu, set()):
             pairs.add((su, tu))
     return pairs
+
+
+def cycle_closing_composition_pairs(pathway_dir: Path) -> set:
+    """(source, target) composition edges that would close a cycle (specs/029).
+
+    Every non-composition edge is kept. Composition edges are added one at a
+    time in sorted order, and an edge S -> T is dropped when S is already
+    reachable from T through the network plus the composition edges kept so
+    far. So no combination of kept edges closes a cycle either."""
+    fwd: dict = defaultdict(set)
+    comp = []
+    with open(pathway_dir / "logic_network.csv", newline="") as f:
+        for r in csv.DictReader(f):
+            if r.get("edge_type") == "composition":
+                comp.append((r["source_id"], r["target_id"]))
+            else:
+                fwd[r["source_id"]].add(r["target_id"])
+
+    def reaches(a, b):
+        seen, stack = {a}, [a]
+        while stack:
+            n = stack.pop()
+            if n == b:
+                return True
+            for m in fwd.get(n, ()):
+                if m not in seen:
+                    seen.add(m)
+                    stack.append(m)
+        return False
+
+    drop = set()
+    for s_, t_ in sorted(set(comp)):
+        if s_ == t_ or reaches(t_, s_):
+            drop.add((s_, t_))
+        else:
+            fwd[s_].add(t_)
+    return drop
 
 
 def sibling_regulator_pairs(pathway_dir: Path) -> set:
@@ -941,6 +986,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         skip_pairs |= self_contained_inhibitor_pairs(pathway_dir)
     if SIBLING_REGULATORS == "member_only":
         skip_pairs |= sibling_regulator_pairs(pathway_dir)
+    if COMPOSITION_FILTER == "acyclic":
+        skip_pairs |= cycle_closing_composition_pairs(pathway_dir)
     if skip_pairs:
         edges = [e for e in edges
                  if (str(e["parent_uuid"]), str(e["child_uuid"])) not in skip_pairs]
@@ -958,7 +1005,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
     modified = (bool(SKIP_EDGE_TYPES) or SKIP_SELF_CONTAINED_INHIBITORS or DEDUP_ACTIVATORS
-                or SIBLING_REGULATORS != "off")
+                or SIBLING_REGULATORS != "off" or COMPOSITION_FILTER != "off")
     solve_network_id = parsed.get("network_id") if not modified else None
 
     total = 0
@@ -1197,7 +1244,7 @@ def main():
     print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
           f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG} "
           f"DS_SKIP_EDGE_TYPES={','.join(sorted(SKIP_EDGE_TYPES)) or '-'} "
-          f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS}", flush=True)
+          f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER}", flush=True)
     cache = {}
     results = []
     grand_total = 0

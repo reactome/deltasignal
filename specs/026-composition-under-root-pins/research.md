@@ -78,3 +78,44 @@ Regeneration noise, ctrl against the canonical build: held-out −3 (3 / 6).
   closing cycles elsewhere. That needs its own design, for example only where
   the containing complex is a reaction participant and the component has no
   other route to it.
+
+## Corrections after review of PR #74
+
+**The failure anatomy above undercounted generator defects.** Three defects in
+`case_oracle.py`, all fixed and tested:
+- a set that is a complex component was wired from its "produced" node, not
+  its "used" node, which cut PDGFB → "Active PDGF dimers" → receptor complex;
+- catalyst- and regulator-only entities were never expanded into components
+  or members;
+- small-molecule readouts were unreachable by construction.
+
+**The sign label is weaker than stated.** `signed_parities` finds walks, not
+paths, so a route through a cycle containing an inhibition yields both
+parities. Those cases are now reported as `both_parities`.
+
+Re-run on the canonical `261c94a/baseline` (held-out, 2,471 failures):
+
+| our network | Reactome's graph | cases |
+|---|---|---|
+| no route | no route in the pathway | **173** (the first version said 535) |
+| no route | only via a complex releasing a component | **568** |
+| no route | route: sign matches 214, both parities 208, opposite 16 | **438** |
+| route | route | 758 false change, 156 missed, 166 wrong direction |
+
+Of the 438 severed routes, the first step our network does not reach is:
+- 208: component → complex, where the complex node exists but our component
+  has no edge into it (BCL2 → tBID:BCL-2);
+- 182: component → complex, where the complex is absent (a nested
+  sub-complex; 150 in IFN α/β);
+- 36 start from another form of the gene; 6 are entity → reaction.
+
+**Other corrections to the text above:**
+- "Close the IFN α/β gap entirely" was an overclaim. Under `limit` and
+  `limit_novel`, 75 of IFN's 150 severed routes become correct, and 208 of its
+  448 cases stay wrong.
+- The regeneration noise quoted as held-out −3 was incomplete. ctrl against
+  canonical is also **tuning +104** (all in TP53) and experimental +6, so TP53's
+  answers depend on the uuid draw (the specs/013 label-dependence, still
+  present).
+- The "DSB loops re-welded" mechanism is inferred from specs/018, not measured
+  on this build.
