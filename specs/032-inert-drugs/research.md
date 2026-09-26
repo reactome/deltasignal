@@ -85,3 +85,62 @@ The rule has no parameter, and nothing is tuned on either axis.
 - concentration: pathways moved, and distinct perturbations;
 - the convergence count for RAF under each arm;
 - the paired gap against MP-BioPath's supplementary table.
+
+## Result — NOT ADOPTED (2026-09-26)
+
+**Setup:**
+- Build `20260926-1359_f2ba9cc_drugs`; both arms at solver 093282f, through
+  `scripts/run_arm.sh`.
+- `drugctrl`: code defaults, which report drug rule `propagate` with 0 held.
+- `druginert`: `DS_DRUG_MODE=inert`; it held 6,940 drug node-solves on curator
+  and 3,016 on experimental.
+- Pins are identical between the arms (1,269 nodes over 864 perturbations), and
+  so is convergence (1,659 of 1,725 on curator, 212 of 244 on experimental).
+
+| split | net | fixed / broke | p | pathways |
+|---|---|---|---|---|
+| curator held-out | **+30** | 30 / 0 | 1.9e-09 | 4 (+4 / −0): MET +10, ROCKs +8, KIT +6, VEGF +6 |
+| curator tuning | −16 | 5 / 21 | 0.0025 | RAF −17, ERBB2 +1 |
+| **experimental** | **−5** | 3 / 8 | 0.23 | 1 (RAF) |
+
+**Gates:**
+- experimental must be at least +10 with p < 0.05. It is −5: **FAIL.**
+- held-out must be no worse than −15. It is +30: pass.
+- no pathway may lose more than 10 held-out cases: pass.
+
+**The predictions failed.** RAF experimental did not rise by at least 20: it
+fell. RAF curator did not improve: it is −17. **Not adopted.** `DS_DRUG_MODE`
+stays, default `propagate`, as the record.
+
+### Why the mechanism in this spec was incomplete
+
+HRAS up in RAF (R-HSA-5673001), solved on the drugs build:
+- `propagate`: 537 iterations, not converged, 287 nodes at 0.
+- `inert` (40 drug nodes held): still not converged, 235 at 0.
+- In the 128-node component, 127 nodes are at 0 under `propagate` and 124 under
+  `inert`.
+
+**The drug-bound complexes' inhibitory edges were real but not the cause.**
+The component is a **positive loop closed through catalyst edges**:
+- "Phosphorylation of RAF" (80 variant copies) takes the phosphorylated MAP2K
+  dimers (p-S218,S222 MAP2K1 dimer; p-S222,S226 MAP2K2 dimer; the p-2S
+  MAP2K1:MAP2K2 heterodimer) as **catalysts**.
+- Inside this component those dimers are produced only by "Dissociation of
+  RAS:RAF complex".
+- That reaction consumes the activated RAF:scaffold:p-2S MAP2K:p-2T MAPK
+  complex, which is made downstream of RAF phosphorylation.
+- "MAP2Ks and MAPKs bind to the activated RAF complex" consumes F-actin, CNKSR2
+  and Ca2+, which in this component come back only from the same dissociation.
+- The external inputs are healthy: p21 RAS:GTP:RAF complex is at 100x, and ATP
+  and the kinases are at 1x.
+- Pushed hard, the loop does not settle, and it ends in the all-zero state.
+
+This is the loop knife-edge (specs/013, 014) on a component built by
+**catalyst and dissociation recycling**. Holding the drugs removes 3 of the
+127 zeros.
+
+**Open, not traced:**
+- whether the catalyst edges (p-MAP2K → Phosphorylation of RAF) match what
+  Reactome curates for that reaction, or were derived;
+- why the held-out +30 (MET, ROCKs, KIT, VEGF) moved; the drug rule is sound
+  there, but it was not gated separately.
