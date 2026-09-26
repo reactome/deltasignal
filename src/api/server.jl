@@ -320,7 +320,13 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     catch
         throw(ArgumentError("`containment` must be an object mapping a stable id to a list of stable ids."))
     end
-    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment)
+    drug_stids = try
+        DeltaSignal.drug_stids_from_json(get(data, :drug_stids, nothing))
+    catch
+        throw(ArgumentError("`drug_stids` must be a list of stable ids or null."))
+    end
+    return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment,
+                                       drug_stids)
 end
 
 """
@@ -699,6 +705,9 @@ function parse_handler(req)
             # The bundle's cofactor list, so a parse -> POSTed solve keeps it
             # (reaction_network_from_json reads it back; it was never sent).
             "cofactor_stids" => sort(collect(network.cofactor_stids)),
+            # specs/032: the bundle's drug list (null when it has none), so a
+            # parse -> POSTed solve runs the same model as a solve by network_id.
+            "drug_stids" => DeltaSignal.drug_stids_json(network),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
@@ -836,6 +845,9 @@ function solve_handler(req)
             # specs/022 (additive): inhibitor slots damped as self-contained.
             "self_inhibitors" => get(solver_result.diagnostics, "self_inhibitors", 0),
             "self_inhibitor_rule" => get(solver_result.diagnostics, "self_inhibitor_rule", "unknown"),
+            # specs/032 (additive): "propagate", "inert", or "inert: no drug table".
+            "drug_rule" => get(solver_result.diagnostics, "drug_rule", "unknown"),
+            "drugs_held" => get(solver_result.diagnostics, "drugs_held", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),

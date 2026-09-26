@@ -426,7 +426,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Thirteen files contain assertions; the
+**Most of the test suite cannot fail.** Fourteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -439,6 +439,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
+| `test/test_drugs.jl` | 47 | specs/032, added 2026-09-26 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

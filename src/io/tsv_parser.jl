@@ -42,11 +42,17 @@ struct ReactionNetwork
     # Empty when the bundle has no such file, or when a network arrives as JSON
     # (the rule is then inert, which the solve reports).
     containment::Dict{String, Set{String}}
+    # Drug-derived stable ids that shipped with this network, from the
+    # generator's `drugs.csv` (specs/032). `nothing` means the bundle has no such
+    # file, which is NOT the same as a file listing none: DS_DRUG_MODE=inert
+    # reports the first as "inert: no drug table" instead of pretending.
+    drug_stids::Union{Nothing, Set{String}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
-                    containment = Dict{String, Set{String}}()) =
-        new(nodes, edges, set_mappings, cofactor_stids, containment)
+                    containment = Dict{String, Set{String}}(),
+                    drug_stids = nothing) =
+        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids)
 end
 
 """
@@ -315,6 +321,7 @@ function parse_complete_network(
         default_cofactor_path(logic_network_path) : cofactor_path
     stids = parse_cofactor_list(resolved; required = cofactor_path !== nothing)
     containment = parse_containment(logic_network_path)
+    drugs = parse_drug_list(logic_network_path)
 
     if isempty(stids)
         # A file that declares nothing in-network is NOT the same as no file,
@@ -335,7 +342,7 @@ function parse_complete_network(
             end
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
-                               Set{String}(), containment)
+                               Set{String}(), containment, drugs)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -364,7 +371,32 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment)
+                           containment, drugs)
+end
+
+"""
+Read the generator's `drugs.csv` beside a logic network (specs/032): the
+drug-derived stable ids present in this pathway. `nothing` when there is no
+such file (a bundle that predates it), an empty set when the file lists none.
+"""
+function parse_drug_list(logic_network_path::String)::Union{Nothing, Set{String}}
+    path = joinpath(dirname(logic_network_path), "drugs.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; types = String)
+    "stable_id" in names(df) ||
+        throw(ArgumentError("$(path) has no `stable_id` column; it is not a generator drug list"))
+    return Set(String(x) for x in df.stable_id if !ismissing(x) && !isempty(strip(x)))
+end
+
+"""JSON form of `drug_stids`: `nothing` stays null so "no table" survives a round trip."""
+drug_stids_json(network::ReactionNetwork) =
+    network.drug_stids === nothing ? nothing : sort(collect(network.drug_stids))
+
+"""Inverse of `drug_stids_json`."""
+function drug_stids_from_json(raw)::Union{Nothing, Set{String}}
+    raw === nothing && return nothing
+    raw isa AbstractVector || throw(ArgumentError("drug_stids must be a list of stable ids or null"))
+    return Set(String.(collect(raw)))
 end
 
 """

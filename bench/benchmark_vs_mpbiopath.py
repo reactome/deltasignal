@@ -1041,9 +1041,14 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             raise SystemExit(f"{pathway_name}: the solve reports self_inhibitor_rule="
                              f"{ds_result['self_inhibitor_rule']!r} -- the network reached the solver "
                              "without its containment table, so this is not the default model.")
+        if ds_result and ds_result.get("drug_rule") == "inert: no drug table":
+            raise SystemExit(f"{pathway_name}: DS_DRUG_MODE=inert but the network has no drugs.csv "
+                             "(a build that predates it), so no drug is held (specs/032).")
         if ds_result:
             SOLVE_TALLY["solves"] += 1
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
+            SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
         for r in rows:
@@ -1330,6 +1335,11 @@ def main():
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
     print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
+    rules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("drug_rule="))
+    print(f"\nDrugs: rule {'/'.join(rules) or 'unknown'}, {SOLVE_TALLY['drugs_held']} node-solves held (specs/032)")
+    if "inert" in rules and SOLVE_TALLY["drugs_held"] == 0:
+        # An inert arm that held nothing measured the default model.
+        raise SystemExit("DS_DRUG_MODE=inert but no solve held a drug node; the arm is the control.")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
           f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")
