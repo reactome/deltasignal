@@ -91,6 +91,63 @@ end
     @test r.diagnostics["drugs_held"] == 1          # D only
 end
 
+@testset "a confidence-0 observation does not unpin a drug" begin
+    # The confidence gate discards it, so it must not stop the hold either.
+    r = solve(fixture(Set(["R-C", "R-D"])); mode = "inert", x = 2.0,
+              extra = Dict("C" => (4.0, 0.0)))
+    @test fold(r, "C") ≈ 1.0 rtol = 1e-9
+    @test fold(r, "T") ≈ 2.0 rtol = 1e-6
+    @test r.diagnostics["drugs_held"] == 2
+end
+
+@testset "the silo-bridge rebuild keeps the drug list" begin
+    # S is one entity split into a receiving copy S1 (X -> S1, no out-edge) and a
+    # feeding copy S2 (S2 -> T, no in-edge), the shape silo bridges join. Drugs
+    # are resolved before that rebuild, so this checks the BEHAVIOUR (still held
+    # with bridges on); the rebuild's own drug_stids pass-through is defensive
+    # and not read today (a mutation dropping it survives this test).
+    nodes = Dict(node.(["X", "D", "C", "W", "T"]))
+    nodes["S1"] = DS.NetworkNode("S1", "R-S", "protein", nothing, "S1", BL)
+    nodes["S2"] = DS.NetworkNode("S2", "R-S", "protein", nothing, "S2", BL)
+    edges = [edge("X", "C", true, "assembly"), edge("D", "C", true, "assembly"),
+             edge("X", "T", true, "input"), edge("W", "T", true, "input"),
+             edge("C", "T", false, "regulator"; and = false),
+             edge("X", "S1", true, "input"), edge("S2", "T", true, "input")]
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict{String, Set{String}}(), Set(["R-C", "R-D"]))
+    with_env("DS_SILO_BRIDGE_MAX_REACH" => "50") do
+        @test !isempty(DS.silo_bridge_edges(net))       # the rebuild path runs
+        r = solve(net; mode = "inert")
+        @test r.diagnostics["drug_rule"] == "inert"
+        @test r.diagnostics["drugs_held"] == 2
+        @test fold(r, "C") ≈ 1.0 rtol = 1e-9
+    end
+end
+
+@testset "parse_complete_network reads drugs.csv on both return paths" begin
+    mktempdir() do dir
+        write(joinpath(dir, "logic_network.csv"),
+              "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n" *
+              "u-d,u-c,pos,and,assembly,1\nu-x,u-c,pos,and,assembly,1\n")
+        write(joinpath(dir, "stid_to_uuid_mapping.csv"),
+              "uuid,stable_id\nu-d,R-ALL-9\nu-x,R-HSA-1\nu-c,R-HSA-2\n")
+        ln, um = joinpath(dir, "logic_network.csv"), joinpath(dir, "stid_to_uuid_mapping.csv")
+        write(joinpath(dir, "drugs.csv"), "stable_id,schema_class,name,reactome_release\nR-ALL-9,ChemicalDrug,d,97\nR-HSA-2,Complex,c,97\n")
+        # no cofactors.csv: the first return path
+        net = DS.parse_complete_network(ln, um)
+        @test net.drug_stids == Set(["R-ALL-9", "R-HSA-2"])
+        @test DS.drug_uuids(net) == Set(["u-d", "u-c"])
+        # a cofactors.csv declaring one present cofactor: the second return path
+        write(joinpath(dir, "cofactors.csv"),
+              "stable_id,molecule,chebi_id,name,in_network,reactome_release\nR-HSA-1,ATP,1,x,1,97\n")
+        net2 = DS.parse_complete_network(ln, um)
+        @test net2.cofactor_stids == Set(["R-HSA-1"])
+        @test net2.drug_stids == Set(["R-ALL-9", "R-HSA-2"])
+        rm(joinpath(dir, "drugs.csv"))
+        @test DS.parse_complete_network(ln, um).drug_stids === nothing
+    end
+end
+
 @testset "a typo in the mode is an error" begin
     for bad in ("Inert", "inert ", "on", "")
         with_env("DS_DRUG_MODE" => bad) do

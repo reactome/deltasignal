@@ -146,10 +146,15 @@ function solve_steady_state(
     end
     drugs_held = 0
     if !isempty(drugs)
-        # An observation (a measured drug, or a cofactor pin) wins; see above.
+        # An observation that PINS (a measured drug, or a cofactor pin) wins; see
+        # above. One the confidence gate would discard does not: skipping the
+        # hold for it let a confidence-0 row silently unpin the drug (review).
+        # (The cofactor block above still uses haskey; changing it would move
+        # the default model, so it is left to its own change.)
         dpins = Dict{String, Tuple{Float64, Float64}}(
             u => (network.nodes[u].baseline * 100.0, 1.0)
-            for u in drugs if !haskey(observations, u))
+            for u in drugs
+            if !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
         drugs_held = length(dpins)
         observations = merge(observations, dpins)
     end

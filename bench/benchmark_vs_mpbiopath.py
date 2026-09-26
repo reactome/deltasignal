@@ -889,10 +889,19 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # Record what was actually pinned, so a run's protocol is on the record
     # rather than inferred from its flags (specs/023: 89% of pins had silently
     # become mid-pathway complexes for two months).
+    # specs/032: a pin on a drug node would override its inert hold and carry
+    # the perturbation through the drug, so count them (expected 0).
+    drug_uuids = set()
+    drugs_csv = pathway_dir / "drugs.csv"
+    if drugs_csv.exists():
+        with open(drugs_csv) as f:
+            for r in csv.DictReader(f):
+                drug_uuids.update(stid_to_uuids.get(r["stable_id"], []))
     for us in gene_to_uuids.values():
         PIN_TALLY["perturbations"] += bool(us)
         PIN_TALLY["pinned"] += len(set(us))
         PIN_TALLY["pinned_roots"] += sum(1 for u in set(us) if indeg[u] == 0)
+        PIN_TALLY["pinned_drugs"] += sum(1 for u in set(us) if u in drug_uuids)
 
     # Resolve key_output dbIds to their REAL stIds (may be R-ALL-, R-NUL-, not
     # just R-HSA-) so species that are genuinely in the network are found.
@@ -1002,7 +1011,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # bundle's cofactor list (the solve would report self_inhibitor_rule inert).
     network_payload = {"nodes": parsed["nodes"], "edges": edges, "pathways": parsed["pathways"],
                        "containment": parsed.get("containment"),
-                       "cofactor_stids": parsed.get("cofactor_stids")}
+                       "cofactor_stids": parsed.get("cofactor_stids"),
+                       # specs/032: without it an edge-drop arm under DS_DRUG_MODE=inert
+                       # reached the solver with no drug table (review of the branch).
+                       "drug_stids": parsed.get("drug_stids")}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
@@ -1341,7 +1353,8 @@ def main():
         # An inert arm that held nothing measured the default model.
         raise SystemExit("DS_DRUG_MODE=inert but no solve held a drug node; the arm is the control.")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
-          f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
+          f"perturbations, {PIN_TALLY['pinned_roots']} of them roots, "
+          f"{PIN_TALLY['pinned_drugs']} drug nodes (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")
 
     if args.dump_cases:

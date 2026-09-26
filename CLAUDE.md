@@ -332,6 +332,10 @@ env vars only override for benchmark sweeps:
   `containment.csv`; the solve reports `self_inhibitor_rule` (on / off /
   inert) and how many inhibitor slots were flagged. Measured numbers are in
   specs/023. specs/022 has the rule; specs/023 has the adoption.
+- `DS_DRUG_MODE=propagate` (default) | `inert` (specs/032): drug-derived
+  nodes (a Reactome `Drug`, a complex containing one, a set that is all drugs),
+  listed by the generator's `drugs.csv`, held at baseline like cofactors, for a
+  cell without the drug. The solve reports `drug_rule` and `drugs_held`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -439,7 +443,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
-| `test/test_drugs.jl` | 47 | specs/032, added 2026-09-26 |
+| `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
