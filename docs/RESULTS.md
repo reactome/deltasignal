@@ -42,8 +42,8 @@ commit.
 > - DSB Repair's answers depend on the solver's iteration budget: 5,000
 >   sweeps instead of 500 is held-out −89, 74 of it in DSB (specs/028).
 > - TP53's answers depend on the catalog's uuid draw: a fresh regeneration is
->   +104 in TP53 alone (specs/026). Both are the loop knife-edge
->   (specs/013, 014), still present.
+>   +104 in TP53 alone (specs/026). Both are consistent with the loop
+>   knife-edge (specs/013, 014), though neither is traced to it here.
 > - The paired comparison with MP-BioPath's supplementary table below was
 >   taken before the `mean` readout rule.
 >

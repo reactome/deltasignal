@@ -119,3 +119,29 @@ Of the 438 severed routes, the first step our network does not reach is:
   present).
 - The "DSB loops re-welded" mechanism is inferred from specs/018, not measured
   on this build.
+
+
+## Second correction (third review of PR #74)
+
+**The route check could still hop between set siblings.** It did so when a
+complex released a set component, sending the signal to every member. The
+release now goes to the set as used. Re-run on `261c94a/baseline`, held-out
+no-path misses:
+
+| Reactome's graph | cases |
+|---|---|
+| no route in the pathway | **339** |
+| only via a complex releasing a component | **402** (568 before this fix; that figure was an upper bound) |
+| a route our network severs | **438** (unchanged): sign matches 214, both parities 208, opposite 16 |
+
+**First unreached step of the 438**, from the committed
+`bench/analysis/route_breaks.py` (the earlier breakdown came from an
+uncommitted script and summed to 432):
+- 252: component → complex, where the complex is absent from our network;
+- 138: component → complex, where the node exists but the edge is missing;
+- 36: the route starts from a form of the gene we did not pin;
+- 6: entity → reaction;
+- 6: the whole route is reached.
+
+**IFN α/β:** it has **200** severed held-out routes, not 150. Under `limit`
+and `limit_novel`, **100** of them become correct.

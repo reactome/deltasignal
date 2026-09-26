@@ -8,7 +8,7 @@ component → complex step**: 208 where the complex node exists but the
 component has no edge into it, and 182 where the complex is a nested
 sub-complex the generator never creates.
 
-`LNG_COMPOSITION_EDGES=1` adds exactly these edges, but as a class it loses:
+`LNG_COMPOSITION_EDGES=1` adds component → containing-complex edges; as a class it loses:
 −358 to −1,039 held-out outside IFN α/β. The traced cause is that
 composition edges re-close the loops that the specs/018 fix opened.
 
@@ -65,3 +65,31 @@ Arms at `f749b30`, paired against `ctrl` on the ctrl build:
   route, as in IFN α/β, but a component's fold should not automatically
   propagate to every complex that happens to contain it. What distinguishes
   the two cases is not yet identified.
+
+
+## Corrections (third review of PR #74)
+
+- **The premise does not hold outside IFN α/β.** Composition edges route all
+  200 of IFN α/β's severed held-out routes, but only **46 of the 238 outside
+  it**, and 12 once the acyclic filter is applied. So outside IFN α/β, −111 is
+  almost pure cost, not a real bridge outweighed by coupling. Of "156 / 106 of
+  438 now correct", 150 / 100 are in IFN α/β and 6 are outside it.
+- **The shrink compared with specs/026 is confounded.** The specs/026 arms
+  used `DS_KO_AGG=max` and these arms use `mean`; the two controls alone
+  differ by held-out +65. How much of the smaller loss is the filter, and how
+  much is the readout rule, is not separable without an unfiltered arm under
+  `mean`.
+- **"Cycles are not the explanation" was an overclaim.** No new cycle is
+  closed, but the damage flows through existing loops. PARP1's knockdown
+  reaches 1,606 nodes instead of 35 by entering strongly connected components
+  of 236 and 109 nodes, and 11 of its 13 broken readouts are reachable only
+  through them. Whether it is `limit`'s one-way lowering or a loop collapse is
+  not traced to a line.
+- **Concentration.** DSB's −108 comes from 6 knockdowns across the same 15
+  readouts, so McNemar is not meaningful there. The IFN α/β gain comes from 4
+  genes and 25 readouts.
+- **Convergence:** ctrl 1,649 of 1,725 solves converged; comp_acyclic 1,691 of
+  1,725.
+- **Order dependence.** 80 of the 1,114 dropped edges are chosen only by
+  sorted uuid order, so which ones drop is label-dependent in the specs/013
+  sense.
