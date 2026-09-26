@@ -55,3 +55,39 @@ def test_root_scope_does_not_invent_a_pin_for_a_gene_with_no_root_form():
 
 def test_root_scope_drops_duplicates():
     assert root_occurrences(["A", "A", "B"], {}) == ["A", "B"]
+
+
+from benchmark_vs_mpbiopath import recycled_root_occurrences  # noqa: E402
+
+
+def _graph(edges):
+    inc, fwd = {}, {}
+    for s, t, et in edges:
+        inc.setdefault(t, []).append((s, et))
+        fwd.setdefault(s, []).append(t)
+    return inc, fwd
+
+
+def test_enzyme_regenerated_by_its_own_cycle_is_its_root():
+    # E + S -> ES -> E + P : the free enzyme is fed only by its own cycle.
+    inc, fwd = _graph([("E", "bind", "input"), ("S", "bind", "input"), ("bind", "ES", "output"),
+                       ("ES", "cat", "input"), ("cat", "E", "output"), ("cat", "P", "output")])
+    assert recycled_root_occurrences(["E", "ES"], {"E"}, inc, fwd) == ["E"]
+
+
+def test_an_entity_produced_from_outside_is_not_a_recycled_root():
+    inc, fwd = _graph([("X", "make", "input"), ("make", "E", "output")])
+    assert recycled_root_occurrences(["E"], {"E"}, inc, fwd) == []
+
+
+def test_derived_in_edges_do_not_disqualify():
+    inc, fwd = _graph([("C", "E", "dissociation"), ("K", "E", "depletion")])
+    assert recycled_root_occurrences(["E"], {"E"}, inc, fwd) == ["E"]
+
+
+def test_complex_only_gene_pins_the_cycle_pool():
+    # ALKBH2 shape: only complexes contain the gene, all in one regeneration cycle.
+    inc, fwd = _graph([("EF", "bind", "input"), ("D", "bind", "input"), ("bind", "EFD", "output"),
+                       ("EFD", "cat", "input"), ("cat", "EF", "output")])
+    got = recycled_root_occurrences(["EF", "EFD"], set(), inc, fwd)
+    assert sorted(got) == ["EF", "EFD"]
