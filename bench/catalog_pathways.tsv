@@ -1,6 +1,9 @@
 # Pathways built into every DeltaSignal catalog. Derived from MP-BioPath's
 # pathway_list.tsv; R-HSA-9025112 is excluded (no network, input data,
 # curator predictions or experimental results exist for it -- docs/RESULTS.md).
+# R-HSA-451927 (Interleukin-2 family signaling) replaces MP-BioPath's list entry
+# 447115, which is Interleukin-12 family signaling: the published network holds
+# 58 of 451927's 59 reactions and 0 of 447115's (specs/024).
 id	pathway_name
 R-HSA-5673001	RAF_MAP_kinase_cascade
 R-HSA-1227986	Signaling_by_ERBB2
@@ -80,7 +83,7 @@ R-HSA-5626467	RHO_GTPases_activate_IQGAPs
 R-HSA-68875	Mitotic_Prophase
 R-HSA-373753	Nephrin_family_interactions
 R-HSA-69242	S_Phase
-R-HSA-447115	Interleukin-2_family_signaling
+R-HSA-451927	Interleukin-2_family_signaling
 R-HSA-8854691	Interleukin-20_family_signaling
 R-HSA-8853659	RET_signaling
 R-HSA-450294	MAP_kinase_activation
