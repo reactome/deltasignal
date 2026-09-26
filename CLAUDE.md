@@ -408,10 +408,11 @@ for the last feature that touched it rather than re-deriving from the code.
   has (LNG #97, default on). Held-out **+197** (243 / 46, p = 1.6e-33), +175 of
   it IFN α/β. Records two traced losses: TP53 (uuid order in the loop) and 25
   STAT1 cases (root-copy preference).
-- `specs/031-severed-route-anatomy/` — what the remaining severed routes are.
-  106 break at complexes Reactome never forms (a curation-review list). All
-  80 entity → reaction breaks are copy multiplicity (the sink-bridge family,
-  measured closed). Analysis only.
+- `specs/031-severed-route-anatomy/` — what the 252 remaining severed routes
+  are, classified by script. 108 need composition hops into complexes no
+  reaction forms (a curation-review list). 96 entity → reaction breaks are copy
+  multiplicity; the targeted join is untried, near a family that failed three
+  times. About 41 cases for an any-copy pool. Analysis only.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

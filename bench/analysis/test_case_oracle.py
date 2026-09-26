@@ -105,13 +105,17 @@ def test_shortest_path_ties_do_not_follow_set_order():
     assert shortest_path({"S": {"A"}}, {"S", "T"}, {"A"}) == ["S", "A"]
 
 
-def test_faithful_comp_pairs_keeps_roots_and_their_nesting_only():
+def test_faithful_comp_pairs_follows_what_the_generator_decomposes():
     from case_oracle import faithful_comp_pairs
-    rows = [("R1", "Reaction", "X", "P", "", "", "")]      # P is produced; K is a root
-    comp = {("K", "N"), ("N", "a"), ("K", "b"), ("P", "c"), ("N2", "d"), ("P", "N2")}
+    # K is a root (used, never produced) and contains nested N (unproduced) and
+    # Q (produced). P is produced. N2 is unproduced but nested only inside P, and
+    # no reaction uses it, so the generator never decomposes it.
+    rows = [("R1", "Reaction", "K", "P", "", "", ""),
+            ("R2", "Reaction", "X", "Q", "", "", ""),
+            ("R3", "Reaction", "P", "Z", "", "", "")]
+    comp = {("K", "N"), ("N", "a"), ("K", "Q"), ("Q", "q"), ("K", "b"),
+            ("P", "c"), ("P", "N2"), ("N2", "d")}
     got = faithful_comp_pairs(rows, comp)
-    # P's pairs are composition-only. N2 is nested only in the produced P, but no
-    # reaction produces it, so it is a root in its own right.
-    assert got == {("K", "N"), ("N", "a"), ("K", "b"), ("N2", "d")}
-    rows2 = rows + [("R2", "Reaction", "Y", "N2", "", "", "")]
-    assert ("N2", "d") not in faithful_comp_pairs(rows2, comp)
+    assert got == {("K", "N"), ("N", "a"), ("K", "Q"), ("K", "b")}
+    # (K, Q) is a join onto the produced Q; Q's own pairs are not representable.
+    assert ("Q", "q") not in got and ("N2", "d") not in got and ("P", "c") not in got

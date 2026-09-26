@@ -126,7 +126,8 @@ def main() -> int:
                     stack.append(t)
         label, frm, to = first_break([p.split("::")[0] for p in path], {ident[u] for u in seen},
                                   expand, present, klass)
-        label = f"{label} | {'faithful route' if fpath else 'composition-only'}"
+        if a.faithful:
+            label = f"{label} | {'faithful route' if fpath else 'composition-only'}"
         out[label] += 1
         per[(pw, label)] += 1
         steps.append((pw, r["gene"], r["direction"], r["key_output"], label, frm, to))

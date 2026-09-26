@@ -181,8 +181,11 @@ went through the welded loop this revision removes.
 ### Traced: the two losses
 
 **TP53 −81 is uuid order, not the change.**
-- All 86 lost TP53 cases are the AKT1 and AKT2 knockouts. They read DOWN where
-  the curators expect UP, the MDM2-loop state from specs/016.
+- TP53 broke 89 cases (fixed 8): 86 are the AKT1 and AKT2 knockouts, plus 1
+  MDM4 and 2 CHEK2. Of the 86, 80 read DOWN where the curators expect UP, the
+  MDM2-loop state from specs/016. Four read UP against DOWN and two read
+  NORMAL. (Corrected on review; an earlier revision said "all 86 ... read
+  DOWN".)
 - Between the first arm and hier2, the TP53 networks differ only in which copy
   of NADP+ (R-ALL-29366) joins G6PD dimer and G6PD tetramer (root copy vs
   produced copy).
@@ -190,8 +193,10 @@ went through the welded loop this revision removes.
   pathway's only non-trivial component (56 nodes).
 - So every value entering the loop is identical. What changed is the uuids, which
   set the sweep order inside it (specs/013).
-- This is the documented caveat: TP53 moved +104 on a plain regeneration, and
-  +6 then −87 across these two value-identical builds.
+- This is the documented caveat: TP53 moved +104 on a plain regeneration. Here
+  it is +6 from hierctrl to the first hierarchy build, −87 from that build to
+  hier2 (value-identical networks), and +131 from hier2 to the canonical
+  rebuild `20260926-1221_590301c` (no held-out prediction moved).
 
 **IFN α/β −25 is the root-copy preference.**
 - All 25 are STAT1-up cases. They read NORMAL where the curators expect UP. The
@@ -218,6 +223,7 @@ went through the welded loop this revision removes.
 | first break: component → complex, node exists but edge missing | 158 | 186 |
 | first break: route starts from another form of the gene | 36 | 40 |
 | first break: entity → reaction | 6 | 6 |
+| whole route reached (readout mapping, not a break) | 6 | 6 |
 
 - The hierarchy builds the missing complexes (Adam's step 1: 232 → 14).
 - Outside IFN α/β it repairs **no** severed route net. These counts are
