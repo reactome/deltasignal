@@ -114,3 +114,55 @@ are already on the diagram:
 - `depletion` connects an enzyme to a substrate of its own reaction.
 
 They can be drawn as annotations on existing glyphs rather than as new arrows.
+
+## Corrections after review of PR #73, and the canonical baseline (`184dfd5/baseline`)
+
+**Defect fixed: dissociation sinks were being pinned.**
+- The recycled-root rule pinned dissociation sinks: out-degree-0 nodes fed only
+  by dissociation. For 7 perturbations (ATR, ERCC2, ERCC3, RAC1, RHOB, SH3GL1,
+  LMNA) those were the only pin, so 66 curator cases counted as scored while
+  nothing moved.
+- A node with no out-edges is no longer a root. "Recovers 75 of 76" was
+  effectively 68 of 76. The newly-scorable accuracies quoted in specs/024
+  included those inert cases; the every-case figures did not.
+- Wording: the rule is "every producer is downstream (same strongly connected
+  component) or arrives by a derived edge". That covers catalytic cycles, but
+  not only them: 12 of the recycled pins are in no cycle, qualifying only
+  through the derived-edge exemption. "0 of the other 780" is 0 of 801.
+- specs/024 cites `geneToRootNodes`, which is dead code in mp-biopath. The live
+  path is `IdMap.getIDmap` → `Evidence.getGenomic` → ROOT-only in nlmodel.jl.
+  It agrees with the spec's mapping on all 877 perturbations.
+
+**Gene names corrected** (`GENE_NAME_CORRECTIONS`), only where the intended
+gene is unambiguous and in the pathway: PRKDC1→PRKDC, FOXM→FOXM1,
+FBX7→FBXW7, CAP9→CASP9. Against the previous baseline: +44 curator cases (44
+fixed, 0 broken) and +5 experimental.
+
+**Release-skew exclusions** (Adam: tests whose entities are not in this
+release cannot measure the generator or the solver). Each excluded case is
+tagged in the dump:
+- `gene_not_in_pathway`: 274
+- `readout_not_in_release`: 124 (+3 experimental)
+- `readout_not_in_pathway`: 54
+- `gene_name_unresolved` (CACNAD1, IQGAP): 23
+
+Cases that fail for our reasons, or Reactome's, are kept:
+- MIR675: no root form; its root is the host gene H19.
+- IFNA1: Reactome annotates the IFNA1 gene entity with IFNA13's Ensembl id.
+
+| | cases | accuracy | macro-F1 |
+|---|---|---|---|
+| **curator held-out, in release** (70 pathways) | 18,573 | **85.82%** | **0.8133** |
+| curator held-out, every case (71) | 19,000 | 85.28% | 0.8053 |
+| curator, all pathways, in release (81) | 23,625 | 83.20% | 0.7896 |
+| experimental, in release | 846 | 66.43% | 0.5803 |
+
+**Other corrections to the text above:**
+- Counts on build 2326: 4,587 regulator edges; 9,680 assembly, 9,738
+  dissociation, 1,199 depletion.
+- D1: the 425 non-readout breaks include 34 UP→DOWN sign flips, not only lost
+  propagation. The E3-ligase explanation is a mechanism, not a traced break.
+- D1 and D2 were measured against a baseline without IL-2 family, so IL-2 is
+  unmeasured in those arms.
+- IL-2 alone accounts for +81 cases of the change from the old build; the rest
+  comes from root_cycle.

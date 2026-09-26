@@ -21,22 +21,35 @@ commit.
 
 > **2026-09-26: canonical numbers (specs/023, 024, 025).** The benchmark
 > perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
-> publication does. A gene whose only form sits in a catalytic cycle has the
-> recycled form pinned, reproducing the loops MP-BioPath cut by hand. The
-> pathway list is corrected: IL-2 family is R-HSA-451927, not 447115, which is
-> IL-12 family. Solver defaults: `DS_ASSEMBLY_LIMITING=0`,
-> `DS_SELF_INHIBITOR_WEIGHT=0.1`. Build `20260925-2326_d4f4f64` (Reactome
-> 97), bench `d68f6d9`, through `scripts/run_arm.sh`
-> (`results/d68f6d9/baseline`; ARM.json and server.env record what ran).
+> publication does. A gene with no true root has pinned the form whose every
+> producer is its own downstream (e.g. a catalytic cycle) or a derived
+> dissociation/depletion edge; a node with no out-edges is never pinned. The
+> pathway list is corrected (IL-2 family is R-HSA-451927, not 447115, which
+> is IL-12 family), and four curator gene names are corrected. Solver
+> defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`. Build
+> `20260925-2326_d4f4f64` (Reactome 97), bench `184dfd5`
+> (`results/184dfd5/baseline`).
 >
 > | | cases | accuracy | macro-F1 |
 > |---|---|---|---|
-> | curator held-out (71 pathways), every case | 19,000 | **85.12%** | **0.8030** |
-> | curator, all 82 scored pathways | 24,100 | 82.56% | 0.7805 |
-> | experimental (10 pathways) | 849 | 65.61% | 0.5736 |
+> | **curator held-out, in release** (70 pathways) | 18,573 | **85.82%** | **0.8133** |
+> | curator held-out, every case (71 pathways) | 19,000 | 85.28% | 0.8053 |
+> | curator, all pathways, in release (81) | 23,625 | 83.20% | 0.7896 |
+> | experimental, in release (10 pathways) | 846 | 66.43% | 0.5803 |
 >
-> "Every case" counts a case the protocol cannot perturb as a NORMAL
-> prediction.
+> - **"In release"** leaves out cases whose gene or readout is not in this
+>   Reactome release's pathway, or whose gene name matches no gene: 475
+>   curator cases. Such a case cannot measure the generator or the solver. Its
+>   reason is tagged in the dump.
+> - **"Every case"** keeps them and scores anything unperturbable as NORMAL.
+> - **Against the previous protocol** (broad pins, old build, `ae84de9`):
+>   held-out every-case 86.87% / 0.8299 on 19,000 cases. On identical cases the
+>   new protocol was −318 held-out at its introduction (specs/023). Part of the
+>   old accuracy came from pinning complexes directly.
+> - **Against MP-BioPath's published result** (its own networks, 24,440 curator
+>   cases, confusion matrix only): 83.34% / 0.8063. On the paper's ten
+>   pathways, paired case by case from its supplementary table, it is 77.98%
+>   against our 72.48% on curator and 73.79% against 66.00% on experimental.
 >
 > **Everything below this box on our networks was measured under the old
 > protocol**, which pinned every node containing the gene (89% of them
