@@ -55,3 +55,26 @@ pathways moved, perturbations. Also reported:
 outside IFN α/β** (the specs/016 lesson), and experimental is no worse than
 −15. `ctrl` against the canonical `184dfd5` gives the regeneration noise for
 this comparison.
+
+## Result: NOT adopted, and the pattern of specs/016 and 018 holds under root pinning
+
+Builds `20260926-0124_d4f4f64_ctrl` and `20260926-0126_d4f4f64_comp` (+5,651
+composition edges). Arms at `e3685f5` (`DS_KO_AGG=max`, the same for all).
+Regeneration noise, ctrl against the canonical build: held-out −3 (3 / 6).
+
+| mode | held-out net | p | outside IFN α/β | IFN α/β | tuning | experimental |
+|---|---|---|---|---|---|---|
+| assembly | −973 (385 / 1,358) | 7e-127 | −1,039 | +66 | −361 | −47 |
+| limit | −373 (182 / 555) | 1e-44 | −473 | +100 | −203 | −26 |
+| limit_novel | −258 (164 / 422) | 4e-27 | −358 | **+100** | −198 | −10 |
+
+- **What it fixes.** Composition edges close the Interferon α/β gap entirely
+  (+100, all of that pathway's severed routes).
+- **What it costs.** Everywhere else they lose. DNA Double-Strand Break Repair
+  goes −201 to −352, and RUNX regulation −139. These are the pathways whose
+  loops composition edges re-weld (specs/018).
+- **Next step.** The IFN α/β defect is real: a nested sub-complex that no
+  reaction uses directly. The fix has to add that one kind of edge without
+  closing cycles elsewhere. That needs its own design, for example only where
+  the containing complex is a reaction participant and the component has no
+  other route to it.
