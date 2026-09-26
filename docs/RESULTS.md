@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured**: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-09-26. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -19,7 +19,7 @@ commit.
 ---
 
 
-> **2026-09-26: canonical numbers (specs/023-027).** The benchmark
+> **2026-09-26: canonical numbers (specs/023-027, 030).** The benchmark
 > perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
 > publication does. A gene with no true root has pinned the form whose every
 > producer is its own downstream (e.g. a catalytic cycle) or a derived
@@ -27,16 +27,34 @@ commit.
 > readout with several node copies is read as their mean (specs/027). The
 > pathway list is corrected (IL-2 family is R-HSA-451927, not 447115, which
 > is IL-12 family), and four curator gene names are corrected. Solver
-> defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`. Build
-> `20260925-2326_d4f4f64` (Reactome 97), bench `261c94a`
-> (`results/261c94a/baseline`).
+> defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`.
+> Generator: root complexes decomposed hierarchically (specs/030, LNG #97).
+> Build `20260926-1221_590301c` (Reactome 97), bench `f22ba27`
+> (`results/f22ba27`).
 >
 > | | cases | accuracy | macro-F1 |
 > |---|---|---|---|
-> | **curator held-out, in release** (70 pathways) | 18,573 | **86.17%** | **0.8197** |
-> | curator held-out, every case (71 pathways) | 19,000 | 85.62% | 0.8118 |
-> | curator, all pathways, in release (81) | 23,625 | 83.45% | 0.7942 |
-> | experimental, in release (10 pathways) | 846 | 66.43% | 0.5823 |
+> | **curator held-out, in release** (70 pathways) | 18,481 | **87.60%** | **0.8388** |
+> | curator held-out, every case (71 pathways) | 19,000 | 86.67% | 0.8265 |
+> | curator, all pathways, in release (81) | 23,511 | 85.18% | 0.8188 |
+> | curator, all pathways, every case | 24,100 | 84.38% | 0.8087 |
+> | experimental, in release (10 pathways) | 845 | 67.46% | 0.5905 |
+> | experimental, every case | 849 | 67.14% | 0.5877 |
+>
+> **Against MP-BioPath's published figures:**
+> - Curator, all pathways: ours 85.18% / 0.8188 (in release) against their
+>   83.34% / 0.8063, a lead of +1.84pp.
+> - Experimental: ours 67.14% against their 75.74% (643/849), **−8.6pp**. This
+>   is the gap to close.
+>
+> **Previous box** (build `20260925-2326_d4f4f64`, bench `261c94a`): held-out
+> 86.17% / 0.8197, all pathways 83.45% / 0.7942, experimental 66.43% / 0.5823.
+> - The hierarchy is held-out +197 (243 fixed / 46 broken) against its own
+>   flat control (specs/030).
+> - Of the all-pathways rise, **+131 is TP53 alone**. This build's uuid draw
+>   landed on the favourable side of that pathway's loop, so it is not a fix.
+>   The hier2 build, identical in structure, read 84.62% / 0.8091 all-pathways
+>   with the same held-out numbers.
 >
 > **Caveats on these numbers:**
 > - DSB Repair's answers depend on the solver's iteration budget: 5,000

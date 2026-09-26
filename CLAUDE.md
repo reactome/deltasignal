@@ -403,6 +403,15 @@ for the last feature that touched it rather than re-deriving from the code.
   the target list, and what a magnitude claim can and cannot be. Open.
 - `specs/022-self-contained-inhibition/` — inhibitors built from their own
   reaction's input; the `DS_SELF_INHIBITOR_WEIGHT` rule and its A/B.
+- `specs/030-boundary-hierarchy/` — the generator decomposes a root complex
+  one `hasComponent` level at a time, joining components the pathway already
+  has (LNG #97, default on). Held-out **+197** (243 / 46, p = 1.6e-33), +175 of
+  it IFN α/β. Records two traced losses: TP53 (uuid order in the loop) and 25
+  STAT1 cases (root-copy preference).
+- `specs/031-severed-route-anatomy/` — what the remaining severed routes are.
+  106 break at complexes Reactome never forms (a curation-review list). All
+  80 entity → reaction breaks are copy multiplicity (the sink-bridge family,
+  measured closed). Analysis only.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
