@@ -19,23 +19,33 @@ commit.
 ---
 
 
-> **2026-09-26: canonical numbers (specs/023, 024, 025).** The benchmark
+> **2026-09-26: canonical numbers (specs/023-027).** The benchmark
 > perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
 > publication does. A gene with no true root has pinned the form whose every
 > producer is its own downstream (e.g. a catalytic cycle) or a derived
-> dissociation/depletion edge; a node with no out-edges is never pinned. The
+> dissociation/depletion edge; a node with no out-edges is never pinned. A
+> readout with several node copies is read as their mean (specs/027). The
 > pathway list is corrected (IL-2 family is R-HSA-451927, not 447115, which
 > is IL-12 family), and four curator gene names are corrected. Solver
 > defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`. Build
-> `20260925-2326_d4f4f64` (Reactome 97), bench `184dfd5`
-> (`results/184dfd5/baseline`).
+> `20260925-2326_d4f4f64` (Reactome 97), bench `261c94a`
+> (`results/261c94a/baseline`).
 >
 > | | cases | accuracy | macro-F1 |
 > |---|---|---|---|
-> | **curator held-out, in release** (70 pathways) | 18,573 | **85.82%** | **0.8133** |
-> | curator held-out, every case (71 pathways) | 19,000 | 85.28% | 0.8053 |
-> | curator, all pathways, in release (81) | 23,625 | 83.20% | 0.7896 |
-> | experimental, in release (10 pathways) | 846 | 66.43% | 0.5803 |
+> | **curator held-out, in release** (70 pathways) | 18,573 | **86.17%** | **0.8197** |
+> | curator held-out, every case (71 pathways) | 19,000 | 85.62% | 0.8118 |
+> | curator, all pathways, in release (81) | 23,625 | 83.45% | 0.7942 |
+> | experimental, in release (10 pathways) | 846 | 66.43% | 0.5823 |
+>
+> **Caveats on these numbers:**
+> - DSB Repair's answers depend on the solver's iteration budget: 5,000
+>   sweeps instead of 500 is held-out −89, 74 of it in DSB (specs/028).
+> - TP53's answers depend on the catalog's uuid draw: a fresh regeneration is
+>   +104 in TP53 alone (specs/026). Both are consistent with the loop
+>   knife-edge (specs/013, 014), though neither is traced to it here.
+> - The paired comparison with MP-BioPath's supplementary table below was
+>   taken before the `mean` readout rule.
 >
 > - **"In release"** leaves out cases whose gene or readout is not in this
 >   Reactome release's pathway, or whose gene name matches no gene: 475

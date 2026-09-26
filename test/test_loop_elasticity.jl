@@ -296,5 +296,82 @@ end
         r95 = solveAh(net, 1.5, 5000, "0.95").node_activities["A"]
         @test r90 < r95
     end
+
+    # ------------------------------------------------------------------
+    # DS_LOOP_GAIN (specs/028): the pull is per LOOP, not per edge. Each
+    # in-loop edge is read at fold^(g^(1/n)), n = its component's size, so a
+    # cycle's total gain is g however long it is: A = U^(1/(1-g)).
+    # ------------------------------------------------------------------
+    solveG(net, U, it, g) = withenv("DS_LOOP_GAIN" => g) do
+        DS.solve_steady_state(net, Dict("U" => (U, 1.0)), P(it))
+    end
+    function longloop()   # U -> A ; A -> r1 -> B -> r2 -> C -> r3 -> D -> r4 -> A (8 nodes)
+        ids = ("U", "A", "r1", "B", "r2", "C", "r3", "D", "r4")
+        nodes = Dict(id => N(id) for id in ids)
+        edges = [E("U", "A", true, true, "input"),
+                 E("A", "r1", true, true, "input"), E("r1", "B", true, true, "output"),
+                 E("B", "r2", true, true, "input"), E("r2", "C", true, true, "output"),
+                 E("C", "r3", true, true, "input"), E("r3", "D", true, true, "output"),
+                 E("D", "r4", true, true, "input"), E("r4", "A", true, true, "output")]
+        DS.ReactionNetwork(nodes, edges, Dict{String,DS.SetExpansionMapping}())
+    end
+
+    @testset "DS_LOOP_GAIN guard rails" begin
+        for bad in ("0", "-0.1", "1.5", "abc", "nan")
+            withenv("DS_LOOP_GAIN" => bad) do
+                @test_throws ArgumentError DS.resolve_reaction_eval_config()
+            end
+        end
+        withenv("DS_LOOP_GAIN" => "0.99", "DS_LOOP_ELASTICITY" => "0.9") do
+            @test_throws ArgumentError DS.resolve_reaction_eval_config()   # one pull, not two
+        end
+    end
+
+    @testset "DS_LOOP_GAIN = 1 is byte-identical to unset" begin
+        for U in (1.01, 0.9, 80.0)
+            ref = solveG(posloop(), U, 500, nothing)
+            got = solveG(posloop(), U, 500, "1.0")
+            @test got.node_activities == ref.node_activities
+        end
+    end
+
+    @testset "a minimal loop gain turns the knife-edge into finite amplification" begin
+        # Each trip round the cycle closes a fraction (1 - g) of the gap, so a
+        # near-1 gain converges slowly: at g = 0.99 A reads 1.76 after 500
+        # sweeps and 2.67 after 5,000. The root is unique and budget-independent
+        # once converged -- but a minimal gain needs a large budget, which a
+        # catalog arm must check (its convergence is reported).
+        for (U, g, it) in ((1.01, "0.99", 5000), (1.1, "0.9", 500), (0.95, "0.95", 1000))
+            want = U^(1 / (1 - parse(Float64, g)))
+            a = solveG(posloop(), U, it, g).node_activities["A"] * 100
+            a4 = solveG(posloop(), U, 4 * it, g).node_activities["A"] * 100
+            @test isapprox(a4, want; rtol = 0.02)          # a unique root ...
+            @test isapprox(a, a4; rtol = 0.02)             # ... the budget no longer moves
+        end
+        # Up stays up and grows; down stays down and deepens (Adam's intent).
+        @test solveG(posloop(), 1.05, 5000, "0.95").node_activities["A"] * 100 > 1.05
+        @test solveG(posloop(), 0.95, 5000, "0.95").node_activities["A"] * 100 < 0.95
+    end
+
+    @testset "the pull is per loop: a longer loop amplifies by the same factor" begin
+        a4 = solveG(posloop(), 1.05, 5000, "0.9").node_activities["A"] * 100
+        a8 = solveG(longloop(), 1.05, 5000, "0.9").node_activities["A"] * 100
+        @test isapprox(a4, a8; rtol = 0.02)
+        @test isapprox(a4, 1.05^10; rtol = 0.02)
+    end
+
+    @testset "DS_LOOP_GAIN leaves acyclic networks untouched" begin
+        for U in (0.0, 0.5, 2.0, 50.0)
+            obs = Dict("S" => (U, 1.0))
+            a = withenv("DS_LOOP_GAIN" => nothing) do
+                DS.solve_steady_state(chain(), obs, P(200))
+            end
+            b = withenv("DS_LOOP_GAIN" => "0.9") do
+                DS.solve_steady_state(chain(), obs, P(200))
+            end
+            @test a.node_activities == b.node_activities
+        end
+    end
+
 end
 

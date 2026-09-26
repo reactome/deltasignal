@@ -49,3 +49,46 @@ def test_assembly_one_level_and_lenient_release():
     assert signed_parities(oracle_graph(rows, comp, []), {A}, {P}) == {1}
     assert signed_parities(oracle_graph(rows, comp, []), {AB}, {B}) == set()
     assert signed_parities(oracle_graph(rows, comp, [], lenient=True), {AB}, {B}) == {1}
+
+
+def test_a_set_component_is_reached_through_its_use_node():
+    # PDGF shape: member M -> set S (a component) -> complex C -> reaction R1.
+    M, S, C, R1, OUT = H("M", "S", "C", "R1", "OUT")
+    adj = oracle_graph([(R1, "Reaction", C, OUT, "", "", "")], [(C, S)], [(S, M)])
+    assert signed_parities(adj, {M}, {OUT}) == {1}
+
+
+def test_a_small_molecule_can_be_a_readout_but_not_a_carrier():
+    A, R1, R2, Z = H("A", "R1", "R2", "Z")
+    SM = "R-ALL-113592"
+    rows = [(R1, "Reaction", A, SM, "", "", ""), (R2, "Reaction", SM, Z, "", "", "")]
+    adj = oracle_graph(rows, [], [])
+    assert signed_parities(adj, {A}, {SM}) == {1}       # reached as a readout
+    assert signed_parities(adj, {A}, {Z}) == set()      # but carries nothing on
+
+
+def test_both_parities_are_reported_as_such():
+    adj = {"G": {("R", 1)}, "R": {("T", 1), ("X", -1)}, "X": {("T", 1)}}
+    assert classify(adj, adj, {"G"}, {"T"}, "0", "0") == ("strict", "both_parities")
+
+
+from route_breaks import first_break  # noqa: E402
+
+
+def test_first_break_types_the_missing_step():
+    klass = {"P": "EntityWithAccessionedSequence", "C": "Complex", "R": "Reaction"}.get
+    expand = lambda s: {s}
+    assert first_break(["P", "C", "R"], {"P"}, expand, {"P", "C"}, klass)[0] == \
+        "component -> complex | node exists, edge missing"
+    assert first_break(["P", "C", "R"], {"P"}, expand, {"P"}, klass)[0] == \
+        "component -> complex | node absent"
+    assert first_break(["P", "C"], {"P", "C"}, expand, set(), klass)[0] == "whole route reached"
+    assert first_break(["P", "C"], set(), expand, set(), klass)[0] == \
+        "route starts from another form of the gene"
+
+
+def test_release_of_a_set_component_does_not_reach_a_sibling():
+    A, B, S, C, R1, OUT = H("A", "B", "S", "C", "R1", "OUT")
+    # A stands in for S, S is a component of C; lenient releases S from C.
+    adj = oracle_graph([(R1, "Reaction", C, OUT, "", "", "")], [(C, S)], [(S, A), (S, B)], lenient=True)
+    assert signed_parities(adj, {A}, {B}) == set()

@@ -90,6 +90,23 @@ served_build() {
 }
 
 cmd_build() {
+  # Options (experiments only): --variant NAME builds into <id>_NAME and never
+  # moves `current`; --env LNG_X=v passes a generator flag (recorded in
+  # BUILD.json). A plain build moves `current` as before.
+  local variant="" extra_env=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --variant) [ -n "${2:-}" ] || die "--variant needs a name"; variant="$2"; shift 2 ;;
+      --env) [[ "$2" == LNG_*=* ]] || die "--env takes LNG_NAME=value"; extra_env+=("$2"); shift 2 ;;
+      *) die "unknown build option $1" ;;
+    esac
+  done
+  [ ${#extra_env[@]} -eq 0 ] || [ -n "$variant" ] || die "--env needs --variant: a flagged build must not become current"
+  [ -z "$variant" ] || [[ "$variant" =~ ^[A-Za-z0-9._-]+$ ]] || die "--variant must be [A-Za-z0-9._-]+"
+  # Generator flags reach a build only through --env, so they are recorded.
+  # LNG_PYTHON only selects the interpreter (lng_python), not a generator flag.
+  local leaked; leaked=$(env | grep -oE '^LNG_[A-Z0-9_]+' | grep -vx LNG_PYTHON | sort -u | tr '\n' ' ')
+  [ -z "$leaked" ] || die "the calling shell exports $leaked-- unset them, or pass them with --env"
   [ -d "$LNG/.git" ] || die "no generator checkout at $LNG"
   local py sha dirty branch id dir
   py="$(lng_python)"
@@ -97,7 +114,7 @@ cmd_build() {
   branch="$(git -C "$LNG" rev-parse --abbrev-ref HEAD)"
   dirty="$(git -C "$LNG" status --porcelain src bin pyproject.toml poetry.lock | wc -l | tr -d ' ')"
   [ "$dirty" = "0" ] || die "generator has $dirty uncommitted change(s) in src/, bin/ or its dependency files; a build must be reproducible from a commit"
-  id="$(date +%Y%m%d-%H%M)_${sha}"
+  id="$(date +%Y%m%d-%H%M)_${sha}${variant:+_$variant}"
   dir="$HOME_DIR/builds/$id"
   mkdir -p "$HOME_DIR/builds"
   # No -p on the leaf: mkdir is the atomic existence check, so two builds in the
@@ -110,12 +127,13 @@ cmd_build() {
   echo "catalog: building $id ($requested pathways) into $dir"
   local t0 rc; t0=$(date +%s)
   set +e
-  ( cd "$LNG" && env PYTHONHASHSEED=0 LNG_EMIT_ONE_SIDED=1 \
+  ( cd "$LNG" && env PYTHONHASHSEED=0 LNG_EMIT_ONE_SIDED=1 "${extra_env[@]}" \
       "$py" bin/create-pathways.py --pathway-list "$dir/pathways.tsv" --output-dir "$dir" ) \
       > "$dir/generate.log" 2>&1
   rc=$?
   set -e
 
+  EXTRA_ENV="$(printf '%s\n' "${extra_env[@]}")" VARIANT="$variant" \
   "$py" - "$dir" "$sha" "$branch" "$rc" "$requested" "$(( $(date +%s) - t0 ))" "$LIST" "$LNG" <<'PY' || die "could not write the manifest for $id; current left unchanged"
 import csv, glob, hashlib, json, os, sys, datetime, subprocess
 d, sha, branch, rc, requested, secs, lst, lng = sys.argv[1:]
@@ -180,7 +198,9 @@ m = {
     "generator_exit_code": int(rc),
     "generator_poetry_lock_sha256": sha256(os.path.join(lng, "poetry.lock")),
     "reactome": reactome,
-    "env": {"PYTHONHASHSEED": "0", "LNG_EMIT_ONE_SIDED": "1"},
+    "env": {"PYTHONHASHSEED": "0", "LNG_EMIT_ONE_SIDED": "1",
+            **dict(kv.split("=", 1) for kv in os.environ.get("EXTRA_ENV", "").splitlines() if "=" in kv)},
+    "variant": os.environ.get("VARIANT") or None,
     "pathway_list": os.path.relpath(lst, os.path.dirname(os.path.dirname(lst))),
     "pathway_list_sha256": sha256(os.path.join(d, "pathways.tsv")),
     "pathways_requested": int(requested),
@@ -203,6 +223,10 @@ PY
   if [ "$(manifest_field "$dir/BUILD.json" status)" != "complete" ]; then
     echo "catalog: build $id is INCOMPLETE; current left unchanged. See $dir/BUILD.json and generate.log" >&2
     exit 1
+  fi
+  if [ -n "$variant" ]; then
+    echo "catalog: variant build $id is complete; current NOT moved (run arms with scripts/run_arm.sh --catalog $id)"
+    return
   fi
   point_current_at "$id"
   echo "catalog: recreate the API to serve it: docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api"
@@ -341,7 +365,7 @@ PY
 }
 
 case "${1:-status}" in
-  build)  cmd_build ;;
+  build)  shift; cmd_build "$@" ;;
   bench)  cmd_bench ;;
   status) cmd_status ;;
   list)   cmd_list ;;

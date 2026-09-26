@@ -4,6 +4,7 @@
 #   scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--limit N]
 #
 #   --limit N      benchmark only the first N pathways (a smoke test, not an arm)
+#   --catalog ID   run against builds/ID instead of `current` (a variant build)
 #
 #   --server K=V   a DS_* override for the SOLVER (set in the API container)
 #   --bench  K=V   an override for the BENCHMARK script (e.g. DS_PIN_SCOPE=entry)
@@ -40,13 +41,14 @@ die() { echo "run_arm: $*" >&2; exit 1; }
 [ $# -ge 1 ] || die "usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N]"
 NAME=$1; shift
 [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]] || die "NAME must be [A-Za-z0-9._-]+"
-SERVER=(); BENCH=(); PORT=8090; LIMIT=()
+SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --server) [[ "${2:-}" == DS_*=* ]] || die "--server needs DS_NAME=value"; SERVER+=("$2"); shift 2 ;;
     --bench)  [[ "${2:-}" == *=* ]] || die "--bench needs NAME=value"; BENCH+=("$2"); shift 2 ;;
     --port)   PORT=$2; shift 2 ;;
     --limit)  LIMIT=(--limit "$2"); shift 2 ;;
+    --catalog) [ -n "${2:-}" ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
     *) die "unknown argument $1" ;;
   esac
 done
@@ -64,7 +66,15 @@ cd "$REPO"
 dirty=$(git status --porcelain -- src bench | wc -l)
 [ "$dirty" = "0" ] || die "src/ or bench/ has uncommitted changes; an arm must run a commit"
 SHA=$(git rev-parse --short HEAD)
-BUILD=$(readlink -f "$HOME/deltasignal-catalogs/current") || die "no current catalog"
+if [ -n "$CATALOG_ID" ]; then
+  [[ "$CATALOG_ID" =~ ^[A-Za-z0-9._-]+$ ]] || die "--catalog takes a build id, not a path"
+  BUILD="$HOME/deltasignal-catalogs/builds/$CATALOG_ID"
+  [ -d "$BUILD" ] || die "no build $CATALOG_ID"
+  st=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status'))" "$BUILD/BUILD.json" 2>/dev/null)
+  [ "$st" = "complete" ] || die "build $CATALOG_ID is not complete (status: ${st:-unreadable}); a partial build is never benchmarked"
+else
+  BUILD=$(readlink -f "$HOME/deltasignal-catalogs/current") || die "no current catalog"
+fi
 [ -f "$BUILD/BUILD.json" ] || die "$BUILD has no BUILD.json"
 BID=$(basename "$BUILD")
 OUT="$BUILD/results/$SHA/$NAME"
@@ -145,6 +155,7 @@ for gt in ("curator", "experimental"):
         text = open(log).read()
         m = re.search(r"^Protocol: .*$", text, re.M); rec[f"{gt}_protocol"] = m.group(0) if m else None
         m = re.search(r"^Pinned: .*$", text, re.M); rec[f"{gt}_pinned"] = m.group(0) if m else None
+        m = re.search(r"^Converged: .*$", text, re.M); rec[f"{gt}_converged"] = m.group(0) if m else None
 json.dump(rec, open(os.path.join(out, "ARM.json"), "w"), indent=2)
 print(json.dumps(rec, indent=2))
 PY

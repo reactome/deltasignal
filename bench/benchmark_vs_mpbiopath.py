@@ -84,7 +84,11 @@ if not (0.0 <= PERTURB_UI_DOWN < 1.0 < PERTURB_UI_UP <= 100.0):
 PIN_CONFIDENCE = 1.0
 
 # How to collapse a key-output's multiple UUID activities into one prediction.
-KO_AGG = os.environ.get("DS_KO_AGG", "max")
+# "mean" since 2026-09-26 (specs/027): a readout with several node copies
+# is read as the pool average. "max" hid a knockdown whenever a copy the
+# perturbation does not reach sat at 1.0 (PALB2 KD read [0, 1, 1, 0] -> 1);
+# measured under root pins, mean is held-out +65 (132 / 67), experimental 0.
+KO_AGG = os.environ.get("DS_KO_AGG", "mean")
 
 # Diagnostic: comma-separated logic_network edge_types to drop before solving
 # (e.g. "assembly,dissociation"). Empty = keep all edges.
@@ -106,6 +110,14 @@ GENE_NAME_CORRECTIONS = {
     ("Mitotic_G2-G2_M_phases", "FOXM"): "FOXM1",
     ("Signaling_by_NOTCH1", "FBX7"): "FBXW7",
 }
+# specs/029. On a catalog built with LNG_COMPOSITION_EDGES=1: keep only the
+# composition edges (component -> containing complex) that do not close a
+# cycle. Measured, not adopted: they route all 200 severed IFN alpha/beta
+# routes but only 46 of 238 severed routes outside it (12 once filtered), and
+# outside IFN they cost -111 held-out.   off | acyclic
+COMPOSITION_FILTER = os.environ.get("DS_COMPOSITION_FILTER", "off")
+if COMPOSITION_FILTER not in ("off", "acyclic"):
+    raise SystemExit(f"DS_COMPOSITION_FILTER={COMPOSITION_FILTER!r} must be 'off' or 'acyclic'")
 SIBLING_REGULATORS = os.environ.get("DS_SIBLING_REGULATORS", "off")
 if SIBLING_REGULATORS not in ("off", "member_only"):
     raise SystemExit(f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS!r} must be 'off' or 'member_only'")
@@ -145,6 +157,7 @@ SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
 #         root are unchanged.
 PIN_SCOPE = os.environ.get("DS_PIN_SCOPE", "root_cycle")   # default since specs/024 (Adam)
 PIN_TALLY: Counter = Counter()
+SOLVE_TALLY: Counter = Counter()   # specs/028: how many solves converged
 if PIN_SCOPE not in ("all", "entry", "root", "root_cycle"):
     raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'root', 'root_cycle', 'entry' or 'all'")
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
@@ -517,6 +530,45 @@ def self_contained_inhibitor_pairs(pathway_dir: Path) -> set:
         if inside & acts.get(tu, set()):
             pairs.add((su, tu))
     return pairs
+
+
+def cycle_closing_composition_pairs(pathway_dir: Path) -> set:
+    """(source, target) composition edges that would close a cycle (specs/029).
+
+    Every non-composition edge is kept. Composition edges are added one at a
+    time in sorted order, and an edge S -> T is dropped when S is already
+    reachable from T through the network plus the composition edges kept so
+    far. So no combination of kept edges closes a cycle either. Which of two
+    edges that close a cycle only together is dropped depends on that order,
+    i.e. on uuids, which are redrawn per build (80 of 1,114 on the comp build)."""
+    fwd: dict = defaultdict(set)
+    comp = []
+    with open(pathway_dir / "logic_network.csv", newline="") as f:
+        for r in csv.DictReader(f):
+            if r.get("edge_type") == "composition":
+                comp.append((r["source_id"], r["target_id"]))
+            else:
+                fwd[r["source_id"]].add(r["target_id"])
+
+    def reaches(a, b):
+        seen, stack = {a}, [a]
+        while stack:
+            n = stack.pop()
+            if n == b:
+                return True
+            for m in fwd.get(n, ()):
+                if m not in seen:
+                    seen.add(m)
+                    stack.append(m)
+        return False
+
+    drop = set()
+    for s_, t_ in sorted(set(comp)):
+        if s_ == t_ or reaches(t_, s_):
+            drop.add((s_, t_))
+        else:
+            fwd[s_].add(t_)
+    return drop
 
 
 def sibling_regulator_pairs(pathway_dir: Path) -> set:
@@ -936,6 +988,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         skip_pairs |= self_contained_inhibitor_pairs(pathway_dir)
     if SIBLING_REGULATORS == "member_only":
         skip_pairs |= sibling_regulator_pairs(pathway_dir)
+    if COMPOSITION_FILTER == "acyclic":
+        skip_pairs |= cycle_closing_composition_pairs(pathway_dir)
     if skip_pairs:
         edges = [e for e in edges
                  if (str(e["parent_uuid"]), str(e["child_uuid"])) not in skip_pairs]
@@ -953,7 +1007,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
     modified = (bool(SKIP_EDGE_TYPES) or SKIP_SELF_CONTAINED_INHIBITORS or DEDUP_ACTIVATORS
-                or SIBLING_REGULATORS != "off")
+                or SIBLING_REGULATORS != "off" or COMPOSITION_FILTER != "off")
     solve_network_id = parsed.get("network_id") if not modified else None
 
     total = 0
@@ -987,6 +1041,9 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             raise SystemExit(f"{pathway_name}: the solve reports self_inhibitor_rule="
                              f"{ds_result['self_inhibitor_rule']!r} -- the network reached the solver "
                              "without its containment table, so this is not the default model.")
+        if ds_result:
+            SOLVE_TALLY["solves"] += 1
+            SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
         for r in rows:
@@ -1015,8 +1072,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             # Predict by aggregating the key-output's UUID activities. A species
             # can map to many UUIDs (position-aware variants / multiple producing
             # reactions); how we collapse them matters. DS_KO_AGG selects:
-            #   max     — any context active ⇒ present (default; lax for knockouts)
-            #   mean    — average across contexts
+            #   max     — any context active ⇒ present (lax for knockouts)
+            #   mean    — average across contexts (default, specs/027)
             #   min     — all contexts must hold (strict; sensitive to knockouts)
             #   extreme — the value deviating most from baseline (handles UP&DOWN)
             if uuids and ko_uuids:
@@ -1189,7 +1246,7 @@ def main():
     print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
           f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG} "
           f"DS_SKIP_EDGE_TYPES={','.join(sorted(SKIP_EDGE_TYPES)) or '-'} "
-          f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS}", flush=True)
+          f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER}", flush=True)
     cache = {}
     results = []
     grand_total = 0
@@ -1272,6 +1329,7 @@ def main():
             f.write(f"{r['name']}\t{r['id']}\t{r['status']}\t"
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
+    print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
           f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")
