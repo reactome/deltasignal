@@ -177,6 +177,30 @@ def classify(ui_value: float) -> int:
     return NORMAL
 
 
+def apply_catalog_ids(pathways: list, catalog_list: Path) -> list:
+    """Take each pathway's id from bench/catalog_pathways.tsv, the list the
+    catalog is built from, instead of MP-BioPath's pathway_list.tsv. They must
+    agree, and did not: MP-BioPath lists Interleukin-2_family_signaling as
+    447115, which is Interleukin-12 family signaling (specs/024). With the
+    catalog corrected and this unchanged, the benchmark looked for 447115,
+    found no network, and silently dropped all 260 IL-2 family cases."""
+    if not catalog_list.exists():
+        return pathways
+    ids = {}
+    for line in open(catalog_list):
+        if line.startswith("#") or line.startswith("id\t") or not line.strip():
+            continue
+        sid, name = line.rstrip("\n").split("\t")
+        ids[name] = sid.rsplit("-", 1)[-1]
+    out = []
+    for pid, name in pathways:
+        new = ids.get(name, pid)
+        if new != pid:
+            print(f"  [id] {name}: {pid} -> {new} (from {catalog_list.name})", flush=True)
+        out.append((new, name))
+    return out
+
+
 def find_pathway_dir(numeric_id: str):
     """The R-HSA-suffixed dir is preferred (see generator dedupe convention)."""
     for d in sorted(CATALOG_ROOT.iterdir()):
@@ -1031,6 +1055,7 @@ def main():
             cols = line.rstrip("\n").split("\t")
             if len(cols) > idx_id and len(cols) > idx_name:
                 pathways.append((cols[idx_id], cols[idx_name]))
+    pathways = apply_catalog_ids(pathways, Path(__file__).resolve().parent / "catalog_pathways.tsv")
 
     # Sort ascending by edge count; skip missing, oversized, and excluded.
     sized = []

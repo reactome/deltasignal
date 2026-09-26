@@ -91,3 +91,16 @@ def test_complex_only_gene_pins_the_cycle_pool():
                        ("EFD", "cat", "input"), ("cat", "EF", "output")])
     got = recycled_root_occurrences(["EF", "EFD"], set(), inc, fwd)
     assert sorted(got) == ["EF", "EFD"]
+
+
+from benchmark_vs_mpbiopath import apply_catalog_ids  # noqa: E402
+
+
+def test_catalog_list_overrides_the_mpbiopath_id(tmp_path):
+    cat = tmp_path / "catalog_pathways.tsv"
+    cat.write_text("# comment\nid\tpathway_name\nR-HSA-451927\tInterleukin-2_family_signaling\n"
+                   "R-HSA-69620\tCell_Cycle_Checkpoints\n")
+    got = apply_catalog_ids([("447115", "Interleukin-2_family_signaling"),
+                             ("69620", "Cell_Cycle_Checkpoints"), ("1", "Not_listed")], cat)
+    assert got == [("451927", "Interleukin-2_family_signaling"),
+                   ("69620", "Cell_Cycle_Checkpoints"), ("1", "Not_listed")]
