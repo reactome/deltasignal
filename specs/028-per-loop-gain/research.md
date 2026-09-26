@@ -48,3 +48,28 @@ Canonical build `20260925-2326_d4f4f64`, current defaults (`DS_KO_AGG=mean`):
   minimal.
 - **Also reported:** the MH within-pathway error excess for positive loops,
   before and after, and how many solves converge.
+
+## Result (arms at `30dd48c`; base `261c94a/baseline`, which has `DS_KO_AGG=mean`)
+
+| arm | paired against | held-out net | pathways / perturbations | tuning | experimental |
+|---|---|---|---|---|---|
+| `gain0.95` | baseline | +34 (34 / 0), p 1e-10 | 1 / 2 (IFN-γ) | −1 | 0 |
+| `gain0.9` | baseline | +40 (40 / 0), p 2e-12 | 2 / 4 (IFN-γ +34, Fanconi +6) | −1 | 0 |
+| `iters5000` | baseline | **−89** (3 / 92), p 7e-24 | 3 / 17 (DSB Repair −74, DSB Response −16) | 0 | 0 |
+| `gain0.99_iters5000` | `iters5000` | +34 (34 / 0) | 1 / 2 (IFN-γ) | −1 | 0 |
+
+- **Not adopted.** The gain is one pathway (Interferon-γ), which fails the
+  pre-registered concentration condition. It is also harmless: 0 cases broken
+  outside tuning's −1, and 0 on experimental.
+- **The budget result is the more important finding.** Raising
+  `DS_MAX_ITERS` from 500 to 5,000 alone costs 89 held-out cases, 74 of them in
+  DNA Double-Strand Break Repair. **The default model's answers in DSB depend
+  on the iteration budget.** Its positive loops are still on the specs/014
+  knife-edge, and more sweeps rail them.
+- **Why the per-loop gain does not fix that.** It divides g across the size of
+  the strongly connected component. DSB's component is hundreds of nodes, but
+  its cycles are short, so each actual cycle keeps a gain of about
+  g^(L/n) ≈ 1.
+- **The pull has to be per cycle.** For example, scale it by the length of the
+  shortest cycle through each edge rather than by the component's size. That
+  is the next design; it is not attempted here.
