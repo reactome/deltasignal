@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured**: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-09-26. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -19,7 +19,7 @@ commit.
 ---
 
 
-> **2026-09-26: canonical numbers (specs/023-027).** The benchmark
+> **2026-09-26: canonical numbers (specs/023-027, 030).** The benchmark
 > perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
 > publication does. A gene with no true root has pinned the form whose every
 > producer is its own downstream (e.g. a catalytic cycle) or a derived
@@ -27,16 +27,43 @@ commit.
 > readout with several node copies is read as their mean (specs/027). The
 > pathway list is corrected (IL-2 family is R-HSA-451927, not 447115, which
 > is IL-12 family), and four curator gene names are corrected. Solver
-> defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`. Build
-> `20260925-2326_d4f4f64` (Reactome 97), bench `261c94a`
-> (`results/261c94a/baseline`).
+> defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`.
+> Generator: root complexes decomposed hierarchically (specs/030, LNG #97).
+> Build `20260926-1221_590301c` (Reactome 97), bench `f22ba27`
+> (`results/f22ba27`).
 >
 > | | cases | accuracy | macro-F1 |
 > |---|---|---|---|
-> | **curator held-out, in release** (70 pathways) | 18,573 | **86.17%** | **0.8197** |
-> | curator held-out, every case (71 pathways) | 19,000 | 85.62% | 0.8118 |
-> | curator, all pathways, in release (81) | 23,625 | 83.45% | 0.7942 |
-> | experimental, in release (10 pathways) | 846 | 66.43% | 0.5823 |
+> | **curator held-out, in release** (70 pathways) | 18,573 | **87.24%** | **0.8346** |
+> | curator held-out, every case (71 pathways) | 19,000 | 86.67% | 0.8265 |
+> | curator, all pathways, in release (81) | 23,625 | 84.91% | 0.8158 |
+> | curator, all pathways, every case | 24,100 | 84.38% | 0.8087 |
+> | experimental, every case (10 pathways) | 849 | 67.14% | 0.5877 |
+>
+> These are `holdout.txt` and `RESULTS.json` from the bench: an unperturbable
+> case (no root form of the gene) is scored NORMAL and kept, and only
+> release-skew cases are dropped "in release".
+>
+> **Against MP-BioPath's published figures**, every case against every case:
+> - Curator: ours 84.38% / 0.8087 against their 83.34% / 0.8063, a lead of
+>   **+1.04pp** / +0.002.
+> - Experimental: ours 67.14% against their 75.74% (643/849), **−8.6pp**. This
+>   is the gap to close.
+>
+> **TP53 draw.** The TP53 uuid draw is in both axes.
+> - The hier2 build, identical in structure, was **131 curator cases and 7
+>   experimental cases lower**, all of them in TP53 (AKT1, AKT2, MDM4).
+> - Held-out does not move.
+> - On that draw, all pathways every case is 83.83% / 0.7991 (+0.49pp against
+>   the published figure) and experimental is 570 − 7 = 563 / 849 = 66.31%.
+> - Read the all-pathways and experimental rows as ±0.6pp / ±0.9pp from this
+>   one pathway.
+>
+> **Previous box** (build `20260925-2326_d4f4f64`, bench `261c94a`): held-out
+> 86.17% / 0.8197, all pathways 83.45% / 0.7942, experimental 66.43% / 0.5823.
+> The hierarchy is held-out +197 (243 fixed / 46 broken) against its own flat
+> control (specs/030). The rest of the all-pathways rise is the TP53 draw
+> above.
 >
 > **Caveats on these numbers:**
 > - DSB Repair's answers depend on the solver's iteration budget: 5,000
@@ -49,7 +76,8 @@ commit.
 >
 > - **"In release"** leaves out cases whose gene or readout is not in this
 >   Reactome release's pathway, or whose gene name matches no gene: 475
->   curator cases. Such a case cannot measure the generator or the solver. Its
+>   curator cases (274 gene not in the pathway, 124 readout not in the release,
+>   54 readout not in the pathway, 23 unresolved names). Such a case cannot measure the generator or the solver. Its
 >   reason is tagged in the dump.
 > - **"Every case"** keeps them and scores anything unperturbable as NORMAL.
 > - **Against the previous protocol** (broad pins, old build, `ae84de9`):

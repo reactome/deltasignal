@@ -92,6 +92,30 @@ def oracle_graph(rows, comp_pairs, set_pairs, lenient=False) -> dict:
             for a, ts in adj.items() if base(a).startswith("R-HSA-")}
 
 
+def faithful_comp_pairs(rows, comp_pairs):
+    """The (complex, component) pairs the generator can represent (specs/030).
+
+    The generator decomposes a ROOT complex: one a reaction of the pathway uses
+    (input, catalyst or regulator) and none produces. It descends into a nested
+    complex only when the pathway does not produce it; a produced one is JOINED
+    as an existing node, so the pair (container, produced complex) is
+    representable but the produced complex's own components are not. A route
+    that needs any other hasComponent hop is composition-only (specs/016, 029).
+    """
+    produced = {o for _r, _k, _i, o, _c, _g, _gk in rows if o}
+    used = {e for _r, _k, i, _o, c, g, _gk in rows for e in (i, c, g) if e}
+    complexes = {x for x, _ in comp_pairs}
+    allowed = (complexes & used) - produced
+    frontier = list(allowed)
+    while frontier:
+        x = frontier.pop()
+        for c, m in comp_pairs:
+            if c == x and m in complexes and m not in produced and m not in allowed:
+                allowed.add(m)
+                frontier.append(m)
+    return {(x, m) for x, m in comp_pairs if x in allowed}
+
+
 def fetch_one_level(pid: str):
     """(complex, component) and (set, member) pairs, one level at a time, for
     every participant of the pathway's reactions and everything nested in them."""

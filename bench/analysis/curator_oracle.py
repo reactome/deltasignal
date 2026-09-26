@@ -146,8 +146,10 @@ def reachable(adj: ADJ, starts: set[str], goals: set[str]) -> bool:
 
 
 def shortest_path(adj: ADJ, starts: set[str], goals: set[str]) -> list[str] | None:
-    prev: dict[str, str | None] = {s: None for s in starts}
-    queue = collections.deque(starts)
+    # Sorted, so ties between equal-length routes do not follow the string hash
+    # seed: route_breaks.py read 186 vs 166 "edge missing" on identical input.
+    prev: dict[str, str | None] = {s: None for s in sorted(starts)}
+    queue = collections.deque(sorted(starts))
     while queue:
         n = queue.popleft()
         if n in goals:
@@ -155,7 +157,7 @@ def shortest_path(adj: ADJ, starts: set[str], goals: set[str]) -> list[str] | No
             while n is not None:
                 path.append(n); n = prev[n]
             return path[::-1]
-        for m in adj.get(n, ()):
+        for m in sorted(adj.get(n, ())):
             if m not in prev:
                 prev[m] = n; queue.append(m)
     return None
