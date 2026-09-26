@@ -57,3 +57,60 @@ Decisions and rules from Adam, 2026-09-25:
 - **Known interaction:** the pin rules read root-ness from the unmodified
   network. Under `root_cycle`, dissociation and depletion in-edges already
   count as non-disqualifying, so removing them does not change who is pinned.
+
+## Results (build `20260925-2326_d4f4f64`, Reactome 97)
+
+**New baseline** (`d68f6d9/baseline`): root_cycle pins, the corrected list,
+code defaults.
+- The first run (`8afaab8/baseline`) silently dropped IL-2 family. The
+  benchmark took pathway ids from MP-BioPath's `pathway_list.tsv`, which still
+  said 447115, found no such directory in the new catalog, and skipped it.
+  `apply_catalog_ids` now takes ids from `bench/catalog_pathways.tsv`, the list
+  the catalog is built from.
+- The two runs are byte-identical outside IL-2 family.
+
+| | cases | accuracy | macro-F1 |
+|---|---|---|---|
+| curator held-out (71 pathways), every case | 19,000 | **85.12%** | **0.8030** |
+| curator, all 82 scored pathways | 24,100 | 82.56% | 0.7805 |
+| experimental (10 pathways) | 849 | 65.61% | 0.5736 |
+
+- **IL-2 family** now scores **247 / 260 (95%)**. On the old build all 260
+  were unscorable, because the IL-12 network contains none of the genes.
+- Experimental is 0.8pp below the same protocol on the previous build
+  (66.43%), which is within its regeneration noise floor (15 cases, 1.8pp).
+
+**Arm S, member-specific regulators** (against `8afaab8/baseline`; IL-2 is
+absent from both sides of this comparison):
+- held-out **+1** (1 / 0); tuning +15 (WNT, 2 perturbations); experimental +2.
+- It does not clear the pre-registered +15 held-out bar, so it is **not
+  adopted as a measured improvement**.
+- It broke 2 cases in 23,176. The decision to adopt it on faithfulness
+  (Adam's rule) is his.
+
+**Arm D1, depletion removed: kept.**
+- held-out −8 (115 / 123); tuning **−88** (TP53 −90, PIP3 −42, MET −40,
+  IFN-γ −34); experimental **−45** (36 / 81). It fails the experimental
+  condition.
+- Traced: 425 of the 436 breaks are not at the readout. They are lost
+  propagation, 258 DOWN→NORMAL and 138 UP→NORMAL.
+- The edge encodes "an enzyme uses up its substrate": an E3 ligase knocked out
+  leaves its substrate UP. Reactome draws only the substrate as an input to
+  the ligase's reaction, so without the edge nothing upstream of the substrate
+  can see the enzyme.
+
+**Arm D2, dissociation removed: kept.**
+- held-out **−72** (8 / 80); tuning −64; experimental −15.
+- Traced: **all 152 breaks** are readouts fed by a dissociation edge, and all
+  go DOWN→NORMAL.
+- Curators name free subunits as readouts while Reactome outputs them inside
+  complexes (the specs/015 released-subunit handles). The dissociation edge is
+  their only route. MP-BioPath's published networks had the same complex →
+  entity edges (3.2%).
+
+**On visualising them.** All three derived types sit between entities that
+are already on the diagram:
+- `assembly` and `dissociation` connect a complex to its own components;
+- `depletion` connects an enzyme to a substrate of its own reaction.
+
+They can be drawn as annotations on existing glyphs rather than as new arrows.

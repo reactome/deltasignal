@@ -19,23 +19,24 @@ commit.
 ---
 
 
-> **2026-09-25: new protocol and new canonical numbers (specs/023).** The
-> benchmark now perturbs only ROOT inputs that are, or contain, the gene, as
-> the MP-BioPath publication does (Adam's decision), with the solver defaults
-> re-measured under it (`DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`).
-> Build `20260925-1039_d4f4f64`, solver `5f7b9c7` (two review revisions of the
-> self-inhibitor rule change no scored prediction; specs/023), run through
-> `scripts/run_arm.sh` (`results/5f7b9c7/new_defaults`; ARM.json and
-> server.env record exactly what ran).
+> **2026-09-26: canonical numbers (specs/023, 024, 025).** The benchmark
+> perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
+> publication does. A gene whose only form sits in a catalytic cycle has the
+> recycled form pinned, reproducing the loops MP-BioPath cut by hand. The
+> pathway list is corrected: IL-2 family is R-HSA-451927, not 447115, which is
+> IL-12 family. Solver defaults: `DS_ASSEMBLY_LIMITING=0`,
+> `DS_SELF_INHIBITOR_WEIGHT=0.1`. Build `20260925-2326_d4f4f64` (Reactome
+> 97), bench `d68f6d9`, through `scripts/run_arm.sh`
+> (`results/d68f6d9/baseline`; ARM.json and server.env record what ran).
 >
-> | | curator held-out | curator all | experimental |
+> | | cases | accuracy | macro-F1 |
 > |---|---|---|---|
-> | valid cases only | 86.34% / mF1 0.8135 (n 17,420) | 84.44% / 0.8018 (n 22,124) | 67.32% / 0.5896 (n 814) |
-> | every case (unperturbable = NORMAL) | 82.89% / 0.7678 (n 19,000) | 81.00% / 0.7592 (n 24,100) | 64.55% / 0.5661 (n 849) |
+> | curator held-out (71 pathways), every case | 19,000 | **85.12%** | **0.8030** |
+> | curator, all 82 scored pathways | 24,100 | 82.56% | 0.7805 |
+> | experimental (10 pathways) | 849 | 65.61% | 0.5736 |
 >
-> The every-case row is the honest one: the 1,144 cases lost to invalidity
-> were 79% correct under the old pins. On identical cases the new protocol is
-> held-out −318 against the old one.
+> "Every case" counts a case the protocol cannot perturb as a NORMAL
+> prediction.
 >
 > **Everything below this box on our networks was measured under the old
 > protocol**, which pinned every node containing the gene (89% of them
