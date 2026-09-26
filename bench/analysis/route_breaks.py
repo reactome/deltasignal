@@ -52,6 +52,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--oracle", type=Path, required=True)
     ap.add_argument("--catalog", type=Path, required=True)
+    ap.add_argument("--steps", type=Path, help="write one row per case: pathway, gene, break, from, to")
     a = ap.parse_args()
     import benchmark_vs_mpbiopath as BM
     from py2neo import Graph
@@ -75,6 +76,7 @@ def main() -> int:
     graphs: dict = {}
     out = collections.Counter()
     per = collections.Counter()
+    steps = []
     for r in rows:
         pw, pid = r["pathway"], names[r["pathway"]]
         if pw not in graphs:
@@ -112,14 +114,20 @@ def main() -> int:
                 if t not in seen:
                     seen.add(t)
                     stack.append(t)
-        label, _, _ = first_break([p.split("::")[0] for p in path], {ident[u] for u in seen},
+        label, frm, to = first_break([p.split("::")[0] for p in path], {ident[u] for u in seen},
                                   expand, present, klass)
         out[label] += 1
         per[(pw, label)] += 1
+        steps.append((pw, r["gene"], r["direction"], r["key_output"], label, frm, to))
     print(f"{len(rows)} cases where Reactome has a route and ours does not; first unreached step:")
     for k, v in out.most_common():
         print(f"  {v:4d}  {k}")
     print("top (pathway, break):", per.most_common(6))
+    if a.steps:
+        with open(a.steps, "w", newline="") as fh:
+            w = csv.writer(fh, delimiter="\t")
+            w.writerow(["pathway", "gene", "direction", "key_output", "break", "from", "to"])
+            w.writerows(steps)
     return 0
 
 

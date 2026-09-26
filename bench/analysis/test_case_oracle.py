@@ -92,3 +92,14 @@ def test_release_of_a_set_component_does_not_reach_a_sibling():
     # A stands in for S, S is a component of C; lenient releases S from C.
     adj = oracle_graph([(R1, "Reaction", C, OUT, "", "", "")], [(C, S)], [(S, A), (S, B)], lenient=True)
     assert signed_parities(adj, {A}, {B}) == set()
+
+
+def test_shortest_path_ties_do_not_follow_set_order():
+    # Two equal-length routes S->A->G and S->B->G. The route must not depend on
+    # the iteration order of the adjacency sets (route_breaks.py read 186 vs
+    # 166 "edge missing" on identical input before this was sorted).
+    from curator_oracle import shortest_path
+    for order in (["A", "B"], ["B", "A"]):
+        adj = {"S": dict.fromkeys(order).keys(), "A": {"G"}, "B": {"G"}}
+        assert shortest_path(adj, {"S"}, {"G"}) == ["S", "A", "G"]
+    assert shortest_path({"S": {"A"}}, {"S", "T"}, {"A"}) == ["S", "A"]
