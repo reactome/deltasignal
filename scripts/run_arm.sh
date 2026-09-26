@@ -48,7 +48,7 @@ while [ $# -gt 0 ]; do
     --bench)  [[ "${2:-}" == *=* ]] || die "--bench needs NAME=value"; BENCH+=("$2"); shift 2 ;;
     --port)   PORT=$2; shift 2 ;;
     --limit)  LIMIT=(--limit "$2"); shift 2 ;;
-    --catalog) CATALOG_ID=$2; shift 2 ;;
+    --catalog) [ $# -ge 2 ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
     *) die "unknown argument $1" ;;
   esac
 done
@@ -67,8 +67,11 @@ dirty=$(git status --porcelain -- src bench | wc -l)
 [ "$dirty" = "0" ] || die "src/ or bench/ has uncommitted changes; an arm must run a commit"
 SHA=$(git rev-parse --short HEAD)
 if [ -n "$CATALOG_ID" ]; then
+  [[ "$CATALOG_ID" =~ ^[A-Za-z0-9._-]+$ ]] || die "--catalog takes a build id, not a path"
   BUILD="$HOME/deltasignal-catalogs/builds/$CATALOG_ID"
   [ -d "$BUILD" ] || die "no build $CATALOG_ID"
+  st=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status'))" "$BUILD/BUILD.json" 2>/dev/null)
+  [ "$st" = "complete" ] || die "build $CATALOG_ID is not complete (status: ${st:-unreadable}); a partial build is never benchmarked"
 else
   BUILD=$(readlink -f "$HOME/deltasignal-catalogs/current") || die "no current catalog"
 fi

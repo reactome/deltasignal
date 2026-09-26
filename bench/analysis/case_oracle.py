@@ -17,6 +17,9 @@ cannot carry a signal. LENIENT adds complex -> component, the direction our
 
 Each case gets `reactome_route`:
   strict      Reactome connects gene -> readout without dissociation
+              (sign: matches / opposite_only / both_parities -- the last means
+              a walk through a cycle with an inhibition gives either sign, so the
+              sign is not evidence)
   lenient     only through a complex releasing a component
   none        Reactome does not connect them within this pathway at all
 
@@ -71,11 +74,17 @@ def oracle_graph(rows, comp_pairs, set_pairs, lenient=False) -> dict:
         adj[use(m) if m in is_set else m].add((x + USE, 1))    # a member stands in for the set
         adj[x + MADE].add((made(m) if m in is_set else m, 1))  # a produced set hands on to members
     for x, m in comp_pairs:
-        adj[made(m) if m in is_set else m].add((use(x) if x in is_set else x, 1))  # assembly
+        # A set that is a COMPONENT is being used by the complex: its members
+        # reach it through m::use (review of PR #74: wiring it from m::made cut
+        # PDGFB -> "Active PDGF dimers" -> receptor complex).
+        adj[use(m)].add((x, 1))                                  # assembly
         if lenient:
-            adj[made(x) if x in is_set else x].add((use(m) if m in is_set else m, 1))
+            adj[x].add((made(m), 1))                             # release
     base = lambda n: n.split("::")[0]
-    return {a: {(b, sg) for b, sg in ts if base(b).startswith("R-HSA-")}
+    # Only R-HSA ids CARRY a signal; a small molecule (R-ALL) may still be a
+    # READOUT, so edges into it are kept and edges out of it dropped. Dropping
+    # both made every R-ALL readout unreachable by construction.
+    return {a: {(b, sg) for b, sg in ts if base(b).startswith(("R-HSA-", "R-ALL-"))}
             for a, ts in adj.items() if base(a).startswith("R-HSA-")}
 
 
@@ -84,7 +93,11 @@ def fetch_one_level(pid: str):
     every participant of the pathway's reactions and everything nested in them."""
     from curator_oracle import _cypher
     q = (f"MATCH (p:Pathway {{stId:'{pid}'}})-[:hasEvent*]->(r:ReactionLikeEvent) WITH DISTINCT r "
-         "MATCH (r)-[:input|output|catalystActivity|regulatedBy*1..2]->(x) WITH DISTINCT x "
+         # catalystActivity->physicalEntity and regulatedBy->regulator: without
+         # the second hop's labels a catalyst- or regulator-only entity was
+         # never expanded (review of PR #74).
+         "MATCH (r)-[:input|output|catalystActivity|physicalEntity|regulatedBy|regulator*1..2]->(x) "
+         "WHERE x:PhysicalEntity WITH DISTINCT x "
          "MATCH (x)-[:hasComponent|hasMember|hasCandidate*0..4]->(y)-[rel:hasComponent|hasMember|hasCandidate]->(z) "
          "WHERE y.stId IS NOT NULL AND z.stId IS NOT NULL "
          "RETURN DISTINCT y.stId + '|' + z.stId + '|' + type(rel)")
@@ -101,7 +114,9 @@ def signed_parities(adj: dict, starts: set, goals: set, limit: int = 2_000_000) 
     seen = {(s, 1) for s in starts}
     stack = list(seen)
     found = set()
-    while stack and len(seen) < limit:
+    while stack:
+        if len(seen) >= limit:
+            raise RuntimeError(f"signed_parities: {limit} states exceeded; result would be partial")
         n, sg = stack.pop()
         if n in goals:
             found.add(sg)
@@ -122,6 +137,10 @@ def classify(strict_adj, lenient_adj, starts, goals, expected, direction) -> tup
         if expected == "1":
             return "strict", "n/a"
         need = 1 if expected == direction else -1
+        # signed_parities finds WALKS: a route touching a cycle that contains an
+        # inhibition yields both parities, which is weak evidence of the sign.
+        if par == {1, -1}:
+            return "strict", "both_parities"
         return "strict", "matches" if need in par else "opposite_only"
     if signed_parities(lenient_adj, starts, goals):
         return "lenient", "n/a"

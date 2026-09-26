@@ -149,6 +149,7 @@ SKIP_SELF_CONTAINED_INHIBITORS = os.environ.get("DS_SKIP_SELF_INH", "0") == "1"
 #         root are unchanged.
 PIN_SCOPE = os.environ.get("DS_PIN_SCOPE", "root_cycle")   # default since specs/024 (Adam)
 PIN_TALLY: Counter = Counter()
+SOLVE_TALLY: Counter = Counter()   # specs/028: how many solves converged
 if PIN_SCOPE not in ("all", "entry", "root", "root_cycle"):
     raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'root', 'root_cycle', 'entry' or 'all'")
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
@@ -991,6 +992,9 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             raise SystemExit(f"{pathway_name}: the solve reports self_inhibitor_rule="
                              f"{ds_result['self_inhibitor_rule']!r} -- the network reached the solver "
                              "without its containment table, so this is not the default model.")
+        if ds_result:
+            SOLVE_TALLY["solves"] += 1
+            SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
         for r in rows:
@@ -1276,6 +1280,7 @@ def main():
             f.write(f"{r['name']}\t{r['id']}\t{r['status']}\t"
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
+    print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
           f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")

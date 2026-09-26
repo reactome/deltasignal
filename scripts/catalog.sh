@@ -102,6 +102,10 @@ cmd_build() {
     esac
   done
   [ ${#extra_env[@]} -eq 0 ] || [ -n "$variant" ] || die "--env needs --variant: a flagged build must not become current"
+  [ -z "$variant" ] || [[ "$variant" =~ ^[A-Za-z0-9._-]+$ ]] || die "--variant must be [A-Za-z0-9._-]+"
+  # Generator flags reach a build only through --env, so they are recorded.
+  local leaked; leaked=$(env | grep -oE '^LNG_[A-Z0-9_]+' | sort -u | tr '\n' ' ')
+  [ -z "$leaked" ] || die "the calling shell exports $leaked-- unset them, or pass them with --env"
   [ -d "$LNG/.git" ] || die "no generator checkout at $LNG"
   local py sha dirty branch id dir
   py="$(lng_python)"
@@ -128,7 +132,7 @@ cmd_build() {
   rc=$?
   set -e
 
-  EXTRA_ENV="${extra_env[*]:-}" VARIANT="$variant" \
+  EXTRA_ENV="$(printf '%s\n' "${extra_env[@]}")" VARIANT="$variant" \
   "$py" - "$dir" "$sha" "$branch" "$rc" "$requested" "$(( $(date +%s) - t0 ))" "$LIST" "$LNG" <<'PY' || die "could not write the manifest for $id; current left unchanged"
 import csv, glob, hashlib, json, os, sys, datetime, subprocess
 d, sha, branch, rc, requested, secs, lst, lng = sys.argv[1:]
@@ -194,7 +198,7 @@ m = {
     "generator_poetry_lock_sha256": sha256(os.path.join(lng, "poetry.lock")),
     "reactome": reactome,
     "env": {"PYTHONHASHSEED": "0", "LNG_EMIT_ONE_SIDED": "1",
-            **dict(kv.split("=", 1) for kv in os.environ.get("EXTRA_ENV", "").split() if "=" in kv)},
+            **dict(kv.split("=", 1) for kv in os.environ.get("EXTRA_ENV", "").splitlines() if "=" in kv)},
     "variant": os.environ.get("VARIANT") or None,
     "pathway_list": os.path.relpath(lst, os.path.dirname(os.path.dirname(lst))),
     "pathway_list_sha256": sha256(os.path.join(d, "pathways.tsv")),

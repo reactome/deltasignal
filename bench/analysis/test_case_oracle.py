@@ -49,3 +49,24 @@ def test_assembly_one_level_and_lenient_release():
     assert signed_parities(oracle_graph(rows, comp, []), {A}, {P}) == {1}
     assert signed_parities(oracle_graph(rows, comp, []), {AB}, {B}) == set()
     assert signed_parities(oracle_graph(rows, comp, [], lenient=True), {AB}, {B}) == {1}
+
+
+def test_a_set_component_is_reached_through_its_use_node():
+    # PDGF shape: member M -> set S (a component) -> complex C -> reaction R1.
+    M, S, C, R1, OUT = H("M", "S", "C", "R1", "OUT")
+    adj = oracle_graph([(R1, "Reaction", C, OUT, "", "", "")], [(C, S)], [(S, M)])
+    assert signed_parities(adj, {M}, {OUT}) == {1}
+
+
+def test_a_small_molecule_can_be_a_readout_but_not_a_carrier():
+    A, R1, R2, Z = H("A", "R1", "R2", "Z")
+    SM = "R-ALL-113592"
+    rows = [(R1, "Reaction", A, SM, "", "", ""), (R2, "Reaction", SM, Z, "", "", "")]
+    adj = oracle_graph(rows, [], [])
+    assert signed_parities(adj, {A}, {SM}) == {1}       # reached as a readout
+    assert signed_parities(adj, {A}, {Z}) == set()      # but carries nothing on
+
+
+def test_both_parities_are_reported_as_such():
+    adj = {"G": {("R", 1)}, "R": {("T", 1), ("X", -1)}, "X": {("T", 1)}}
+    assert classify(adj, adj, {"G"}, {"T"}, "0", "0") == ("strict", "both_parities")

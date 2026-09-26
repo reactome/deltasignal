@@ -233,7 +233,8 @@ def fetch_reaction_rows(pathway: str):
 
 def fetch_composition(pathway: str):
     q = (f"MATCH (p:Pathway {{stId:'{pathway}'}})-[:hasEvent*]->(r:ReactionLikeEvent) WITH DISTINCT r "
-         "MATCH (r)-[:input|output|catalystActivity|regulatedBy*1..2]->(x) WITH DISTINCT x "
+         "MATCH (r)-[:input|output|catalystActivity|physicalEntity|regulatedBy|regulator*1..2]->(x) "
+         "WHERE x:PhysicalEntity WITH DISTINCT x "
          "MATCH path=(x)-[:hasComponent|hasMember|hasCandidate*1..3]->(m) WHERE x.stId IS NOT NULL AND m.stId IS NOT NULL "
          "RETURN DISTINCT x.stId + '|' + m.stId + '|' + reduce(t='', rel IN relationships(path) | t + type(rel) + ',')")
     leaves_of: dict[str, set[str]] = collections.defaultdict(set)
