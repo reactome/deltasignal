@@ -140,3 +140,91 @@ per-root nesting. Both of the first two are mutation-checked.
 - **Also reported:** the cyclic-node change (it must not rise because of these
   joins); IFN α/β; DSB; the other pathways; and severed routes repaired
   outside IFN α/β.
+
+## Result: re-measure (hier2 vs hierctrl) — ADOPTED
+
+Builds `20260926-0834_ae8016c_hierctrl` (arm at solver e6bc117) and
+`20260926-0917_8563de9_hier2` (arm at solver 12d6e11; no src/bench change between
+them), `bench/analysis/arm_compare.py`, curator cases valid in both arms.
+
+| split | net | fixed / broke | p | pathways moved |
+|---|---|---|---|---|
+| **held-out** | **+197** | 243 / 46 | 1.6e-33 | 9 (+6 / −1) |
+| tuning | −75 | 14 / 89 | 1.6e-14 | 2 |
+| experimental | 0 | 4 / 4 | 1 | 1 |
+
+Held-out 86.62% → 87.69%, macro-F1 0.8252 → 0.8399 on 18,459 shared cases.
+
+**Per pathway:**
+
+| pathway | fixed / broke | net |
+|---|---|---|
+| IFN α/β | 200 / 25 | +175 |
+| DNA Damage Bypass | 17 / 4 | +13 |
+| DSB Repair | 13 / 0 | +13 |
+| FGFR2 / 3 / 4 | 6 / 2 | +4 |
+| NOTCH, PDGF | 6 / 6 | 0 |
+| Fanconi | 1 / 9 | −8 |
+| *(tuning)* TP53 | 8 / 89 | −81 |
+| *(tuning)* Mitotic G2-G2/M | 6 / 0 | +6 |
+
+**Gates:**
+- held-out +197 at p = 1.6e-33 is above +15 with p < 0.05: **pass**;
+- held-out outside IFN α/β is **+22**: **pass**;
+- experimental 0 is no worse than −15: **pass**;
+- cyclic nodes 8,076 → 8,064, with only Mitotic G2-G2/M and DDB changing, both
+  down: the joins do not raise it.
+
+DSB falls from the first arm's +27 to +13. That is expected: part of the +27
+went through the welded loop this revision removes.
+
+### Traced: the two losses
+
+**TP53 −81 is uuid order, not the change.**
+- All 86 lost TP53 cases are the AKT1 and AKT2 knockouts. They read DOWN where
+  the curators expect UP, the MDM2-loop state from specs/016.
+- Between the first arm and hier2, the TP53 networks differ only in which copy
+  of NADP+ (R-ALL-29366) joins G6PD dimer and G6PD tetramer (root copy vs
+  produced copy).
+- NADP+ is a cofactor, held at baseline, and none of those nodes is in the
+  pathway's only non-trivial component (56 nodes).
+- So every value entering the loop is identical. What changed is the uuids, which
+  set the sweep order inside it (specs/013).
+- This is the documented caveat: TP53 moved +104 on a plain regeneration, and
+  +6 then −87 across these two value-identical builds.
+
+**IFN α/β −25 is the root-copy preference.**
+- All 25 are STAT1-up cases. They read NORMAL where the curators expect UP. The
+  pins and reach are identical (528 of 528 readouts reachable).
+- The single graph difference: the nested complex ISGF3:KPNA1 [cytosol]
+  (R-HSA-9710958) now takes its KPNA1 from a ROOT copy instead of the copy that
+  "p-STAT1 dimer binds KPNA1" (R-HSA-9710959) produces, which STAT1 feeds.
+- No reaction produces or consumes that complex, so Reactome does not say which
+  KPNA1 copy should feed it.
+- Preferring the root copy is as arbitrary as preferring the produced one. It
+  was motivated by PDGF, and PDGF is net 0 between the two arms.
+- The principled rule is that any eligible copy may supply the component. That
+  is the step-2 question, "the protein has no edge to the complex", and it is
+  left to that work rather than retuned here after seeing these numbers.
+
+### Severed routes (case_oracle.py + route_breaks.py, held-out failures)
+
+| | hierctrl | hier2 |
+|---|---|---|
+| severed (Reactome route strict, ours no_path) | 438 | 252 |
+| — IFN α/β | 200 | **0** |
+| — outside IFN α/β | 238 | 252 |
+| first break: complex absent | 232 | **14** |
+| first break: component → complex, node exists but edge missing | 158 | 186 |
+| first break: route starts from another form of the gene | 36 | 40 |
+| first break: entity → reaction | 6 | 6 |
+
+- The hierarchy builds the missing complexes (Adam's step 1: 232 → 14).
+- Outside IFN α/β it repairs **no** severed route net. These counts are
+  failures, so a case that stops failing for another reason moves out and one
+  that starts failing moves in. Treat them as the remaining defect list, not as
+  a structural diff.
+- The outside-IFN accuracy gain (+22) comes from routed cases, not from newly
+  connected ones.
+- Next is step 2, "node exists, edge missing": 186 cases, of which PDGF 62,
+  DSB 18, Hedgehog 16, HOX 14 and apoptosis 12.
