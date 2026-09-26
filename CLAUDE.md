@@ -422,7 +422,7 @@ other seven execute code and print output.
 | file | assertions | note |
 |---|---|---|
 | `test/test_config_validation.jl` | 196 | |
-| `test/test_loop_elasticity.jl` | 150 | + 1 `@test_broken` |
+| `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
 | `test/test_solver_determinism.jl` | 80 | |

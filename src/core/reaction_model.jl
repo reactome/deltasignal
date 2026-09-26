@@ -373,6 +373,9 @@ struct IndexedReaction
                                     # gain at baseline drops below 1 and
                                     # baseline becomes a stable state instead
                                     # of a knife-edge. Acyclic edges untouched.
+    activator_loop_size::Vector{Int}  # per-activator: size of the strongly connected
+                                      # component the edge closes (0 if none). Read by
+                                      # DS_LOOP_GAIN (specs/028).
     activator_is_assembly::Vector{Bool}  # per-activator: edge_type=="assembly"
     activator_comp_redundant::Vector{Bool} # per-activator: a composition edge
                                     # whose source ALREADY feeds a producing
@@ -639,7 +642,7 @@ function index_reactions(
     # backbone inside our cycles and essentially never carry these classes.
     break_roles = _break_roles_env()
     roles_on = !isempty(break_roles)
-    comp_id, n_comp = (scc_solve || break_catalyst || elastic || roles_on) ?
+    comp_id, n_comp = (scc_solve || break_catalyst || elastic || roles_on || _float_env("DS_LOOP_GAIN", 1.0) < 1.0) ?
         tarjan_scc_components(fwd_adj) : (Int[], 0)
     n_comp_pass1 = n_comp
     closure_act = [falses(length(rec.act_indices)) for rec in raw]
@@ -707,6 +710,11 @@ function index_reactions(
     # eligible for DS_INHIBITOR_FLOOR dampening.
     max_depth = parse(Int, get(ENV, "DS_LOOP_DEPTH", "3"))
     indexed = IndexedReaction[]
+    # Component sizes, for DS_LOOP_GAIN's per-loop (not per-edge) pull.
+    comp_size = zeros(Int, max(n_comp, 0))
+    for c in comp_id
+        c >= 1 && (comp_size[c] += 1)
+    end
     for (ri, rec) in enumerate(raw)
         in_loop = Bool[]
         for inh in rec.inh_indices
@@ -782,10 +790,12 @@ function index_reactions(
         # set of edges whose gain product decides whether a cycle's baseline is
         # stable. Empty comp_id (SCC detection off) => all false.
         act_in_loop = Bool[]
+        act_loop_size = Int[]
         for k in eachindex(rec.act_indices)
             src = rec.act_indices[k]
             push!(act_in_loop,
                   !isempty(comp_id) && comp_id[src] == comp_id[rec.target_idx])
+            push!(act_loop_size, act_in_loop[end] ? comp_size[comp_id[src]] : 0)
         end
 
         # Own-product depleters: P -| X where P is produced from X within two
@@ -826,7 +836,7 @@ function index_reactions(
 
         push!(indexed, IndexedReaction(
             rec.target_idx, rec.baseline,
-            rec.act_indices, rec.act_is_and, act_break, act_in_loop,
+            rec.act_indices, rec.act_is_and, act_break, act_in_loop, act_loop_size,
             rec.act_is_assembly, comp_redundant, rec.act_group,
             rec.inh_indices, rec.inh_is_and, in_loop, in_transcription, rec.inh_shared,
             rec.dep_indices, closure_dep[ri], dep_own,
@@ -940,6 +950,7 @@ struct ReactionEvalConfig
     composition_mode::String
     depletion_own_product::String
     self_inhibitor_weight::Float64   # < 0 = off. Default 0.1. specs/022.
+    loop_gain::Float64               # 1.0 = off. specs/028.
 end
 
 """
@@ -1296,7 +1307,19 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # (adopted in specs/023); "off" is the old product. w is a single
         # structural weight, fixed a priori and meant to be learned later.
         _self_inhibitor_weight_env(),
+        # specs/028. A MINIMAL pull towards 1 per LOOP, not per edge: every
+        # in-loop activator edge is read at fold^(g^(1/n)), n = its component's
+        # size, so a cycle of n edges has total gain about g however long it
+        # is. DS_LOOP_ELASTICITY applies one exponent to every in-loop edge and
+        # so compounds around long cycles (0.95 cost TP53 -57; specs/024).
+        # Adam: a loop without inhibitors should still amplify, so this is
+        # meant to be tiny (g close to 1). 1.0 = off, byte-identical.
+        _loop_gain_env(),
     )
+    if cfg.loop_gain < 1.0 && cfg.loop_elasticity < 1.0
+        throw(ArgumentError("DS_LOOP_GAIN and DS_LOOP_ELASTICITY are two ways to pull a loop " *
+                            "towards 1; set one of them."))
+    end
     # DS_COMPOSITION_GROUP refines the limiting rule (max within a group, min
     # across groups). With limiting off -- the default since specs/023 -- it
     # would be silently inert, which is the silent-substitution failure these
@@ -1313,6 +1336,12 @@ end
 # product, where a self-contained inhibitor counts its input twice.
 const SELF_INHIBITOR_WEIGHT_DEFAULT = 0.1
 const SELF_INHIBITOR_FOLD_FLOOR = 1e-3
+
+function _loop_gain_env()::Float64
+    g = _float_env("DS_LOOP_GAIN", 1.0)
+    0.0 < g <= 1.0 || throw(ArgumentError("DS_LOOP_GAIN=$g must be in (0, 1] (1 = off)."))
+    return g
+end
 
 function _self_inhibitor_weight_env()::Float64
     raw = strip(get(ENV, "DS_SELF_INHIBITOR_WEIGHT", ""))
@@ -1443,6 +1472,11 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         # Loop elasticity (DS_LOOP_ELASTICITY): on a cycle-closing edge, read
         # the input's FOLD through fold^eps so the loop's gain at baseline is
         # below 1. Fold 1 maps to fold 1, 0 to 0; only the slope changes.
+        if config.loop_gain < 1.0 && k <= length(rxn.activator_loop_size) &&
+           rxn.activator_loop_size[k] > 0 && src_val > zero(T)
+            fold = src_val / bl
+            src_val = bl * fold^(T(config.loop_gain)^(one(T) / rxn.activator_loop_size[k]))
+        end
         if config.loop_elasticity < 1.0 &&
            k <= length(rxn.activator_in_loop) && rxn.activator_in_loop[k] &&
            src_val > zero(T)
