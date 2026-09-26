@@ -81,8 +81,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ground-truth", choices=("experimental", "curator"), default="experimental")
     parser.add_argument("--down-cutoff", type=float, default=0.85)
     parser.add_argument("--up-cutoff", type=float, default=1.15)
-    # mean since specs/027, as in benchmark_vs_mpbiopath.py (DS_KO_AGG).
-    parser.add_argument("--output-aggregation", choices=("max", "mean", "min", "extreme"), default="mean")
+    # max: specs/027 measured `mean` on benchmark_vs_mpbiopath.py only; this
+    # script (MP-BioPath's own networks) has not been re-measured, so its
+    # default is left where its recorded results were produced.
+    parser.add_argument("--output-aggregation", choices=("max", "mean", "min", "extreme"), default="max")
     parser.add_argument(
         "--perturb-all-occurrences",
         action="store_true",

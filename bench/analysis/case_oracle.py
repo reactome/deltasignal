@@ -79,7 +79,11 @@ def oracle_graph(rows, comp_pairs, set_pairs, lenient=False) -> dict:
         # PDGFB -> "Active PDGF dimers" -> receptor complex).
         adj[use(m)].add((x, 1))                                  # assembly
         if lenient:
-            adj[x].add((made(m), 1))                             # release
+            # A released set component goes to the set as USED (reactions
+            # that consume the set), not to every member: which member was in
+            # the complex is unknown, and "to every member" was a sibling hop
+            # (review of PR #74: 236 lenient verdicts depended on it).
+            adj[x].add((use(m), 1))                              # release
     base = lambda n: n.split("::")[0]
     # Only R-HSA ids CARRY a signal; a small molecule (R-ALL) may still be a
     # READOUT, so edges into it are kept and edges out of it dropped. Dropping

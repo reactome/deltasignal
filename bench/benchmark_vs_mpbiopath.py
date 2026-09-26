@@ -112,9 +112,9 @@ GENE_NAME_CORRECTIONS = {
 }
 # specs/029. On a catalog built with LNG_COMPOSITION_EDGES=1: keep only the
 # composition edges (component -> containing complex) that do not close a
-# cycle. They bridge the routes Reactome has and our network severs (390 of
-# 438 severed held-out routes break at a component -> complex step), but as a
-# class they re-weld loops (specs/016, 018, 026).   off | acyclic
+# cycle. Measured, not adopted: they route all 200 severed IFN alpha/beta
+# routes but only 46 of 238 severed routes outside it (12 once filtered), and
+# outside IFN they cost -111 held-out.   off | acyclic
 COMPOSITION_FILTER = os.environ.get("DS_COMPOSITION_FILTER", "off")
 if COMPOSITION_FILTER not in ("off", "acyclic"):
     raise SystemExit(f"DS_COMPOSITION_FILTER={COMPOSITION_FILTER!r} must be 'off' or 'acyclic'")
@@ -538,7 +538,9 @@ def cycle_closing_composition_pairs(pathway_dir: Path) -> set:
     Every non-composition edge is kept. Composition edges are added one at a
     time in sorted order, and an edge S -> T is dropped when S is already
     reachable from T through the network plus the composition edges kept so
-    far. So no combination of kept edges closes a cycle either."""
+    far. So no combination of kept edges closes a cycle either. Which of two
+    edges that close a cycle only together is dropped depends on that order,
+    i.e. on uuids, which are redrawn per build (80 of 1,114 on the comp build)."""
     fwd: dict = defaultdict(set)
     comp = []
     with open(pathway_dir / "logic_network.csv", newline="") as f:
@@ -1070,8 +1072,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             # Predict by aggregating the key-output's UUID activities. A species
             # can map to many UUIDs (position-aware variants / multiple producing
             # reactions); how we collapse them matters. DS_KO_AGG selects:
-            #   max     — any context active ⇒ present (default; lax for knockouts)
-            #   mean    — average across contexts
+            #   max     — any context active ⇒ present (lax for knockouts)
+            #   mean    — average across contexts (default, specs/027)
             #   min     — all contexts must hold (strict; sensitive to knockouts)
             #   extreme — the value deviating most from baseline (handles UP&DOWN)
             if uuids and ko_uuids:

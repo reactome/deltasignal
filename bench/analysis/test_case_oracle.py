@@ -70,3 +70,25 @@ def test_a_small_molecule_can_be_a_readout_but_not_a_carrier():
 def test_both_parities_are_reported_as_such():
     adj = {"G": {("R", 1)}, "R": {("T", 1), ("X", -1)}, "X": {("T", 1)}}
     assert classify(adj, adj, {"G"}, {"T"}, "0", "0") == ("strict", "both_parities")
+
+
+from route_breaks import first_break  # noqa: E402
+
+
+def test_first_break_types_the_missing_step():
+    klass = {"P": "EntityWithAccessionedSequence", "C": "Complex", "R": "Reaction"}.get
+    expand = lambda s: {s}
+    assert first_break(["P", "C", "R"], {"P"}, expand, {"P", "C"}, klass)[0] == \
+        "component -> complex | node exists, edge missing"
+    assert first_break(["P", "C", "R"], {"P"}, expand, {"P"}, klass)[0] == \
+        "component -> complex | node absent"
+    assert first_break(["P", "C"], {"P", "C"}, expand, set(), klass)[0] == "whole route reached"
+    assert first_break(["P", "C"], set(), expand, set(), klass)[0] == \
+        "route starts from another form of the gene"
+
+
+def test_release_of_a_set_component_does_not_reach_a_sibling():
+    A, B, S, C, R1, OUT = H("A", "B", "S", "C", "R1", "OUT")
+    # A stands in for S, S is a component of C; lenient releases S from C.
+    adj = oracle_graph([(R1, "Reaction", C, OUT, "", "", "")], [(C, S)], [(S, A), (S, B)], lenient=True)
+    assert signed_parities(adj, {A}, {B}) == set()

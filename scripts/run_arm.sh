@@ -48,7 +48,7 @@ while [ $# -gt 0 ]; do
     --bench)  [[ "${2:-}" == *=* ]] || die "--bench needs NAME=value"; BENCH+=("$2"); shift 2 ;;
     --port)   PORT=$2; shift 2 ;;
     --limit)  LIMIT=(--limit "$2"); shift 2 ;;
-    --catalog) [ $# -ge 2 ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
+    --catalog) [ -n "${2:-}" ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
     *) die "unknown argument $1" ;;
   esac
 done
@@ -155,6 +155,7 @@ for gt in ("curator", "experimental"):
         text = open(log).read()
         m = re.search(r"^Protocol: .*$", text, re.M); rec[f"{gt}_protocol"] = m.group(0) if m else None
         m = re.search(r"^Pinned: .*$", text, re.M); rec[f"{gt}_pinned"] = m.group(0) if m else None
+        m = re.search(r"^Converged: .*$", text, re.M); rec[f"{gt}_converged"] = m.group(0) if m else None
 json.dump(rec, open(os.path.join(out, "ARM.json"), "w"), indent=2)
 print(json.dumps(rec, indent=2))
 PY

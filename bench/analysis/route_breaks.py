@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""For each failed case where Reactome has a route and our network does not,
+find the first step of Reactome's route our network does not reach.
+
+Input is case_oracle.py's --out table. For every missed case with our reach
+`no_path` and Reactome route `strict`, Reactome's shortest route (case_oracle's
+graph) is walked against the nodes our network reaches from the pinned uuids.
+A set counts as reached if any member is. The first unreached step is typed:
+
+  component -> complex   an assembly step (node exists but edge missing, or
+                         the complex is absent from our network)
+  member -> set          a member standing in for a set
+  entity -> reaction     an input, catalyst or regulator
+  reaction -> output
+and two outcomes that are not a break: the route starts from a form of the
+gene we did not pin, or the whole route is reached (readout mapping).
+
+Usage: route_breaks.py --oracle ARM/curator_case_oracle.tsv --catalog BUILD
+"""
+from __future__ import annotations
+
+import argparse
+import collections
+import csv
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from case_oracle import MADE, USE, fetch_one_level, oracle_graph  # noqa: E402
+from curator_oracle import fetch_reaction_rows, shortest_path  # noqa: E402
+
+RX = ("Reaction", "BlackBoxEvent", "Polymerisation", "Depolymerisation", "FailedReaction")
+
+
+def first_break(base_path, reached_ids, expand, present_ids, klass):
+    """(label, a, b) for the first step whose target is not reached."""
+    i = next((k for k, s in enumerate(base_path) if not (expand(s) & reached_ids)), None)
+    if i is None:
+        return "whole route reached", "", ""
+    if i == 0:
+        return "route starts from another form of the gene", "", ""
+    a, b = base_path[i - 1], base_path[i]
+    ca, cb = klass(a), klass(b)
+    step = ("entity -> reaction" if cb in RX else "reaction -> output" if ca in RX
+            else "member -> set" if "Set" in cb else "component -> complex")
+    where = "node exists, edge missing" if expand(b) & present_ids else "node absent"
+    return f"{step} | {where}", a, b
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--oracle", type=Path, required=True)
+    ap.add_argument("--catalog", type=Path, required=True)
+    a = ap.parse_args()
+    import benchmark_vs_mpbiopath as BM
+    from py2neo import Graph
+    g = Graph(BM.NEO4J_URL, auth=(BM.NEO4J_USER, BM.NEO4J_PASSWORD))
+    cls: dict = {}
+
+    def klass(s):
+        if s not in cls:
+            r = g.run("MATCH (n {stId:$s}) RETURN n.schemaClass AS c", s=s).data()
+            cls[s] = r[0]["c"] if r else "?"
+        return cls[s]
+
+    names = {}
+    for line in open(Path(__file__).resolve().parents[1] / "catalog_pathways.tsv"):
+        if line.startswith("#") or line.startswith("id\t"):
+            continue
+        sid, name = line.rstrip("\n").split("\t")
+        names[name] = sid
+    rows = [r for r in csv.DictReader(open(a.oracle, newline=""), delimiter="\t")
+            if r["error"] == "missed" and r["reach"] == "no_path" and r["reactome_route"] == "strict"]
+    graphs: dict = {}
+    out = collections.Counter()
+    per = collections.Counter()
+    for r in rows:
+        pw, pid = r["pathway"], names[r["pathway"]]
+        if pw not in graphs:
+            comp, sets = fetch_one_level(pid)
+            adj = oracle_graph(fetch_reaction_rows(pid), comp, sets)
+            members = collections.defaultdict(set)
+            for x, m in sets:
+                members[x].add(m)
+
+            def expand(s, depth=0, members=members):
+                if s in members and depth < 5:
+                    return {s}.union(*(expand(m, depth + 1) for m in members[s]))
+                return {s}
+
+            nodes = list(csv.DictReader(open(a.catalog / pid / "nodes.csv", newline="")))
+            ident = {x["uuid"]: x["diagram_entity_id"].split("::")[0] for x in nodes}
+            fwd = collections.defaultdict(list)
+            for e in csv.DictReader(open(a.catalog / pid / "logic_network.csv", newline="")):
+                fwd[e["source_id"]].append(e["target_id"])
+            graphs[pw] = ({k: {t for t, _ in v} for k, v in adj.items()}, ident, fwd,
+                          set(ident.values()), expand)
+        uadj, ident, fwd, present, expand = graphs[pw]
+        gene = BM.GENE_NAME_CORRECTIONS.get((pw, r["gene"]), r["gene"])
+        starts = {v for x in BM.neo4j_gene_to_stids([gene]).get(gene, []) for v in (x, x + USE, x + MADE)}
+        goal = BM.neo4j_dbid_to_stid({r["key_output"]}).get(r["key_output"])
+        path = shortest_path(uadj, starts, {goal, goal + USE, goal + MADE}) if goal else None
+        if not path:
+            out["(no route found on re-walk)"] += 1
+            continue
+        seen = set(r["gene_uuids"].split("|"))
+        stack = list(seen)
+        while stack:
+            n = stack.pop()
+            for t in fwd[n]:
+                if t not in seen:
+                    seen.add(t)
+                    stack.append(t)
+        label, _, _ = first_break([p.split("::")[0] for p in path], {ident[u] for u in seen},
+                                  expand, present, klass)
+        out[label] += 1
+        per[(pw, label)] += 1
+    print(f"{len(rows)} cases where Reactome has a route and ours does not; first unreached step:")
+    for k, v in out.most_common():
+        print(f"  {v:4d}  {k}")
+    print("top (pathway, break):", per.most_common(6))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

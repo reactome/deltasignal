@@ -96,7 +96,7 @@ cmd_build() {
   local variant="" extra_env=()
   while [ $# -gt 0 ]; do
     case "$1" in
-      --variant) variant="$2"; shift 2 ;;
+      --variant) [ -n "${2:-}" ] || die "--variant needs a name"; variant="$2"; shift 2 ;;
       --env) [[ "$2" == LNG_*=* ]] || die "--env takes LNG_NAME=value"; extra_env+=("$2"); shift 2 ;;
       *) die "unknown build option $1" ;;
     esac
@@ -104,7 +104,8 @@ cmd_build() {
   [ ${#extra_env[@]} -eq 0 ] || [ -n "$variant" ] || die "--env needs --variant: a flagged build must not become current"
   [ -z "$variant" ] || [[ "$variant" =~ ^[A-Za-z0-9._-]+$ ]] || die "--variant must be [A-Za-z0-9._-]+"
   # Generator flags reach a build only through --env, so they are recorded.
-  local leaked; leaked=$(env | grep -oE '^LNG_[A-Z0-9_]+' | sort -u | tr '\n' ' ')
+  # LNG_PYTHON only selects the interpreter (lng_python), not a generator flag.
+  local leaked; leaked=$(env | grep -oE '^LNG_[A-Z0-9_]+' | grep -vx LNG_PYTHON | sort -u | tr '\n' ' ')
   [ -z "$leaked" ] || die "the calling shell exports $leaked-- unset them, or pass them with --env"
   [ -d "$LNG/.git" ] || die "no generator checkout at $LNG"
   local py sha dirty branch id dir
