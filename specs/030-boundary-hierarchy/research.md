@@ -29,7 +29,7 @@ composition only where it must shows:
   alone, so the break is some other generator defect (next steps);
 - the composition steps needed go mostly into ROOT complexes: 264 of 364.
 
-## The rule (logic-network-generator `LNG_BOUNDARY_HIERARCHY=1`, PR #97; off by default)
+## The rule (logic-network-generator `LNG_BOUNDARY_HIERARCHY`, PR #97; default ON since ba624ce, `=0` for the flat mode)
 
 Decompose a root complex one hasComponent level at a time:
 - a component that already exists as a node, and is not downstream of the
@@ -39,8 +39,13 @@ Decompose a root complex one hasComponent level at a time:
   in turn;
 - anything else falls back to its terminal leaves, as before.
 
-Three generator tests: default flat behaviour unchanged; nested complex built
-and produced species joined; a copy downstream of the root not reused.
+Generator tests (tests/test_boundary_hierarchy.py):
+- flat mode (`=0`) unchanged;
+- the nested complex is built and the produced species joined;
+- a copy downstream of the root is not reused;
+- the hierarchy is the default;
+- after the review, below: root-copy preference, two joins cannot jointly
+  close a cycle, and a nested complex is built per root.
 
 ## Pre-registration (committed before any build or arm)
 
@@ -86,3 +91,52 @@ bench `e6bc117`, current defaults.
 It meets every pre-registered condition. Next: make
 `LNG_BOUNDARY_HIERARCHY=1` the generator default (LNG PR #97), rebuild the
 canonical catalog, and re-baseline; then Adam's step 2.
+
+
+## Review of PR #97: the gain outside IFN α/β was mostly a weld
+
+The adversarial review reproduced every number above, then showed how much
+less the part outside IFN α/β means than it looked:
+
+- **Two joins welded a new loop.** Each passed the specs/018 downstream test
+  against the pre-loop snapshot, and neither saw the other.
+  - p-RPA heterotrimer joins a nested complex under LIG1:ERCC1:…, which
+    catalyses Completion of SSA.
+  - RAD9:HUS1:RAD1, an output of Completion of SSA, joins a root that
+    produces p-RPA.
+  - Together they put readout 5686663 inside a new 162-node SCC. 16 of DSB's
+    29 fixes read out there, and so do both of its breaks. **The DSB "+27" is
+    not independent of the weld.** The cycle rise, +157 nodes, is this
+    mechanism, not the 4-edge specs/018 residual.
+- **What remains outside IFN α/β.** Excluding DSB, the other 6 pathways net
+  **+1** (9 / 8).
+- **"216 of 438 severed routes"** is IFN α/β's 200 plus DSB's 16 through the
+  weld. **0 of 222** were repaired in the other 17 pathways.
+- **Concentration.** IFN α/β's +200 comes from 8 perturbations (JAK1, IFNAR2,
+  PTPN11, SOCS1, both directions) over 25 readouts. It is clean: IFN gains no
+  cyclic nodes. The McNemar p-values assume independent cases.
+- **Nested complexes shared across roots.** A shared nested complex was
+  decomposed against whichever root came first: no welds, but 4 missed joins
+  in S Phase, and uuid-order dependent.
+- **Only the first eligible copy is joined.** That is also Adam's step 2:
+  PDGFB's pinned ROOT copy fed only the processing reaction, while the PDGF
+  A/B heterodimer's assembly edges came from a produced PDGFB copy.
+
+**Fixed (LNG 8563de9, hierarchy mode only; flat mode byte-identical):**
+- the downstream test is updated as each join is emitted;
+- root complexes are processed in a deterministic order (stid, then uuid);
+- nested complexes are built per root;
+- when joining, a ROOT copy (in-degree 0) is preferred over a produced copy.
+
+Tests: two joins cannot jointly close a cycle; root-copy preference;
+per-root nesting. Both of the first two are mutation-checked.
+
+## Pre-registration: re-measure (committed before the arm runs)
+
+- **Setup:** the `hier2` build at LNG 8563de9 (hierarchy default on), against
+  the same `hierctrl` build and arm (flat mode unchanged).
+- **Adopt** only if held-out net > +15 with p < 0.05, the net **outside IFN α/β
+  is positive**, and experimental is no worse than −15.
+- **Also reported:** the cyclic-node change (it must not rise because of these
+  joins); IFN α/β; DSB; the other pathways; and severed routes repaired
+  outside IFN α/β.
