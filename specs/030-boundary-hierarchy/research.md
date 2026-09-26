@@ -58,3 +58,31 @@ loops.
 
 **Adopt** only if held-out net > +15 with p < 0.05, positive outside IFN α/β,
 and experimental no worse than −15.
+
+## Result: ADOPTED
+
+Builds `20260926-0834_ae8016c_hierctrl` and `20260926-0835_ae8016c_hier`,
+bench `e6bc117`, current defaults.
+
+| | held-out net | p | notes |
+|---|---|---|---|
+| **hier vs hierctrl** | **+228** (238 / 10) | 9e-58 | 8 pathways moved (+5 / −2), 38 perturbations |
+| Interferon α/β | +200 | | every one of its 200 severed held-out cases |
+| **outside IFN α/β** | **+28** (38 / 10) | 6e-5 | DSB Repair +27 |
+| tuning | +6 | | TP53 |
+| experimental | +2 (2 / 0) | | |
+
+- **Severed routes.** 216 of the 438 severed held-out routes are now correct,
+  against 0 in the control.
+- **Convergence** is unchanged: 1,673 against 1,671 of 1,725 solves.
+- **Structure.** The hier build has 948 more nodes (the nested complexes it
+  builds) and 630 fewer edges: joining an existing component replaces several
+  leaf edges with one.
+- **Cycles.** Cyclic nodes rise by 157 of 8,076 (+2%) in 5 pathways: DNA
+  Repair +85, DSB +53, HDR +15, RAF/MAP +6, and one −2. That is the known
+  residual of the generator's reachability snapshot, which is not updated as
+  assembly edges are added. DSB still gains +27.
+
+It meets every pre-registered condition. Next: make
+`LNG_BOUNDARY_HIERARCHY=1` the generator default (LNG PR #97), rebuild the
+canonical catalog, and re-baseline; then Adam's step 2.
