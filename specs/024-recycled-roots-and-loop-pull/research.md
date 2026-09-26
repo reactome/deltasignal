@@ -95,3 +95,24 @@ against the current defaults (`results/5f7b9c7/new_defaults`).
     because Adam asked for minimal.
   - Report the positive-loop and has-inhibition loop classes separately (MH,
     `failure_structure.py`).
+
+## Found while splitting the 14 "gene not in our network" cases: one catalog pathway is the wrong pathway
+
+`bench/catalog_pathways.tsv` builds "Interleukin-2_family_signaling" from
+**R-HSA-447115**, taken from MP-BioPath's `pathway_list.tsv`. In Reactome v97,
+R-HSA-447115 is **"Interleukin-12 family signaling"**; Interleukin-2 family
+signaling is **R-HSA-451927**, where IL2 sits in 18 reactions and JAK3 in 44.
+So the benchmark has been scoring **260 curator cases** of IL-2 family biology
+against the IL-12 family network. That accounts for 7 of the 14 genes missing
+from our networks (IL2, IL21R, JAK3, LCK, PIK3CA, STAT5B, SYK).
+
+The other two ids whose v97 name differs are renames of the same pathway:
+- R-HSA-453279, Mitotic G1 phase and G1/S transition;
+- R-HSA-388841, Regulation of T cell activation by CD28 family.
+
+**Fix, not yet applied:** point the entry at R-HSA-451927 and rebuild the
+catalog. That is a new build (`scripts/catalog.sh build`), so it is left for a
+deliberate step. Of the remaining 7 missing genes, only COL1A1 and COL2A1
+(GPVI, immunoregulatory, PDGF), EP300 (NER), GDI1 (Rho GTPase cycle) and FBXW7
+(RUNX2) show 0 v97 reactions in their pathway. Those are version skew, which no
+generator change can recover.
