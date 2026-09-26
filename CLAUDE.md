@@ -66,8 +66,12 @@ contain, the gene**, as the MP-BioPath publication does. The perturbation then
 propagates from root input to terminal readout; if the ends are right, the
 middle is taken to be right. `DS_PIN_SCOPE` (benchmark-side) selects it:
 
-- `root` (**default**): nodes with no incoming edge that are or contain the
-  gene. A gene with no root form is not perturbed, and its cases are invalid.
+- `root_cycle` (**default**, specs/024): `root`, plus, for a gene with no
+  true root, the form a catalytic cycle regenerates (fed only by its own
+  downstream or by dissociation/depletion edges). This is how MP-BioPath's
+  hand-cut loops left enzymes as roots, reproduced while keeping the loops.
+- `root`: nodes with no incoming edge that are or contain the gene. A gene
+  with no root form is not perturbed, and its cases are invalid.
 - `entry`: the resolved nodes no other resolved node reaches. It also pins a
   gene's first mid-pathway occurrence. Measured, not adopted.
 - `all`: every node whose `member_leaves` include the gene. This was the

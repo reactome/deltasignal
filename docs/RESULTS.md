@@ -19,23 +19,37 @@ commit.
 ---
 
 
-> **2026-09-25: new protocol and new canonical numbers (specs/023).** The
-> benchmark now perturbs only ROOT inputs that are, or contain, the gene, as
-> the MP-BioPath publication does (Adam's decision), with the solver defaults
-> re-measured under it (`DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`).
-> Build `20260925-1039_d4f4f64`, solver `5f7b9c7` (two review revisions of the
-> self-inhibitor rule change no scored prediction; specs/023), run through
-> `scripts/run_arm.sh` (`results/5f7b9c7/new_defaults`; ARM.json and
-> server.env record exactly what ran).
+> **2026-09-26: canonical numbers (specs/023, 024, 025).** The benchmark
+> perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
+> publication does. A gene with no true root has pinned the form whose every
+> producer is its own downstream (e.g. a catalytic cycle) or a derived
+> dissociation/depletion edge; a node with no out-edges is never pinned. The
+> pathway list is corrected (IL-2 family is R-HSA-451927, not 447115, which
+> is IL-12 family), and four curator gene names are corrected. Solver
+> defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`. Build
+> `20260925-2326_d4f4f64` (Reactome 97), bench `184dfd5`
+> (`results/184dfd5/baseline`).
 >
-> | | curator held-out | curator all | experimental |
+> | | cases | accuracy | macro-F1 |
 > |---|---|---|---|
-> | valid cases only | 86.34% / mF1 0.8135 (n 17,420) | 84.44% / 0.8018 (n 22,124) | 67.32% / 0.5896 (n 814) |
-> | every case (unperturbable = NORMAL) | 82.89% / 0.7678 (n 19,000) | 81.00% / 0.7592 (n 24,100) | 64.55% / 0.5661 (n 849) |
+> | **curator held-out, in release** (70 pathways) | 18,573 | **85.82%** | **0.8133** |
+> | curator held-out, every case (71 pathways) | 19,000 | 85.28% | 0.8053 |
+> | curator, all pathways, in release (81) | 23,625 | 83.20% | 0.7896 |
+> | experimental, in release (10 pathways) | 846 | 66.43% | 0.5803 |
 >
-> The every-case row is the honest one: the 1,144 cases lost to invalidity
-> were 79% correct under the old pins. On identical cases the new protocol is
-> held-out −318 against the old one.
+> - **"In release"** leaves out cases whose gene or readout is not in this
+>   Reactome release's pathway, or whose gene name matches no gene: 475
+>   curator cases. Such a case cannot measure the generator or the solver. Its
+>   reason is tagged in the dump.
+> - **"Every case"** keeps them and scores anything unperturbable as NORMAL.
+> - **Against the previous protocol** (broad pins, old build, `ae84de9`):
+>   held-out every-case 86.87% / 0.8299 on 19,000 cases. On identical cases the
+>   new protocol was −318 held-out at its introduction (specs/023). Part of the
+>   old accuracy came from pinning complexes directly.
+> - **Against MP-BioPath's published result** (its own networks, 24,440 curator
+>   cases, confusion matrix only): 83.34% / 0.8063. On the paper's ten
+>   pathways, paired case by case from its supplementary table, it is 77.98%
+>   against our 72.48% on curator and 73.79% against 66.00% on experimental.
 >
 > **Everything below this box on our networks was measured under the old
 > protocol**, which pinned every node containing the gene (89% of them
