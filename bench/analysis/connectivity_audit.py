@@ -167,6 +167,8 @@ def main():
             c = line.rstrip("\n").split("\t")
             if len(c) > max(ii, ni):
                 pathways.append((c[ii], c[ni]))
+    # Ids from the list the catalog is built from (specs/024: IL-2 family).
+    pathways = b.apply_catalog_ids(pathways, Path(b.__file__).resolve().parent / "catalog_pathways.tsv")
 
     tot_change = tot_reach = 0
     agg = defaultdict(int)

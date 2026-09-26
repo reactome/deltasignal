@@ -21,6 +21,7 @@ Two things it will show you:
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import collections
 import csv
 import sys
@@ -83,6 +84,22 @@ def report(name: str, cases: dict) -> None:
     ok = sum(1 for r in allrows if r["predicted"] == r["expected"])
     print(f"{'(all pathways)':<26}{len({r['pathway'] for r in allrows}):>9}"
           f"{len(allrows):>8}{ok/len(allrows):>10.4f}{macro_f1(allrows):>10.4f}")
+    # specs/025: cases whose entity is not in this Reactome release (or whose
+    # gene name matches nothing) cannot measure the generator or the solver.
+    # They stay in the rows above; these rows leave them out.
+    if any(r.get("exclusion") for r in allrows):
+        for g, rows in groups.items():
+            kept = [r for r in rows if not r.get("exclusion")]
+            if kept:
+                ok = sum(1 for r in kept if r["predicted"] == r["expected"])
+                label = g.split(" (")[0] + ", in release"
+                print(f"{label:<26}{len({r['pathway'] for r in kept}):>9}{len(kept):>8}"
+                      f"{ok/len(kept):>10.4f}{macro_f1(kept):>10.4f}")
+        kept = [r for r in allrows if not r.get("exclusion")]
+        ok = sum(1 for r in kept if r["predicted"] == r["expected"])
+        print(f"{'(all), in release':<26}{len({r['pathway'] for r in kept}):>9}{len(kept):>8}"
+              f"{ok/len(kept):>10.4f}{macro_f1(kept):>10.4f}")
+        print("excluded:", dict(Counter(r["exclusion"] for r in allrows if r.get("exclusion"))))
 
 
 def main(argv=None) -> int:

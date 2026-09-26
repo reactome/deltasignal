@@ -81,8 +81,15 @@ def test_an_entity_produced_from_outside_is_not_a_recycled_root():
 
 
 def test_derived_in_edges_do_not_disqualify():
-    inc, fwd = _graph([("C", "E", "dissociation"), ("K", "E", "depletion")])
+    inc, fwd = _graph([("C", "E", "dissociation"), ("K", "E", "depletion"), ("E", "R", "input")])
     assert recycled_root_occurrences(["E"], {"E"}, inc, fwd) == ["E"]
+
+
+def test_a_dissociation_sink_is_never_a_root():
+    # Review of PR #73: a sink fed only by dissociation, with no out-edges,
+    # was pinned -- the case looked scored while the perturbation reached nothing.
+    inc, fwd = _graph([("C", "SINK", "dissociation"), ("X", "C", "input")])
+    assert recycled_root_occurrences(["SINK"], {"SINK"}, inc, fwd) == []
 
 
 def test_complex_only_gene_pins_the_cycle_pool():

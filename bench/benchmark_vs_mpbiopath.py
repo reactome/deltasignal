@@ -95,6 +95,17 @@ SKIP_EDGE_TYPES = {t.strip() for t in os.environ.get("DS_SKIP_EDGE_TYPES", "").s
 # reaction's regulators to every variant, so knocking CREBBP down removed
 # CREBBP:NS1 from the EP300 variant too and de-repressed it 10x.
 #   off (default) | member_only
+# Gene names misspelled in the curator files, corrected only where the intended
+# gene is unambiguous: it is in that pathway in Reactome and is the only close
+# match (specs/025). Applied when RESOLVING the gene; case keys keep the name
+# the file uses. CACNAD1 and IQGAP are ambiguous and are left alone (their
+# cases are excluded as unresolvable instead).
+GENE_NAME_CORRECTIONS = {
+    ("Caspase_activation_via_Dependence_Receptors_in_the_absence_of_ligand", "CAP9"): "CASP9",
+    ("DNA_Double-Strand_Break_Repair", "PRKDC1"): "PRKDC",
+    ("Mitotic_G2-G2_M_phases", "FOXM"): "FOXM1",
+    ("Signaling_by_NOTCH1", "FBX7"): "FBXW7",
+}
 SIBLING_REGULATORS = os.environ.get("DS_SIBLING_REGULATORS", "off")
 if SIBLING_REGULATORS not in ("off", "member_only"):
     raise SystemExit(f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS!r} must be 'off' or 'member_only'")
@@ -177,6 +188,81 @@ def classify(ui_value: float) -> int:
     return NORMAL
 
 
+def release_skew_reason(pathway_id, pathway_name, gene, gene_uuids, gene_to_stids,
+                        ko, ko_uuids, dbid_to_stid, cache) -> str:
+    """Why an unscorable case cannot measure the generator or the solver
+    (specs/025, Adam: leave such tests out of the stats). '' means the case
+    is kept -- it fails for a reason that is ours, or Reactome's, to fix.
+
+      gene_name_unresolved   the curator file's gene name matches no gene in
+                             Reactome (an uncorrected misspelling)
+      gene_not_in_pathway    the gene is not in this pathway in this release
+      readout_not_in_release the readout's dbId no longer exists
+      readout_not_in_pathway the readout exists but is not in this pathway
+    """
+    if not gene_uuids:
+        if not gene_to_stids.get(gene):
+            return "gene_name_unresolved"
+        if not pathway_gene_names(pathway_id, cache) & {GENE_NAME_CORRECTIONS.get((pathway_name, gene), gene)}:
+            return "gene_not_in_pathway"
+    if not ko_uuids:
+        sid = dbid_to_stid.get(str(ko))
+        if sid is None and not neo4j_dbid_exists(ko, cache):
+            return "readout_not_in_release"
+        if sid is not None and sid not in pathway_participants(pathway_id, cache):
+            return "readout_not_in_pathway"
+    return ""
+
+
+def _pathway_stid(pathway_id: str) -> str:
+    return pathway_id if pathway_id.startswith("R-") else f"R-HSA-{pathway_id}"
+
+
+_PARTICIPANT_PATH = ("[:input|output|catalystActivity|physicalEntity|regulatedBy|regulator"
+                     "|hasComponent|hasMember|hasCandidate*1..6]")
+
+
+def pathway_gene_names(pathway_id: str, cache: dict) -> set:
+    key = ("genes", pathway_id)
+    if key not in cache:
+        from py2neo import Graph
+        g = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        rows = g.run(
+            f"MATCH (:Pathway {{stId:$p}})-[:hasEvent*]->(:ReactionLikeEvent)-{_PARTICIPANT_PATH}"
+            "->(:PhysicalEntity)-[:referenceEntity]->(re:ReferenceEntity) "
+            "UNWIND re.geneName AS gn RETURN collect(DISTINCT gn) AS genes",
+            p=_pathway_stid(pathway_id)).data()
+        cache[key] = set(rows[0]["genes"]) if rows else set()
+    return cache[key]
+
+
+def pathway_participants(pathway_id: str, cache: dict) -> set:
+    key = ("participants", pathway_id)
+    if key not in cache:
+        from py2neo import Graph
+        g = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        rows = g.run(
+            f"MATCH (:Pathway {{stId:$p}})-[:hasEvent*]->(:ReactionLikeEvent)-{_PARTICIPANT_PATH}"
+            "->(pe:PhysicalEntity) RETURN collect(DISTINCT pe.stId) AS s",
+            p=_pathway_stid(pathway_id)).data()
+        cache[key] = set(rows[0]["s"]) if rows else set()
+    return cache[key]
+
+
+def neo4j_dbid_exists(dbid, cache: dict) -> bool:
+    key = ("dbid", str(dbid))
+    if key not in cache:
+        from py2neo import Graph
+        g = Graph(NEO4J_URL, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        try:
+            n = int(dbid)
+        except (TypeError, ValueError):
+            cache[key] = False
+            return False
+        cache[key] = bool(g.run("MATCH (x {dbId:$d}) RETURN count(x) AS c", d=n).data()[0]["c"])
+    return cache[key]
+
+
 def apply_catalog_ids(pathways: list, catalog_list: Path) -> list:
     """Take each pathway's id from bench/catalog_pathways.tsv, the list the
     catalog is built from, instead of MP-BioPath's pathway_list.tsv. They must
@@ -185,6 +271,8 @@ def apply_catalog_ids(pathways: list, catalog_list: Path) -> list:
     catalog corrected and this unchanged, the benchmark looked for 447115,
     found no network, and silently dropped all 260 IL-2 family cases."""
     if not catalog_list.exists():
+        print(f"  WARNING: {catalog_list} not found; using MP-BioPath's pathway ids as given",
+              flush=True)
         return pathways
     ids = {}
     for line in open(catalog_list):
@@ -194,6 +282,8 @@ def apply_catalog_ids(pathways: list, catalog_list: Path) -> list:
         ids[name] = sid.rsplit("-", 1)[-1]
     out = []
     for pid, name in pathways:
+        if name not in ids:
+            print(f"  WARNING: {name} is not in {catalog_list.name}; keeping id {pid}", flush=True)
         new = ids.get(name, pid)
         if new != pid:
             print(f"  [id] {name}: {pid} -> {new} (from {catalog_list.name})", flush=True)
@@ -289,9 +379,10 @@ DERIVED_IN_EDGES = {"depletion", "dissociation"}
 
 
 def recycled_root_occurrences(uuids: list, own_uuids: set, inc: Mapping, fwd: Mapping) -> list:
-    """specs/024. For a gene with NO true root: the resolved nodes fed only by
-    their own downstream (a catalytic cycle regenerating them) or by derived
-    dissociation/depletion edges. The gene's own entity nodes are preferred;
+    """specs/024. For a gene with NO true root: the resolved nodes, with at
+    least one out-edge, whose every producer is downstream of them (in their
+    own strongly connected component, e.g. a catalytic cycle regenerating an
+    enzyme) or reaches them only by a derived dissociation/depletion edge. The gene's own entity nodes are preferred;
     otherwise the qualifying complexes that are not downstream of another
     qualifying one (or, if they all regenerate each other, the whole cycle's
     pool). `inc[u]` is [(source, edge_type)], `fwd[u]` is [target]."""
@@ -310,6 +401,12 @@ def recycled_root_occurrences(uuids: list, own_uuids: set, inc: Mapping, fwd: Ma
         return cache[u]
 
     def fed_only_by_itself(u):
+        # A node with no out-edges (a dissociation sink) cannot carry a
+        # perturbation anywhere, so it is never a root: pinning it made the case
+        # look scored while nothing moved (review of PR #73: 7 perturbations,
+        # 66 cases pinned only such sinks).
+        if not fwd.get(u):
+            return False
         return all(et in DERIVED_IN_EDGES or s in reach(u) for s, et in inc.get(u, ()))
 
     uniq = list(dict.fromkeys(uuids))
@@ -455,6 +552,8 @@ def sibling_regulator_pairs(pathway_dir: Path) -> set:
         if not sibs:
             continue
         mine = in_leaves[t_]
+        if not mine:
+            continue            # no inputs to compare against: leave it alone
         common = set.intersection(mine, *(in_leaves[v] for v in sibs))
         own_specific = mine - common
         sib_specific = set().union(*(in_leaves[v] for v in sibs)) - mine
@@ -697,7 +796,9 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     if gene_to_stids_cache is not None and pathway_name in gene_to_stids_cache:
         gene_to_stids = gene_to_stids_cache[pathway_name]
     else:
-        gene_to_stids = neo4j_gene_to_stids(gene_names)
+        lookup = {g: GENE_NAME_CORRECTIONS.get((pathway_name, g), g) for g in gene_names}
+        found = neo4j_gene_to_stids(sorted(set(lookup.values())))
+        gene_to_stids = {g: found.get(lookup[g], []) for g in gene_names}
         if gene_to_stids_cache is not None:
             gene_to_stids_cache[pathway_name] = gene_to_stids
 
@@ -864,6 +965,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     failure_categories = Counter()
     adj = build_adjacency(pathway_dir)
     reachable_cache: dict = {}
+    skew_cache: dict = {}
 
     # One solve per (gene, direction). Cache the result then read every
     # key_output for that perturbation.
@@ -881,6 +983,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                 return {"status": "solve_error", "name": pathway_name,
                         "error": ds_result.get("message")}
 
+        if ds_result and str(ds_result.get("self_inhibitor_rule", "")).startswith("inert"):
+            raise SystemExit(f"{pathway_name}: the solve reports self_inhibitor_rule="
+                             f"{ds_result['self_inhibitor_rule']!r} -- the network reached the solver "
+                             "without its containment table, so this is not the default model.")
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
         for r in rows:
@@ -931,6 +1037,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
 
             total += 1
             is_valid = bool(uuids) and bool(ko_uuids)
+            excl = "" if is_valid else release_skew_reason(
+                pathway_id, pathway_name, gene, uuids, gene_to_stids, ko, ko_uuids, dbid_to_stid, skew_cache)
             if is_valid:
                 valid_total += 1
             if predicted == expected:
@@ -947,7 +1055,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                 failure_categories[cat] += 1
             case_log.append((gene, direction, ko, predicted, expected, is_valid,
                              len(uuids), len(ko_uuids), cat, pred_ui,
-                             "|".join(sorted(set(uuids))), "|".join(sorted(set(ko_uuids)))))
+                             "|".join(sorted(set(uuids))), "|".join(sorted(set(ko_uuids))), excl))
 
     return {
         "status": "ok",
@@ -1175,14 +1283,14 @@ def main():
                     # The uuids actually pinned and read, so a failure can be
                     # classified on the network without re-deriving resolution
                     # (bench/analysis/case_cyclicity.py expects these).
-                    "gene_uuids\toutput_uuids\n")
+                    "gene_uuids\toutput_uuids\texclusion\n")
             for r in results:
                 if r["status"] != "ok":
                     continue
                 for (gene, direction, ko, pred, exp, valid,
-                     ng, nk, cat, pred_ui, gus, kus) in r.get("case_log", []):
+                     ng, nk, cat, pred_ui, gus, kus, excl) in r.get("case_log", []):
                     f.write(f"{r['name']}\t{gene}\t{direction}\t{ko}\t{pred}\t{exp}\t"
-                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\t{gus}\t{kus}\n")
+                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\t{gus}\t{kus}\t{excl}\n")
         print(f"Per-case dump: {args.dump_cases}")
 
 

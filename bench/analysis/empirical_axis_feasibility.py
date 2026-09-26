@@ -100,7 +100,8 @@ def load_pathway_ids(path: str) -> dict[str, str]:
     """pathway benchmark name -> R-HSA id, from the generator pathway list."""
     out: dict[str, str] = {}
     with open(path, newline="") as fh:
-        for r in csv.DictReader(fh, delimiter="\t"):
+        # catalog_pathways.tsv carries '#' comment lines above its header.
+        for r in csv.DictReader((ln for ln in fh if not ln.startswith("#")), delimiter="\t"):
             pid = str(r.get("id", "")).strip()
             nm = str(r.get("pathway_name", "")).strip()
             if pid and nm:

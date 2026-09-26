@@ -233,6 +233,16 @@ def name_to_id_map(pathway_list: Path) -> dict[str, str]:
     with pathway_list.open(newline="") as fh:
         for r in csv.DictReader(fh, delimiter="\t"):
             raw[r["pathway_name"]] = r["pathway_id"]
+    # The catalog is built from bench/catalog_pathways.tsv, and its ids win:
+    # MP-BioPath's list gives Interleukin-2_family_signaling as 447115, which
+    # is Interleukin-12 family signaling (specs/024).
+    catalog = Path(__file__).resolve().parents[1] / "catalog_pathways.tsv"
+    if catalog.exists():
+        for line in catalog.open():
+            if line.startswith("#") or line.startswith("id\t") or not line.strip():
+                continue
+            sid, name = line.rstrip("\n").split("\t")
+            raw[name] = sid.rsplit("-", 1)[-1]
     norm = {k.replace(",", "").rstrip("_"): v for k, v in raw.items()}
 
     def lookup(name: str) -> str | None:

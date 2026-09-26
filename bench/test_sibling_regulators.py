@@ -45,3 +45,12 @@ def test_a_reaction_without_variants_is_untouched(tmp_path):
     (tmp_path / "logic_network.csv").write_text(
         "source_id,target_id,pos_neg,and_or,edge_type\na,r,pos,and,input\nc,r,neg,or,regulator\n")
     assert sibling_regulator_pairs(tmp_path) == set()
+
+
+def test_a_variant_with_no_inputs_is_left_alone(tmp_path):
+    _write(tmp_path)
+    # add a third variant of R-R1 with no inputs; its regulators must stay
+    (tmp_path / "nodes.csv").write_text((tmp_path / "nodes.csv").read_text() + "vc,reaction,R-R1,,,,\n")
+    (tmp_path / "logic_network.csv").write_text(
+        (tmp_path / "logic_network.csv").read_text() + "ns1c,vc,neg,or,regulator\n")
+    assert ("ns1c", "vc") not in sibling_regulator_pairs(tmp_path)
