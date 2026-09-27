@@ -93,6 +93,11 @@ function solve_steady_state(
     mode = cofactor_mode()
     cofactors = mode == "inert" ? cofactor_uuids(network) : Set{String}()
 
+    # specs/035: loop participants released unchanged by their loop, held at
+    # baseline like cofactors. Resolved on the network as given (before bridges).
+    cmode = conserved_mode()
+    conserved = cmode == "inert" ? conserved_uuids(network) : Set{String}()
+
     # Whether to traverse a positional-decomposition silo is a PROCESSING
     # decision, like the one above: the generator faithfully records that a
     # curated entity occurs in two places, and this decides whether a signal
@@ -137,6 +142,18 @@ function solve_steady_state(
             for u in cofactors if !haskey(observations, u))
         observations = merge(observations, pins)
     end
+    conserved_held = 0
+    if !isempty(conserved)
+        # An observation that PINS wins (a perturbed GAP such as NF1 stays
+        # perturbed); one the confidence gate would discard does not.
+        cpins = Dict{String, Tuple{Float64, Float64}}(
+            u => (network.nodes[u].baseline * 100.0, 1.0)
+            for u in conserved
+            if haskey(network.nodes, u) &&
+               !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
+        conserved_held = length(cpins)
+        observations = merge(observations, cpins)
+    end
 
     # Initial guess: use observations where available, baseline elsewhere
     x0 = Dict{String, Float64}()
@@ -175,6 +192,8 @@ function solve_steady_state(
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
+    result.diagnostics["conserved_rule"] = cmode
+    result.diagnostics["conserved_held"] = conserved_held
     return result
 end
 

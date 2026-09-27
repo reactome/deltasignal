@@ -1044,6 +1044,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         if ds_result:
             SOLVE_TALLY["solves"] += 1
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
+            SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["conserved_held"] += int(ds_result.get("conserved_held") or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
         for r in rows:
@@ -1330,6 +1332,10 @@ def main():
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
     print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
+    crules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("conserved_rule="))
+    print(f"\nConserved: rule {'/'.join(crules) or 'unknown'}, {SOLVE_TALLY['conserved_held']} node-solves held (specs/035)")
+    if "inert" in crules and SOLVE_TALLY["conserved_held"] == 0:
+        raise SystemExit("DS_CONSERVED_MODE=inert but no solve held a conserved node; the arm is the control.")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
           f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")

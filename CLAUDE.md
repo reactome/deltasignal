@@ -332,6 +332,11 @@ env vars only override for benchmark sweeps:
   `containment.csv`; the solve reports `self_inhibitor_rule` (on / off /
   inert) and how many inhibitor slots were flagged. Measured numbers are in
   specs/023. specs/022 has the rule; specs/023 has the adoption.
+- `DS_CONSERVED_MODE=off` (default) | `inert` (specs/035): a loop input released
+  UNCHANGED by its own loop (every producer consumes a complex containing it:
+  RAS GAPs, scaffold partners, F-actin) is held at baseline like a cofactor.
+  Signal carriers transformed inside the loop are not touched. The solve reports
+  `conserved_rule` and `conserved_held`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -426,7 +431,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Thirteen files contain assertions; the
+**Most of the test suite cannot fail.** Fourteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -439,6 +444,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
+| `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

@@ -836,6 +836,9 @@ function solve_handler(req)
             # specs/022 (additive): inhibitor slots damped as self-contained.
             "self_inhibitors" => get(solver_result.diagnostics, "self_inhibitors", 0),
             "self_inhibitor_rule" => get(solver_result.diagnostics, "self_inhibitor_rule", "unknown"),
+            # specs/035 (additive): "off" or "inert", and how many nodes were held.
+            "conserved_rule" => get(solver_result.diagnostics, "conserved_rule", "unknown"),
+            "conserved_held" => get(solver_result.diagnostics, "conserved_held", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),
