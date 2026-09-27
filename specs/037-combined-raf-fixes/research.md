@@ -107,3 +107,48 @@ unused.
    - cap pools are minted per reaction copy, not shared;
    - pool `member_leaves` in `nodes.csv` lists every leaf of the set;
    - de-duplication does not see through a pool.
+
+## Result — NOT ADOPTED (2026-09-27)
+
+**Setup:**
+- Control: `20260927-0833_bddfe78_ctrl037`, a fresh regeneration with pools off.
+  Its structure matches the canonical build exactly (72,025 nodes, 225,147
+  edges).
+- Pooled build: `20260927-0845_bddfe78_comb037` (72,348 nodes, 214,234 edges).
+- All arms at solver 6f261e2.
+
+| arm | curator held-out | curator tuning | experimental (all) | experimental excl. RAF | RAF experimental |
+|---|---|---|---|---|---|
+| control | — | — | — | 555 / 796 | 14 / 49 |
+| **combined** (pools + drugs + dedup, `mean`) | **−162** (53/215, p = 2.6e-24) | −106 | −3 | **−12** | 23 / 49 |
+| pools only (`mean`) | −35 (p = 6.9e-7) | −29 | +6 | −2 | 22 / 49 |
+| pools + drugs | −4 (p = 0.74) | −36 | +7 | −2 | 23 / 49 |
+| pools + dedup | −193 (p = 1.7e-40) | −104 | −6 | −12 | 20 / 49 |
+
+**Gates for `combined`:**
+- experimental excluding RAF ≥ +15: it is −12, **FAIL**;
+- held-out: −162, **FAIL**;
+- no pathway below −10: **FAIL** (IFN α/β −112, TP53 −80, IFN-γ −34, PIP3 −28).
+
+**Not adopted.**
+
+**What the attribution says:**
+- **De-duplication is the damage.** pools + dedup reproduces the combined
+  losses: IFN α/β −112, TP53 −80, IFN-γ −34, PIP3 −28. That confirms and enlarges
+  specs/012's negative (−15 there). Squaring catalyst-and-substrate is
+  load-bearing on these networks, even though it amplifies RAF's loop.
+- **Pools with `mean`** cost held-out −35 (DSB −13, NOTCH1 −7, TP53 −37 tuning).
+  They move RAF 14 → 22.
+- **Pools + drugs** are neutral on held-out (−4) and experimental (+7; −2
+  excluding RAF), with the specs/032 held-out gains (MET +11, ROCKs +8, VEGF +6,
+  KIT +6) offset by the pool losses.
+- **RAF gains in every pooled arm (14 → 20–23 of 49).** The cap pools partly
+  fix the traced case, but nothing generalises beyond RAF on the experimental
+  axis.
+
+**Record:**
+- The generator's cap pools stay behind `LNG_CAP_POOLS` (default off). They are
+  correct, and they fix the structural defect (RAF's binding reaction has its 4
+  curated inputs), but they are not adoptable on accuracy with `mean`.
+- A `product`-mode cap-pool arm was not run. With cap pools under `product`, the
+  pool re-creates an AND over alternatives, which is the defect itself.
