@@ -194,7 +194,9 @@ function create_reaction_from_edges(
             push!(activator_is_assembly, edge.edge_type in ("assembly", "composition"))
             # Group composition inputs by the source's base stable id, so node
             # copies of one entity can be aggregated as alternatives.
-            g = 0
+            # specs/033: a `set_member` edge feeds a set POOL node; -1 marks it
+            # (composition groups are > 0, ordinary inputs 0).
+            g = edge.edge_type == "set_member" ? -1 : 0
             if edge.edge_type == "composition"
                 node = get(network.nodes, edge.parent_uuid, nothing)
                 rid = node === nothing ? nothing : node.reactome_id
@@ -261,7 +263,8 @@ function create_reaction_from_edges(
                 # composition. `max` let the group id (read as "is composition"
                 # under DS_COMPOSITION_MODE=limit*) delete the input role and turn
                 # a 4x input into a <=1 limiter.
-                d_grp[j] = (d_grp[j] > 0 && activator_group[k] > 0) ? max(d_grp[j], activator_group[k]) : 0
+                d_grp[j] = (d_grp[j] > 0 && activator_group[k] > 0) ? max(d_grp[j], activator_group[k]) :
+                           (d_grp[j] == -1 && activator_group[k] == -1) ? -1 : 0
             end
         end
         activators, activator_is_and = d_act, d_and
@@ -951,6 +954,7 @@ struct ReactionEvalConfig
     depletion_own_product::String
     self_inhibitor_weight::Float64   # < 0 = off. Default 0.1. specs/022.
     loop_gain::Float64               # 1.0 = off. specs/028.
+    set_pool_mode::String            # specs/033: how a set pool combines its members.
 end
 
 """
@@ -976,6 +980,8 @@ explicitly so that selecting it stays deliberate):
 - `DS_COMPOSITION_MODE`: `assembly` is the `else` (composition edges join the
   assembly-limiting AND cluster); `limit` makes them a pure limiter.
 - `DS_INHIBITOR_FLOOR_SCOPE`: `none` is the `else` (no floor applied).
+- `DS_SET_POOL_MODE` (specs/033): `mean` is the existing OR rule, so it takes
+  no special branch; the other three combine a set pool's member folds.
 """
 const DS_VALID_MODES = Dict(
     "DS_INHIBITION_MODE" => Set([
@@ -991,6 +997,7 @@ const DS_VALID_MODES = Dict(
     "DS_COMPOSITION_MODE"      => Set(["assembly", "limit", "limit_novel"]),
     "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only"]),
     "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
+    "DS_SET_POOL_MODE"         => Set(["product", "extreme", "geomean", "mean"]),
 )
 
 const DS_BREAK_ROLES = Set(["catalyst", "assembly", "depletion"])
@@ -1315,6 +1322,7 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # Adam: a loop without inhibitors should still amplify, so this is
         # meant to be tiny (g close to 1). 1.0 = off, byte-identical.
         _loop_gain_env(),
+        _mode_env("DS_SET_POOL_MODE", "product"),
     )
     if cfg.loop_gain < 1.0 && cfg.loop_elasticity < 1.0
         throw(ArgumentError("DS_LOOP_GAIN and DS_LOOP_ELASTICITY are two ways to pull a loop " *
@@ -1385,6 +1393,48 @@ function _loop_elasticity_env()::Float64
         ))
     end
     eps
+end
+
+"""
+    set_pool_value(vals, bl, mode)
+
+Value of a set pool node (specs/033) from its members' values `vals`, baseline
+`bl`, on the internal 0-1 scale (so the cap is 1.0, i.e. 100x):
+
+- `product`: the product of member folds, as the AND of the members it replaces;
+- `extreme`: the member fold furthest from 1 in log space (a knocked-out member
+  wins outright; a tie goes to the lower fold, so a knockout beats an equal
+  rise);
+- `geomean`: the geometric mean of member folds (0 if any member is 0).
+"""
+function set_pool_value(vals::AbstractVector{T}, bl::T, mode::String) where {T<:Real}
+    bl > zero(T) || return zero(T)
+    if mode == "product"
+        f = one(T)
+        for v in vals
+            f *= max(v, zero(T)) / bl
+            f == zero(T) && break
+        end
+        return clamp(bl * f, zero(T), one(T))
+    elseif mode == "extreme"
+        best = one(T); dev = T(-1)
+        for v in vals
+            fv = max(v, zero(T)) / bl
+            d = fv <= zero(T) ? T(Inf) : abs(log(fv))
+            if d > dev || (d == dev && fv < best)
+                best, dev = fv, d
+            end
+        end
+        return clamp(bl * best, zero(T), one(T))
+    elseif mode == "geomean"
+        s = zero(T)
+        for v in vals
+            v <= zero(T) && return zero(T)
+            s += log(v / bl)
+        end
+        return clamp(bl * exp(s / length(vals)), zero(T), one(T))
+    end
+    throw(ArgumentError("set_pool_value: unknown mode $(repr(mode))"))
 end
 
 """
@@ -1526,6 +1576,16 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         else
             push!(or_vals, transformed)
         end
+    end
+
+    # specs/033: a set POOL node (every input a `set_member` edge) is one
+    # curated participant, "any one of these members". Its members arrive as
+    # OR inputs, so `mean` is the existing OR rule; the other modes combine the
+    # member folds here and return the pool directly.
+    if config.set_pool_mode != "mean" && !isempty(rxn.activator_group) &&
+       isempty(rxn.inhibitor_indices) && isempty(rxn.depletion_indices) &&
+       all(==(-1), rxn.activator_group) && length(or_vals) == length(rxn.activator_group)
+        return set_pool_value(or_vals, bl, config.set_pool_mode)
     end
 
     # Inject the assembled-complex limiting value as a single AND input, so it

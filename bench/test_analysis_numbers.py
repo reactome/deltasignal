@@ -438,3 +438,18 @@ class TestCuratorOracleGraph:
         pruned2 = self.co.drop_carriers(adj, lambda n: n.startswith("R-HSA-") and n != "R-HSA-rx2")
         assert "R-HSA-B" not in self.co.signed_reach(pruned2, "R-HSA-A")
 
+
+
+def test_set_pool_nodes_are_not_readouts_or_pin_targets(tmp_path):
+    # specs/033: indexing a pool under its set id and member leaves would move
+    # set-valued readouts onto the pool and add it to member readouts.
+    (tmp_path / "nodes.csv").write_text(
+        "uuid,node_kind,diagram_entity_id,compartment,member_leaves,source_sets,chosen_members\n"
+        "u-a,simple_entity,R-HSA-A,,R-HSA-A,,\n"
+        "u-pool,set_pool,R-HSA-SET,,R-HSA-A|R-HSA-B,,\n")
+    m = bench.load_stid_to_uuids(tmp_path)
+    assert m["R-HSA-A"] == ["u-a"]
+    assert "R-HSA-SET" not in m and "R-HSA-B" not in m
+    import benchmark_mpbiopath_cases as cases
+    d = cases.load_dbid_to_uuids(tmp_path)
+    assert all("u-pool" not in v for v in d.values())

@@ -330,6 +330,14 @@ def load_stid_to_uuids(pathway_dir: Path):
         seen = set()
         with open(nodes_csv) as f:
             for row in csv.DictReader(f):
+                # specs/033: a set POOL node is the set as one catalyst/regulator,
+                # not a readout or a pin target. Indexed, it would capture set-
+                # valued readouts (p-ERK dimers, p-AKT) and join the mean of every
+                # member readout, changing what is MEASURED rather than the model
+                # (review of the set-pool change). Readouts and pins stay as in
+                # an unpooled build.
+                if (row.get("node_kind") or "") == "set_pool":
+                    continue
                 uuid = str(row["uuid"])
                 keys = set()
                 de = (row.get("diagram_entity_id") or "").strip()
