@@ -157,6 +157,7 @@ for gt in ("curator", "experimental"):
         m = re.search(r"^Pinned: .*$", text, re.M); rec[f"{gt}_pinned"] = m.group(0) if m else None
         m = re.search(r"^Converged: .*$", text, re.M); rec[f"{gt}_converged"] = m.group(0) if m else None
         m = re.search(r"^Drugs: .*$", text, re.M); rec[f"{gt}_drugs"] = m.group(0) if m else None
+        m = re.search(r"^Conserved: .*$", text, re.M); rec[f"{gt}_conserved"] = m.group(0) if m else None
 json.dump(rec, open(os.path.join(out, "ARM.json"), "w"), indent=2)
 print(json.dumps(rec, indent=2))
 PY

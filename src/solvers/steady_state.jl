@@ -99,6 +99,10 @@ function solve_steady_state(
     drugs = dmode == "inert" ? drug_uuids(network) : Set{String}()
     drug_rule = dmode == "propagate" ? "propagate" :
                 network.drug_stids === nothing ? "inert: no drug table" : "inert"
+    # specs/035: loop participants released unchanged by their loop, held at
+    # baseline like cofactors. Resolved on the network as given (before bridges).
+    cmode = conserved_mode()
+    conserved = cmode == "inert" ? conserved_uuids(network) : Set{String}()
 
     # Whether to traverse a positional-decomposition silo is a PROCESSING
     # decision, like the one above: the generator faithfully records that a
@@ -158,6 +162,18 @@ function solve_steady_state(
         drugs_held = length(dpins)
         observations = merge(observations, dpins)
     end
+    conserved_held = 0
+    if !isempty(conserved)
+        # An observation that PINS wins (a perturbed GAP such as NF1 stays
+        # perturbed); one the confidence gate would discard does not.
+        cpins = Dict{String, Tuple{Float64, Float64}}(
+            u => (network.nodes[u].baseline * 100.0, 1.0)
+            for u in conserved
+            if haskey(network.nodes, u) &&
+               !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
+        conserved_held = length(cpins)
+        observations = merge(observations, cpins)
+    end
 
     # Initial guess: use observations where available, baseline elsewhere
     x0 = Dict{String, Float64}()
@@ -198,6 +214,8 @@ function solve_steady_state(
     result.diagnostics["self_inhibitor_rule"] = self_rule
     result.diagnostics["drug_rule"] = drug_rule
     result.diagnostics["drugs_held"] = drugs_held
+    result.diagnostics["conserved_rule"] = cmode
+    result.diagnostics["conserved_held"] = conserved_held
     return result
 end
 

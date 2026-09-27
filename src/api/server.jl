@@ -848,6 +848,9 @@ function solve_handler(req)
             # specs/032 (additive): "propagate", "inert", or "inert: no drug table".
             "drug_rule" => get(solver_result.diagnostics, "drug_rule", "unknown"),
             "drugs_held" => get(solver_result.diagnostics, "drugs_held", 0),
+            # specs/035 (additive): "off" or "inert", and how many nodes were held.
+            "conserved_rule" => get(solver_result.diagnostics, "conserved_rule", "unknown"),
+            "conserved_held" => get(solver_result.diagnostics, "conserved_held", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),
