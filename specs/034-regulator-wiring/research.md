@@ -179,3 +179,57 @@ only on RAF's experimental cases, where the loop in §6 dominates.
 D1 is the largest and the most structural. D2 and D3 are small, principled and
 independent. Each is to be pre-registered and measured on its own before any
 combination.
+
+## 8. RAF traced by iteration (2026-09-27)
+
+HRAS up (80x) on the canonical build. The solve was snapshotted at iteration
+budgets 1, 2, 3, 5, 10, 20, 50 and 535. Fixed-point iteration is deterministic
+within a process, so each budget continues the same trajectory.
+
+| iteration | RAS:GTP:RAF complex (input) | activated RAF:scaffold:MAP2K:MAPK | 128-node component below 0.5x |
+|---|---|---|---|
+| 2 | 1.04x | **0.98x** | 0 |
+| 3 | 1.16x | 0.92x | 0 |
+| 5 | 1.57x | 0.60x | 4 |
+| 10 | 3.76x | 0.04x | 115 |
+| 20 | 100x | 6e-5 | 127 |
+
+**The up-signal turns into a down-signal at the step that forms the activated
+scaffold complex.** That step is "MAP2Ks and MAPKs bind to the activated RAF
+complex" (R-HSA-5672972). At iteration 3:
+
+- **The push:** negative regulator R-HSA-5675413, p21 RAS:GTP:activated RAF1
+  homo/heterodimer:PEBP1 (RKIP), rises with RAS (1.154x). It contains the
+  reaction's own input, the self-contained shape of specs/022.
+- **The amplifier:** in our network the reaction has **27 AND inputs**, about 20
+  of them recycled from the downstream "Dissociation of RAS:RAF complex" (each
+  0.994x). Their product is 0.994^20 ≈ 0.89 per pass: a loop gain of about 20
+  on any step down, so it collapses instead of settling.
+
+**Reactome curates this reaction with 4 inputs:**
+- p21 RAS:GTP:activated RAF;
+- MAPKs (a DefinedSet of 2);
+- MAP2K homo/heterodimers (a DefinedSet of 3);
+- RAF/MAPK scaffolds (a **CandidateSet of 8**).
+
+That is at most 2 × 3 × 8 alternatives. The network has **one reaction node
+that requires every member of every set at once**, including the leaves of all
+8 scaffold candidates (F-actin, TLN1, VWF, fibrin, integrins, CNKSR1/2, KSR2,
+IQGAP1, ARRB1/2 …).
+
+**How common this is:**
+- Counted by leaves unique to each member (members sharing a subunit are not
+  counted twice), **194 reaction copies in 16 pathways** require at least 2
+  alternatives of one input set: DDX58/IFIH1 96, Class I MHC 33, Neurexins 13,
+  RAF 13, RET 12.
+- A looser count (any shared leaf) read 3,709. That count was an artefact of
+  shared subunits and is withdrawn.
+
+**Hypothesis under test:** the variant cap (`LNG_MAX_VARIANTS`, 512) bundles an
+over-cap reaction's alternatives into one node, which is an AND of all of them.
+RAF is being regenerated with the cap at 512 and at 10^6 to test it.
+
+**This also explains the three failed RAF fixes.** Drugs held inert, set
+pools, and conserved participants each removed a secondary term. None of them
+removed the ~20-way AND of alternatives that turns a small step down into a
+collapse.
