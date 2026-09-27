@@ -431,8 +431,9 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/033-set-pool-nodes/`, `specs/038-pool-max/` — one OR node per
   set-valued catalyst or regulator (`LNG_SET_POOL`), feeding the reaction once.
   Adoptable on faithfulness under `DS_SET_POOL_MODE=product`: held-out +6 / −2,
-  experimental +3 / +8 on two measurements. `max` (any member suffices) is
-  refuted (held-out −120, experimental −57), and `mean` loses too.
+  experimental +3 / +8 (the +8 concentrated in 4 perturbations) on two
+  measurements. `max` (any member suffices) is refuted (held-out −120,
+  experimental −57); `mean` does not gain.
 - `specs/034-regulator-wiring/` — inventory of how catalysts and regulators are
   wired; the RAF collapse traced by iteration; MP-BioPath's network and its
   1,800 hand edits compared with ours. UUIDs already resolve 86% of their

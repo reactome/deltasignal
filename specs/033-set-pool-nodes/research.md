@@ -220,3 +220,11 @@ CNKSR2 and Ca2+ as inputs, and in this component they are produced only by
 "Dissociation of RAS:RAF complex", downstream. The input is wired to the
 recycled, downstream copy. This is the same wrong-copy pattern as specs/030's
 joins, and it is traced next.
+
+## Note added at merge (2026-09-27)
+
+Under the hierarchy (specs/030), a root complex with a set component now joins
+the set's POOL node (one assembly edge: pool → complex) instead of the member
+leaves. So `DS_SET_POOL_MODE` also shapes that assembly. Under `product` the
+result is numerically close to the member join. It is included in every pooled
+build measured here and in specs/038.

@@ -1,6 +1,6 @@
 # specs/038 — Set-valued regulators and catalysts as one OR node, read as `max`
 
-**Status:** pre-registered 2026-09-27, before the build or any arm.
+**Status:** pre-registered 2026-09-27; result recorded below (same day).
 
 ## Why (Adam, 2026-09-27)
 
@@ -30,7 +30,7 @@ All at one solver commit, through `scripts/run_arm.sh`:
 
 | arm | build | settings |
 |---|---|---|
-| `ctrl037` | `20260927-0833_bddfe78_ctrl037` (the fresh control, pools off) | code defaults; already run at 6f261e2 and re-run at this commit |
+| `ctrl038` | `20260927-0833_bddfe78_ctrl037` (the fresh control, pools off) | code defaults, re-run at this commit |
 | `pmax` | a new build at LNG `bddfe78`, `LNG_SET_POOL=1`, `LNG_CAP_POOLS=0` | `DS_SET_POOL_MODE=max` |
 | `pprod` | the same build | `DS_SET_POOL_MODE=product` (the specs/033 reference) |
 
@@ -88,3 +88,28 @@ design) is **adoptable on faithfulness under `product`**, and neutral to
 slightly positive, as specs/033 found. The pool's math is the product of member
 folds: every member's change counts, which is what the ground truth rewards.
 The literal "any one fulfils it" reading (`max`) is refuted on both axes.
+
+**Scoring the pre-registered predictions:**
+- `max` loses single-member knockout cases: **yes**, and on both axes.
+- `pprod` reproduces specs/033's +6 / +10 / +3: **partly**. Here it is −2 / +45 / +8.
+  - Held-out and experimental are within the regeneration noise floor
+    (held-out ±15, experimental ±15).
+  - Tuning differs by 35. That is the TP53 uuid draw (+42 here), not pooling.
+
+**Review of the consolidated PRs** (added before merge):
+
+*Self-inhibitor flags.* A pool uuid maps to the set's stId, so
+`containment.csv` gains the set. This could have changed which inhibitors
+specs/022 flags. Measured with `self_inhibitor_setup` over every pathway:
+
+| build | flagged self-inhibitor slots |
+|---|---|
+| control | 1,215 |
+| pooled | 1,192 |
+
+Four pathways differ: RAF 9 → 0, DDX58/IFIH1 67 → 61, Cell junction
+organization 29 → 24, and R-HSA-450294 3 → 0. The effect is small, runs toward
+fewer flags, and is included in the `pprod` numbers above.
+
+*Edge case.* A pool that also receives a depletion edge falls out of the pool
+branch and back to the OR mean. None was found in the catalog.
