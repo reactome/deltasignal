@@ -60,3 +60,50 @@ evaluation set; `extreme` still collapsed there.
 - cyclic node count excluding pools;
 - the RAF iteration trace on the new build;
 - the paired gap against MP-BioPath's supplementary table.
+
+## Revision after review (2026-09-27, before any arm on the combined build)
+
+An adversarial review of both integration branches found a blocking generator
+bug and weaknesses in this pre-registration. The first combined build was
+stopped part-way, and `20260927-0821_d98d2f8_combined037` is incomplete and
+unused.
+
+**Generator (LNG 7c-series; see its commit):**
+- Cap pools fired in reactions the cap never touched: 410 pools in PIP3, which
+  has 0 cap hits. The miR-93 RISC input's four subunits were averaged, so a
+  miR-93 knockout read 0.75x instead of 0.
+- Now:
+  - pooling happens only in capped reactions;
+  - leaves are grouped by alternative, a complex alternative is an AND unit, and
+    a pool needs at least 2 alternatives;
+  - shared leaves stay direct;
+  - the curated stoichiometry is kept;
+  - depletion onto a pool is retargeted to its members.
+- Verified by regeneration: RAF's binding reaction has its 4 curated inputs,
+  and PIP3 has no input pools (its 11 pools are the specs/033 catalyst and
+  regulator pools).
+
+**Pre-registration, revised:**
+1. **Control is a fresh regeneration**, not the canonical build. It is built
+   from the same LNG commit with `LNG_SET_POOL=0` and `LNG_CAP_POOLS=0`. `base`
+   and `combined` were otherwise different uuid draws, and the gates sit at the
+   regeneration noise floor.
+2. **The experimental gate excludes RAF.** `mean` and dedup were chosen from
+   the RAF HRAS trace, and RAF is an experimental pathway, so gating on it would
+   select on the evaluation set. The gate is experimental net ≥ +15, p < 0.05,
+   **excluding RAF/MAP kinase**. RAF is reported separately as the traced case.
+3. **Concentration gate:** the curator held-out gain or loss, and the
+   experimental gain, must span at least 2 pathways and at least 5 distinct
+   perturbations. Otherwise McNemar is not valid and the result is reported as
+   such.
+4. **The tuning pathways are gated too:** no pathway, held-out or tuning, may
+   lose more than 10 cases. PIP3 (specs/035's failure) is covered.
+5. Corrections to the table above:
+   - the specs/033 +6 / +3 was measured under `product`, not `mean`, so it does
+     not carry over;
+   - this spec replaces specs/036's plan (its `cap_*` arms and its choice of
+     mode on the tuning split) with `mean` fixed in advance.
+6. **Known limitations, stated:**
+   - cap pools are minted per reaction copy, not shared;
+   - pool `member_leaves` in `nodes.csv` lists every leaf of the set;
+   - de-duplication does not see through a pool.
