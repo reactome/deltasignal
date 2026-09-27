@@ -363,3 +363,46 @@ this ratio. **A ratio-based treatment of interconversion cycles is the
 untested candidate.** It needs a design pass (identifying interconversion
 cycles and their opposing catalysts from the curated reactions) before any
 pre-registration.
+
+## 12. The 219 negative edges MP-BioPath added (2026-09-27)
+
+Adam: do the work first; the curators can then be asked what was done and
+whether it can be replicated automatically in the new networks.
+
+**Patterns** (by the schema classes of source and target, from Neo4j):
+
+| pattern | examples |
+|---|---|
+| **reversal enzyme ⊣ the modified form, or ⊣ the forward reaction** (the largest group) | phosphatases: PPP5C, PTPN6 / PTPN11 ⊣ "Phosphorylation of INFAR1 by TYK2", myosin phosphatase ⊣ p-MRLC; demethylases: KDM1A/B, KDM2A/B, KDM4A, KDM5A-D, KDM6B, JMJD6 ⊣ histone methylation reactions; deubiquitinase OTUD5; **RAS GAPs, SPRED:NF1 ⊣ p21 RAS:GTP** |
+| ubiquitin ligase ⊣ its target | ITCH, RNF125:E2, CUL1:SKP1:SKP2:CKS1B |
+| sequestering trap or decoy ⊣ ligand | FST, FSTL3 ⊣ Activin; "Ligand Trap" ⊣ BMP2; IL13RA2 ⊣ "IL13 binds IL13RA:TYK2"; I-SMAD ⊣ BMP:BMPR |
+| transcriptional repressor ⊣ target-gene expression | RB1 ⊣ E2F1-driven TK1, CCNA1, DHFR, TYMS expression |
+
+**Which of them our v97 network already has** (canonical build; the source and
+target entity with a negative edge between them):
+
+| status | edges |
+|---|---|
+| same negative edge exists (a `depletion` edge) | 7 |
+| the source is a negative source in ours, but with a different target | 9 |
+| **absent** | **187** |
+| pathway not in our catalog | 16 |
+
+**Reading.** The dominant pattern is the **backward enzyme of an
+interconversion cycle** (GAP, phosphatase, demethylase, deubiquitinase) used as
+a brake on the forward-modified species. It is the hand-made counterpart of §11:
+in a cycle A ⇄ B the split B/A follows forward / backward activity, and
+MP-BioPath encoded "backward" as an inhibition of B.
+
+- Our generator derives a small part of it: depletion edges for phosphatases
+  (Pi as output) and Ub ligases (Ub as input).
+- It does not derive it for demethylases, GAPs (GTP hydrolysis), deubiquitinases
+  or transcriptional repressors.
+- The traps and decoys are ordinary sequestration.
+
+**Automatic equivalent to test:** for each curated reversal reaction B → A with
+catalyst E_b, make E_b act against B, or better, give the A ⇄ B cycle its
+ratio-based treatment (§11).
+- This is derivable from Reactome: pairs of reactions whose input/output
+  entities are the modified/unmodified forms of one protein.
+- It is the pattern to confirm with the curators.
