@@ -233,3 +233,36 @@ RAF is being regenerated with the cap at 512 and at 10^6 to test it.
 pools, and conserved participants each removed a secondary term. None of them
 removed the ~20-way AND of alternatives that turns a small step down into a
 collapse.
+
+## 9. RAF: MP-BioPath's network against ours (2026-09-27)
+
+MP-BioPath's RAF network (`~/codes_and_results/mp_biopath/V_78_direct/pathways_2/RAF_MAP_kinase_cascade.tsv`,
+Reactome v78, loops cut by hand) scores **100%** experimental with DeltaSignal's
+own solver (docs/RESULTS §1b). Ours scores 29%. Same solver, so the difference is
+the network:
+
+| | MP-BioPath | ours (v97) |
+|---|---|---|
+| size | 842 nodes, 1,077 edges | 1,571 nodes, 4,762 edges |
+| largest loops | **12 and 6 nodes** | 138 and 128 |
+| sets | **one node per set, members OR-ed at the curated-alternative level** ("RAF/MAPK scaffolds" ← its 8 candidates; "RAF activating kinases" ← 7 kinases) | expanded: input sets into reaction copies (and past the variant cap into all-required bundles); catalyst and regulator sets into every member on every copy |
+| "MAP2Ks and MAPKs bind to the activated RAF complex" | 4 inputs (the 3 set nodes and RAS:GTP:RAF), inhibitor **free PEBP1** | 28 member-level inputs, inhibitor PEBP1 bound to RAS:GTP:RAF |
+| "Phosphorylation of RAF" catalyst | **one** set node | 9 members, all required |
+| "RAF phosphorylates MAP2K dimer" | the complex once, plus 2 drug inhibitors | the complex as input AND catalyst (squared) |
+| "Dissociation of RAS:RAF complex" outputs | p-MAP2K dimers, MAPKs, 5672712: **no scaffold release** | releases every scaffold leaf (F-actin, CNKSR, talin, …), which recycle into the binding step |
+| RAF's loop | the real MAP2K → RAF feedback, through the OR catalyst node | welded through ~20 recycled scaffold leaves |
+
+**Implication.** Every patch tried here (specs/032, 033, 035, 036, 037) tried to
+re-create inside our representation what MP-BioPath's representation has
+natively: one node per curated set, OR over its alternatives, and no member-level
+fan-out.
+
+The generator's design is the opposite. Sets "should always decompose to member
+species, they should NOT survive as network nodes" (set-expansion fix, July
+2026). That choice is what produces copy multiplicity (specs/031), capped
+bundles (specs/036) and member fan-out (specs/033).
+
+**Whether to revisit it is a design decision for Adam, not an experiment to
+run unasked.** The scaffold release on dissociation is a curation difference
+(v78 against v97), to be checked in Neo4j before it is attributed to the
+generator.
