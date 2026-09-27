@@ -111,3 +111,71 @@ negative / set / root (curator 100%, n = 60).
 
 **Next:** trace one case from each low cell in §3 (M6 and M7 first, because they
 are the least explained), and count M4. Then propose a rule set for review.
+
+## 5. Traced: M6 (negative regulators that are complexes)
+
+`regulator_inventory.py --cell negative/complex/upstream`. The failed cases
+concentrate on five regulator → reaction pairs:
+
+| pathway, perturbation | inhibitor | inhibited reaction | mechanism |
+|---|---|---|---|
+| RAF (KRAS/HRAS/NRAS up, NF1 KO) | BRAP:KSR1:MARK3 | "RAS:GTP:'activator' RAF homo/heterodimerizes …" | inside the RAF loop (see §6) |
+| PIP3, PDPK1 KO | **N:M:PDPK1**: PDPK1 bound by **SARS-CoV-2** N and M | "PDPK1 phosphorylates AKT at T308" | self-contained, so the KO also removes the inhibitor and cancels itself; the virus is exogenous |
+| ERBB2 up | **ERBB2:trastuzumab**:ERBIN:HSP90:CDC37 | "Trans-autophosphorylation of ERBB2 heterodimers" | self-contained and a **drug** |
+| Activin (INHBA, ACVR2A) | INHIBIN-A:TGFBR3:ACVR2A | "Activin … binds Activin Receptor ACVR2A,B:ACVR1B" | self-contained sequestration (specs/022) |
+| WNT (WNT1, WNT5A) | pT298-NLK dimer | "TCF/LEF:CTNNB1 bind canonical WNT target promoters" | not traced |
+
+**Exogenous entities** are not in the cell a benchmark case describes:
+
+| kind | entities | pathways |
+|---|---|---|
+| drug-derived | 202 | 24 |
+| contains a non-human-species protein | 66 | 9 |
+
+The pathogens are Influenza A, RSV, Rotavirus, HCV, Measles, SARS-CoV-2,
+N. meningitidis and C. trachomatis. DDX58/IFIH1 has 45 of the 66, and PIP3 has
+the SARS-CoV-2 complex above.
+
+specs/032 held drugs inert: held-out **+30 / 0 broken**. It failed its gate
+only on RAF's experimental cases, where the loop in §6 dominates.
+
+## 6. Counted: M4 (inputs supplied only by the reaction's own downstream)
+
+| where an input edge's source comes from | edges | share |
+|---|---|---|
+| a root | 38,599 | 43.7% |
+| upstream | 41,047 | 46.4% |
+| **downstream only** (every producer is reached from the reaction) | **7,989** | **9.0%** |
+| downstream, plus an outside supply | 746 | 0.8% |
+
+- This happens in 70 pathways: Class I MHC 1,098, DNA Repair 525, DNA Damage
+  Bypass 422, HOX 421, DSB 407, EGFR 407, Cell Cycle Checkpoints 399, HDR 398.
+- **87% (6,948) have no other usable copy** of the entity in the network; 11%
+  have a root copy and 3% an upstream one.
+- The entity exists only inside its own cycle, so nothing outside the cycle
+  anchors its baseline. That is RAF's F-actin, CNKSR2 and Ca2+ (supplied only by
+  "Dissociation of RAS:RAF complex"), and the knife-edge loops of specs/013 and
+  014.
+- MP-BioPath cut such loops by hand, which made the entry entity a root.
+  `DS_PIN_SCOPE=root_cycle` reproduces that only for the PERTURBED gene.
+
+## 7. Design candidates this points to (for review, none built)
+
+- **D1 — anchor cycle-only entities.** An input whose every producer is
+  downstream of its consumer gets a baseline supply: a root copy (fold 1)
+  OR-pooled with the recycled copy. This is the curated entity's initial
+  supply, the pool a cell starts with.
+  - Mechanism: the any-copy pool (specs/031, 033) with a synthetic root member.
+  - It removes the all-zero trap without cutting a curated edge.
+  - Addresses M4 and RAF, and plausibly M3, since recycled catalysts are the
+    same shape.
+- **D2 — exogenous entities inert.** Drugs AND pathogen-derived entities are
+  held at baseline (specs/032's rule, widened to species). Addresses M5 and
+  part of M6.
+- **D3 — Requirement as a limiter.** A knockout blocks the reaction; a rise
+  does not raise it, so min(fold, 1). Addresses M1.
+- **D4 — set pools (specs/033),** already measured neutral to positive.
+
+D1 is the largest and the most structural. D2 and D3 are small, principled and
+independent. Each is to be pre-registered and measured on its own before any
+combination.

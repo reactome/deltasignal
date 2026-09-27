@@ -63,6 +63,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--catalog", type=Path, required=True)
     ap.add_argument("--cases", type=Path, help="arm dir with {curator,experimental}_cases.tsv")
+    ap.add_argument("--cell", help="role/shape/copy: list its edges and the FAILED cases routed through them")
     a = ap.parse_args()
     import benchmark_vs_mpbiopath as BM
     from py2neo import Graph
@@ -76,6 +77,8 @@ def main() -> int:
         names[sid] = name
 
     cells = collections.Counter()          # (role, shape, copy, and_or) -> edges
+    want = tuple(a.cell.split("/")) if a.cell else None
+    cell_edges = collections.Counter()     # (pathway, regulator stid, reaction stid) -> failed cases
     case_cells = collections.defaultdict(lambda: [0, 0])   # (role, shape, copy) -> [n, correct]
     cases = {}
     if a.cases:
@@ -160,10 +163,13 @@ def main() -> int:
                         seen.add(t)
                         st.append(t)
             outs = set(u for u in r["output_uuids"].split("|") if u)
+            ok = r["predicted"] == r["expected"]
             for (s, t), c in edge_cell.items():
                 if s in seen and outs & reach(t):
                     got.add(c)
-            ok = r["predicted"] == r["expected"]
+                    if want and c == want and not ok:
+                        cell_edges[(ax, names.get(pid, pid)[:30], r["gene"], r["direction"],
+                                    lab.get(s, s), lab.get(t, t))] += 1
             for c in got:
                 key = (ax,) + c
                 case_cells[key][0] += 1
@@ -172,6 +178,11 @@ def main() -> int:
     print("role / shape / copy / and_or -> edges")
     for k, v in sorted(cells.items(), key=lambda kv: -kv[1]):
         print(f"  {v:7d}  {' / '.join(k)}")
+    if want:
+        print(f"\nFAILED cases through {a.cell} (axis, pathway, gene, dir, regulator node, reaction):")
+        for k, v in cell_edges.most_common(25):
+            print(f"  {v:4d}  {k}")
+        return 0
     if case_cells:
         print("\ncases whose route uses a regulator edge of the cell (a case may use many cells):")
         for k, (n, ok) in sorted(case_cells.items(), key=lambda kv: -kv[1][0]):
