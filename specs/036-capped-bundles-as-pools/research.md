@@ -77,3 +77,44 @@ a held-out gain to be adopted.
 - convergence counts;
 - the RAF iteration trace re-run on the new build;
 - cyclic node count excluding pools.
+
+## Sanity trace on RAF alone (2026-09-27, before any arm)
+
+**Setup:**
+- RAF (R-HSA-5673001) regenerated at LNG feat/set-pool + WIP `LNG_CAP_POOLS=1`,
+  in the scratchpad (a diagnostic, not a catalog).
+- "MAP2Ks and MAPKs bind to the activated RAF complex": **28 inputs → 4**. The
+  4 are RAS:GTP:activated RAF plus pools of MAPKs (2), MAP2K dimers (3) and
+  RAF/MAPK scaffolds (22 leaves of the 8 candidates).
+- **Limitation:** that pool is over leaves, not candidates, so larger candidates
+  weigh more.
+
+HRAS pinned 80x or 0. Readout: p-T,Y MAPKs in the nucleus (R-HSA-5674340).
+
+| configuration | HRAS up | HRAS KO |
+|---|---|---|
+| canonical | 0 (collapse) | – |
+| cap pools, any pool mode | 0 (collapse), not converged | 100x (inverted) |
+| + drug-derived nodes held at baseline | 0 (collapse) | 100x (inverted) |
+| + `DS_DEDUP_ACTIVATORS=1`, `mean` pools | **0.83x**, no collapse (0 zeros), not converged | **0.016x** (correct direction) |
+| + `DS_DEDUP_ACTIVATORS=1`, `extreme` pools | 0 (collapse) | 0 |
+
+**Amplifiers found, in the order they appeared:**
+1. Capped bundles: all alternatives required at once.
+2. Drug-bound complexes inhibiting "RAF phosphorylates MAP2K dimer" and "MAP2Ks
+   phosphorylate MAPKs" (R-HSA-9653109 and others rise with RAS).
+3. **Catalyst = substrate squaring.**
+   - "RAF phosphorylates MAP2K dimer" reads the activated RAF:scaffold complex
+     as both input and catalyst.
+   - "MAP2Ks phosphorylate MAPKs" does the same with its complex.
+   - Each squares its own fold (specs/012; de-duplicating was held-out −15
+     catalog-wide there).
+4. **Open:** with 1–3 addressed and `mean` pools, up-regulation still reads
+   0.83x and the component does not converge. Not yet traced.
+
+**Consequence for the pre-registration:** the RAF prediction ("rises well above
+17/49") cannot be met by cap pools alone. Before a combined arm (cap pools +
+inert drugs + dedup) is pre-registered, amplifier 4 is traced. Each component
+was individually neutral or negative catalog-wide, so the combination is
+measured as a combination, and the RAF effect is not generalised from this
+trace.
