@@ -53,3 +53,38 @@ All at one solver commit, through `scripts/run_arm.sh`:
 - the set-member-case table of specs/033 for each arm (KO and UP separately);
 - per-pathway net;
 - convergence counts.
+
+## Result (2026-09-27)
+
+**Setup:**
+- Control `ctrl038`: build `20260927-0833_bddfe78_ctrl037`, pools off, code
+  defaults.
+- Pooled build `20260927-1526_bddfe78_sp038`: `LNG_SET_POOL=1`, `LNG_CAP_POOLS=0`.
+- All arms at solver 5a2a927.
+
+| arm | curator held-out | tuning | experimental | worst pathways |
+|---|---|---|---|---|
+| **`max`** | **−120** (27 / 147, p = 3.5e-21) | −208 | **−57** (16 / 73, p = 7.2e-10) | PIP3 −140, TP53 −57, IFN-γ −17, IL-4/13 −14 |
+| **`product`** | −2 (2 / 4, p = 0.69) | +45 (TP53 +42) | **+8** (8 / 0, p = 0.0078) | Fanconi −3 |
+
+**`max`: NOT ADOPTED.** It fails every gate.
+- "Any one member fulfils the role" covers a knocked-out member with its
+  unperturbed peers, and the ground truth expects that knockout to matter
+  (specs/033: 68% of single-member curator cases expect a change).
+- PIP3's catalyst sets (46 pool → catalyst edges) carry most of the loss.
+
+**`product`: passes every gate.**
+- Held-out −2, which is within the −15 floor and not significant.
+- Experimental +8 (p = 0.0078).
+- No pathway below −10.
+
+The experimental gain spans 2 pathways but only **4 perturbations**, so it is
+reported as **concentrated** under the pre-registered concentration rule.
+TP53 +42 on tuning is consistent with the uuid-draw effect seen before
+(specs/026, 030) and is not attributed to pooling.
+
+**Conclusion.** One OR node per set-valued regulator or catalyst (Adam's
+design) is **adoptable on faithfulness under `product`**, and neutral to
+slightly positive, as specs/033 found. The pool's math is the product of member
+folds: every member's change counts, which is what the ground truth rewards.
+The literal "any one fulfils it" reading (`max`) is refuted on both axes.
