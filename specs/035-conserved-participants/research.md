@@ -128,5 +128,21 @@ in that pathway.
   protein or complex entity) would be a NEW pre-registration. It is not a tuning
   of this one. Not run.
 
-**RAF (the motivating case):** the RAF-specific cases have not been scored
-separately here; experimental lost in 3 pathways.
+**Scored per pathway (experimental, ctrl → inert):**
+
+| pathway | ctrl | inert |
+|---|---|---|
+| **RAF** | 14 / 49 | **14 / 49** |
+| PIP3 | 168 / 200 | **49 / 200** |
+| Mitotic G1 | 35 / 88 | 35 / 88 |
+| ERBB2 | 42 / 49 | 41 / 49 |
+
+- **The whole experimental loss is PIP3. RAF, the motivating case, did not
+  move.** Holding its 29 conserved entities at baseline does not stop the
+  collapse either.
+- Three attempts have now failed to fix RAF: inert drugs (specs/032), set
+  pools (specs/033) and conserved participants (here). Each targets a
+  structural suspect found by reading the graph.
+- **The next step is to trace the RAF solve's iterations directly** (which
+  node first leaves baseline, in which direction, and why the loop does not
+  settle) before proposing another rule.
