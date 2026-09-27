@@ -21,3 +21,6 @@ test_solver_determinism
 test_loop_pool
 test_scc_break_roles
 test_self_inhibition
+test_drugs
+test_set_pool
+test_conserved

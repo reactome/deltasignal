@@ -330,6 +330,14 @@ def load_stid_to_uuids(pathway_dir: Path):
         seen = set()
         with open(nodes_csv) as f:
             for row in csv.DictReader(f):
+                # specs/033: a set POOL node is the set as one catalyst/regulator,
+                # not a readout or a pin target. Indexed, it would capture set-
+                # valued readouts (p-ERK dimers, p-AKT) and join the mean of every
+                # member readout, changing what is MEASURED rather than the model
+                # (review of the set-pool change). Readouts and pins stay as in
+                # an unpooled build.
+                if (row.get("node_kind") or "") == "set_pool":
+                    continue
                 uuid = str(row["uuid"])
                 keys = set()
                 de = (row.get("diagram_entity_id") or "").strip()
@@ -889,10 +897,19 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # Record what was actually pinned, so a run's protocol is on the record
     # rather than inferred from its flags (specs/023: 89% of pins had silently
     # become mid-pathway complexes for two months).
+    # specs/032: a pin on a drug node would override its inert hold and carry
+    # the perturbation through the drug, so count them (expected 0).
+    drug_uuids = set()
+    drugs_csv = pathway_dir / "drugs.csv"
+    if drugs_csv.exists():
+        with open(drugs_csv) as f:
+            for r in csv.DictReader(f):
+                drug_uuids.update(stid_to_uuids.get(r["stable_id"], []))
     for us in gene_to_uuids.values():
         PIN_TALLY["perturbations"] += bool(us)
         PIN_TALLY["pinned"] += len(set(us))
         PIN_TALLY["pinned_roots"] += sum(1 for u in set(us) if indeg[u] == 0)
+        PIN_TALLY["pinned_drugs"] += sum(1 for u in set(us) if u in drug_uuids)
 
     # Resolve key_output dbIds to their REAL stIds (may be R-ALL-, R-NUL-, not
     # just R-HSA-) so species that are genuinely in the network are found.
@@ -1002,7 +1019,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # bundle's cofactor list (the solve would report self_inhibitor_rule inert).
     network_payload = {"nodes": parsed["nodes"], "edges": edges, "pathways": parsed["pathways"],
                        "containment": parsed.get("containment"),
-                       "cofactor_stids": parsed.get("cofactor_stids")}
+                       "cofactor_stids": parsed.get("cofactor_stids"),
+                       # specs/032: without it an edge-drop arm under DS_DRUG_MODE=inert
+                       # reached the solver with no drug table (review of the branch).
+                       "drug_stids": parsed.get("drug_stids")}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
@@ -1041,9 +1061,16 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             raise SystemExit(f"{pathway_name}: the solve reports self_inhibitor_rule="
                              f"{ds_result['self_inhibitor_rule']!r} -- the network reached the solver "
                              "without its containment table, so this is not the default model.")
+        if ds_result and ds_result.get("drug_rule") == "inert: no drug table":
+            raise SystemExit(f"{pathway_name}: DS_DRUG_MODE=inert but the network has no drugs.csv "
+                             "(a build that predates it), so no drug is held (specs/032).")
         if ds_result:
             SOLVE_TALLY["solves"] += 1
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
+            SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
+            SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["conserved_held"] += int(ds_result.get("conserved_held") or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
         for r in rows:
@@ -1330,8 +1357,18 @@ def main():
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
     print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
+    rules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("drug_rule="))
+    print(f"\nDrugs: rule {'/'.join(rules) or 'unknown'}, {SOLVE_TALLY['drugs_held']} node-solves held (specs/032)")
+    if "inert" in rules and SOLVE_TALLY["drugs_held"] == 0:
+        # An inert arm that held nothing measured the default model.
+        raise SystemExit("DS_DRUG_MODE=inert but no solve held a drug node; the arm is the control.")
+    crules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("conserved_rule="))
+    print(f"\nConserved: rule {'/'.join(crules) or 'unknown'}, {SOLVE_TALLY['conserved_held']} node-solves held (specs/035)")
+    if "inert" in crules and SOLVE_TALLY["conserved_held"] == 0:
+        raise SystemExit("DS_CONSERVED_MODE=inert but no solve held a conserved node; the arm is the control.")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
-          f"perturbations, {PIN_TALLY['pinned_roots']} of them roots (DS_PIN_SCOPE={PIN_SCOPE})")
+          f"perturbations, {PIN_TALLY['pinned_roots']} of them roots, "
+          f"{PIN_TALLY['pinned_drugs']} drug nodes (DS_PIN_SCOPE={PIN_SCOPE})")
     print(f"\nPer-pathway report: {args.report}")
 
     if args.dump_cases:

@@ -93,6 +93,17 @@ function solve_steady_state(
     mode = cofactor_mode()
     cofactors = mode == "inert" ? cofactor_uuids(network) : Set{String}()
 
+    # specs/032: drug-derived nodes held at baseline for a cell without the
+    # drug. Same mechanism as cofactors, own switch and report.
+    dmode = drug_mode()
+    drugs = dmode == "inert" ? drug_uuids(network) : Set{String}()
+    drug_rule = dmode == "propagate" ? "propagate" :
+                network.drug_stids === nothing ? "inert: no drug table" : "inert"
+    # specs/035: loop participants released unchanged by their loop, held at
+    # baseline like cofactors. Resolved on the network as given (before bridges).
+    cmode = conserved_mode()
+    conserved = cmode == "inert" ? conserved_uuids(network) : Set{String}()
+
     # Whether to traverse a positional-decomposition silo is a PROCESSING
     # decision, like the one above: the generator faithfully records that a
     # curated entity occurs in two places, and this decides whether a signal
@@ -103,7 +114,7 @@ function solve_steady_state(
         @info "Adding $(length(bridges)) silo bridge edge(s)" max_reach=silo_bridge_max_reach()
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
                                   network.set_mappings, network.cofactor_stids,
-                                  network.containment)
+                                  network.containment, network.drug_stids)
     end
 
     # Convert network to reactions
@@ -136,6 +147,32 @@ function solve_steady_state(
             u => (network.nodes[u].baseline * 100.0, 1.0)
             for u in cofactors if !haskey(observations, u))
         observations = merge(observations, pins)
+    end
+    drugs_held = 0
+    if !isempty(drugs)
+        # An observation that PINS (a measured drug, or a cofactor pin) wins; see
+        # above. One the confidence gate would discard does not: skipping the
+        # hold for it let a confidence-0 row silently unpin the drug (review).
+        # (The cofactor block above still uses haskey; changing it would move
+        # the default model, so it is left to its own change.)
+        dpins = Dict{String, Tuple{Float64, Float64}}(
+            u => (network.nodes[u].baseline * 100.0, 1.0)
+            for u in drugs
+            if !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
+        drugs_held = length(dpins)
+        observations = merge(observations, dpins)
+    end
+    conserved_held = 0
+    if !isempty(conserved)
+        # An observation that PINS wins (a perturbed GAP such as NF1 stays
+        # perturbed); one the confidence gate would discard does not.
+        cpins = Dict{String, Tuple{Float64, Float64}}(
+            u => (network.nodes[u].baseline * 100.0, 1.0)
+            for u in conserved
+            if haskey(network.nodes, u) &&
+               !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
+        conserved_held = length(cpins)
+        observations = merge(observations, cpins)
     end
 
     # Initial guess: use observations where available, baseline elsewhere
@@ -175,6 +212,10 @@ function solve_steady_state(
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
+    result.diagnostics["drug_rule"] = drug_rule
+    result.diagnostics["drugs_held"] = drugs_held
+    result.diagnostics["conserved_rule"] = cmode
+    result.diagnostics["conserved_held"] = conserved_held
     return result
 end
 

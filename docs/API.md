@@ -101,7 +101,9 @@ Response:
 ```
 `containment` (restricted to stable ids in this network) and `cofactor_stids`
 are what the solver needs to run the default model; send them back with an
-inline network.
+inline network. `drug_stids` (specs/032, additive) lists the bundle's
+drug-derived stable ids, or is `null` when the bundle has no `drugs.csv`; send
+it back too, or `DS_DRUG_MODE=inert` reports `"inert: no drug table"`.
 
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is
@@ -149,6 +151,10 @@ Response:
 - **`node_activities`**: `uuid → activity` on the **0–1 internal scale**
   (`× 100` for display — see Conventions).
 - **`self_inhibitors`** (additive, specs/022): the number of inhibitor slots FLAGGED as self-contained (the inhibitor contains one of its own reaction's inputs AND is reachable from it in the network). A flagged slot is damped only when the inhibitor moves with that input. On by default (`DS_SELF_INHIBITOR_WEIGHT=0.1`; `off` disables it).
+- **`drug_rule`** / **`drugs_held`** (additive, specs/032): `"propagate"`
+  (default), `"inert"`, or `"inert: no drug table"`, and how many drug-derived
+  nodes this solve held at baseline. Under `inert` a drug participates at fold
+  1.0 and never carries a perturbation; an explicit observation still wins.
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`scc`** (additive, specs/017): how the cyclic components were resolved —
   `method` (the `DS_SCC_METHOD` in force), `pooled`, `iterated`,

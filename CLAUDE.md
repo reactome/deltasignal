@@ -332,6 +332,19 @@ env vars only override for benchmark sweeps:
   `containment.csv`; the solve reports `self_inhibitor_rule` (on / off /
   inert) and how many inhibitor slots were flagged. Measured numbers are in
   specs/023. specs/022 has the rule; specs/023 has the adoption.
+- `DS_DRUG_MODE=propagate` (default) | `inert` (specs/032): drug-derived
+  nodes (a Reactome `Drug`, a complex containing one, a set that is all drugs),
+  listed by the generator's `drugs.csv`, held at baseline like cofactors, for a
+  cell without the drug. The solve reports `drug_rule` and `drugs_held`.
+- `DS_SET_POOL_MODE=product` (default) | `extreme` | `geomean` | `mean` | `max`
+  (specs/033): how a set POOL node (the generator's `LNG_SET_POOL`: one node
+  per set-valued catalyst or regulator, fed by `set_member` edges) combines its
+  members. It has no effect on networks without `set_member` edges.
+- `DS_CONSERVED_MODE=off` (default) | `inert` (specs/035): a loop input released
+  UNCHANGED by its own loop (every producer consumes a complex containing it:
+  RAS GAPs, scaffold partners, F-actin) is held at baseline like a cofactor.
+  Signal carriers transformed inside the loop are not touched. The solve reports
+  `conserved_rule` and `conserved_held`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -413,6 +426,27 @@ for the last feature that touched it rather than re-deriving from the code.
   reaction forms (a curation-review list). 96 entity → reaction breaks are copy
   multiplicity; the targeted join is untried, near a family that failed three
   times. About 41 cases for an any-copy pool. Analysis only.
+- `specs/032-inert-drugs/` — `DS_DRUG_MODE`: drug-derived nodes held at
+  baseline. Not adopted: held-out +30, but experimental −5, RAF worse.
+- `specs/033-set-pool-nodes/`, `specs/038-pool-max/` — one OR node per
+  set-valued catalyst or regulator (`LNG_SET_POOL`), feeding the reaction once.
+  Adoptable on faithfulness under `DS_SET_POOL_MODE=product`: held-out +6 / −2,
+  experimental +3 / +8 (the +8 concentrated in 4 perturbations) on two
+  measurements. `max` (any member suffices) is refuted (held-out −120,
+  experimental −57); `mean` does not gain.
+- `specs/034-regulator-wiring/` — inventory of how catalysts and regulators are
+  wired; the RAF collapse traced by iteration; MP-BioPath's network and its
+  1,800 hand edits compared with ours. UUIDs already resolve 86% of their
+  loop artefacts. Our loops are mostly curated interconversion cycles, and the
+  219 inhibitions they added are mostly the reversal enzyme of such cycles
+  (187 absent from ours). The design input for what comes next.
+- `specs/035-conserved-participants/` — `DS_CONSERVED_MODE`: loop inputs
+  released unchanged held at baseline. Not adopted: it held PIP3 itself, and
+  experimental was −122.
+- `specs/036-capped-bundles-as-pools/`, `specs/037-combined-raf-fixes/` — the
+  variant cap bundles a set's alternatives into one all-required node
+  (`LNG_CAP_POOLS` fixes the structure, default off). Combined with de-duplication
+  it was held-out −162; de-duplication is the damage. Not adopted.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -426,12 +460,12 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Thirteen files contain assertions; the
+**Most of the test suite cannot fail.** Sixteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 196 | |
+| `test/test_config_validation.jl` | 201 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
@@ -439,6 +473,9 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
+| `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
+| `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
+| `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
