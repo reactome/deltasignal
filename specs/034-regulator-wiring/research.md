@@ -318,3 +318,48 @@ generator.
   "artefact loop edges" to design loop handling against, instead of guessing.
 - List the 218 added inhibitions and ask whether each is biology Reactome lacks
   or a modelling patch.
+
+## 11. Our loops are mostly curated reaction cycles, not artefacts (2026-09-27)
+
+**MP-BioPath's loop-cutting deletions mapped onto our v97 networks** (canonical
+`20260926-1221_590301c`): 122 reaction → output edges were deleted INSIDE a loop,
+in 25 pathways.
+
+| where the deleted edge lands in our network | edges |
+|---|---|
+| present, and **not** in a loop | **85** |
+| present, and still closes a loop | 14 (DSB/HDR 5687758 → 68462; Intrinsic Apoptosis BAD / p-S99-BAD, 139904, 141643, 350870; Mitotic G1 69195 → 68377) |
+| no such edge | 20 |
+| pathway not in our catalog | 3 |
+
+**So the per-position UUIDs already resolve about 86% (85 of 99) of the loop
+artefacts MP-BioPath cut by hand.**
+
+**What our 8,064 cyclic nodes are made of** (nodes that stop being cyclic when
+one edge type is removed):
+
+| edge type removed | cyclic nodes no longer cyclic |
+|---|---|
+| output | 8,058 (100%) |
+| input | 7,878 (98%) |
+| depletion | 1,426 (18%) |
+| regulator | 1,033 (13%) |
+| catalyst | 487 (6%) |
+| dissociation | 0 |
+| assembly | 0 |
+
+**Most cyclic nodes sit in loops made of curated input/output edges alone**:
+Reactome's own reaction cycles (interconversions such as RAS GDP ⇄ GTP,
+phosphorylation ⇄ dephosphorylation, association ⇄ dissociation). Derived edges
+contribute a minority. This supports Adam's position: keep the loops, and
+handle them mathematically.
+
+**The math they need.** A cycle A → B → A driven by opposing enzymes (GEF / GAP,
+kinase / phosphatase) has a CONSERVED total whose split is set by the two
+activities: B/A ∝ forward / backward. The solver instead multiplies around the
+cycle: gain 1 at baseline, the knife-edge of specs/013 and 014, and the RAF
+collapse. specs/017's loop pool used the product of entries, which is not
+this ratio. **A ratio-based treatment of interconversion cycles is the
+untested candidate.** It needs a design pass (identifying interconversion
+cycles and their opposing catalysts from the curated reactions) before any
+pre-registration.
