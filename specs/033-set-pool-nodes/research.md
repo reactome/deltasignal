@@ -120,3 +120,48 @@ it is not harmful. That is the same basis as specs/020's variant sharing.
 - the set-member-case accuracy table above for each arm;
 - cyclic node count (it must be unchanged);
 - node and edge counts.
+
+## Pre-registration amendment (after review, before any arm)
+
+An adversarial review of both code changes found three things the
+pre-registration did not state. They are fixed or specified here, **before
+any arm has run**:
+
+1. **Readouts and pins are unchanged.** A pool node carries the set's stId and
+   its members, and the benchmark indexed every node under both.
+   - A set-valued readout that is also a catalyst set (p-T,Y MAPK dimers,
+     p-AKT, GSK3, p-MAPK8/9/10) would have resolved to the pool instead of
+     the members' mean.
+   - Every member readout would have gained the pool in its mean.
+   - Both benchmark loaders now skip `set_pool` rows (test in
+     `bench/test_analysis_numbers.py`), so the arms measure the model, not a
+     change of readout.
+2. **Depletion.**
+   - A pooled phosphatase or ubiquitin-ligase set now depletes its substrate
+     through its pool: one edge instead of one per member. Under `product` that
+     is the same fold; under `extreme` or `geomean` the depletion strength
+     follows the mode. This is part of the design and is measured with it.
+   - The "a catalyst does not deplete itself" guards compared stIds, and a
+     pool's stId is the set's, so a pool would have depleted its own member.
+     This happens in 4 E3-ligase sets and would have closed new cycles.
+   - Fixed in LNG 81499ef: a pool never depletes one of its members.
+3. **The cycle gate** is restated as **cyclic nodes excluding pool nodes must be
+   unchanged**. A pool on an existing loop (RAF's is the motivating one) is
+   itself cyclic.
+   - On the first pooled build: 8,078 cyclic nodes, of which 14 are pools, so
+     8,064 non-pool, equal to the base.
+   - It is re-checked on the rebuilt catalog.
+
+**Known approximations of `product` against today:**
+- **Caps:** the pool caps the member product at 100x before the reaction
+  multiplies. Two members at 20x read 100x, not 400x. The difference appears
+  only above the cap.
+- **Negative-regulator sets become one divide term.** It is equal to the old
+  per-member divides below the cap. Under `DS_INHIBITOR_OR=1` (not the
+  default) min over members becomes 1/product.
+- **The self-inhibitor rule** (specs/022) can now flag a pooled inhibitor set
+  whose containment includes the reaction's input, where before it flagged
+  only the containing member.
+
+**Build:** the arms run on a pooled build regenerated at LNG 81499ef, not on
+the first pooled build.

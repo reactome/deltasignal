@@ -260,6 +260,10 @@ def load_dbid_to_uuids(pathway_dir: Path) -> dict[str, list[str]]:
     if nodes_file.exists():
         with nodes_file.open(newline="") as handle:
             for row in csv.DictReader(handle):
+                # specs/033: a set pool is not a readout or pin target (see
+                # benchmark_vs_mpbiopath.load_stid_to_uuids).
+                if normalize_cell(row.get("node_kind")) == "set_pool":
+                    continue
                 stable_ids = {normalize_cell(row.get("diagram_entity_id"))}
                 stable_ids.update(normalize_cell(item) for item in normalize_cell(row.get("member_leaves")).split("|"))
                 for stable_id in stable_ids - {""}:
