@@ -406,3 +406,27 @@ ratio-based treatment (§11).
 - This is derivable from Reactome: pairs of reactions whose input/output
   entities are the modified/unmodified forms of one protein.
 - It is the pattern to confirm with the curators.
+
+## 12b. Correction: how much of the added-inhibition pattern Reactome's curation supports (2026-09-27)
+
+§12 called the added inhibitions "mostly reversal enzymes", **from their
+names**. Tested formally against Neo4j (does inhibitor E catalyse a curated
+reaction that CONSUMES the target X, or that consumes the target reaction's
+output?):
+
+| relationship in the curated reactions | edges |
+|---|---|
+| E catalyses a reaction consuming X (entity target) | 37 |
+| E catalyses a reaction consuming the target reaction's output | 16 |
+| **total with a curated reversal link** | **53 (24%)** |
+| **no catalytic link** (entity target 89, reaction target 67) | **156 (71%)** |
+| E catalyses X's production | 1 |
+| not in this release | 9 |
+
+**So only about a quarter can be derived automatically from curated
+catalysis.** For the rest, the inhibitor LOOKS like a reversal enzyme
+(phosphatase, demethylase, GAP), or is a trap or a repressor, but Reactome
+does not curate the reverse reaction with that enzyme in the pathway. §12's
+"automatic equivalent" therefore covers about 24% of what the curators did.
+The remainder is exactly the question for the curators: what rule, or what
+outside knowledge, did they apply?
