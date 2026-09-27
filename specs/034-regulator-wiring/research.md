@@ -266,3 +266,55 @@ bundles (specs/036) and member fan-out (specs/033).
 run unasked.** The scaffold release on dissociation is a curation difference
 (v78 against v97), to be checked in Neo4j before it is attributed to the
 generator.
+
+## 10. The MP-BioPath hand edits (2026-09-27)
+
+**Source:**
+- `~/gitroot/mp-biopath-test-neo4j-generated-pathways/PathwayAnalysis/QA/*_changes.tsv`
+  (87 files; columns source, destination, interaction type, and/or, action,
+  comment), applied by `bin/add_changes_to_pathway.pl`.
+- Unedited: `reactome_exports/`. Edited: `pathways/`.
+- Adam: "some of these loops/cycles were in reactome and were intentional, some
+  others were loops caused by the fact that a single entity in a compartment has
+  the same id even if it is in multiple places."
+
+**Totals:**
+- **1,800 edits in 71 pathways:** 1,171 deletions, 629 additions.
+- Cyclic nodes fell from **1,007 (export) to 413 (edited)**, −59%.
+- Comments are rare: "set to member link" ×4, "…with Active AKT", "receptor:ligand
+  set to member links".
+
+| action | edge (MP-BioPath node kinds) | n | inside a loop in the export |
+|---|---|---|---|
+| delete | entity → entity (set-to-member / same-id links) | 607 | 55 |
+| delete | entity → reaction (inputs) | 163 | 12 |
+| delete | **reaction → entity (outputs)** | 148 | **84** |
+| delete | entity → set-decomposition node | 96 | 1 |
+| delete | set-decomposition → entity | 76 | 22 |
+| delete | **reaction → set-decomposition node** | 63 | **38** |
+| delete | negative entity → reaction | 13 | 0 |
+| add | positive entity → entity | 182 | – |
+| add | **negative entity → entity** | 131 | – |
+| add | **negative entity → reaction** | 87 | – |
+| add | positive reaction → entity | 78 | – |
+| add | positive entity → reaction | 36 | – |
+| add | positive, involving an unnamed (synthetic) node | ~116 | – |
+
+**Three separable kinds of edit:**
+1. **Loop cutting.** About 120 of the 208 in-loop deletions remove a reaction's
+   output into a recycled species or a set's members. RAF: "Dissociation of
+   RAS:RAF complex" → the MAPK set's member-level AND/OR decomposition was
+   deleted and replaced by an edge to the set node.
+2. **Same-id and set-to-member artefacts** (most of the 607 entity → entity
+   deletions, which are mostly outside loops). This is the class the
+   generator's per-position UUIDs are meant to handle.
+3. **218 negative edges added** that Reactome does not curate, 131 of them
+   entity → entity. Our networks have none of them. This is a direct source of
+   difference that no generator change can recover from Neo4j alone.
+
+**Next:**
+- Map the loop-cutting deletions (class 1) onto our v97 networks: do the same
+  recycling edges close loops there? That would give a curator-made label set of
+  "artefact loop edges" to design loop handling against, instead of guessing.
+- List the 218 added inhibitions and ask whether each is biology Reactome lacks
+  or a modelling patch.
