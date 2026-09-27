@@ -68,7 +68,7 @@ bug and weaknesses in this pre-registration. The first combined build was
 stopped part-way, and `20260927-0821_d98d2f8_combined037` is incomplete and
 unused.
 
-**Generator (LNG 7c-series; see its commit):**
+**Generator (LNG bddfe78):**
 - Cap pools fired in reactions the cap never touched: 410 pools in PIP3, which
   has 0 cap hits. The miR-93 RISC input's four subunits were averaged, so a
   miR-93 knockout read 0.75x instead of 0.
