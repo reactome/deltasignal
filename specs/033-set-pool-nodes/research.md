@@ -165,3 +165,58 @@ any arm has run**:
 
 **Build:** the arms run on a pooled build regenerated at LNG 81499ef, not on
 the first pooled build.
+
+## Result — the pooled structure ADOPTABLE with `product` (2026-09-26)
+
+**Setup:**
+- Base: canonical `20260926-1221_590301c`. Pooled: `20260926-2229_81499ef_setpool2`
+  (299 pools, 1,911 set_member edges, 64 depletion edges from pools).
+- Non-pool cyclic nodes: 8,064, equal to the base. **Gate 3 passes.**
+- All arms at solver 039ce74, through `run_arm.sh`. Pins are identical across
+  arms (1,269 nodes over 864 perturbations).
+
+**Choosing the mode** (tuning curator macro-F1 plus experimental macro-F1, as
+pre-registered):
+
+| mode | tuning curator mF1 | experimental mF1 | sum |
+|---|---|---|---|
+| **product** | 0.7558 | 0.5933 | **1.3491** |
+| extreme | 0.7557 | 0.5933 | 1.3490 |
+| mean | 0.7401 | 0.5952 | 1.3353 |
+| geomean | 0.7341 | 0.5933 | 1.3274 |
+
+**`product` against base:**
+
+| split | net | fixed / broke | p | gate |
+|---|---|---|---|---|
+| curator held-out | +6 | 10 / 4 | 0.18 | ≥ −15, not significantly negative: **pass** |
+| curator tuning | +10 | 10 / 0 | 0.002 | ≥ −15: **pass** |
+| experimental | +3 | 3 / 0 | 0.25 | ≥ 0: **pass** |
+
+Held-out for the other modes is reported only; none of it was used to
+choose: extreme +9 (p = 0.035); geomean −20 (TP53 −79, IFN-γ −17); mean −6
+(TP53 −68).
+
+**Verdict:** the pooled structure plus `product` passes every gate. It is
+**adoptable on faithfulness**: one node per curated catalyst or regulator,
+the set node the diagram draws, and 10,950 fewer edges, with no measurable
+harm.
+
+**Predictions:**
+- `pool_product` moves few predictions: **held** (24 of 23,511 curator cases).
+- RAF experimental rises under extreme or geomean: **only partly**:
+
+| arm | RAF experimental (of 49) | RAF curator (of 84) | experimental predictions DOWN / NORMAL / UP |
+|---|---|---|---|
+| base | 14 | 40 | 34 / 12 / 3 |
+| product | 17 | 43 | 31 / 12 / 6 |
+| extreme | 17 | 43 | 31 / 12 / 6 |
+| geomean | 19 | 46 | 29 / 12 / 8 |
+| mean | 22 | 48 | 26 / 12 / 11 |
+
+MP-BioPath scores RAF experimental 46 of 49. **The collapse has a second
+cause.** "MAP2Ks and MAPKs bind to the activated RAF complex" takes F-actin,
+CNKSR2 and Ca2+ as inputs, and in this component they are produced only by
+"Dissociation of RAS:RAF complex", downstream. The input is wired to the
+recycled, downstream copy. This is the same wrong-copy pattern as specs/030's
+joins, and it is traced next.
