@@ -60,6 +60,9 @@ fold(r, u) = r.node_activities[u] / BL
     @test pv([1.0, 1.0, 1.0], "extreme") ≈ 1.0
     @test pv([8.0, 1.0, 1.0], "geomean") ≈ 2.0
     @test pv([0.0, 8.0], "geomean") == 0.0
+    @test pv([0.0, 3.0, 1.0], "max") ≈ 3.0                  # specs/038: the strongest member
+    @test pv([0.0, 1.0, 1.0], "max") ≈ 1.0                  # a knockout is covered by its peers
+    @test pv([0.0, 0.0], "max") == 0.0
     @test_throws ArgumentError DS.set_pool_value([b], b, "mean")
 end
 
@@ -71,7 +74,7 @@ end
 
 @testset "one member up 2x, and one knocked out" begin
     for (mode, up, ko) in (("product", 2.0, 0.0), ("extreme", 2.0, 0.0),
-                           ("geomean", 2.0^(1/3), 0.0), ("mean", 4/3, 2/3))
+                           ("geomean", 2.0^(1/3), 0.0), ("mean", 4/3, 2/3), ("max", 2.0, 1.0))
         r = solve(mode; m1 = 2.0)
         @test fold(r, "P") ≈ up rtol = 1e-6
         @test fold(r, "T") ≈ up rtol = 1e-6
@@ -88,13 +91,13 @@ end
 end
 
 @testset "an ordinary OR node does not depend on the mode" begin
-    vals = [fold(solve(m; a = 3.0), "O") for m in ("product", "extreme", "geomean", "mean")]
+    vals = [fold(solve(m; a = 3.0), "O") for m in ("product", "extreme", "geomean", "mean", "max")]
     @test all(v -> v ≈ vals[1], vals)
     @test vals[1] ≈ 2.0 rtol = 1e-6                        # mean(3, 1): the OR rule
 end
 
 @testset "a typo in the mode is an error" begin
-    for bad in ("Product", "max", "")
+    for bad in ("Product", "maximum", "")
         with_env("DS_SET_POOL_MODE" => bad) do
             @test_throws ArgumentError DS.resolve_reaction_eval_config()
         end

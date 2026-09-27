@@ -997,7 +997,7 @@ const DS_VALID_MODES = Dict(
     "DS_COMPOSITION_MODE"      => Set(["assembly", "limit", "limit_novel"]),
     "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only"]),
     "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
-    "DS_SET_POOL_MODE"         => Set(["product", "extreme", "geomean", "mean"]),
+    "DS_SET_POOL_MODE"         => Set(["product", "extreme", "geomean", "mean", "max"]),
 )
 
 const DS_BREAK_ROLES = Set(["catalyst", "assembly", "depletion"])
@@ -1405,7 +1405,9 @@ Value of a set pool node (specs/033) from its members' values `vals`, baseline
 - `extreme`: the member fold furthest from 1 in log space (a knocked-out member
   wins outright; a tie goes to the lower fold, so a knockout beats an equal
   rise);
-- `geomean`: the geometric mean of member folds (0 if any member is 0).
+- `geomean`: the geometric mean of member folds (0 if any member is 0);
+- `max`: the strongest member (specs/038): "any one of them fulfils the role",
+  so a knocked-out member is covered by its peers and a raised one lifts the pool.
 """
 function set_pool_value(vals::AbstractVector{T}, bl::T, mode::String) where {T<:Real}
     bl > zero(T) || return zero(T)
@@ -1426,6 +1428,12 @@ function set_pool_value(vals::AbstractVector{T}, bl::T, mode::String) where {T<:
             end
         end
         return clamp(bl * best, zero(T), one(T))
+    elseif mode == "max"
+        m = zero(T)
+        for v in vals
+            m = max(m, v)
+        end
+        return clamp(m, zero(T), one(T))
     elseif mode == "geomean"
         s = zero(T)
         for v in vals

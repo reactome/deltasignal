@@ -336,7 +336,7 @@ env vars only override for benchmark sweeps:
   nodes (a Reactome `Drug`, a complex containing one, a set that is all drugs),
   listed by the generator's `drugs.csv`, held at baseline like cofactors, for a
   cell without the drug. The solve reports `drug_rule` and `drugs_held`.
-- `DS_SET_POOL_MODE=product` (default) | `extreme` | `geomean` | `mean`
+- `DS_SET_POOL_MODE=product` (default) | `extreme` | `geomean` | `mean` | `max`
   (specs/033): how a set POOL node (the generator's `LNG_SET_POOL`: one node
   per set-valued catalyst or regulator, fed by `set_member` edges) combines its
   members. It has no effect on networks without `set_member` edges.
@@ -439,7 +439,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 200 | |
+| `test/test_config_validation.jl` | 201 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
@@ -448,7 +448,7 @@ other seven execute code and print output.
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
 | `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
-| `test/test_set_pool.jl` | 36 | specs/033, added 2026-09-26 |
+| `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
