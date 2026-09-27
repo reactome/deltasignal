@@ -84,3 +84,49 @@ refuses an `inert` arm that held nothing.
 - concentration;
 - convergence counts;
 - `conserved_held`.
+
+## Result — NOT ADOPTED (2026-09-26)
+
+**Setup:** canonical build `20260926-1221_590301c`; arms `consctrl` and
+`consinert` at solver 1fcc1bc. The inert arm held 12,070 curator and 1,256
+experimental node-solves. Convergence: curator 1,652 → 1,658, experimental
+217 → 226 of 244.
+
+| split | net | fixed / broke | p | pathways |
+|---|---|---|---|---|
+| curator held-out | **+42** | 110 / 68 | 0.002 | 13 (+9 / −3) |
+| curator tuning | −265 | 100 / 365 | 1.7e-36 | PIP3 −308 |
+| **experimental** | **−122** | 3 / 125 | 2.1e-33 | 3 (all negative) |
+
+- Best: HDR +54, ERBB2 +26, ERBB4 +18, DNA Damage Bypass +17.
+- Worst: PIP3 −308, Mitotic G2/M −42, **TGF-β −30**, **Class I MHC −18**.
+
+**Gates:**
+- held-out passes (+42, p = 0.002);
+- **experimental fails** (−122);
+- **no-pathway-below −10 fails** (TGF-β −30 and Class I MHC −18, both held-out).
+
+**Not adopted.** `DS_CONSERVED_MODE` stays in the code as a record, default
+`off`.
+
+**Why PIP3 collapsed:** PIP3 itself (R-ALL-179838) is one of the two nodes held
+in that pathway.
+- That PIP3 node is produced only by reactions that take PIP3 in and give it
+  back (it binds its effectors and is released), so it meets "released
+  unchanged".
+- But its level IS the pathway's signal, a second messenger.
+- **"Released unchanged" does not separate a conserved scaffold (F-actin, a RAS
+  GAP) from a signalling molecule that is bound and released.**
+- It is also copy multiplicity again: the loop-only PIP3 copy is not the one
+  PI3K produces.
+
+**What survives:**
+- The held-out gain is real: +42, 13 pathways, 66 perturbations.
+- It sits in the pathways the inventory predicted: HDR, ERBB2/4 and DNA Damage
+  Bypass, the loop-only-input pathways of specs/034 §6.
+- A narrower rule (exclude small molecules and second messengers, or require a
+  protein or complex entity) would be a NEW pre-registration. It is not a tuning
+  of this one. Not run.
+
+**RAF (the motivating case):** the RAF-specific cases have not been scored
+separately here; experimental lost in 3 pathways.
