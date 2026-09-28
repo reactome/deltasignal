@@ -523,3 +523,57 @@ multi-step).
   - Worst: Interferon α/β −56 (identical in all three arms), HDR −49.
   - Best: Interferon γ +34, ERBB2 +14, intrinsic apoptosis +13.
 - The losses are traced below before any further change.
+
+### The losses, traced (Fable, harness reproduces the arm values)
+
+- **Interferon α/β, −56** (JAK1 80x and IFNAR2 80x read exactly 1.0; ctrl read
+  100). **Rule as specified, meeting an artefact.**
+  - The pool's first transition, "Activation of JAK kinases", is divide-inhibited
+    by the SOCS-bound receptor 912681.
+  - 912681 is built by an AND from the pool's own base state (909703).
+  - So the inhibitor equals the base fold, and the flux base → pp is
+    1.306 × (1/1.306) = 1.000, for any φ₀, supply or carriers.
+  - ctrl was right only because its gain-1 loop railed to 100.
+  - specs/022's damping does not fire: `containment.csv` lists 912681's
+    components flat.
+- **HDR, −63 / +14** (every 80x reads about 0; KOs read 100). **A detection
+  defect plus the rule.**
+  - The "pool" RPA ⇄ p-RPA runs a 5-step path through the resection machine.
+  - Its exit step's co-inputs (p-RAD51, p-BRCA2:SEM1) depend on p-CHEK1, which
+    is made from the pool's own intermediates.
+  - With the top bounded, the only attractor is the zero root.
+  - This is the "13-form repair machine" flagged in derivation2-fable §8.
+- **Interferon γ, +34.** The same SOCS mechanism with the opposite sign, and a
+  gain for the right reason in kind: conservation sets the total, and SOCS only
+  redistributes within the pool.
+- **Experimental −8** (1 won, 9 lost):
+  - 6 of the losses are the HDR mechanism.
+  - MYC ×2 (S phase) and CCNB1 (Prophase) read a base-state form at 1.11: the
+    pre-stated "unmodified-form readouts read NORMAL at φ₀ = 0.1" failure mode.
+  - The one gain is RAF NF1 KO (0.17 → 1.29, UP), the case this spec set out to
+    fix.
+
+## Amendment 4 (2026-09-28): POST HOC, designed after the arms above
+
+**Not a rescue.** The pre-registered result stands: not adopted. This rule was
+written after reading the traced losses, so its measurement carries the usual
+forking-path caveat and is reported as exploratory.
+
+**Rule.** In a pool's drives, a step input that the pool itself feeds by mass
+flow is read at baseline, as the source state already is. "Feeds" means
+reachable from the pool's states through activator edges, not through a pin.
+Carriers and the source are excluded.
+- This extends the pre-registered "catalyst ⊣ source-state edge is not
+  applied" and amendment 3's "the pool does not suppress its own supply" to
+  the pool's own transitions.
+- The pool's protein acts on its own transitions only through its states, never
+  a second time through complexes built from them.
+- It covers Interferon α/β (the SOCS inhibitor built from the base state) and
+  HDR (p-CHEK1 from the pool's own intermediates driving its exit).
+- Expected effect on Interferon γ: pp 8 → 80, still UP.
+
+**Arms and gates:** the same build, a new solver commit, `ctrl039` re-run at
+that commit, `bal01a4` (balance, φ₀ 0.1, carriers on), and the same gates.
+Because the rule is post hoc, it is adopted only if it passes on **both** axes.
+The case-level concentration is reported with the pathways that motivated it
+(Interferon α/β, HDR) excluded.
