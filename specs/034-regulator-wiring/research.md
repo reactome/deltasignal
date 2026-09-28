@@ -418,7 +418,7 @@ output?):
 |---|---|
 | E catalyses a reaction consuming X (entity target) | 37 |
 | E catalyses a reaction consuming the target reaction's output | 16 |
-| **total with a curated reversal link** | **53 (24%)** |
+| **total with a curated reversal link** | **53 (24%)**. Of these, 44 are in the same pathway and 9 elsewhere in Reactome (corrected 2026-09-28) |
 | **no catalytic link** (entity target 89, reaction target 67) | **156 (71%)** |
 | E catalyses X's production | 1 |
 | not in this release | 9 |
@@ -430,3 +430,31 @@ does not curate the reverse reaction with that enzyme in the pathway. §12's
 "automatic equivalent" therefore covers about 24% of what the curators did.
 The remainder is exactly the question for the curators: what rule, or what
 outside knowledge, did they apply?
+
+### 12c. Correction and follow-up (2026-09-28)
+
+- **The 53 counts a reversal catalysis link found anywhere in Reactome,** not
+  only in the pathway. Only **44** are in the pathway itself.
+- **The edits date mostly from 2017** (the QA repository history: 179 of the
+  QA-file commits in 2017, 48 in 2018), not late 2018.
+- **They were not made from literature** (Adam). An edge with no Reactome
+  support is curator judgement.
+- **All 219 are now classified** by what Reactome itself supports:
+
+  | Reactome support | edges |
+  |---|---|
+  | reverse catalysis in the pathway | 69 |
+  | reverse catalysis elsewhere | 9 |
+  | curated negative regulation | 6 |
+  | curated binding or sequestration | 37 |
+  | transcriptional repression | 16 |
+  | acts on another form of the target | 16 |
+  | none | 56 |
+  | the source is a reaction | 1 |
+  | ids gone | 9 |
+
+- **Coverage was selective:** about 5% of catalysed interconversions and 7% of
+  dead-end bindings in the edited pathways got a brake. The one systematic rule
+  is RB1 ⊣ E2F1-driven expression (14 of 15).
+- **Rule-level questions went to a curator** on 2026-09-28. The answers are to
+  be recorded here.
