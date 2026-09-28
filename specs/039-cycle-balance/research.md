@@ -872,3 +872,41 @@ Only flipped pools may change predictions.
 
 **Gates:** amendment 6's gates, which include the relaxed experimental gate
 that Adam confirms. Each arm is judged against ctrl on its own build.
+
+### Amendments 6 and 7: results
+
+Builds `20260928-0934_5151e63_pools039f_a6` (`LNG_POOL_ACTIVE_VIA=direct`)
+and `20260928-0948_5151e63_pools039g_a7` (`made_from`). Arms at solver
+`6643c18`, which equals main's solver.
+
+**Flips, verified by stable id against pools039e:** a6 flips the 3 lipin pools;
+a7 flips those 3 plus CCNA:CDK2. That is exactly the pre-registered census.
+
+| arm vs ctrl039, same build | curator held-out | curator tuning | curator all | experimental |
+|---|---|---|---|---|
+| bal01a6 | +77 (87/10, p 1.8e-16) | −5 | +72 | −2 (1/3) |
+| **bal01a7** | **+77** (87/10, p 1.8e-16) | **+1** | **+78** (89/11, p 2.5e-16) | **0** (1/1) |
+
+- **a6 is identical to a5:** the lipin flips change no scored case.
+- **a7 fixes S phase:**
+  - The tuning −6 is gone.
+  - MYC 80x now reads 8.99, UP (correct; both cases). MYC KO is DOWN in both
+    arms.
+  - Remaining experimental changes: +1 RAF NF1 KO, −1 CCNB1 lamin (the AND
+    downstream, as predicted).
+- **a7 gates (the amendment 6 gates):**
+
+  | gate | result |
+  |---|---|
+  | curator held-out > +15, p < 0.05 | **pass** |
+  | experimental net ≥ 0, not significantly negative | **pass** (0) |
+  | no pathway loses > 10 | pass (worst: Prophase −1) |
+  | ≥ 2 pathways and ≥ 5 perturbations | pass (8 pathways, 26 perturbations) |
+
+- **Verdict:** it passes the relaxed experimental gate. Making `balance` the
+  default is Adam's to confirm, as recorded.
+- **Control arms differ between builds** (+5 to +52 curator), almost entirely
+  in Transcriptional Regulation by TP53 (+42 to +49), Fanconi Anemia and DSB
+  response. That is regeneration noise: the large-loop pathways move under uuid
+  relabelling (specs/013). Every verdict above is balance vs ctrl within one
+  build.
