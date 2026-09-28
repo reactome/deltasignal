@@ -70,14 +70,23 @@ stop changing.
 ## 4. Loops, and why they need their own maths (measured, NOT adopted: specs/039)
 
 > **Status.** Everything in this section is implemented behind
-> `DS_CYCLE_MODE=balance` and was measured on both benchmarks. It is **not
-> adopted** (curator held-out −5, experimental −8 against the rule off), and
-> the default remains `off`: loops are iterated as in §3. It fixes the case it
-> was built for (RAF NF1 knockout) and fails where a pool's own protein
-> regulates it through complexes outside the pool (SOCS in interferon
-> signalling). The numbers and the traced losses are in
-> `specs/039-cycle-balance/research.md`. The section is kept because it is the
-> design the next step builds on.
+> `DS_CYCLE_MODE=balance` and was measured on both benchmarks. The default
+> remains `off`: loops are iterated as in §3.
+> - **As first pre-registered, it was not adopted:** curator held-out −5,
+>   experimental −8 against the rule off.
+> - **With the pool boundary fixed (amendment 5):** curator held-out is +77
+>   (p 1.8e-16), and experimental is −2 (not significant). That fails the
+>   pre-registered experimental gate, so it is **held off by default** (Adam,
+>   2026-09-28).
+> - The amendment 5 fix: a regulator built from a pool's own form keeps its
+>   own effect but loses its tracking of the pool, and a multi-step path must
+>   regenerate its enzyme.
+> - **The remaining loss:** readouts on a pool's resting form. At φ₀ = 0.1,
+>   driving a pool toward its modified form moves the resting form only to
+>   1.11.
+>
+> The numbers and the traced losses are in
+> `specs/039-cycle-balance/research.md`.
 
 **What the loops are.** Once the artefact loops are separated by uuids, most of
 what remains are **curated interconversion cycles**, where one reaction turns a
