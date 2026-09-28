@@ -936,7 +936,7 @@ function solve_scc_ordered!(
     end
     n_carriers_held = 0; n_multistep = 0
     for p in pools
-        nodes = vcat(p.forms, p.flux_nodes)
+        nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes)
         c0 = comp_id[nodes[1]]
         if baseline_vec !== nothing && !pooling && !minimize &&
            all(v -> comp_id[v] == c0, nodes) && comp_size[c0] > 1

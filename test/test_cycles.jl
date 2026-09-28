@@ -161,9 +161,9 @@ end
 #   Ss + Ph -> SsP -> SP -> S + Ph
 # G -> P -> S supplies the protein; Ss -> W -> D is the readout. K has its own
 # supply KG -> KP -> K besides the release step (a carrier).
-function ring(; rl = identity, carriers = true)
+function ring(; rl = identity, carriers = true, copies = false)
     ids = ["G", "P", "S", "SE", "SsE", "Ss", "SsP", "SP", "K", "Ph", "b1", "c1", "r1", "b2", "c2", "r2",
-           "W", "D", "KG", "KP"]
+           "W", "D", "KG", "KP", "K2", "b1x"]
     nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
     E = [("G", "P", "input"), ("P", "S", "output"),
          ("S", "b1", "input"), ("K", "b1", "input"), ("b1", "SE", "output"),
@@ -174,9 +174,11 @@ function ring(; rl = identity, carriers = true)
          ("SP", "r2", "input"), ("r2", "S", "output"), ("r2", "Ph", "output"),
          ("Ss", "W", "input"), ("W", "D", "output"),
          ("KG", "KP", "input"), ("KP", "K", "output")]
+    copies && append!(E, [("S", "b1x", "input"), ("K2", "b1x", "input"), ("b1x", "SE", "output")])
     edges = [edge(rl(s), rl(t), et; and = et == "input") for (s, t, et) in E]
-    st(a, b, r) = (rl(a), rl(b), rl(r))
-    paths = [DS.PoolPath(rl("S"), rl("Ss"), [st("S", "SE", "b1"), st("SE", "SsE", "c1"), st("SsE", "Ss", "r1")], true),
+    st(a, b, rs...) = (rl(a), rl(b), sort([rl(r) for r in rs]))
+    bind1 = copies ? st("S", "SE", "b1", "b1x") : st("S", "SE", "b1")
+    paths = [DS.PoolPath(rl("S"), rl("Ss"), [bind1, st("SE", "SsE", "c1"), st("SsE", "Ss", "r1")], true),
              DS.PoolPath(rl("Ss"), rl("S"), [st("Ss", "SsP", "b2"), st("SsP", "SP", "c2"), st("SP", "S", "r2")], true)]
     cs = carriers ? [(rl("K"), rl("r1")), (rl("Ph"), rl("r2"))] : Tuple{String, String}[]
     p = [DS.CyclePool("pool1", sort([rl("S"), rl("Ss")]), rl("S"), paths,
@@ -226,6 +228,16 @@ end
     roff = solve_ring(net; obs = Dict("KG" => 80.0), pinned = ("G", "Ph"), carriers = "off")
     @test roff.diagnostics["cycle_carriers"] == "off" && roff.diagnostics["cycle_carriers_held"] == 0
     @test !(fold(roff, "K") ≈ 80.0)                     # off: the release step still feeds K
+    # copies of one step (a set-member kinase K2 beside K): the step's drive is
+    # their mean, so K2 KO halves it, and each copy node reads its share
+    rc = solve_ring(ring(; copies = true); obs = Dict("K2" => 0.0), pinned = ("G", "K", "Ph", "K2"))
+    @test rc.converged
+    @test fold(rc, "Ss") ≈ 0.5 / (0.1 * 0.5 + 0.9) atol = 1e-3
+    @test fold(rc, "b1x") ≈ 0.0 atol = 1e-6
+    @test fold(rc, "b1") ≈ 2 * fold(rc, "SE") atol = 1e-6
+    rc0 = solve_ring(ring(; copies = true); pinned = ("G", "K", "Ph", "K2"))
+    @test fold(rc0, "b1") ≈ 1.0 atol = 1e-9
+    @test fold(rc0, "b1x") ≈ 1.0 atol = 1e-9
     # label independence on the ring
     rl(u) = "zz_" * u
     r1 = solve_ring(ring(); obs = Dict("K" => 3.0))
@@ -301,7 +313,7 @@ end
         p = DS.parse_pools(ln)
         @test length(p) == 1 && p[1].base == "u-a" && p[1].forms == ["u-a", "u-b"]
         @test [(q.from, q.to, q.steps) for q in p[1].paths] ==
-              [("u-a", "u-b", [("u-a", "u-b", "u-f")]), ("u-b", "u-a", [("u-b", "u-a", "u-r")])]
+              [("u-a", "u-b", [("u-a", "u-b", ["u-f"])]), ("u-b", "u-a", [("u-b", "u-a", ["u-r"])])]
         @test all(q -> q.enzyme, p[1].paths) && isempty(p[1].intermediates)
         write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,is_base\npool1,u-a,R-A,False\n")
         @test_throws ArgumentError DS.parse_pools(ln)   # a pool must have a base form
@@ -316,7 +328,18 @@ end
         @test p[1].forms == ["u-s", "u-t"] && p[1].intermediates == ["u-c"]
         @test [(q.from, q.to, length(q.steps), q.enzyme) for q in p[1].paths] ==
               [("u-s", "u-t", 2, true), ("u-t", "u-s", 1, false)]
-        @test p[1].paths[1].steps == [("u-s", "u-c", "u-b"), ("u-c", "u-t", "u-r")]
+        @test p[1].paths[1].steps == [("u-s", "u-c", ["u-b"]), ("u-c", "u-t", ["u-r"])]
+        # copies: several rows for one (path, step) are one step with its copies
+        write(joinpath(dir, "pool_transitions.csv"),
+              "pool_id,path_id,step,source_uuid,target_uuid,reaction_uuid,reaction_stid,enzyme_driven\n" *
+              "pool1,p1,1,u-s,u-c,u-b2,R-B,True\npool1,p1,1,u-s,u-c,u-b,R-B,True\npool1,p1,2,u-c,u-t,u-r,R-R,True\n" *
+              "pool1,p2,1,u-t,u-s,u-h,R-H,False\n")
+        p = DS.parse_pools(ln)
+        @test p[1].paths[1].steps == [("u-s", "u-c", ["u-b", "u-b2"]), ("u-c", "u-t", ["u-r"])]
+        write(joinpath(dir, "pool_transitions.csv"),
+              "pool_id,path_id,step,source_uuid,target_uuid,reaction_uuid,reaction_stid,enzyme_driven\n" *
+              "pool1,p1,1,u-s,u-c,u-b,R-B,True\npool1,p1,1,u-s,u-t,u-b2,R-B,True\npool1,p1,2,u-c,u-t,u-r,R-R,True\n")
+        @test_throws ArgumentError DS.parse_pools(ln)    # copies of one step must join the same nodes
         @test p[1].carriers == [("u-e", "u-r")]
         # a path whose steps do not chain is an error, not a silent pool
         write(joinpath(dir, "pool_transitions.csv"),

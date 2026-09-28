@@ -75,9 +75,11 @@ struct IndexedPool
     path_to::Vector{Int}
     path_k::Vector{Float64}             # baseline rate
     path_j0::Vector{Float64}            # baseline flow
-    path_steps::Vector{Vector{Tuple{Int, Int}}}   # (rxns_idx of the step's reaction, its source node)
-    flux_nodes::Vector{Int}             # step reaction nodes and intermediates
+    path_steps::Vector{Vector{Tuple{Vector{Int}, Int}}}   # per step: (rxns_idx of its copies, its source node)
+    flux_nodes::Vector{Int}             # intermediates
     flux_paths::Vector{Vector{Int}}     # the paths through each
+    copy_nodes::Vector{Int}             # step reaction-node copies
+    copy_refs::Vector{Vector{Tuple{Int, Int, Int}}}  # (path, step, copy position) of each
     supply_rxns::Vector{Vector{Int}}    # per state: its producers outside the pool
     form_rxn::Vector{Int}               # per state: rxns_idx of the state's own update (0 if none)
     carriers::Vector{Int}               # enzyme free-form nodes
@@ -154,17 +156,16 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
         w0 = [ratio ^ dist[f] for f in p.forms]
         pi0 = w0 ./ sum(w0)
         # paths
-        pf = Int[]; pt = Int[]; psteps = Vector{Tuple{Int, Int}}[]; penz = Bool[]
+        pf = Int[]; pt = Int[]; psteps = Vector{Tuple{Vector{Int}, Int}}[]; penz = Bool[]
         ok = true
         for q in p.paths
             (haskey(pos, q.from) && haskey(pos, q.to) && q.from != q.to &&
              1 <= length(q.steps) <= CYCLE_MAX_STEPS) || (ok = false; break)
-            st = Tuple{Int, Int}[]
-            for (a, b, rx) in q.steps
-                (haskey(uuid_to_idx, a) && haskey(uuid_to_idx, rx)) || (ok = false; break)
-                node = uuid_to_idx[rx]
-                haskey(by_target, node) || (ok = false; break)
-                push!(st, (by_target[node], uuid_to_idx[a]))
+            st = Tuple{Vector{Int}, Int}[]
+            for (a, b, rxs) in q.steps
+                (haskey(uuid_to_idx, a) && !isempty(rxs) && all(rx -> haskey(uuid_to_idx, rx), rxs)) || (ok = false; break)
+                all(rx -> haskey(by_target, uuid_to_idx[rx]), rxs) || (ok = false; break)
+                push!(st, ([by_target[uuid_to_idx[rx]] for rx in rxs], uuid_to_idx[a]))
             end
             ok || break
             push!(pf, pos[q.from]); push!(pt, pos[q.to]); push!(psteps, st); push!(penz, q.enzyme)
@@ -188,17 +189,22 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
         end
         j0 = [mu[pf[q]] * w[q] / W[pf[q]] for q in eachindex(pf)]
         k = [j0[q] / pi0[pf[q]] for q in eachindex(pf)]
-        # flux nodes: step reaction nodes and intermediates
+        # flux nodes: intermediates (by path) and step copies (by path, step, copy)
         fl = Dict{Int, Vector{Int}}()
+        cr = Dict{Int, Vector{Tuple{Int, Int, Int}}}()
         for (q, st) in enumerate(psteps)
-            for (s_i, (ri, src)) in enumerate(st)
-                push!(get!(fl, rxns_idx[ri].target_idx, Int[]), q)
+            for (s_i, (ris, src)) in enumerate(st)
                 s_i > 1 && push!(get!(fl, src, Int[]), q)
+                for (c, ri) in enumerate(ris)
+                    push!(get!(cr, rxns_idx[ri].target_idx, Tuple{Int, Int, Int}[]), (q, s_i, c))
+                end
             end
         end
         fnodes = sort!(collect(keys(fl)))
         fpaths = [unique(fl[v]) for v in fnodes]
-        step_nodes = Set(rxns_idx[ri].target_idx for st in psteps for (ri, _) in st)
+        cnodes = sort!(collect(keys(cr)))
+        crefs = [cr[v] for v in cnodes]
+        step_nodes = Set(cnodes)
         supply = Vector{Vector{Int}}()
         for f in p.forms
             fi = uuid_to_idx[f]
@@ -225,31 +231,39 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             push!(cs, ci); push!(crx, by_target[ci]); push!(crel, cmap[ci])
         end
         push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
-                               fnodes, fpaths, supply, frx, cs, crx, crel))
+                               fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel))
     end
     return out, skipped
 end
 
 """
-Drive of each path: the product over its steps of the step's reaction, evaluated
-with that step's source held at baseline, over the reaction's baseline.
+Drive of each path, and of every step copy. A copy's drive is its reaction,
+evaluated with the step's source held at baseline, over the reaction's
+baseline; a step's drive is the mean over its copies (each carries an equal
+share at rest); a path's drive is the product over its steps.
 """
 function path_drives(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, config)
     u = Vector{Float64}(undef, length(p.path_from))
+    cu = Vector{Vector{Vector{Float64}}}(undef, length(p.path_from))
     for q in eachindex(p.path_from)
         d = 1.0
-        for (ri, src) in p.path_steps[q]
+        cu[q] = Vector{Vector{Float64}}(undef, length(p.path_steps[q]))
+        for (s_i, (ris, src)) in enumerate(p.path_steps[q])
             keep = x[src]
             x[src] = baseline_vec[src]
-            out = compute_reaction_output_vec(x, rxns_idx[ri]; config = config)
+            cs = Float64[]
+            for ri in ris
+                out = compute_reaction_output_vec(x, rxns_idx[ri]; config = config)
+                bl = baseline_vec[rxns_idx[ri].target_idx]
+                push!(cs, bl > 0 ? out / bl : 0.0)
+            end
             x[src] = keep
-            bl = baseline_vec[rxns_idx[ri].target_idx]
-            d *= bl > 0 ? out / bl : 0.0
-            d == 0.0 && break
+            cu[q][s_i] = cs
+            d *= sum(cs) / length(cs)
         end
         u[q] = d
     end
-    return u
+    return u, cu
 end
 
 """
@@ -257,7 +271,7 @@ Stationary distribution over the pool's states at the current drives, and the
 drives themselves.
 """
 function pool_stationary(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, config)
-    u = path_drives(x, p, rxns_idx, baseline_vec, config)
+    u, cu = path_drives(x, p, rxns_idx, baseline_vec, config)
     n = length(p.forms)
     Q = zeros(n, n)
     for q in eachindex(p.path_from)
@@ -265,7 +279,7 @@ function pool_stationary(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, b
         rate = p.path_k[q] * (u[q] + CYCLE_DRIVE_EPS)
         Q[i, j] += rate; Q[i, i] -= rate
     end
-    return _stationary(Q), u
+    return _stationary(Q), u, cu
 end
 
 """
@@ -297,7 +311,7 @@ redistributed to other states.
 """
 function form_modifier(x::AbstractVector{Float64}, p::IndexedPool, k::Int, rxns_idx, baseline_vec, config)
     held = Set{Int}()
-    for st in p.path_steps, (ri, _) in st
+    for st in p.path_steps, (ris, _) in st, ri in ris
         union!(held, rxns_idx[ri].activator_indices)
     end
     return _modifier(x, p.form_rxn[k], rxns_idx, baseline_vec, config, held)
@@ -315,7 +329,7 @@ absolute change written.
 """
 function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, obs_set, config;
                       carriers::Bool = true)
-    pi, u = pool_stationary(x, p, rxns_idx, baseline_vec, config)
+    pi, u, cu = pool_stationary(x, p, rxns_idx, baseline_vec, config)
     s = NaN
     for (k, f) in enumerate(p.forms)
         if f in obs_set
@@ -346,6 +360,20 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
         num = 0.0; den = 0.0
         for q in qs
             num += p.path_j0[q] * flux[q]; den += p.path_j0[q]
+        end
+        val = clamp(baseline_vec[v] * (den > 0 ? num / den : 1.0), 0.0, 1.0)
+        maxch = max(maxch, abs(val - x[v])); x[v] = val
+    end
+    # a step copy carries its path's flux in proportion to its share of the
+    # step's drive (equal at rest)
+    for (v, refs) in zip(p.copy_nodes, p.copy_refs)
+        v in obs_set && continue
+        num = 0.0; den = 0.0
+        for (q, s_i, c) in refs
+            cs = cu[q][s_i]
+            m = sum(cs) / length(cs)
+            share = m > 0 ? cs[c] / m : 1.0
+            num += p.path_j0[q] * flux[q] * share; den += p.path_j0[q]
         end
         val = clamp(baseline_vec[v] * (den > 0 ? num / den : 1.0), 0.0, 1.0)
         maxch = max(maxch, abs(val - x[v])); x[v] = val

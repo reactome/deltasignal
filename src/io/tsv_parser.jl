@@ -29,13 +29,15 @@ end
 """
 One transition of a pool (specs/039 amendment 2): a directed path from one state
 to another through zero or more intermediates (enzyme complexes). `steps` are
-(source node, target node, reaction node) in order; `enzyme` says whether a
+(source node, target node, reaction-node copies) in order: the copies are the
+uuid copies of ONE curated reaction between those two nodes (set or variant
+expansion), and a step's drive is the mean of theirs. `enzyme` says whether a
 step is driven by a protein other than the pool's own.
 """
 struct PoolPath
     from::String
     to::String
-    steps::Vector{Tuple{String, String, String}}
+    steps::Vector{Tuple{String, String, Vector{String}}}
     enzyme::Bool
 end
 
@@ -58,7 +60,7 @@ end
 """Amendment 1 form: one-step transitions (from, to, reaction) between two or
 more forms, none of them intermediates. `uncatalysed` lists intrinsic steps."""
 function CyclePool(id, forms, base, transitions::AbstractVector{<:Tuple}, uncatalysed = Set{String}())
-    paths = [PoolPath(a, b, [(a, b, rx)], !(rx in uncatalysed)) for (a, b, rx) in transitions]
+    paths = [PoolPath(a, b, [(a, b, [rx])], !(rx in uncatalysed)) for (a, b, rx) in transitions]
     return CyclePool(id, forms, base, paths, String[], Tuple{String, String}[])
 end
 
@@ -456,31 +458,41 @@ function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePoo
     if isfile(tf)
         dt = CSV.read(tf, DataFrame; types = String)
         truthy(v) = !ismissing(v) && lowercase(v) in ("true", "1")
-        if "path_id" in names(dt)                 # amendment 2: one row per step
-            steps = Dict{Tuple{String, String}, Vector{Tuple{Int, String, String, String}}}()
+        if "path_id" in names(dt)                 # amendment 2: one row per (path, step, copy)
+            steps = Dict{Tuple{String, String}, Dict{Int, Tuple{String, String, Vector{String}}}}()
             enz = Dict{Tuple{String, String}, Bool}()
             for r in eachrow(dt)
                 any(ismissing, (r.pool_id, r.path_id, r.step, r.source_uuid, r.target_uuid, r.reaction_uuid)) && continue
                 key = (r.pool_id, r.path_id)
-                push!(get!(steps, key, Tuple{Int, String, String, String}[]),
-                      (parse(Int, r.step), r.source_uuid, r.target_uuid, r.reaction_uuid))
+                byk = get!(steps, key, Dict{Int, Tuple{String, String, Vector{String}}}())
+                k = parse(Int, r.step)
+                if haskey(byk, k)
+                    a, b, cs = byk[k]
+                    (a, b) == (r.source_uuid, r.target_uuid) || throw(ArgumentError(
+                        "$tf: pool $(key[1]) path $(key[2]) step $k has copies between different nodes"))
+                    push!(cs, r.reaction_uuid)
+                else
+                    byk[k] = (r.source_uuid, r.target_uuid, [r.reaction_uuid])
+                end
                 enz[key] = get(enz, key, false) | truthy(r.enzyme_driven)
             end
             for key in sort!(collect(keys(steps)))
-                st = sort!(steps[key])
+                ks = sort!(collect(keys(steps[key])))
+                ks == collect(1:length(ks)) || throw(ArgumentError(
+                    "$tf: pool $(key[1]) path $(key[2]) steps are not numbered 1..n"))
+                st = [(steps[key][k][1], steps[key][k][2], sort!(unique(steps[key][k][3]))) for k in ks]
                 for q in 2:length(st)
-                    st[q][2] == st[q - 1][3] || throw(ArgumentError(
-                        "$tf: pool $(key[1]) path $(key[2]) step $(st[q][1]) does not start where step $(st[q - 1][1]) ends"))
+                    st[q][1] == st[q - 1][2] || throw(ArgumentError(
+                        "$tf: pool $(key[1]) path $(key[2]) step $q does not start where step $(q - 1) ends"))
                 end
-                push!(get!(paths, key[1], PoolPath[]),
-                      PoolPath(st[1][2], st[end][3], [(a, b, rx) for (_, a, b, rx) in st], enz[key]))
+                push!(get!(paths, key[1], PoolPath[]), PoolPath(st[1][1], st[end][2], st, enz[key]))
             end
         else                                       # amendment 1: one row per one-step transition
             hascat = "catalysed" in names(dt)
             for r in eachrow(dt)
                 any(ismissing, (r.pool_id, r.from_uuid, r.to_uuid, r.reaction_uuid)) && continue
                 push!(get!(paths, r.pool_id, PoolPath[]),
-                      PoolPath(r.from_uuid, r.to_uuid, [(r.from_uuid, r.to_uuid, r.reaction_uuid)],
+                      PoolPath(r.from_uuid, r.to_uuid, [(r.from_uuid, r.to_uuid, [r.reaction_uuid])],
                                hascat ? truthy(r.catalysed) : true))
             end
         end

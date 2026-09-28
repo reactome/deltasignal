@@ -374,3 +374,25 @@ pathways. The node-level counts are recorded after the build, before any arm.
 - `pool_carriers.csv`: `pool_id,carrier_uuid,release_reaction_uuid`.
 
 The amendment 1 format stays readable, as one-step paths.
+
+**Amendment 2, clarification (before any arm): parallel copies are per step.**
+- Implementing "each uuid path is a parallel transition" literally produced
+  paths as the Cartesian product of reaction copies per step:
+  - RAF: 2,304 paths where the hand trace has 48;
+  - HRR: 262,145 paths;
+  - EGFR: 64,834 paths.
+- **Rule.** A path is identified by its node sequence plus the curated
+  reaction at each step. Each step lists its uuid copies of that one reaction.
+  - A step's drive is the mean of its copies, since each carries an equal share
+    at rest. With equal copy weights, the sum over the Cartesian product of the
+    copy drives factorises into exactly this: the same rule, stated compactly.
+  - A copy node reads its path's flux × (its drive ÷ the step's mean).
+  - Distinct curated reactions between the same nodes stay distinct paths, so
+    GEF and intrinsic exchange keep their per-exit weights.
+- **Generator interpretations adopted** (Fable, generator commit message):
+  - self-catalysis means a catalyst with no protein other than R;
+  - direct-child signatures are read through set membership;
+  - co-travelling proteins with identical pools are merged, not dropped;
+  - states on no kept path are omitted and counted;
+  - variant signatures are the parent's;
+  - base-rule residues are summed over all leaves.
