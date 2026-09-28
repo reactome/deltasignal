@@ -758,3 +758,49 @@ the byte-identity check.
     AND composition downstream, not from the pool rule.
 - Neither needs the pool boundary changed. The first is a question about what φ₀
   refers to, which is Adam's decision (φ₀ was his call).
+
+## Amendment 6 (2026-09-28): φ₀ refers to the ACTIVE form. Pre-registered before code
+
+**Decision (Adam, 2026-09-28):** φ₀ is the share of the **active** form at rest,
+not of the modified form. This is the meaning its justification always had
+("activated forms are a minority at rest").
+
+**Rule (generator, orientation only; the solver is unchanged):**
+- A pool's state is **active** if it acts downstream of the pool: at node level
+  it has a `catalyst` edge, or a positive `regulator` edge, into a reaction
+  that is **not** one of the pool's own steps.
+- If exactly one state of a two-state pool is active, the other state is the
+  base (the resting, inactive form), and φ₀ goes to the active one.
+- For pools with more than two states: if exactly one state is active, the base
+  is the non-active state furthest from it; ties fall back.
+- Otherwise (no state active, or several) the current rule applies: residues,
+  then donor, then components.
+- Counted: pools oriented by activity, pools whose base **flips** relative to
+  pools039e, and pools that fall back.
+
+**Expected:**
+- CCNA:CDK2 ⇄ CCNA:p-Y15-CDK2 flips (base = p-Y15). MYC 80x then drives active
+  CDK2 up to 1/φ₀ → S-phase readouts UP (2 experimental cases).
+- RAS keeps its orientation (base GDP).
+- Lipin: active = unphosphorylated, which is currently the base, so it flips
+  (base p-S106). CCNB1 80x → active lipin falls further; the lamin case stays
+  lost (AND downstream).
+
+**Census before the build:** every flipped pool listed by name and hand-checked
+for plausibility, before any arm. If a flip is implausible (the "active" state
+is not the biologically active one), that is recorded, not special-cased.
+
+**Arms:** one build, ctrl039 and bal01a6 (balance, φ₀ 0.1, carriers on) at one
+solver commit, plus bal01a5 re-run on the same build for byte-identity. Only
+pools that flipped may change anything.
+
+**Gates (to adopt `balance` as the default):**
+- curator held-out > +15, p < 0.05, vs ctrl on the same build;
+- experimental net ≥ 0, and not significantly negative;
+- no pathway loses > 10;
+- gains span ≥ 2 pathways and ≥ 5 perturbations.
+
+The experimental gate is relaxed from the original "≥ +15, p < 0.05". The
+reason is Adam's decision to hold amendment 5 "until the resting-form issue is
+addressed". Adopting on that basis is **Adam's to confirm** before the default
+changes.
