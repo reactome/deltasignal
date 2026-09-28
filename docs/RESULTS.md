@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-09-26. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-09-28. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -19,7 +19,54 @@ commit.
 ---
 
 
-> **2026-09-27: canonical numbers (specs/023-027, 030, 033, 038).** The benchmark
+> **2026-09-28: canonical numbers, with cycle balance (specs/039).** This is
+> the protocol and generator of the 2026-09-27 box below, plus one change.
+> Curated interconversion cycles are now solved as conserved pools
+> (`DS_CYCLE_MODE=balance`, the default since #82):
+> - multi-step bind/modify/release cycles are included;
+> - regulators built from a pool's own form keep their own effect but not their
+>   tracking of the pool;
+> - φ₀ = 0.1 is the share of the pool's **active** form at rest.
+>
+> Generator `06ccb63` (LNG #100–#102) writes the pool tables. Build
+> `20260928-1110_06ccb63` (Reactome 97), solver `d35acf1`
+> (`results/d35acf1`).
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **87.69%** | **0.8407** |
+> | curator held-out, every case (71 pathways) | 19,000 | 87.11% | 0.8325 |
+> | curator, all pathways, in release (81) | 23,625 | 85.31% | 0.8209 |
+> | curator, all pathways, every case | 24,100 | 84.77% | 0.8138 |
+> | experimental, every case (10 pathways) | 849 | 67.49% | 0.5904 |
+>
+> **Against MP-BioPath's published figures**, every case against every case:
+> - Curator: ours 84.77% / 0.8138 against their 83.34% / 0.8063, a lead of
+>   **+1.43pp** / +0.008.
+> - Experimental: ours 67.49% against their 75.74%, **−8.3pp**. It is
+>   unchanged: the rule fixed one experimental case (RAF NF1 KO) and lost one
+>   (CCNB1 lamin).
+>
+> **What cycle balance did:**
+> - Against its own `off` control on the same build, it is curator held-out
+>   **+77** (87 fixed / 10 broken, p 1.8e-16), tuning +1, experimental 0.
+> - The gains were traced (specs/039): Interferon γ 34, PTK6/DOK1 26,
+>   apoptosis/AKT1 13, ROCK phosphatases 4, RAF NF1 2, chromatin 8.
+> - Against the previous box the rise is smaller (held-out in release +0.42pp),
+>   because the control itself moves between builds by uuid relabelling in the
+>   large-loop pathways (TP53, Fanconi, DSB).
+>
+> **Known remaining blocks:**
+> - **RAF's MEK/ERK tier reads about 0 under every perturbation**, in every
+>   mode. The MAPK cycle closes only through sets, which pool detection does not
+>   see.
+> - A reaction taking the same complex twice squares it (PTK6 → HIF1A).
+> - Readouts combined by AND downstream of a pool (CCNB1 → lamin).
+>
+> **Previous box (2026-09-27)**, kept for the record: build
+> `20260927-2158_e88f7a3`, bench `fb48121`.
+>
+> **2026-09-27 canonical numbers (specs/023-027, 030, 033, 038), superseded.** The benchmark
 > perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
 > publication does. A gene with no true root has pinned the form whose every
 > producer is its own downstream (e.g. a catalytic cycle) or a derived
