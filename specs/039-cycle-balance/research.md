@@ -594,11 +594,21 @@ b119943 ctrl (0 of 23,511 curator and 0 of 845 experimental cases differ).
 | bal01 (pre-registered) | −36 | +51 | +1 |
 
 - **HDR is fixed** (+51 against bal01): the self-fed exit was the mechanism.
-- **Interferon α/β is unchanged at −56.** The hold did not reach the SOCS
-  inhibitor, most likely because reach is confined to the pool's cyclic
-  component and 912681 lies outside it. Not traced.
-- **Interferon γ lost its +34.** The stated expectation ("pp 8 → 80, still UP")
-  was wrong. Not traced.
+- ~~Interferon α/β is unchanged at −56; the hold did not reach the SOCS
+  inhibitor.~~ **Wrong, corrected 2026-09-28** (re-traced by the problem-3
+  Fable derivation; confirmed on the case files).
+  - The hold did reach the inhibitor: JAK1 80x and IFNAR2 80x were fixed.
+  - SOCS1 KO and SOCS1 80x (28 + 28) were lost instead, because holding the
+    SOCS-bound receptor at baseline silenced SOCS entirely.
+  - The −56 is a different 56 cases.
+- ~~Interferon γ lost its +34.~~ **Wrong, corrected.**
+  - IFNG 80x and JAK1 80x stayed correct (+34 against ctrl).
+  - SOCS1 KO and 80x were lost (−34) by the same silencing, so the net is 0.
+- Also corrected: the bal01 γ gain was **the 100x cap, not conservation**.
+  SOCS binds the p-JAK2 state (a 9% share at rest), which wants 870-fold and
+  is capped at 100, so the inhibitor stops tracking. In α/β, the bound state
+  holds 82% at rest, is not capped, and cancels exactly. The earlier "gain for
+  the right reason in kind" is withdrawn.
 - It fails on both axes. With the pre-registered arms and this one, no cycle
   rule variant is adopted. The code stays default-off (`DS_CYCLE_MODE=off`).
 
