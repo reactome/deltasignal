@@ -155,6 +155,20 @@ end
     @test r.converged
     @test fold(r, "A") ≈ fold(r, "P") atol = 1e-6
     @test fold(r, "A") > 5.0
+    # amendment 3: a derived depletion edge from a pool-fed node onto the
+    # supply chain (B -> W; W -| P, where G -> P -> A is the supply) is not
+    # applied: the pool does not suppress its own supply
+    net = fixture(; extra = [("W", "P", "depletion", false)])
+    r = solve(net; obs = Dict("G" => 80.0))
+    @test r.converged
+    @test fold(r, "A") ≈ 80.0 atol = 1e-3
+    @test fold(r, "B") ≈ 80.0 atol = 1e-3
+    @test r.diagnostics["cycle_supply_depletions_held"] == 1
+    r = solve(net; obs = Dict("EF" => 80.0))
+    @test fold(r, "B") ≈ 8.98876 atol = 1e-3           # the fixture, unmoved by W's rise
+    # ... and off, the edge still applies (default unchanged)
+    r = solve(net; mode = "off", obs = Dict("G" => 80.0))
+    @test r.diagnostics["cycle_rule"] == "off"
     # finding 9: a component method that bypasses the sweep manages no pool,
     # and says so
     for m in ("pool", "minimize")

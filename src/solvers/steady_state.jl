@@ -944,7 +944,8 @@ function solve_scc_ordered!(
     for p in pools
         union!(pool_written, p.forms, p.flux_nodes, p.copy_nodes)
     end
-    n_carrier_conflicts = 0; n_pinned_fallback = 0
+    n_carrier_conflicts = 0; n_pinned_fallback = 0; n_supply_depl = 0
+    rxn_of = isempty(pools) ? Dict{Int, Int}() : Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
     n_carriers_held = 0; n_multistep = 0
     for p in pools
         nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes)
@@ -976,6 +977,38 @@ function solve_scc_ordered!(
             for prods in p.supply_rxns
                 filter!(a -> !(a in reach), prods)
             end
+            # The supply is exogenous to the pool. A DERIVED depletion edge from a
+            # node the pool feeds onto the supply chain (the activator ancestry of
+            # the supply producers inside the component) is the pool's protein
+            # consuming its own precursor, which the pool's conservation already
+            # holds; it is not applied, as the catalyst -| source-state edge is
+            # not (amendment 3, review finding: RAS:GTP:BRAP -| mature RAS made
+            # the RAS pool suppress its own supply, SOS1 80x 4.38 not 8.99).
+            # Curated inhibitor edges are untouched.
+            anc = Set{Int}(); stk = Int[]
+            for prods in p.supply_rxns, a in prods
+                a in anc || (push!(anc, a); push!(stk, a))
+            end
+            while !isempty(stk)
+                v = pop!(stk)
+                ri = get(rxn_of, v, 0)
+                ri == 0 && continue
+                for a in rxns_idx[ri].activator_indices
+                    (a in anc || a in reach || a in obs_set || comp_id[a] != c0) && continue
+                    push!(anc, a); push!(stk, a)
+                end
+            end
+            for v in sort!(collect(anc))
+                ri = get(rxn_of, v, 0)
+                ri == 0 && continue
+                r = rxns_idx[ri]
+                drop = findall(i -> i in reach, r.depletion_indices)
+                isempty(drop) && continue
+                n_supply_depl += length(drop)
+                length(r.depletion_break) == length(r.depletion_indices) && deleteat!(r.depletion_break, drop)
+                length(r.depletion_own_product) == length(r.depletion_indices) && deleteat!(r.depletion_own_product, drop)
+                deleteat!(r.depletion_indices, drop)
+            end
             # carriers are managed only inside the pool's component, and never
             # a node the pool already writes
             keepc = [comp_id[c] == c0 && !(c in pool_written) for c in p.carriers]
@@ -999,6 +1032,7 @@ function solve_scc_ordered!(
     pool_stats["cycle_carriers_flag"] = pool_carriers
     pool_stats["cycle_carrier_conflicts"] = n_carrier_conflicts
     pool_stats["cycle_pools_pinned_fallback"] = n_pinned_fallback
+    pool_stats["cycle_supply_depletions_held"] = n_supply_depl
     # For the final consistency check: managed nodes are held by their pool, not
     # by the forward model (like pinned nodes), and are checked against it.
     pool_stats["cycle_managed"] = managed
@@ -1453,6 +1487,7 @@ function solve_steady_state_penalty(
             "cycle_carriers_held" => get(index_stats, "cycle_carriers_held", 0),
             "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
+            "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
         ),
     )
 end

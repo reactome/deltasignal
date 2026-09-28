@@ -476,3 +476,26 @@ recorded before any balance arm):
 - **Uuids are re-minted per build**, so logic networks differ byte-wise from
   pools039c. All four arms, the control included, run on this build at one
   solver commit.
+
+**Amendment 3, second end-to-end check (before any balance arm).** On pools039d
+at aef2f34, fixes 1–6 were verified:
+- Insulin converges.
+- Calcineurin KO → 14-3-3:p-BAD 10 (UP).
+- The SPRED pin falls back and is counted.
+- FGFR4 is gone, and ERBB2 states move together under ERBB2 80x.
+
+**One new defect: the pool suppressed its own supply.**
+- The supply reaction "mature p21 RAS binds GDP" consumes mature RAS. The
+  generator's derived depletion edge RAS:GTP:BRAP ⊣ mature RAS comes from a node
+  the pool feeds.
+- Every RAF number was therefore multiplied by s ≈ 0.48: SOS1 80x 4.38 (fixture
+  8.99), all-GAP KO 4.61, KRAS 80x 11.8 (fixture 80), KRAS KO 0.63.
+- **Rule:** under balance, a DERIVED depletion edge whose source the pool feeds
+  (mass-flow reach) and whose target is in the activator ancestry of the pool's
+  supply producers (inside the component) is not applied. It is counted
+  (`cycle_supply_depletions_held`).
+- Why: it is the pool's protein consuming its own precursor, which the
+  conservation already holds. This is the same reasoning as the pre-registered
+  "catalyst ⊣ source-form edge is not applied". Curated inhibitor edges are
+  untouched.
+- `test_cycles.jl` goes 188 → 194. The mutant goes red.
