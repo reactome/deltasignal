@@ -95,3 +95,22 @@ where the reverse reaction is curated (24% of the added inhibitions, specs/034
 1. φ₀ = 0.1 as the fixed assumption.
 2. Detection in the generator, which ships `cycles.csv` (forward, reverse, A, B
    per virtual-reaction pair), rather than in the solver.
+
+## Decisions (Adam, 2026-09-27)
+
+1. **φ₀ = 0.1** for every cycle, fixed a priori. φ₀ = 0.5 runs only as a declared
+   sensitivity arm and is never used to choose.
+2. **Detection in the generator.** It detects each protein's pool once (its
+   forms, by shared reference entity, and the curated reactions converting
+   between them) and ships it with the network. DeltaSignal solves the pool on
+   every run.
+3. **General form: π = πP** (Adam's framing).
+   - Each pool is a Markov chain: the states are the protein's forms, and each
+     transition rate is its baseline rate × its drive.
+   - The stationary distribution gives the split between forms.
+   - The two-state closed form above is the special case.
+   - For a branched pool, the baseline rates need one extra stated assumption:
+     an equal split of flux between exits, or detailed balance. It is to be
+     chosen and stated in the pre-registration.
+
+The explanation for readers is in `docs/MODEL.md` §4.
