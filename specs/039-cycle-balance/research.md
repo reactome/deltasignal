@@ -673,3 +673,23 @@ this.
 - curator held-out and experimental, as pre-registered;
 - **and** net ≥ 0 on the cases outside the three motivating pathways (α/β, γ,
   HDR).
+
+**Amendment 5, generator census (recorded before the build).** LNG
+`6815dfd` (`feat/pools-regen`), counted on the pools039d networks:
+- **37 pools; 4 multi-step** (BAD:14-3-3, RAS:GAP, SHC1:INSR, and PTK6 ⇄
+  p-Y342-PTK6, which was newly visible once the shared-node rule no longer
+  removed it); 92 states, 6 intermediates, 114 paths, 513 copy rows, 40
+  carriers.
+- **11 of 14 multi-step paths fail regeneration; 7 pools dropped.**
+- This differs from the pre-registered census (3 of 9). The extra failures:
+  - ERBB2 (R-HSA-1227986) ×4 and its copies in R-HSA-8848021 ×2. ERBB2's
+    paths consume PLCG1 / PTK6 and release p-4Y-PLCG1 / p-Y342-PTK6: the partner
+    leaves modified, so ERBB2 is the enzyme there, not a pooled substrate.
+  - TGF-β (R-HSA-170834) ×2: the receptor complex and ZFYVE9 are not returned.
+- The rule is applied as written. No "up to modification" clause is added,
+  since that would be tuning to the census.
+- **The byte-identity check's exempt set therefore widens.** Pathways allowed to
+  differ from bal01: α/β, γ, HDR, EGFR, Insulin, Mitotic G2, MET, **ERBB2,
+  PTK6 signalling (8848021), TGF-β (170834)**, and the pathways whose pool set
+  changed in the new build. That last group is listed from the build, before
+  scoring.
