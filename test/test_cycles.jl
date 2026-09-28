@@ -26,7 +26,7 @@ node(u) = u => DS.NetworkNode(u, "R-" * u, "protein", nothing, u, BL)
 edge(s, t, et; and = true) = DS.LogicNetworkEdge(s, t, and, true, 1.0, et)
 
 function fixture(; pools = :default, rl = identity, extra = [])
-    ids = ["G", "P", "A", "B", "EF", "EB", "F", "R", "W", "D", "Z", "Y"]
+    ids = ["G", "P", "A", "B", "EF", "EB", "F", "R", "W", "D", "Z", "Y", "F2", "K", "Q", "M"]
     nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
     E = [("G", "P", "input", true), ("P", "A", "output", false),
          ("A", "F", "input", true), ("EF", "F", "catalyst", true), ("F", "B", "output", false),
@@ -126,6 +126,27 @@ end
     r = solve(net; obs = Dict("EF" => 80.0))
     @test fold(r, "A") ≈ 0.11236 atol = 1e-4
     @test fold(r, "B") ≈ 8.98876 atol = 1e-4
+    # Fable finding 5: an uncatalysed step beside a catalysed one for the same
+    # pair carries a negligible baseline share, so GEF knockout empties the
+    # modified form instead of halving it
+    xtra = [("A", "F2", "input", true), ("F2", "B", "output", true)]
+    pools2(uncat) = [DS.CyclePool("pool1", ["A", "B"], "A",
+                                  sort([("A", "B", "F"), ("A", "B", "F2"), ("B", "A", "R")]), uncat)]
+    r = solve(fixture(; extra = xtra, pools = pools2(Set(["F2"]))); obs = Dict("EF" => 0.0))
+    @test r.converged
+    @test fold(r, "B") < 0.01
+    r = solve(fixture(; extra = xtra, pools = pools2(Set{String}())); obs = Dict("EF" => 0.0))
+    @test 0.4 < fold(r, "B") < 0.7                       # without the flag: the old equal split
+    r = solve(fixture(; extra = xtra, pools = pools2(Set(["F2"]))))
+    @test fold(r, "B") ≈ 1.0 atol = 1e-6                 # baseline is still exact
+    # Fable finding 2: a producer that shares the pool's component only through
+    # a pinned cofactor (K, released by R and consumed by M) is still supply
+    net = fixture(; extra = [("R", "K", "output", true), ("K", "M", "input", true),
+                             ("Q", "M", "input", true), ("M", "A", "output", true)])
+    r = solve(net; obs = Dict("K" => 1.0, "Q" => 80.0))
+    @test r.converged
+    @test fold(r, "A") ≈ 40.5 atol = 1e-3                # mean of P (1x) and M (80x)
+    @test fold(r, "B") ≈ 40.5 atol = 1e-3
     # finding 9: a component method that bypasses the sweep manages no pool,
     # and says so
     for m in ("pool", "minimize")

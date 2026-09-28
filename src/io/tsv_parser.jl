@@ -37,7 +37,11 @@ struct CyclePool
     forms::Vector{String}
     base::String
     transitions::Vector{Tuple{String, String, String}}
+    # transition reaction uuids with no catalyst edge (intrinsic steps); empty
+    # when the table has no `catalysed` column (specs/039 amendment 2)
+    uncatalysed::Set{String}
 end
+CyclePool(id, forms, base, transitions) = CyclePool(id, forms, base, transitions, Set{String}())
 
 struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
@@ -426,17 +430,23 @@ function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePoo
         !ismissing(r.is_base) && lowercase(r.is_base) in ("true", "1") && (base[r.pool_id] = r.node_uuid)
     end
     trans = Dict{String, Vector{Tuple{String, String, String}}}()
+    uncat = Dict{String, Set{String}}()
     if isfile(tf)
         dt = CSV.read(tf, DataFrame; types = String)
+        hascat = "catalysed" in names(dt)
         for r in eachrow(dt)
             any(ismissing, (r.pool_id, r.from_uuid, r.to_uuid, r.reaction_uuid)) && continue
             push!(get!(trans, r.pool_id, Tuple{String, String, String}[]), (r.from_uuid, r.to_uuid, r.reaction_uuid))
+            if hascat && !ismissing(r.catalysed) && !(lowercase(r.catalysed) in ("true", "1"))
+                push!(get!(uncat, r.pool_id, Set{String}()), r.reaction_uuid)
+            end
         end
     end
     out = CyclePool[]
     for id in sort!(collect(keys(forms)))
         haskey(base, id) || throw(ArgumentError("$pf: pool $id has no base form"))
-        push!(out, CyclePool(id, sort!(forms[id]), base[id], sort!(get(trans, id, Tuple{String, String, String}[]))))
+        push!(out, CyclePool(id, sort!(forms[id]), base[id], sort!(get(trans, id, Tuple{String, String, String}[])),
+                             get(uncat, id, Set{String}())))
     end
     return out
 end

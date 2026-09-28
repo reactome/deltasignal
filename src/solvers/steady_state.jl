@@ -923,15 +923,35 @@ function solve_scc_ordered!(
     comp_pools = Dict{Int, Vector{IndexedPool}}()
     managed = Set{Int}()
     n_pool_unmanaged = 0
+    # Out-edges (source -> target) of every update, for the supply test below.
+    pool_out = isempty(pools) ? Dict{Int, Vector{Int}}() : begin
+        d = Dict{Int, Vector{Int}}()
+        for r in rxns_idx, s in Iterators.flatten((r.activator_indices, r.inhibitor_indices, r.depletion_indices))
+            push!(get!(d, s, Int[]), r.target_idx)
+        end
+        d
+    end
     for p in pools
         nodes = vcat(p.forms, p.trans_node)
         c0 = comp_id[nodes[1]]
         if baseline_vec !== nothing && !pooling && !minimize &&
            all(v -> comp_id[v] == c0, nodes) && comp_size[c0] > 1
-            # supply comes from outside the component: a producer inside it can
-            # be fed by the pool itself (review of specs/039, finding 6)
+            # Supply excludes a producer the pool's own forms reach, since it
+            # can be fed by the pool itself (review of specs/039, finding 6).
+            # Reachability does not pass through pinned nodes (cofactors,
+            # drugs, observations): a pinned node cannot carry the pool's
+            # feedback, and a component welded only through GDP must not hide
+            # the protein's supply (Fable review, finding 2).
+            reach = Set{Int}(p.forms); stack = copy(p.forms)
+            while !isempty(stack)
+                v = pop!(stack)
+                for w in get(pool_out, v, Int[])
+                    (w in reach || w in obs_set || comp_id[w] != c0) && continue
+                    push!(reach, w); push!(stack, w)
+                end
+            end
             for prods in p.supply_rxns
-                filter!(a -> comp_id[a] != c0, prods)
+                filter!(a -> !(a in reach), prods)
             end
             push!(get!(comp_pools, c0, IndexedPool[]), p)
             union!(managed, nodes)

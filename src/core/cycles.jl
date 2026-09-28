@@ -66,6 +66,15 @@ the split tends to π0 rather than to whatever a constant added to Q selects
 (review of specs/039, finding 5). ε is relative to a drive of 1 at baseline."""
 const CYCLE_DRIVE_EPS = 1e-9
 
+"""Baseline share of an UNCATALYSED transition beside a catalysed one for the
+same pair of forms, relative to each catalysed one (specs/039 amendment 2).
+Intrinsic GTP hydrolysis and nucleotide exchange run orders of magnitude slower
+than the GAP- or GEF-stimulated reactions, and basal (de)modification slower
+than the enzyme's. An equal split made SOS1 knockout read RAS:GTP at 0.53
+(Fable review, finding 5). Declared, not fitted. A pair with only uncatalysed
+reactions is unaffected."""
+const CYCLE_INTRINSIC_WEIGHT = 1e-3
+
 """
 Resolve `pools` to solver indices. A pool is kept only if every form and every
 transition reaction has a node, and every transition reaction has an
@@ -103,20 +112,29 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
         pi0 = w ./ sum(w)
         tf = Int[]; tt = Int[]; tr = Int[]; tn = Int[]; tk = Float64[]
         ok = true
-        mult = Dict{Tuple{Int, Int}, Int}()
+        wsum = Dict{Tuple{Int, Int}, Float64}()
+        paircat = Dict{Tuple{Int, Int}, Bool}()
+        for (a, b, rx) in p.transitions
+            (haskey(pos, a) && haskey(pos, b)) || continue
+            k = (pos[a], pos[b])
+            paircat[k] = get(paircat, k, false) || !(rx in p.uncatalysed)
+        end
+        wt = Float64[]
         for (a, b, rx) in p.transitions
             (haskey(pos, a) && haskey(pos, b) && haskey(uuid_to_idx, rx)) || (ok = false; break)
             node = uuid_to_idx[rx]
             haskey(by_target, node) || (ok = false; break)
             i, j = pos[a], pos[b]
             push!(tf, i); push!(tt, j); push!(tr, by_target[node]); push!(tn, node)
-            mult[(i, j)] = get(mult, (i, j), 0) + 1
+            w = (rx in p.uncatalysed && paircat[(i, j)]) ? CYCLE_INTRINSIC_WEIGHT : 1.0
+            push!(wt, w)
+            wsum[(i, j)] = get(wsum, (i, j), 0.0) + w
         end
         ok || (skipped += 1; continue)
         for q in eachindex(tf)
             i, j = tf[q], tt[q]
-            # parallel copies share the pair's baseline rate
-            push!(tk, sqrt(pi0[j] / pi0[i]) / mult[(i, j)])
+            # parallel reactions share the pair's baseline rate by weight
+            push!(tk, sqrt(pi0[j] / pi0[i]) * wt[q] / wsum[(i, j)])
         end
         trans_nodes = Set(tn)
         supply = Vector{Vector{Int}}()
