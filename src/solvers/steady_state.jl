@@ -121,8 +121,11 @@ function solve_steady_state(
     reactions = convert_to_reaction_network(network)
 
     # specs/022: inhibitors that contain their own reaction's input. Built unless
-    # DS_SELF_INHIBITOR_WEIGHT=off.
-    self_shared, self_rule = self_inhibitor_setup(network)
+    # DS_SELF_INHIBITOR_WEIGHT=off. specs/040 rule B widens the pair test to
+    # shared leaves; `self_leaf_pairs` counts the slots only that clause flags.
+    self_shared, self_rule, self_leaf_pairs = self_inhibitor_setup(network)
+    # specs/040 rule A: resolved here so a misspelt mode fails before any solve.
+    sfmode = self_fed_mode()
     
     # Initialize node activities
     all_nodes = collect(keys(network.nodes))
@@ -225,6 +228,10 @@ function solve_steady_state(
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["conserved_rule"] = cmode
     result.diagnostics["conserved_held"] = conserved_held
+    # specs/040: which self-feedback rules ran. The counts come from the solve.
+    result.diagnostics["self_fed_rule"] = sfmode
+    result.diagnostics["self_inhibitor_leaves"] = self_inhibitor_leaves() ? "on" : "off"
+    result.diagnostics["self_inhibitor_leaf_pairs"] = self_leaf_pairs
     return result
 end
 
@@ -235,9 +242,15 @@ NOT the one being run, which a caller must be able to see.
 """
 function self_inhibitor_setup(network::ReactionNetwork)
     empty = Dict{Tuple{String, String}, Vector{String}}()
-    _self_inhibitor_weight_env() < 0 && return empty, "off"
-    isempty(network.containment) && return empty, "inert: no containment table"
-    return self_contained_inhibitor_map(network), "on"
+    leaves = self_inhibitor_leaves()        # validated even when the rule is off
+    _self_inhibitor_weight_env() < 0 && return empty, "off", 0
+    isempty(network.containment) && return empty, "inert: no containment table", 0
+    strict = self_contained_inhibitor_map(network; leaves = false)
+    leaves || return strict, "on", 0
+    full = self_contained_inhibitor_map(network; leaves = true)
+    # specs/040 rule B: slots the leaf clause flags that stId containment did not.
+    n_leaf = count(k -> !haskey(strict, k), keys(full))
+    return full, "on", n_leaf
 end
 
 """
@@ -247,7 +260,8 @@ A node's identity is its own `reactome_id`; activators are collected per target
 node, so an inhibitor is never matched against a sibling variant's input.
 Depletion edges are not inhibitors here and are never included.
 """
-function self_contained_inhibitor_map(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
+function self_contained_inhibitor_map(network::ReactionNetwork;
+                                      leaves::Bool = false)::Dict{Tuple{String, String}, Vector{String}}
     out = Dict{Tuple{String, String}, Vector{String}}()
     isempty(network.containment) && return out
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
@@ -262,6 +276,30 @@ function self_contained_inhibitor_map(network::ReactionNetwork)::Dict{Tuple{Stri
     fwd = Dict{String, Vector{String}}()
     for e in network.edges
         push!(get!(fwd, e.parent_uuid, String[]), e.child_uuid)
+    end
+    # specs/040 rule B: containment at the leaf level. A leaf is a contained
+    # stId that contains nothing else; cofactor leaves (ATP, GTP ...) are not
+    # shared species. The inhibitor and the input are "built from the same
+    # species" when a carrier of a shared leaf reaches both.
+    cont = network.containment
+    leaf_cache = Dict{String, Set{String}}()
+    function leaves_of(st)
+        st === nothing && return Set{String}()
+        get!(leaf_cache, st) do
+            cands = union(get(cont, st, Set{String}()), Set([st]))
+            Set{String}(c for c in cands
+                        if isempty(setdiff(get(cont, c, Set{String}()), Set([c]))) &&
+                           !(c in network.cofactor_stids))
+        end
+    end
+    leaf_shared(a_st, i_st) = !isempty(intersect(leaves_of(a_st), leaves_of(i_st)))
+    carriers = Dict{String, Vector{String}}()
+    if leaves
+        for u in sort(collect(keys(network.nodes)))
+            st = network.nodes[u].reactome_id
+            st === nothing && continue
+            for l in leaves_of(st); push!(get!(carriers, l, String[]), u); end
+        end
     end
     reach_cache = Dict{String, Set{String}}()
     function reaches(a::String)
@@ -282,9 +320,21 @@ function self_contained_inhibitor_map(network::ReactionNetwork)::Dict{Tuple{Stri
         s === nothing && continue
         inside = get(network.containment, s, nothing)
         inside === nothing && continue
+        I = e.parent_uuid
+        function common_cause(a, a_st)
+            for l in intersect(leaves_of(a_st), leaves_of(s))
+                for n in get(carriers, l, String[])
+                    n == I && continue
+                    (n == a || a in reaches(n)) && I in reaches(n) && return true
+                end
+            end
+            return false
+        end
         shared = String[a for a in unique(get(acts, e.child_uuid, String[]))
-                        if (as = sid(a)) !== nothing && as in inside && e.parent_uuid in reaches(a)]
-        isempty(shared) || (out[(e.parent_uuid, e.child_uuid)] = sort(shared))
+                        if (as = sid(a)) !== nothing &&
+                           ((as in inside && I in reaches(a)) ||
+                            (leaves && leaf_shared(as, s) && (I in reaches(a) || common_cause(a, as))))]
+        isempty(shared) || (out[(I, e.child_uuid)] = sort(shared))
     end
     return out
 end
@@ -699,6 +749,7 @@ function solve_scc_ordered!(
     pools::Vector{IndexedPool} = IndexedPool[],
     pool_stats::Dict{String, Any} = Dict{String, Any}(),
     pool_carriers::Bool = true,
+    entry_supply::Union{Nothing, Vector{Float64}} = nothing,
 )
     # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
     # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
@@ -715,7 +766,7 @@ function solve_scc_ordered!(
     end
     # `supply` (component-entry state) is read by recycling-closure edges: the
     # legacy catalyst knob and the role list of specs/018.
-    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
+    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
     max_inner = params.max_iters
     tol = params.tolerance
 
@@ -897,9 +948,13 @@ function solve_scc_ordered!(
 
     # Pool bookkeeping (specs/017): member node lists and an internal-negative
     # census per component, built only when pooling is on.
-    comp_nodes = pooling ? [Int[] for _ in 1:n_comp] : Vector{Int}[]
+    self_fed_on = self_fed_mode() == "entry"
+    # Node lists per component: for pooling, for rule A, and for the entry
+    # snapshot the final residual reads (specs/040).
+    need_nodes = pooling || self_fed_on || entry_supply !== nothing
+    comp_nodes = need_nodes ? [Int[] for _ in 1:n_comp] : Vector{Int}[]
     comp_has_neg = falses(n_comp)
-    if pooling
+    if need_nodes
         @inbounds for (i, c) in enumerate(comp_id)
             c >= 1 && push!(comp_nodes[c], i)
         end
@@ -1108,9 +1163,66 @@ function solve_scc_ordered!(
                 end
             end
             n_iterated += 1
+            # specs/040 rule A: self-fed inputs of this component read the
+            # entry value. Computed ONCE here, from the entry state; the flags
+            # live on this solve's IndexedReactions only. See core/self_fed.jl.
+            if self_fed_on && baseline_vec !== nothing
+                nodes_c = comp_nodes[c]
+                in_c = Set(nodes_c)
+                act_out = Dict{Int, Vector{Int}}()
+                is_pool = Set{Int}()
+                entry = Set{Int}()
+                for ri in rs
+                    r = rxns_idx[ri]; t = r.target_idx
+                    is_set_pool_reaction(r) && push!(is_pool, t)
+                    for s in r.activator_indices
+                        s in in_c && push!(get!(act_out, s, Int[]), t)
+                    end
+                    if t in obs_set
+                        abs(x[t] - baseline_vec[t]) > SELF_FED_TOL && push!(entry, t)
+                    elseif isempty(r.activator_indices) ||
+                           any(s -> !(s in in_c) && abs(x[s] - baseline_vec[s]) > SELF_FED_TOL,
+                               r.activator_indices)
+                        push!(entry, t)
+                    end
+                end
+                # specs/039 owns pool states, intermediates and step copies:
+                # never candidates; an entry iff already off baseline.
+                skip = copy(is_pool)
+                for p in get(comp_pools, c, IndexedPool[])
+                    union!(skip, p.forms); union!(skip, p.flux_nodes); union!(skip, p.copy_nodes)
+                end
+                for u in nodes_c
+                    if (u in obs_set || u in skip) && abs(x[u] - baseline_vec[u]) > SELF_FED_TOL
+                        push!(entry, u)
+                    end
+                end
+                blocked = Set{Int}(u for u in nodes_c if u in obs_set && !(u in entry))
+                sf = self_fed_nodes(nodes_c, act_out, is_pool, skip, entry, blocked)
+                n_held = 0
+                for ri in rs
+                    r = rxns_idx[ri]
+                    for k in eachindex(r.activator_indices)
+                        s = r.activator_indices[k]
+                        if s in sf && s != r.target_idx && k <= length(r.activator_break)
+                            r.activator_break[k] || (n_held += 1)
+                            r.activator_break[k] = true
+                        end
+                    end
+                end
+                pool_stats["self_fed_nodes"] = get(pool_stats, "self_fed_nodes", 0) + length(sf)
+                pool_stats["self_fed_edges_held"] = get(pool_stats, "self_fed_edges_held", 0) + n_held
+            end
             # Genuine loop: damped fixed point confined to this component.
             # Freeze the entry state for the optional catalyst-break layer.
             supply = use_supply ? copy(x) : nothing
+            # The final residual must read held edges at the SAME value the
+            # iteration did, or it reads the loop live and reports a residual
+            # of up to 1 on a converged solve (specs/040 trace: 3 of 8 RAF
+            # cases). Record the entry state of this component's nodes.
+            if entry_supply !== nothing
+                for u in comp_nodes[c]; entry_supply[u] = x[u]; end
+            end
             # Negative-feedback SCCs get a bounded (transient) relaxation; all
             # others relax to convergence.
             is_neg = neg_mode != "converge" && comp_neg_frac[c] >= neg_frac_thresh
@@ -1367,7 +1479,7 @@ function solve_steady_state_penalty(
     # and in influence scores that zeroed the influence of every other input
     # under assembly-limiting. Pass the live state instead wherever closures
     # are marked: it IS the entry value there.
-    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
+    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
     max_change = 0.0
 
     # Optional damping for loop convergence. The original feed-forward
@@ -1401,9 +1513,13 @@ function solve_steady_state_penalty(
         ipools, n_skipped = cycle_pools === nothing ? (IndexedPool[], 0) :
                             index_pools(cycle_pools, uuid_to_idx, rxns_idx, cycle_phi)
         index_stats["cycle_pools_skipped"] = n_skipped
+        # Component-entry values, for the final residual below: a held edge
+        # (specs/018 closure, specs/040 self-fed) reads these, not the live state.
+        entry_supply = copy(x)
         iters, max_change, scc_stats = solve_scc_ordered!(
             x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec;
-            pools = ipools, pool_stats = index_stats, pool_carriers = cycle_carriers)
+            pools = ipools, pool_stats = index_stats, pool_carriers = cycle_carriers,
+            entry_supply = entry_supply)
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
@@ -1429,7 +1545,9 @@ function solve_steady_state_penalty(
     end
 
     # Final consistency check on the stable state.
-    x_fwd_final = forward_model_vec(x, rxns_idx; supply = flat_supply ? x : nothing, config=eval_config)
+    x_fwd_final = forward_model_vec(x, rxns_idx;
+                                    supply = flat_supply ? (scc_solve && n_comp > 0 ? entry_supply : x) : nothing,
+                                    config=eval_config)
     consistency_inf = n == 0 ? 0.0 : maximum(abs.(x .- x_fwd_final))
 
     # Honest residual: max |x - F(x)| over the FREE nodes only.
@@ -1528,6 +1646,9 @@ function solve_steady_state_penalty(
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
             "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
             "cycle_self_fed_inputs" => get(index_stats, "cycle_self_fed_inputs", 0),
+            # specs/040 rule A: nodes found self-fed and edges held at entry (0 when off).
+            "self_fed_nodes" => get(index_stats, "self_fed_nodes", 0),
+            "self_fed_edges_held" => get(index_stats, "self_fed_edges_held", 0),
         ),
     )
 end
@@ -1569,7 +1690,7 @@ function compute_influence_scores(
     end
 
     eval_config = resolve_reaction_eval_config()
-    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || !isempty(_break_roles_env())
+    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
     influence_scores = Dict{String, Float64}()
     h = 1e-6
     for rxn in indexed

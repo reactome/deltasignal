@@ -25,6 +25,7 @@ include("core/silo_bridges.jl")
 include("core/reaction_model.jl")
 include("core/conserved.jl")
 include("core/cycles.jl")
+include("core/self_fed.jl")
 
 # Solvers
 include("solvers/steady_state.jl")

@@ -860,6 +860,12 @@ function solve_handler(req)
             "cycle_pools_multistep" => get(solver_result.diagnostics, "cycle_pools_multistep", 0),
             "cycle_carriers" => get(solver_result.diagnostics, "cycle_carriers", "off"),
             "cycle_carriers_held" => get(solver_result.diagnostics, "cycle_carriers_held", 0),
+            # specs/040 (additive): rule A ("off"/"entry") with the edges held at
+            # entry, and rule B ("off"/"on") with the inhibitor slots it alone flags.
+            "self_fed_rule" => get(solver_result.diagnostics, "self_fed_rule", "unknown"),
+            "self_fed_edges_held" => get(solver_result.diagnostics, "self_fed_edges_held", 0),
+            "self_inhibitor_leaves" => get(solver_result.diagnostics, "self_inhibitor_leaves", "unknown"),
+            "self_inhibitor_leaf_pairs" => get(solver_result.diagnostics, "self_inhibitor_leaf_pairs", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),

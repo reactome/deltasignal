@@ -359,6 +359,21 @@ env vars only override for benchmark sweeps:
   tables; a bundle without them reports `balance: no pool table` (loops then
   iterate as under `off`), and the bench refuses such a build. φ₀ refers to
   the pool's ACTIVE form, which the generator marks (`LNG_POOL_ACTIVE_VIA`).
+- `DS_SELF_FED_MODE=off` (default) | `entry` (specs/040 rule A): in an
+  iterated cyclic component, an input fed by nothing except what it feeds
+  (every signal path from a component entry passes through the input's own
+  consumers; set pools transparent) reads its component-entry value, which
+  is baseline. Entries are per solve: pins off baseline and targets with an
+  outside activator off baseline. The solve reports `self_fed_rule`,
+  `self_fed_nodes` and `self_fed_edges_held`. Also fixed there: the final
+  residual now reads held edges (specs/018 closures too) at the value the
+  iteration used, not the live state, which had reported residual ≈ 1 on
+  converged solves.
+- `DS_SELF_INHIBITOR_LEAVES=0` (default) | `1` (specs/040 rule B): the
+  specs/022 pair test also matches an inhibitor that shares a non-cofactor
+  leaf with the input when a carrier of that leaf reaches both (built from
+  the same species). Same weight, weaken-only. Reports
+  `self_inhibitor_leaves` and `self_inhibitor_leaf_pairs`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -461,6 +476,11 @@ for the last feature that touched it rather than re-deriving from the code.
   variant cap bundles a set's alternatives into one all-required node
   (`LNG_CAP_POOLS` fixes the structure, default off). Combined with de-duplication
   it was held-out −162; de-duplication is the damage. Not adopted.
+- `specs/040-self-feedback/` — a node's own downstream multiplied back into
+  it (RAF traced: recycled set-pool members, bundle leaves fed only by their
+  step's downstream, a leaf-sharing inhibitor). Two blind derivations; the
+  rules `DS_SELF_FED_MODE` and `DS_SELF_INHIBITOR_LEAVES` above are
+  pre-registered there. Default off until the arms are measured.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -474,7 +494,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Seventeen files contain assertions; the
+**Most of the test suite cannot fail.** Eighteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -491,6 +511,7 @@ other seven execute code and print output.
 | `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 213 | specs/039, added 2026-09-27 |
+| `test/test_self_fed.jl` | 92 | specs/040, added 2026-09-28 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
