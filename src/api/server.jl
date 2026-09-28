@@ -851,6 +851,15 @@ function solve_handler(req)
             # specs/035 (additive): "off" or "inert", and how many nodes were held.
             "conserved_rule" => get(solver_result.diagnostics, "conserved_rule", "unknown"),
             "conserved_held" => get(solver_result.diagnostics, "conserved_held", 0),
+            # specs/039 (additive): "off", "balance", or "balance: no pool table",
+            # and how many pools were solved in closed form.
+            "cycle_rule" => get(solver_result.diagnostics, "cycle_rule", "unknown"),
+            "cycle_pools_solved" => get(solver_result.diagnostics, "cycle_pools_solved", 0),
+            # specs/039 amendment 2 (additive): pools with multi-step paths, the
+            # carrier rule ("on"/"off") and how many carrier nodes it held.
+            "cycle_pools_multistep" => get(solver_result.diagnostics, "cycle_pools_multistep", 0),
+            "cycle_carriers" => get(solver_result.diagnostics, "cycle_carriers", "off"),
+            "cycle_carriers_held" => get(solver_result.diagnostics, "cycle_carriers_held", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),

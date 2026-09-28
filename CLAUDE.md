@@ -345,6 +345,16 @@ env vars only override for benchmark sweeps:
   RAS GAPs, scaffold partners, F-actin) is held at baseline like a cofactor.
   Signal carriers transformed inside the loop are not touched. The solve reports
   `conserved_rule` and `conserved_held`.
+- `DS_CYCLE_MODE=off` (default) | `balance`, with `DS_CYCLE_PHI=0.1`
+  (specs/039; explained in docs/MODEL.md §4): each interconversion pool in the
+  generator's `pools.csv` is solved as a conserved Markov chain (π = πP)
+  instead of being iterated. A modification curated in steps (bind, modify,
+  release) is one pool: its enzyme complexes are intermediates with no
+  baseline share that read the flux through them (amendment 2).
+  `DS_CYCLE_CARRIERS=on` (default; `off` for the isolation arm) makes the
+  enzyme's free form read its producers other than the release steps. The
+  solve reports `cycle_rule`, `cycle_pools_solved`, `cycle_pools_multistep`,
+  `cycle_carriers` and `cycle_carriers_held`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -460,7 +470,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Sixteen files contain assertions; the
+**Most of the test suite cannot fail.** Seventeen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -476,6 +486,7 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
 | `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
+| `test/test_cycles.jl` | 207 | specs/039, added 2026-09-27 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

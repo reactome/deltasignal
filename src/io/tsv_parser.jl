@@ -26,6 +26,44 @@ struct SetExpansionMapping
     reactome_pathway_coords::Union{Dict{String, Any}, Nothing}
 end
 
+"""
+One transition of a pool (specs/039 amendment 2): a directed path from one state
+to another through zero or more intermediates (enzyme complexes). `steps` are
+(source node, target node, reaction-node copies) in order: the copies are the
+uuid copies of ONE curated reaction between those two nodes (set or variant
+expansion), and a step's drive is the mean of theirs. `enzyme` says whether a
+step is driven by a protein other than the pool's own.
+"""
+struct PoolPath
+    from::String
+    to::String
+    steps::Vector{Tuple{String, String, Vector{String}}}
+    enzyme::Bool
+end
+
+"""
+One protein's modification pool (specs/039): its states (node uuids), its
+resting (base) state, the paths converting between states, the intermediates
+those paths pass through, and its carriers: (enzyme free-form node, release
+reaction node producing it). Read from the generator's `pools.csv`,
+`pool_transitions.csv` and `pool_carriers.csv`.
+"""
+struct CyclePool
+    id::String
+    forms::Vector{String}                       # states
+    base::String
+    paths::Vector{PoolPath}
+    intermediates::Vector{String}
+    carriers::Vector{Tuple{String, String}}
+end
+
+"""Amendment 1 form: one-step transitions (from, to, reaction) between two or
+more forms, none of them intermediates. `uncatalysed` lists intrinsic steps."""
+function CyclePool(id, forms, base, transitions::AbstractVector{<:Tuple}, uncatalysed = Set{String}())
+    paths = [PoolPath(a, b, [(a, b, [rx])], !(rx in uncatalysed)) for (a, b, rx) in transitions]
+    return CyclePool(id, forms, base, paths, String[], Tuple{String, String}[])
+end
+
 struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
     edges::Vector{LogicNetworkEdge}
@@ -47,12 +85,17 @@ struct ReactionNetwork
     # file, which is NOT the same as a file listing none: DS_DRUG_MODE=inert
     # reports the first as "inert: no drug table" instead of pretending.
     drug_stids::Union{Nothing, Set{String}}
+    # Interconversion pools from the generator's `pools.csv` (specs/039).
+    # `nothing` = the bundle has no such file (DS_CYCLE_MODE=balance then reports
+    # "balance: no pool table"); an empty vector = the file lists none.
+    pools::Union{Nothing, Vector{CyclePool}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
                     containment = Dict{String, Set{String}}(),
-                    drug_stids = nothing) =
-        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids)
+                    drug_stids = nothing,
+                    pools = nothing) =
+        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools)
 end
 
 """
@@ -322,6 +365,17 @@ function parse_complete_network(
     stids = parse_cofactor_list(resolved; required = cofactor_path !== nothing)
     containment = parse_containment(logic_network_path)
     drugs = parse_drug_list(logic_network_path)
+    # A malformed pool table is an error only when the solve would use it:
+    # under the default DS_CYCLE_MODE=off it must not take a pathway out of
+    # service, so it is reported and dropped (the solve then says
+    # "balance: no pool table" if balance is later switched on).
+    pools = try
+        parse_pools(logic_network_path)
+    catch err
+        (err isa ArgumentError && cycle_mode() == "off") || rethrow()
+        @warn "Ignoring a malformed pool table (DS_CYCLE_MODE=off)" logic_network_path exception = err
+        nothing
+    end
 
     if isempty(stids)
         # A file that declares nothing in-network is NOT the same as no file,
@@ -342,7 +396,7 @@ function parse_complete_network(
             end
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
-                               Set{String}(), containment, drugs)
+                               Set{String}(), containment, drugs, pools)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -371,7 +425,7 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs)
+                           containment, drugs, pools)
 end
 
 """
@@ -386,6 +440,89 @@ function parse_drug_list(logic_network_path::String)::Union{Nothing, Set{String}
     "stable_id" in names(df) ||
         throw(ArgumentError("$(path) has no `stable_id` column; it is not a generator drug list"))
     return Set(String(x) for x in df.stable_id if !ismissing(x) && !isempty(strip(x)))
+end
+
+"""
+Read `pools.csv` and `pool_transitions.csv` beside a logic network (specs/039).
+`nothing` when `pools.csv` is absent; pools are returned sorted by id.
+"""
+function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePool}}
+    dir = dirname(logic_network_path)
+    pf, tf, cf = (joinpath(dir, f) for f in ("pools.csv", "pool_transitions.csv", "pool_carriers.csv"))
+    isfile(pf) || return nothing
+    states = Dict{String, Vector{String}}(); inter = Dict{String, Vector{String}}()
+    base = Dict{String, String}()
+    df = CSV.read(pf, DataFrame; types = String)
+    for c in ("pool_id", "node_uuid", "is_base")
+        c in names(df) || throw(ArgumentError("$pf has no `$c` column"))
+    end
+    hasrole = "role" in names(df)
+    for r in eachrow(df)
+        (ismissing(r.pool_id) || ismissing(r.node_uuid)) && continue
+        role = hasrole && !ismissing(r.role) ? lowercase(r.role) : "state"
+        role in ("state", "intermediate") || throw(ArgumentError("$pf: unknown role $(repr(role))"))
+        push!(get!(role == "state" ? states : inter, r.pool_id, String[]), r.node_uuid)
+        !ismissing(r.is_base) && lowercase(r.is_base) in ("true", "1") && (base[r.pool_id] = r.node_uuid)
+    end
+    paths = Dict{String, Vector{PoolPath}}()
+    if isfile(tf)
+        dt = CSV.read(tf, DataFrame; types = String)
+        truthy(v) = !ismissing(v) && lowercase(v) in ("true", "1")
+        if "path_id" in names(dt)                 # amendment 2: one row per (path, step, copy)
+            steps = Dict{Tuple{String, String}, Dict{Int, Tuple{String, String, Vector{String}}}}()
+            enz = Dict{Tuple{String, String}, Bool}()
+            for r in eachrow(dt)
+                any(ismissing, (r.pool_id, r.path_id, r.step, r.source_uuid, r.target_uuid, r.reaction_uuid)) && continue
+                key = (r.pool_id, r.path_id)
+                byk = get!(steps, key, Dict{Int, Tuple{String, String, Vector{String}}}())
+                k = parse(Int, r.step)
+                if haskey(byk, k)
+                    a, b, cs = byk[k]
+                    (a, b) == (r.source_uuid, r.target_uuid) || throw(ArgumentError(
+                        "$tf: pool $(key[1]) path $(key[2]) step $k has copies between different nodes"))
+                    push!(cs, r.reaction_uuid)
+                else
+                    byk[k] = (r.source_uuid, r.target_uuid, [r.reaction_uuid])
+                end
+                enz[key] = get(enz, key, false) | truthy(r.enzyme_driven)
+            end
+            for key in sort!(collect(keys(steps)))
+                ks = sort!(collect(keys(steps[key])))
+                ks == collect(1:length(ks)) || throw(ArgumentError(
+                    "$tf: pool $(key[1]) path $(key[2]) steps are not numbered 1..n"))
+                st = [(steps[key][k][1], steps[key][k][2], sort!(unique(steps[key][k][3]))) for k in ks]
+                for q in 2:length(st)
+                    st[q][1] == st[q - 1][2] || throw(ArgumentError(
+                        "$tf: pool $(key[1]) path $(key[2]) step $q does not start where step $(q - 1) ends"))
+                end
+                push!(get!(paths, key[1], PoolPath[]), PoolPath(st[1][1], st[end][2], st, enz[key]))
+            end
+        else                                       # amendment 1: one row per one-step transition
+            hascat = "catalysed" in names(dt)
+            for r in eachrow(dt)
+                any(ismissing, (r.pool_id, r.from_uuid, r.to_uuid, r.reaction_uuid)) && continue
+                push!(get!(paths, r.pool_id, PoolPath[]),
+                      PoolPath(r.from_uuid, r.to_uuid, [(r.from_uuid, r.to_uuid, [r.reaction_uuid])],
+                               hascat ? truthy(r.catalysed) : true))
+            end
+        end
+    end
+    carriers = Dict{String, Vector{Tuple{String, String}}}()
+    if isfile(cf)
+        dc = CSV.read(cf, DataFrame; types = String)
+        for r in eachrow(dc)
+            any(ismissing, (r.pool_id, r.carrier_uuid, r.release_reaction_uuid)) && continue
+            push!(get!(carriers, r.pool_id, Tuple{String, String}[]), (r.carrier_uuid, r.release_reaction_uuid))
+        end
+    end
+    out = CyclePool[]
+    for id in sort!(collect(keys(states)))
+        haskey(base, id) || throw(ArgumentError("$pf: pool $id has no base form"))
+        ps = sort!(get(paths, id, PoolPath[]); by = p -> (p.from, p.to, p.steps))
+        push!(out, CyclePool(id, sort!(states[id]), base[id], ps, sort!(get(inter, id, String[])),
+                             sort!(get(carriers, id, Tuple{String, String}[]))))
+    end
+    return out
 end
 
 """JSON form of `drug_stids`: `nothing` stays null so "no table" survives a round trip."""

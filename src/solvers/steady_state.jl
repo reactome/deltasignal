@@ -114,7 +114,7 @@ function solve_steady_state(
         @info "Adding $(length(bridges)) silo bridge edge(s)" max_reach=silo_bridge_max_reach()
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
                                   network.set_mappings, network.cofactor_stids,
-                                  network.containment, network.drug_stids)
+                                  network.containment, network.drug_stids, network.pools)
     end
 
     # Convert network to reactions
@@ -207,11 +207,20 @@ function solve_steady_state(
     # compatibility but only "penalty" is supported.
     params.method == "penalty" ||
         error("Unsupported solver method $(params.method); only \"penalty\" is available.")
+    # specs/039: interconversion pools solved at steady state (pi = pi P).
+    ymode = cycle_mode()
+    ypools = ymode == "balance" ? network.pools : nothing
+    cycle_rule = ymode == "off" ? "off" : network.pools === nothing ? "balance: no pool table" : "balance"
     result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
-                                        self_shared = self_shared)
+                                        self_shared = self_shared,
+                                        cycle_pools = ypools,
+                                        cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
+                                        cycle_carriers = ymode == "balance" ? cycle_carriers() : true)
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
+    result.diagnostics["cycle_rule"] = cycle_rule
+    result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["drug_rule"] = drug_rule
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["conserved_rule"] = cmode
@@ -686,7 +695,10 @@ function solve_scc_ordered!(
     obs_set::Set{Int},
     params::SteadyStateParams,
     config::ReactionEvalConfig = resolve_reaction_eval_config(),
-    baseline_vec::Union{Nothing,Vector{Float64}} = nothing,
+    baseline_vec::Union{Nothing,Vector{Float64}} = nothing;
+    pools::Vector{IndexedPool} = IndexedPool[],
+    pool_stats::Dict{String, Any} = Dict{String, Any}(),
+    pool_carriers::Bool = true,
 )
     # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
     # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
@@ -906,6 +918,139 @@ function solve_scc_ordered!(
     total_iters = 0
     last_change = 0.0
 
+    # specs/039: a pool is solved in closed form when all its nodes (forms and
+    # transition reactions) sit in ONE cyclic component; its nodes then skip the
+    # ordinary update. Any other pool is left to the iteration and counted, as is
+    # every pool under a component method that does not run the sweep below
+    # (pool*, which returns before it; minimize, which overwrites it).
+    comp_pools = Dict{Int, Vector{IndexedPool}}()
+    managed = Set{Int}()
+    n_pool_unmanaged = 0
+    # Mass-flow out-edges (activator source -> target) of every update, for the
+    # supply test below. Depletion and inhibitor edges do not carry the pool's
+    # protein: following them marked RAS's own maturation supply as fed by the
+    # pool (RAS:GTP:BRAP -| mature RAS), so KRAS 80x read NORMAL (review of
+    # amendment 2, finding 1).
+    pool_out = isempty(pools) ? Dict{Int, Vector{Int}}() : begin
+        d = Dict{Int, Vector{Int}}()
+        for r in rxns_idx, s in r.activator_indices
+            push!(get!(d, s, Int[]), r.target_idx)
+        end
+        d
+    end
+    # Every node some pool writes (states, intermediates, step copies): a carrier
+    # must not be one of them, or two updates write it (finding 2).
+    pool_written = Set{Int}()
+    for p in pools
+        union!(pool_written, p.forms, p.flux_nodes, p.copy_nodes)
+    end
+    n_carrier_conflicts = 0; n_pinned_fallback = 0; n_supply_depl = 0; n_held_inputs = 0
+    rxn_of = isempty(pools) ? Dict{Int, Int}() : Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
+    n_carriers_held = 0; n_multistep = 0
+    for p in pools
+        nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes)
+        c0 = comp_id[nodes[1]]
+        # A pinned intermediate or step copy has no place in the chain (its value
+        # is not the flux through it): the pool falls back to the iteration and
+        # is counted, as pre-registered (finding 5). A pinned STATE is handled:
+        # it sets the supply.
+        if any(v -> v in obs_set, p.flux_nodes) || any(v -> v in obs_set, p.copy_nodes)
+            n_pool_unmanaged += 1; n_pinned_fallback += 1
+            continue
+        end
+        if baseline_vec !== nothing && !pooling && !minimize &&
+           all(v -> comp_id[v] == c0, nodes) && comp_size[c0] > 1
+            # Supply excludes a producer the pool's own forms reach, since it
+            # can be fed by the pool itself (review of specs/039, finding 6).
+            # Reachability does not pass through pinned nodes (cofactors,
+            # drugs, observations): a pinned node cannot carry the pool's
+            # feedback, and a component welded only through GDP must not hide
+            # the protein's supply (Fable review, finding 2).
+            reach = Set{Int}(p.forms); stack = copy(p.forms)
+            while !isempty(stack)
+                v = pop!(stack)
+                for w in get(pool_out, v, Int[])
+                    (w in reach || w in obs_set || comp_id[w] != c0) && continue
+                    push!(reach, w); push!(stack, w)
+                end
+            end
+            for prods in p.supply_rxns
+                filter!(a -> !(a in reach), prods)
+            end
+            # The supply is exogenous to the pool. A DERIVED depletion edge from a
+            # node the pool feeds onto the supply chain (the activator ancestry of
+            # the supply producers inside the component) is the pool's protein
+            # consuming its own precursor, which the pool's conservation already
+            # holds; it is not applied, as the catalyst -| source-state edge is
+            # not (amendment 3, review finding: RAS:GTP:BRAP -| mature RAS made
+            # the RAS pool suppress its own supply, SOS1 80x 4.38 not 8.99).
+            # Curated inhibitor edges are untouched.
+            anc = Set{Int}(); stk = Int[]
+            for prods in p.supply_rxns, a in prods
+                a in anc || (push!(anc, a); push!(stk, a))
+            end
+            while !isempty(stk)
+                v = pop!(stk)
+                ri = get(rxn_of, v, 0)
+                ri == 0 && continue
+                for a in rxns_idx[ri].activator_indices
+                    (a in anc || a in reach || a in obs_set || comp_id[a] != c0) && continue
+                    push!(anc, a); push!(stk, a)
+                end
+            end
+            for v in sort!(collect(anc))
+                ri = get(rxn_of, v, 0)
+                ri == 0 && continue
+                r = rxns_idx[ri]
+                drop = findall(i -> i in reach, r.depletion_indices)
+                isempty(drop) && continue
+                n_supply_depl += length(drop)
+                length(r.depletion_break) == length(r.depletion_indices) && deleteat!(r.depletion_break, drop)
+                length(r.depletion_own_product) == length(r.depletion_indices) && deleteat!(r.depletion_own_product, drop)
+                deleteat!(r.depletion_indices, drop)
+            end
+            # amendment 4 (post hoc): what the pool feeds by mass flow, other
+            # than its states and its carriers, is read at baseline in its drives
+            allcar = Set(p.carriers)
+            for v in reach
+                (v in p.forms || v in allcar) && continue
+                push!(p.held, v)
+            end
+            n_held_inputs += count(v -> v in p.held, (i for st in p.path_steps for (ris, _) in st
+                                                     for ri in ris for i in Iterators.flatten((
+                                                         rxns_idx[ri].activator_indices,
+                                                         rxns_idx[ri].inhibitor_indices,
+                                                         rxns_idx[ri].depletion_indices)) if i != 0))
+            # carriers are managed only inside the pool's component, and never
+            # a node the pool already writes
+            keepc = [comp_id[c] == c0 && !(c in pool_written) for c in p.carriers]
+            n_carrier_conflicts += count(c -> c in pool_written, p.carriers)
+            deleteat!(p.carrier_rxn, findall(!, keepc)); deleteat!(p.carrier_release, findall(!, keepc))
+            deleteat!(p.carriers, findall(!, keepc))
+            push!(get!(comp_pools, c0, IndexedPool[]), p)
+            union!(managed, nodes)
+            if pool_carriers
+                union!(managed, p.carriers); n_carriers_held += count(c -> !(c in obs_set), p.carriers)
+            end
+            any(st -> length(st) > 1, p.path_steps) && (n_multistep += 1)
+        else
+            n_pool_unmanaged += 1
+        end
+    end
+    pool_stats["cycle_pools_solved"] = sum(length(v) for v in values(comp_pools); init = 0)
+    pool_stats["cycle_pools_unmanaged"] = n_pool_unmanaged
+    pool_stats["cycle_pools_multistep"] = n_multistep
+    pool_stats["cycle_carriers_held"] = n_carriers_held
+    pool_stats["cycle_carriers_flag"] = pool_carriers
+    pool_stats["cycle_carrier_conflicts"] = n_carrier_conflicts
+    pool_stats["cycle_pools_pinned_fallback"] = n_pinned_fallback
+    pool_stats["cycle_supply_depletions_held"] = n_supply_depl
+    pool_stats["cycle_self_fed_inputs_held"] = n_held_inputs
+    # For the final consistency check: managed nodes are held by their pool, not
+    # by the forward model (like pinned nodes), and are checked against it.
+    pool_stats["cycle_managed"] = managed
+    pool_stats["cycle_solved"] = reduce(vcat, collect(values(comp_pools)); init = IndexedPool[])
+
     # Topological order: upstream (high comp_id) before downstream (low).
     @inbounds for c in n_comp:-1:1
         rs = comp_rxns[c]
@@ -957,6 +1102,7 @@ function solve_scc_ordered!(
                     r = rxns_idx[ri]
                     t = r.target_idx
                     t in obs_set && continue
+                    t in managed && continue       # specs/039: solved by its pool below
                     fwd = compute_reaction_output_vec(x, r; supply=supply, config=config)
                     nv = (1.0 - λ) * x[t] + λ * fwd
                     # Measure the UNDAMPED model residual |F(x) - x|, not the
@@ -980,6 +1126,10 @@ function solve_scc_ordered!(
                     for s in 1:n_staged
                         x[stage_idx[s]] = stage_val[s]
                     end
+                end
+                for p in get(comp_pools, c, IndexedPool[])
+                    ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = pool_carriers)
+                    ch > maxch && (maxch = ch)
                 end
                 comp_residual = maxch
                 maxch < tol && break
@@ -1134,6 +1284,9 @@ function solve_steady_state_penalty(
     gene_uuids::Set{String} = Set{String}();
     self_shared::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
+    cycle_pools = nothing,
+    cycle_phi::Float64 = 0.1,
+    cycle_carriers::Bool = true,
 )::SolverResult
 
     all_nodes = collect(keys(x0))
@@ -1219,8 +1372,12 @@ function solve_steady_state_penalty(
         @inbounds for (i, uuid) in enumerate(all_nodes)
             baseline_vec[i] = get(baseline_activities, uuid, 0.01)
         end
+        ipools, n_skipped = cycle_pools === nothing ? (IndexedPool[], 0) :
+                            index_pools(cycle_pools, uuid_to_idx, rxns_idx, cycle_phi)
+        index_stats["cycle_pools_skipped"] = n_skipped
         iters, max_change, scc_stats = solve_scc_ordered!(
-            x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec)
+            x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec;
+            pools = ipools, pool_stats = index_stats, pool_carriers = cycle_carriers)
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
@@ -1264,8 +1421,25 @@ function solve_steady_state_penalty(
     # the free variables reached a fixed point of the forward model.
     free_residual = 0.0
     saw_nonfinite = false
+    # specs/039: a pool-managed node is at its pool's steady state, not at its
+    # forward-model value; its residual is how far one more pool update moves it.
+    managed_final = get(index_stats, "cycle_managed", Set{Int}())
+    solved_final = get(index_stats, "cycle_solved", IndexedPool[])
+    if !isempty(solved_final)
+        xp = copy(x)
+        bvec = Vector{Float64}(undef, n)
+        @inbounds for (i, uuid) in enumerate(all_nodes)
+            bvec[i] = get(baseline_activities, uuid, 0.01)
+        end
+        for p in solved_final
+            d = update_pool!(xp, p, rxns_idx, bvec, obs_set, eval_config; carriers = cycle_carriers)
+            isfinite(d) || (saw_nonfinite = true)
+            isfinite(d) && d > free_residual && (free_residual = d)
+        end
+    end
     @inbounds for i in 1:n
         i in obs_set && continue
+        i in managed_final && continue
         d = abs(x[i] - x_fwd_final[i])
         if !isfinite(d)
             # Track separately rather than skipping: filtering non-finite values
@@ -1317,6 +1491,17 @@ function solve_steady_state_penalty(
             "self_inhibitors" => get(index_stats, "self_inhibitors", 0),
             "scc_cyclic_after" => get(index_stats, "scc_cyclic_after", 0),
             "scc_largest_after" => get(index_stats, "scc_largest_after", 0),
+            # specs/039: interconversion pools solved in closed form, left to the
+            # iteration (not within one cyclic component), or skipped at indexing.
+            "cycle_pools_solved" => get(index_stats, "cycle_pools_solved", 0),
+            "cycle_pools_unmanaged" => get(index_stats, "cycle_pools_unmanaged", 0),
+            "cycle_pools_skipped" => get(index_stats, "cycle_pools_skipped", 0),
+            "cycle_pools_multistep" => get(index_stats, "cycle_pools_multistep", 0),
+            "cycle_carriers_held" => get(index_stats, "cycle_carriers_held", 0),
+            "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
+            "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
+            "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
+            "cycle_self_fed_inputs_held" => get(index_stats, "cycle_self_fed_inputs_held", 0),
         ),
     )
 end

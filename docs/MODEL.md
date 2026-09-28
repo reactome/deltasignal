@@ -67,7 +67,17 @@ The network is split into strongly connected components (loops), and they are
 solved upstream first. Inside a loop, the solver iterates until the values
 stop changing.
 
-## 4. Loops, and why they need their own maths (designed, not yet measured: specs/039)
+## 4. Loops, and why they need their own maths (measured, NOT adopted: specs/039)
+
+> **Status.** Everything in this section is implemented behind
+> `DS_CYCLE_MODE=balance` and was measured on both benchmarks. It is **not
+> adopted** (curator held-out −5, experimental −8 against the rule off), and
+> the default remains `off`: loops are iterated as in §3. It fixes the case it
+> was built for (RAF NF1 knockout) and fails where a pool's own protein
+> regulates it through complexes outside the pool (SOCS in interferon
+> signalling). The numbers and the traced losses are in
+> `specs/039-cycle-balance/research.md`. The section is kept because it is the
+> design the next step builds on.
 
 **What the loops are.** Once the artefact loops are separated by uuids, most of
 what remains are **curated interconversion cycles**, where one reaction turns a
@@ -80,7 +90,9 @@ protein from form A into form B and another turns it back:
 | ubiquitination | protein | Ub-protein | ligase | deubiquitinase |
 | methylation | histone | methylated histone | methyltransferase | demethylase |
 
-The catalog has 259 of them, in 55 pathways.
+Reactome usually curates such a cycle in steps: the enzyme binds, modifies and
+releases (S + kinase → S:kinase → p-S:kinase → p-S + kinase). The count is
+recorded per build in specs/039.
 
 **Why the current maths gets them wrong.** Propagation multiplies around a
 loop: A feeds the reaction that makes B, and B feeds the reaction that makes A.
@@ -121,6 +133,23 @@ two models (specs/039):
 resting cell (RAS is about 5–10% GTP-bound; basal phosphorylation is usually
 ≤10–20%). It is fixed in advance, not fitted.
 
+**Cycles curated in steps.** The states of the chain are the protein's
+distinct modification states (S and p-S; RAS:GDP and RAS:GTP). The enzyme
+complexes on the way (S:kinase, RAS:GTP:GAP) are intermediates:
+- A transition is the whole path from one state to the other. Its drive is the
+  product of its steps' drives, so the kinase acts through the binding step, in
+  proportion to its fold.
+- Intermediates hold no share of the protein at rest. They are transient, and
+  their level is set by the flux through them, which is what they read.
+- With that, a multi-step cycle gives exactly the numbers of the two-form rule
+  below. A share of 1/9 for each complex would instead cap a kinase-driven rise
+  at about 3.7-fold.
+- An uncatalysed step (intrinsic GTP hydrolysis) beside an enzyme-driven one
+  carries a 1/1000 share at rest, because it is orders of magnitude slower.
+- The enzyme's free form is released by the cycle it drives. Counting that
+  release as a new supply of enzyme would close a loop of its own, so the free
+  form reads only its other producers (`DS_CYCLE_CARRIERS`, tested separately).
+
 **What this gets right:**
 - **Direction:** kinase or GEF up → modified form UP; phosphatase or GAP knocked
   out → modified form UP; kinase knocked out → modified form to zero. This holds
@@ -149,6 +178,10 @@ resting cell (RAS is about 5–10% GTP-bound; basal phosphorylation is usually
 - **Branched pools** (a protein modifiable at two sites) need one extra stated
   assumption about baseline rates: an equal split of flow between exits, or
   detailed balance.
+
+**Known limitation of the implementation:** influence scores (explainability)
+do not see the pool rule; under `balance` they are computed from the ordinary
+reaction model.
 
 **Who does what:**
 - **The generator** detects each pool once, when it builds the network from
