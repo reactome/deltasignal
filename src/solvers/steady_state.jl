@@ -944,7 +944,7 @@ function solve_scc_ordered!(
     for p in pools
         union!(pool_written, p.forms, p.flux_nodes, p.copy_nodes)
     end
-    n_carrier_conflicts = 0; n_pinned_fallback = 0; n_supply_depl = 0
+    n_carrier_conflicts = 0; n_pinned_fallback = 0; n_supply_depl = 0; n_held_inputs = 0
     rxn_of = isempty(pools) ? Dict{Int, Int}() : Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
     n_carriers_held = 0; n_multistep = 0
     for p in pools
@@ -1009,6 +1009,18 @@ function solve_scc_ordered!(
                 length(r.depletion_own_product) == length(r.depletion_indices) && deleteat!(r.depletion_own_product, drop)
                 deleteat!(r.depletion_indices, drop)
             end
+            # amendment 4 (post hoc): what the pool feeds by mass flow, other
+            # than its states and its carriers, is read at baseline in its drives
+            allcar = Set(p.carriers)
+            for v in reach
+                (v in p.forms || v in allcar) && continue
+                push!(p.held, v)
+            end
+            n_held_inputs += count(v -> v in p.held, (i for st in p.path_steps for (ris, _) in st
+                                                     for ri in ris for i in Iterators.flatten((
+                                                         rxns_idx[ri].activator_indices,
+                                                         rxns_idx[ri].inhibitor_indices,
+                                                         rxns_idx[ri].depletion_indices)) if i != 0))
             # carriers are managed only inside the pool's component, and never
             # a node the pool already writes
             keepc = [comp_id[c] == c0 && !(c in pool_written) for c in p.carriers]
@@ -1033,6 +1045,7 @@ function solve_scc_ordered!(
     pool_stats["cycle_carrier_conflicts"] = n_carrier_conflicts
     pool_stats["cycle_pools_pinned_fallback"] = n_pinned_fallback
     pool_stats["cycle_supply_depletions_held"] = n_supply_depl
+    pool_stats["cycle_self_fed_inputs_held"] = n_held_inputs
     # For the final consistency check: managed nodes are held by their pool, not
     # by the forward model (like pinned nodes), and are checked against it.
     pool_stats["cycle_managed"] = managed
@@ -1488,6 +1501,7 @@ function solve_steady_state_penalty(
             "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
             "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
+            "cycle_self_fed_inputs_held" => get(index_stats, "cycle_self_fed_inputs_held", 0),
         ),
     )
 end

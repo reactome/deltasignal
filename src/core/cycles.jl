@@ -85,6 +85,8 @@ struct IndexedPool
     carriers::Vector{Int}               # enzyme free-form nodes
     carrier_rxn::Vector{Int}            # rxns_idx of each carrier's update
     carrier_release::Vector{Set{Int}}   # release step nodes excluded from each carrier's producers
+    held::Set{Int}                      # nodes the pool itself feeds, read at baseline in its
+                                        # drives (amendment 4; filled by the solver per solve)
 end
 
 """Drive regulariser: rates are k·(u + ε), so with every drive of a pool at zero
@@ -231,7 +233,7 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             push!(cs, ci); push!(crx, by_target[ci]); push!(crel, cmap[ci])
         end
         push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
-                               fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel))
+                               fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Set{Int}()))
     end
     return out, skipped
 end
@@ -243,6 +245,12 @@ baseline; a step's drive is the mean over its copies (each carries an equal
 share at rest); a path's drive is the product over its steps.
 """
 function path_drives(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, config)
+    # amendment 4: inputs the pool itself feeds are read at baseline, as the
+    # source is (the pool's protein acts on its own transitions only through
+    # its states, not a second time through complexes built from them)
+    hv = sort!(collect(p.held))
+    hkeep = [x[h] for h in hv]
+    for h in hv; x[h] = baseline_vec[h]; end
     u = Vector{Float64}(undef, length(p.path_from))
     cu = Vector{Vector{Vector{Float64}}}(undef, length(p.path_from))
     for q in eachindex(p.path_from)
@@ -263,6 +271,7 @@ function path_drives(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, basel
         end
         u[q] = d
     end
+    for (j, h) in enumerate(hv); x[h] = hkeep[j]; end
     return u, cu
 end
 

@@ -26,7 +26,7 @@ node(u) = u => DS.NetworkNode(u, "R-" * u, "protein", nothing, u, BL)
 edge(s, t, et; and = true) = DS.LogicNetworkEdge(s, t, and, true, 1.0, et)
 
 function fixture(; pools = :default, rl = identity, extra = [])
-    ids = ["G", "P", "A", "B", "EF", "EB", "F", "R", "W", "D", "Z", "Y", "F2", "K", "Q", "M"]
+    ids = ["G", "P", "A", "B", "EF", "EB", "F", "R", "W", "D", "Z", "Y", "F2", "K", "Q", "M", "So", "Sr", "Sq"]
     nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
     E = [("G", "P", "input", true), ("P", "A", "output", false),
          ("A", "F", "input", true), ("EF", "F", "catalyst", true), ("F", "B", "output", false),
@@ -169,6 +169,24 @@ end
     # ... and off, the edge still applies (default unchanged)
     r = solve(net; mode = "off", obs = Dict("G" => 80.0))
     @test r.diagnostics["cycle_rule"] == "off"
+    # amendment 4 (post hoc): an inhibitor built from the pool's own base state
+    # (SOCS-bound receptor: A + So -> Sq, Sq -| F) is read at baseline in the
+    # drives, so gene 80x moves both forms 80x instead of the inhibitor
+    # tracking A and cancelling the forward drive exactly (IFN alpha/beta)
+    socs = [("A", "Sr", "input", true), ("So", "Sr", "input", true), ("Sr", "Sq", "output", true),
+            ("Sq", "F", "regulator", false)]
+    net = fixture(; extra = socs)
+    r = solve(net; obs = Dict("G" => 80.0, "So" => 1.0))
+    @test r.converged
+    @test fold(r, "A") ≈ 80.0 atol = 1e-3
+    @test fold(r, "B") ≈ 80.0 atol = 1e-3
+    @test r.diagnostics["cycle_self_fed_inputs_held"] >= 1
+    r = solve(net; obs = Dict("So" => 1.0))
+    @test fold(r, "B") ≈ 1.0 atol = 1e-9                  # baseline exact
+    # an OUTSIDE inhibitor of the same step still acts (Z, not fed by the pool)
+    net = fixture(; extra = [("Z", "F", "regulator", false)])
+    r = solve(net; obs = Dict("Z" => 10.0))
+    @test fold(r, "B") < 0.5
     # finding 9: a component method that bypasses the sweep manages no pool,
     # and says so
     for m in ("pool", "minimize")
