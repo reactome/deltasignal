@@ -114,3 +114,66 @@ where the reverse reaction is curated (24% of the added inhibitions, specs/034
      chosen and stated in the pre-registration.
 
 The explanation for readers is in `docs/MODEL.md` §4.
+
+## Pre-registration (2026-09-27, before any code or arm)
+
+**Pool shapes** in Neo4j across the 92 pathways, as connected groups of forms
+linked by curated forward/reverse pairs: **213 pools**, of which 178 have 2
+forms, 35 are chains or branches of 3–9 forms, and none is a simple ring.
+
+**Detection (generator, `pools.csv`):**
+- A pool is found at **node (uuid) level**. For a curated pair (F: A → B,
+  R: B → A in one pathway), the node-level loop A_u → F → B_u → R → A_u must
+  exist: the same A node feeds F and receives R's output.
+- Stid-level pairs whose occurrences the uuids separated are NOT pooled, so
+  artefact merges are not re-created.
+- Forms joined by such loops form one pool.
+- The file lists, per pool, each form node (and whether it is the base form)
+  and each transition (from form, to form, reaction node).
+
+**Base form** (the least modified):
+- the fewest modified residues summed over the form's leaves (Neo4j);
+- then the fewest components;
+- remaining ties go to the smaller stId, and are counted and reported.
+
+**Baseline** (the one assumption, **φ₀ = 0.1**, Adam): detailed balance, with
+each step away from the base form holding (φ₀ / (1 − φ₀)) = 1/9 of its
+predecessor's share.
+- 2 forms: 0.9 / 0.1.
+- A 3-form chain: 0.890 / 0.099 / 0.011.
+- The baseline rates follow from this; branched pools need no extra assumption.
+
+**Solve (`DS_CYCLE_MODE=off` default | `balance`, with `DS_CYCLE_PHI=0.1`):**
+- Each transition's drive is its reaction evaluated with the existing semantics
+  and its source form held at baseline, divided by baseline.
+- Rates are baseline rate × drive.
+- π is solved from πQ = 0, Σπ = 1.
+- The supply s is the OR-mean of the forms' producers outside the pool, else 1;
+  a pinned form sets the pool.
+- Form value = baseline × s × π / π₀. Each transition's reaction node carries
+  its flux, relative to baseline.
+- This is applied inside the component iteration every sweep, and is
+  order-invariant.
+- The catalyst ⊣ source-form depletion edge inside a pool is not applied (the
+  balance already contains it).
+- Autocatalytic pools take the root continuous from baseline.
+- A pool the solve cannot handle falls back to iteration, and is counted.
+
+**Arms:**
+- **Build:** one build from the generator with `pools.csv`; its networks are
+  otherwise identical to the canonical build.
+- `ctrl039`: `DS_CYCLE_MODE=off`.
+- `bal01`: `balance`, φ₀ = 0.1. **Primary.**
+- `bal05`: `balance`, φ₀ = 0.5. A declared sensitivity arm, never used to choose.
+
+**Adopt `bal01` only if all hold** (against `ctrl039`, same build):
+- curator held-out net > +15, p < 0.05;
+- experimental net ≥ +15, p < 0.05, excluding RAF (RAF reported separately);
+- no pathway, tuning or held-out, loses more than 10;
+- gains span at least 2 pathways and 5 perturbations.
+
+**Predictions:**
+- convergence improves (fewer non-converged solves);
+- RAF's collapse stops (RAF reported);
+- the knockout and overexpression of reversal enzymes (phosphatases, GAPs)
+  gain cases.
