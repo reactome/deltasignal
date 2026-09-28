@@ -499,3 +499,27 @@ at aef2f34, fixes 1–6 were verified:
   "catalyst ⊣ source-form edge is not applied". Curated inhibitor edges are
   untouched.
 - `test_cycles.jl` goes 188 → 194. The mutant goes red.
+
+## Result (2026-09-28): not adopted
+
+Build `20260928-0115_bdaed8e_pools039d` at solver `b119943`, all four arms
+(`results/b119943/{ctrl039,bal01,bal01nc,bal05}`). Protocol `root_cycle` in
+every arm. Balance arms: 932 curator / 212 experimental pool-solves (126 / 68
+multi-step).
+
+| arm vs ctrl039 | curator held-out | curator tuning | curator all | experimental |
+|---|---|---|---|---|
+| **bal01** (primary) | −5 (61/66, p 0.72) | −40 (p 8e-5) | −45 (p 0.003) | −8 (1/9, p 0.021) |
+| bal01nc (carriers off) | −8 (p 0.53) | −63 | −71 | −13 (p 0.001) |
+| bal05 (φ₀ 0.5) | −12 (p 0.31) | −49 | −61 | −7 (p 0.016) |
+
+- **Gates:** bal01 fails the curator held-out and experimental gates, so it is
+  **not adopted**. Nor is any other arm.
+- **Convergence** (prediction 1) improved slightly: 1,671 → 1,679 of 1,725
+  curator solves, 228 → 231 of 244 experimental.
+- **The carrier rule is positive on its own:** bal01 vs bal01nc is +26 curator
+  (29/3, p 3e-6) and +5 experimental (5/0).
+- **Concentration** (bal01, all curator cases): 12 pathways moved.
+  - Worst: Interferon α/β −56 (identical in all three arms), HDR −49.
+  - Best: Interferon γ +34, ERBB2 +14, intrinsic apoptosis +13.
+- The losses are traced below before any further change.
