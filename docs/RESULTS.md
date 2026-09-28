@@ -19,7 +19,7 @@ commit.
 ---
 
 
-> **2026-09-26: canonical numbers (specs/023-027, 030).** The benchmark
+> **2026-09-27: canonical numbers (specs/023-027, 030, 033, 038).** The benchmark
 > perturbs only ROOT inputs that are, or contain, the gene, as the MP-BioPath
 > publication does. A gene with no true root has pinned the form whose every
 > producer is its own downstream (e.g. a catalytic cycle) or a derived
@@ -28,29 +28,31 @@ commit.
 > pathway list is corrected (IL-2 family is R-HSA-451927, not 447115, which
 > is IL-12 family), and four curator gene names are corrected. Solver
 > defaults: `DS_ASSEMBLY_LIMITING=0`, `DS_SELF_INHIBITOR_WEIGHT=0.1`.
-> Generator: root complexes decomposed hierarchically (specs/030, LNG #97).
-> Build `20260926-1221_590301c` (Reactome 97), bench `f22ba27`
-> (`results/f22ba27`).
+> Generator: root complexes decomposed hierarchically (specs/030, LNG #97), and
+> set-valued catalysts and regulators emitted as one pool node each (specs/033,
+> 038; LNG #99), read with `DS_SET_POOL_MODE=product`.
+> Build `20260927-2158_e88f7a3` (Reactome 97), bench `fb48121`
+> (`results/fb48121`).
 >
 > | | cases | accuracy | macro-F1 |
 > |---|---|---|---|
-> | **curator held-out, in release** (70 pathways) | 18,573 | **87.24%** | **0.8346** |
-> | curator held-out, every case (71 pathways) | 19,000 | 86.67% | 0.8265 |
-> | curator, all pathways, in release (81) | 23,625 | 84.91% | 0.8158 |
-> | curator, all pathways, every case | 24,100 | 84.38% | 0.8087 |
-> | experimental, every case (10 pathways) | 849 | 67.14% | 0.5877 |
+> | **curator held-out, in release** (70 pathways) | 18,573 | **87.27%** | **0.8353** |
+> | curator held-out, every case (71 pathways) | 19,000 | 86.70% | 0.8272 |
+> | curator, all pathways, in release (81) | 23,625 | 84.95% | 0.8165 |
+> | curator, all pathways, every case | 24,100 | 84.42% | 0.8094 |
+> | experimental, every case (10 pathways) | 849 | 67.49% | 0.5904 |
 >
 > These are `holdout.txt` and `RESULTS.json` from the bench: an unperturbable
 > case (no root form of the gene) is scored NORMAL and kept, and only
 > release-skew cases are dropped "in release".
 >
 > **Against MP-BioPath's published figures**, every case against every case:
-> - Curator: ours 84.38% / 0.8087 against their 83.34% / 0.8063, a lead of
->   **+1.04pp** / +0.002.
-> - Experimental: ours 67.14% against their 75.74% (643/849), **−8.6pp**. This
->   is the gap to close.
+> - Curator: ours 84.42% / 0.8094 against their 83.34% / 0.8063, a lead of
+>   **+1.08pp** / +0.003.
+> - Experimental: ours 67.49% against their 75.74% (643/849), **−8.3pp**. This
+>   is the gap to close (specs/034 §9–12 and specs/039 on why).
 >
-> **TP53 draw.** The TP53 uuid draw is in both axes.
+> **TP53 draw** (measured on the two builds before this one). The TP53 uuid draw is in both axes.
 > - The hier2 build, identical in structure, was **131 curator cases and 7
 >   experimental cases lower**, all of them in TP53 (AKT1, AKT2, MDM4).
 > - Held-out does not move.
@@ -59,8 +61,12 @@ commit.
 > - Read the all-pathways and experimental rows as ±0.6pp / ±0.9pp from this
 >   one pathway.
 >
-> **Previous box** (build `20260925-2326_d4f4f64`, bench `261c94a`): held-out
-> 86.17% / 0.8197, all pathways 83.45% / 0.7942, experimental 66.43% / 0.5823.
+> **Previous boxes:**
+> - build `20260926-1221_590301c`, bench `f22ba27` (no set pools): held-out
+>   87.24% / 0.8346, all pathways 84.38% / 0.8087, experimental 67.14% / 0.5877.
+>   Set pools are neutral against it, as specs/033 and 038 measured.
+> - build `20260925-2326_d4f4f64`, bench `261c94a`: held-out 86.17% / 0.8197, all
+>   pathways 83.45% / 0.7942, experimental 66.43% / 0.5823.
 > The hierarchy is held-out +197 (243 fixed / 46 broken) against its own flat
 > control (specs/030). The rest of the all-pathways rise is the TP53 draw
 > above.
