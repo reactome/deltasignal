@@ -577,3 +577,33 @@ that commit, `bal01a4` (balance, φ₀ 0.1, carriers on), and the same gates.
 Because the rule is post hoc, it is adopted only if it passes on **both** axes.
 The case-level concentration is reported with the pathways that motivated it
 (Interferon α/β, HDR) excluded.
+
+### Amendment 4 result (exploratory): not adopted
+
+Arms at solver `393876f` on pools039d; ctrl039 is byte-identical to the
+b119943 ctrl (0 of 23,511 curator and 0 of 845 experimental cases differ).
+
+| bal01a4 vs | curator held-out | curator tuning | experimental |
+|---|---|---|---|
+| ctrl039 | **−41** (61/102, p 0.0016) | +11 (p 0.42) | −7 (3/10, p 0.09) |
+| bal01 (pre-registered) | −36 | +51 | +1 |
+
+- **HDR is fixed** (+51 against bal01): the self-fed exit was the mechanism.
+- **Interferon α/β is unchanged at −56.** The hold did not reach the SOCS
+  inhibitor, most likely because reach is confined to the pool's cyclic
+  component and 912681 lies outside it. Not traced.
+- **Interferon γ lost its +34.** The stated expectation ("pp 8 → 80, still UP")
+  was wrong. Not traced.
+- It fails on both axes. With the pre-registered arms and this one, no cycle
+  rule variant is adopted. The code stays default-off (`DS_CYCLE_MODE=off`).
+
+**What stands:**
+- The rule fixes the case it was designed for, RAF NF1 KO (0.17 → 1.29 UP,
+  experimental).
+- It improves convergence.
+- The carrier rule is positive against carriers-off.
+- Its losses come from pools whose own protein regulates them through complexes
+  outside the pool (SOCS, the HDR machine). The single-component pool
+  abstraction does not yet capture that. The next design question is how far a
+  pool's boundary extends, and it needs its own derivation, not another post-hoc
+  arm.
