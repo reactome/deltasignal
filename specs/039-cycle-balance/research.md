@@ -735,3 +735,26 @@ the byte-identity check.
   positive on the curator axis and neutral (not significantly negative) on the
   experimental one. Whether to adopt on those terms is Adam's decision. It is
   not decided here.
+
+### The three amendment-5 experimental losses, traced (2026-09-28)
+
+- **MYC 80x, S phase ×2 (pre-RC and p-FZR1/p-RB1 read 1.11; expected UP).**
+  - The pool is CCNA:CDK2 ⇄ CCNA:p-Y15-CDK2 (WEE1 forward, CDC25A/B reverse).
+    MYC raises CDC25A.
+  - Y15 phosphorylation is **inhibitory**, so the unmodified base state is the
+    *active* kinase. φ₀ = 0.1 gives it 90% of the pool at rest, so activation
+    can raise it only to 1/(1 − φ₀) = 1.11.
+  - φ₀'s justification is "activated forms are a minority at rest" (§Decisions).
+    The implementation reads it as "modified forms are a minority". For an
+    inhibitory modification the two are opposite.
+  - This is Fable review finding 7 (amendment 2), now shown to cost cases.
+- **CCNB1 80x, Prophase (p-lamin reads 0.11; expected UP).**
+  - The lamin readout's ancestry reaches the lipin pools (LPIN1/2/3 ⇄
+    p-S106-LPIN) eight edges up, through a set-pool catalyst.
+  - CDK1 phosphorylates lipin, which inactivates it. Resting (active) lipin
+    drops to 0.11, and the lamin reaction ANDs CDK1's direct action with the
+    lipin-dependent chain.
+  - The pool's direction (lipin inactivated) is plausible. The loss comes from
+    AND composition downstream, not from the pool rule.
+- Neither needs the pool boundary changed. The first is a question about what φ₀
+  refers to, which is Adam's decision (φ₀ was his call).
