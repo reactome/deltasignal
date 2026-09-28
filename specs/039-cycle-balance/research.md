@@ -460,3 +460,19 @@ the final commit, so every arm shares one solver commit.
   forms UP. Checked on the rebuild, before the arms.
 
 `test_cycles.jl` goes 174 → 188. The mutants for fixes 1 and 3 each go red.
+
+**Amendment 3 build `20260928-0115_bdaed8e_pools039d`** (generator `bdaed8e`;
+recorded before any balance arm):
+- **40 pools in 18 pathways**: 99 states, 16 intermediates, 123 paths,
+  567 step-copy rows, **7 multi-step pools**, 168 carrier rows.
+- 1 carrier conflict excluded; 0 ties; 0 long-path or budget drops.
+- The core rule dropped one pool: FGFR4, now a carrier loop.
+- EGFR:ERBB2 (R-HSA-1227986) now has 2 core-only states (p-6Y / p-7Y
+  ERBB2), with the PLCG1 and PTK6 complexes as intermediates. The other 39 pools
+  are unchanged.
+- **Kept, flagged:** R-HSA-177929 pool1's reverse step (183084, "CBL escapes
+  CDC42-mediated inhibition") is a curation shortcut, not a dephosphorylation.
+  It is not special-cased.
+- **Uuids are re-minted per build**, so logic networks differ byte-wise from
+  pools039c. All four arms, the control included, run on this build at one
+  solver commit.
