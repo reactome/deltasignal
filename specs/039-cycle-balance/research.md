@@ -622,3 +622,54 @@ b119943 ctrl (0 of 23,511 curator and 0 of 845 experimental cases differ).
   abstraction does not yet capture that. The next design question is how far a
   pool's boundary extends, and it needs its own derivation, not another post-hoc
   arm.
+
+## Amendment 5 (2026-09-28): the pool boundary. POST HOC; pre-registered before code
+
+This is the third design after seeing results. It comes from a blind double
+derivation of `problem3.md`: `derivation3-opus.md` was committed (bdf9ff2)
+before `derivation3-fable.md` was read. It is judged on a stricter gate
+(below).
+
+**Agreement.** A pool's protein must not act on its own transitions a second
+time through complexes built from it. Amendments 1, 3 and 4 were pieces of
+this.
+
+**Differences, and the choice (Fable's on each):**
+
+| point | Opus | Fable (adopted) | why |
+|---|---|---|---|
+| forms that leave and do not return (A:SOCS) | sink states | stay outside the pool and read the live product | A sink needs a baseline leak-to-cycling ratio, a second φ. Opus's "no new parameter" claim was wrong. |
+| a pool-fed input of a pool step | edge dropped | **re-evaluated** from its own inputs with the pool at baseline | Amendment 4's hold read A:SOCS at 1, silencing SOCS (SOCS1 KO/80x lost). Re-evaluation reads the SOCS fold. The double count is the regulator's R-dependence; the rest is genuine feedback. |
+| machine paths (HDR) | reachability | **a multi-step path is an enzyme cycle only if every non-R entity a step consumes is output again by the same path** | The enzyme is regenerated. Stated at generation time. |
+
+**Rule.**
+- **Solver.** For a pool step's inputs that are mass-flow descendants of the
+  pool (reach through activator edges, not through pins, excluding carriers):
+  - re-evaluate them, and the ancestors inside the reach they depend on, from
+    their own reactions;
+  - do this with the pool's states, intermediates and copies at baseline;
+  - use one pass, in a fixed order (reach BFS order over sorted ids).
+  - The drive reads these re-evaluated values. This replaces amendment 4's hold.
+- **Generator.** Drop multi-step paths that fail the regeneration test.
+  Counted.
+
+**Predictions** (Fable, on scratch copies of the three bundles, φ₀ 0.1):
+- α/β JAK1 80x → UP (ISG20 100), SOCS1 KO pp 1.69, SOCS1 80x 0.03. Pathway
+  total equals ctrl.
+- γ IFNG 80x → UP, SOCS1 KO pp 1.05, SOCS1 80x 0.22. Pathway total equals
+  bal01.
+- HDR: the pool is dropped, total equals ctrl.
+- Census: 3 of 9 multi-step paths fail regeneration (HDR, EGFR pool1, Insulin
+  pool1). 6 of 40 pools have pool-fed step inputs (α/β, γ, HDR, Insulin pool2,
+  Mitotic G2 CDK1, MET).
+- **Predicted net +34 vs ctrl.**
+
+**Checks before scoring:**
+- Every pathway other than the seven named (α/β, γ, HDR, EGFR, Insulin,
+  Mitotic G2, MET) must equal bal01 bit for bit. Otherwise the change leaked,
+  and the arm is invalid.
+
+**Gate:**
+- curator held-out and experimental, as pre-registered;
+- **and** net ≥ 0 on the cases outside the three motivating pathways (α/β, γ,
+  HDR).
