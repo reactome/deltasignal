@@ -693,3 +693,45 @@ this.
   PTK6 signalling (8848021), TGF-β (170834)**, and the pathways whose pool set
   changed in the new build. That last group is listed from the build, before
   scoring.
+
+### Amendment 5 result (post hoc): curator gate passes, experimental gate fails
+
+Build `20260928-0320_6815dfd_pools039e`. Arms: ctrl039 and bal01a5 at
+`1897747` (solver = `151e940`), and bal01 at `b119943` on the same build for
+the byte-identity check.
+
+| bal01a5 vs | curator held-out | curator tuning | curator all | experimental |
+|---|---|---|---|---|
+| **ctrl039** | **+77** (87/10, p 1.8e-16) | −5 (p 0.18) | +72 (p 6e-13) | **−2** (1/3, p 0.62) |
+| bal01 (same build) | +56 (56/0), α/β only | 0 | +56 | 0 |
+
+- **Byte-identity check: passes.** Against bal01 on the same build, only
+  Interferon α/β differs, so the solver change leaked nowhere. The rest of the
+  change against ctrl comes from the generator's regeneration test. bal01 on this
+  build is itself +21 held-out against ctrl (p 0.11); on pools039d it was −5.
+- **Fable's pathway predictions: all three hold.** α/β equals ctrl, γ equals
+  bal01 (+34), and HDR equals ctrl. Net against ctrl was predicted at +34 and is
+  +72 (the extra is the regeneration drops elsewhere: PTK6 +19 …).
+- **Concentration:**
+  - 9 pathways moved: best γ +34, PTK6 +19, intrinsic apoptosis +13,
+    chromatin +7; worst S phase −6, Prophase −1.
+  - 28 perturbations.
+  - Net outside the three motivating pathways: **+38**.
+- **Experimental:** 1 won, RAF NF1 KO (0.17 → 1.29 UP). 3 lost, all the
+  pre-stated "readout on the base state" failure mode at φ₀ = 0.1: MYC 80x ×2
+  (S phase) reads 1.11, and CCNB1 80x (Prophase) reads 0.11.
+- **Gates:**
+
+  | gate | result |
+  |---|---|
+  | curator held-out > +15, p < 0.05 | **pass** |
+  | experimental ≥ +15, p < 0.05 | **fail** (−2, n.s.) |
+  | no pathway loses > 10 | pass |
+  | ≥ 2 pathways and ≥ 5 perturbations | pass |
+  | net outside the motivating pathways ≥ 0 | pass |
+
+- **Verdict under the pre-registered rules: not adopted**, because the
+  experimental gate fails. It is the first variant of this spec that is
+  positive on the curator axis and neutral (not significantly negative) on the
+  experimental one. Whether to adopt on those terms is Adam's decision. It is
+  not decided here.
