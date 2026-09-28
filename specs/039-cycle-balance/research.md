@@ -804,3 +804,25 @@ The experimental gate is relaxed from the original "≥ +15, p < 0.05". The
 reason is Adam's decision to hold amendment 5 "until the resting-form issue is
 addressed". Adopting on that basis is **Adam's to confirm** before the default
 changes.
+
+**Amendment 6 census (LNG `8e527d7`, on pools039e; before any build or
+arm).** As implemented, it flips **0 of 37** pools. 1 is oriented by activity
+(PTK6, unchanged), and 36 fall back. On its own, the amendment is therefore
+inert.
+- **RAS does not flip,** as expected: RAS:GTP reaches RAF and PI3K as an
+  *input*, not a catalyst.
+- **CCNA:CDK2 does not flip, contrary to the expectation.**
+  - Neither state catalyses anything. The acting kinase is CCNA:p-T160-CDK2,
+    made from CCNA:CDK2 by CAK one reaction outside the pool.
+  - Seeing it would need a rule extension ("the state the catalytic form is
+    made from"). That is a new rule, not recorded as part of amendment 6.
+- **Lipin: an implementation gap, and a clarification (not a rule change).**
+  - Unphosphorylated LPIN1/2/3 (the current base) reach catalysis through
+    `set_member` edges into the set-valued catalyst's pool node. Since
+    specs/033, that is how a member of a set-valued catalyst is represented.
+  - A `set_member` edge into a pool node that is itself a catalyst or positive
+    regulator of a non-pool reaction therefore counts as "acts downstream".
+  - Expected flip: lipin base → p-S106 (active = unphosphorylated). The lamin
+    case is still expected lost: AND downstream.
+- **Correction:** the generator report said "no lipin pool exists in this
+  build". That is wrong: pools 2–4 of R-HSA-68875 are LPIN1/2/3 ⇄ p-S106.
