@@ -594,11 +594,21 @@ b119943 ctrl (0 of 23,511 curator and 0 of 845 experimental cases differ).
 | bal01 (pre-registered) | −36 | +51 | +1 |
 
 - **HDR is fixed** (+51 against bal01): the self-fed exit was the mechanism.
-- **Interferon α/β is unchanged at −56.** The hold did not reach the SOCS
-  inhibitor, most likely because reach is confined to the pool's cyclic
-  component and 912681 lies outside it. Not traced.
-- **Interferon γ lost its +34.** The stated expectation ("pp 8 → 80, still UP")
-  was wrong. Not traced.
+- ~~Interferon α/β is unchanged at −56; the hold did not reach the SOCS
+  inhibitor.~~ **Wrong, corrected 2026-09-28** (re-traced by the problem-3
+  Fable derivation; confirmed on the case files).
+  - The hold did reach the inhibitor: JAK1 80x and IFNAR2 80x were fixed.
+  - SOCS1 KO and SOCS1 80x (28 + 28) were lost instead, because holding the
+    SOCS-bound receptor at baseline silenced SOCS entirely.
+  - The −56 is a different 56 cases.
+- ~~Interferon γ lost its +34.~~ **Wrong, corrected.**
+  - IFNG 80x and JAK1 80x stayed correct (+34 against ctrl).
+  - SOCS1 KO and 80x were lost (−34) by the same silencing, so the net is 0.
+- Also corrected: the bal01 γ gain was **the 100x cap, not conservation**.
+  SOCS binds the p-JAK2 state (a 9% share at rest), which wants 870-fold and
+  is capped at 100, so the inhibitor stops tracking. In α/β, the bound state
+  holds 82% at rest, is not capped, and cancels exactly. The earlier "gain for
+  the right reason in kind" is withdrawn.
 - It fails on both axes. With the pre-registered arms and this one, no cycle
   rule variant is adopted. The code stays default-off (`DS_CYCLE_MODE=off`).
 
@@ -612,3 +622,116 @@ b119943 ctrl (0 of 23,511 curator and 0 of 845 experimental cases differ).
   abstraction does not yet capture that. The next design question is how far a
   pool's boundary extends, and it needs its own derivation, not another post-hoc
   arm.
+
+## Amendment 5 (2026-09-28): the pool boundary. POST HOC; pre-registered before code
+
+This is the third design after seeing results. It comes from a blind double
+derivation of `problem3.md`: `derivation3-opus.md` was committed (bdf9ff2)
+before `derivation3-fable.md` was read. It is judged on a stricter gate
+(below).
+
+**Agreement.** A pool's protein must not act on its own transitions a second
+time through complexes built from it. Amendments 1, 3 and 4 were pieces of
+this.
+
+**Differences, and the choice (Fable's on each):**
+
+| point | Opus | Fable (adopted) | why |
+|---|---|---|---|
+| forms that leave and do not return (A:SOCS) | sink states | stay outside the pool and read the live product | A sink needs a baseline leak-to-cycling ratio, a second φ. Opus's "no new parameter" claim was wrong. |
+| a pool-fed input of a pool step | edge dropped | **re-evaluated** from its own inputs with the pool at baseline | Amendment 4's hold read A:SOCS at 1, silencing SOCS (SOCS1 KO/80x lost). Re-evaluation reads the SOCS fold. The double count is the regulator's R-dependence; the rest is genuine feedback. |
+| machine paths (HDR) | reachability | **a multi-step path is an enzyme cycle only if every non-R entity a step consumes is output again by the same path** | The enzyme is regenerated. Stated at generation time. |
+
+**Rule.**
+- **Solver.** For a pool step's inputs that are mass-flow descendants of the
+  pool (reach through activator edges, not through pins, excluding carriers):
+  - re-evaluate them, and the ancestors inside the reach they depend on, from
+    their own reactions;
+  - do this with the pool's states, intermediates and copies at baseline;
+  - use one pass, in a fixed order (reach BFS order over sorted ids).
+  - The drive reads these re-evaluated values. This replaces amendment 4's hold.
+- **Generator.** Drop multi-step paths that fail the regeneration test.
+  Counted.
+
+**Predictions** (Fable, on scratch copies of the three bundles, φ₀ 0.1):
+- α/β JAK1 80x → UP (ISG20 100), SOCS1 KO pp 1.69, SOCS1 80x 0.03. Pathway
+  total equals ctrl.
+- γ IFNG 80x → UP, SOCS1 KO pp 1.05, SOCS1 80x 0.22. Pathway total equals
+  bal01.
+- HDR: the pool is dropped, total equals ctrl.
+- Census: 3 of 9 multi-step paths fail regeneration (HDR, EGFR pool1, Insulin
+  pool1). 6 of 40 pools have pool-fed step inputs (α/β, γ, HDR, Insulin pool2,
+  Mitotic G2 CDK1, MET).
+- **Predicted net +34 vs ctrl.**
+
+**Checks before scoring:**
+- Every pathway other than the seven named (α/β, γ, HDR, EGFR, Insulin,
+  Mitotic G2, MET) must equal bal01 bit for bit. Otherwise the change leaked,
+  and the arm is invalid.
+
+**Gate:**
+- curator held-out and experimental, as pre-registered;
+- **and** net ≥ 0 on the cases outside the three motivating pathways (α/β, γ,
+  HDR).
+
+**Amendment 5, generator census (recorded before the build).** LNG
+`6815dfd` (`feat/pools-regen`), counted on the pools039d networks:
+- **37 pools; 4 multi-step** (BAD:14-3-3, RAS:GAP, SHC1:INSR, and PTK6 ⇄
+  p-Y342-PTK6, which was newly visible once the shared-node rule no longer
+  removed it); 92 states, 6 intermediates, 114 paths, 513 copy rows, 40
+  carriers.
+- **11 of 14 multi-step paths fail regeneration; 7 pools dropped.**
+- This differs from the pre-registered census (3 of 9). The extra failures:
+  - ERBB2 (R-HSA-1227986) ×4 and its copies in R-HSA-8848021 ×2. ERBB2's
+    paths consume PLCG1 / PTK6 and release p-4Y-PLCG1 / p-Y342-PTK6: the partner
+    leaves modified, so ERBB2 is the enzyme there, not a pooled substrate.
+  - TGF-β (R-HSA-170834) ×2: the receptor complex and ZFYVE9 are not returned.
+- The rule is applied as written. No "up to modification" clause is added,
+  since that would be tuning to the census.
+- **The byte-identity check's exempt set therefore widens.** Pathways allowed to
+  differ from bal01: α/β, γ, HDR, EGFR, Insulin, Mitotic G2, MET, **ERBB2,
+  PTK6 signalling (8848021), TGF-β (170834)**, and the pathways whose pool set
+  changed in the new build. That last group is listed from the build, before
+  scoring.
+
+### Amendment 5 result (post hoc): curator gate passes, experimental gate fails
+
+Build `20260928-0320_6815dfd_pools039e`. Arms: ctrl039 and bal01a5 at
+`1897747` (solver = `151e940`), and bal01 at `b119943` on the same build for
+the byte-identity check.
+
+| bal01a5 vs | curator held-out | curator tuning | curator all | experimental |
+|---|---|---|---|---|
+| **ctrl039** | **+77** (87/10, p 1.8e-16) | −5 (p 0.18) | +72 (p 6e-13) | **−2** (1/3, p 0.62) |
+| bal01 (same build) | +56 (56/0), α/β only | 0 | +56 | 0 |
+
+- **Byte-identity check: passes.** Against bal01 on the same build, only
+  Interferon α/β differs, so the solver change leaked nowhere. The rest of the
+  change against ctrl comes from the generator's regeneration test. bal01 on this
+  build is itself +21 held-out against ctrl (p 0.11); on pools039d it was −5.
+- **Fable's pathway predictions: all three hold.** α/β equals ctrl, γ equals
+  bal01 (+34), and HDR equals ctrl. Net against ctrl was predicted at +34 and is
+  +72 (the extra is the regeneration drops elsewhere: PTK6 +19 …).
+- **Concentration:**
+  - 9 pathways moved: best γ +34, PTK6 +19, intrinsic apoptosis +13,
+    chromatin +7; worst S phase −6, Prophase −1.
+  - 28 perturbations.
+  - Net outside the three motivating pathways: **+38**.
+- **Experimental:** 1 won, RAF NF1 KO (0.17 → 1.29 UP). 3 lost, all the
+  pre-stated "readout on the base state" failure mode at φ₀ = 0.1: MYC 80x ×2
+  (S phase) reads 1.11, and CCNB1 80x (Prophase) reads 0.11.
+- **Gates:**
+
+  | gate | result |
+  |---|---|
+  | curator held-out > +15, p < 0.05 | **pass** |
+  | experimental ≥ +15, p < 0.05 | **fail** (−2, n.s.) |
+  | no pathway loses > 10 | pass |
+  | ≥ 2 pathways and ≥ 5 perturbations | pass |
+  | net outside the motivating pathways ≥ 0 | pass |
+
+- **Verdict under the pre-registered rules: not adopted**, because the
+  experimental gate fails. It is the first variant of this spec that is
+  positive on the curator axis and neutral (not significantly negative) on the
+  experimental one. Whether to adopt on those terms is Adam's decision. It is
+  not decided here.

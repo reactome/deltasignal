@@ -1009,18 +1009,44 @@ function solve_scc_ordered!(
                 length(r.depletion_own_product) == length(r.depletion_indices) && deleteat!(r.depletion_own_product, drop)
                 deleteat!(r.depletion_indices, drop)
             end
-            # amendment 4 (post hoc): what the pool feeds by mass flow, other
-            # than its states and its carriers, is read at baseline in its drives
+            # amendment 5 (post hoc): pool-fed inputs of the pool's own steps,
+            # and the pool-fed nodes they depend on, are re-evaluated in the
+            # drives with the pool at baseline. Order: BFS from the pool over
+            # sorted ids (fixed, label-independent up to the id order).
+            poolset = Set(vcat(p.forms, p.flux_nodes, p.copy_nodes))
             allcar = Set(p.carriers)
-            for v in reach
-                (v in p.forms || v in allcar) && continue
-                push!(p.held, v)
+            fed(v) = v in reach && !(v in poolset) && !(v in allcar)
+            need = Set{Int}(); stk = Int[]
+            for st in p.path_steps, (ris, _) in st, ri in ris
+                r = rxns_idx[ri]
+                for i in Iterators.flatten((r.activator_indices, r.inhibitor_indices, r.depletion_indices))
+                    fed(i) && !(i in need) && (push!(need, i); push!(stk, i); n_held_inputs += 1)
+                end
             end
-            n_held_inputs += count(v -> v in p.held, (i for st in p.path_steps for (ris, _) in st
-                                                     for ri in ris for i in Iterators.flatten((
-                                                         rxns_idx[ri].activator_indices,
-                                                         rxns_idx[ri].inhibitor_indices,
-                                                         rxns_idx[ri].depletion_indices)) if i != 0))
+            while !isempty(stk)
+                v = pop!(stk)
+                ri = get(rxn_of, v, 0)
+                ri == 0 && continue
+                r = rxns_idx[ri]
+                for i in Iterators.flatten((r.activator_indices, r.inhibitor_indices, r.depletion_indices))
+                    fed(i) && !(i in need) && (push!(need, i); push!(stk, i))
+                end
+            end
+            # BFS order from the pool's states through activator edges
+            order = Int[]; seen = Set{Int}(p.forms); q = sort(copy(p.forms))
+            while !isempty(q)
+                v = popfirst!(q)
+                v in need && push!(order, v)
+                for w in sort(get(pool_out, v, Int[]))
+                    (w in seen || !(w in reach)) && continue
+                    push!(seen, w); push!(q, w)
+                end
+            end
+            for v in order
+                ri = get(rxn_of, v, 0)
+                ri == 0 && continue
+                push!(p.reeval, v); push!(p.reeval_rxn, ri)
+            end
             # carriers are managed only inside the pool's component, and never
             # a node the pool already writes
             keepc = [comp_id[c] == c0 && !(c in pool_written) for c in p.carriers]
@@ -1045,7 +1071,7 @@ function solve_scc_ordered!(
     pool_stats["cycle_carrier_conflicts"] = n_carrier_conflicts
     pool_stats["cycle_pools_pinned_fallback"] = n_pinned_fallback
     pool_stats["cycle_supply_depletions_held"] = n_supply_depl
-    pool_stats["cycle_self_fed_inputs_held"] = n_held_inputs
+    pool_stats["cycle_self_fed_inputs"] = n_held_inputs
     # For the final consistency check: managed nodes are held by their pool, not
     # by the forward model (like pinned nodes), and are checked against it.
     pool_stats["cycle_managed"] = managed
@@ -1501,7 +1527,7 @@ function solve_steady_state_penalty(
             "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
             "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
-            "cycle_self_fed_inputs_held" => get(index_stats, "cycle_self_fed_inputs_held", 0),
+            "cycle_self_fed_inputs" => get(index_stats, "cycle_self_fed_inputs", 0),
         ),
     )
 end
