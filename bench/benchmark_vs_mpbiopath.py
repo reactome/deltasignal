@@ -1070,6 +1070,11 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
             SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
             SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
+            if ds_result.get("cycle_rule") == "balance: no pool table":
+                raise SystemExit(f"{pathway_name}: DS_CYCLE_MODE=balance but the network has no pools.csv "
+                                 "(a build that predates it), so no pool is solved (specs/039).")
+            SOLVE_TALLY[f"cycle_rule={ds_result.get('cycle_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["cycle_pools_solved"] += int(ds_result.get("cycle_pools_solved") or 0)
             SOLVE_TALLY["conserved_held"] += int(ds_result.get("conserved_held") or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
@@ -1362,6 +1367,10 @@ def main():
     if "inert" in rules and SOLVE_TALLY["drugs_held"] == 0:
         # An inert arm that held nothing measured the default model.
         raise SystemExit("DS_DRUG_MODE=inert but no solve held a drug node; the arm is the control.")
+    yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
+    print(f"\nCycles: rule {'/'.join(yrules) or 'unknown'}, {SOLVE_TALLY['cycle_pools_solved']} pool-solves (specs/039)")
+    if "balance" in yrules and SOLVE_TALLY["cycle_pools_solved"] == 0:
+        raise SystemExit("DS_CYCLE_MODE=balance but no solve used a pool; the arm is the control.")
     crules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("conserved_rule="))
     print(f"\nConserved: rule {'/'.join(crules) or 'unknown'}, {SOLVE_TALLY['conserved_held']} node-solves held (specs/035)")
     if "inert" in crules and SOLVE_TALLY["conserved_held"] == 0:

@@ -24,6 +24,7 @@ include("core/drugs.jl")
 include("core/silo_bridges.jl")
 include("core/reaction_model.jl")
 include("core/conserved.jl")
+include("core/cycles.jl")
 
 # Solvers
 include("solvers/steady_state.jl")
@@ -41,13 +42,14 @@ include("api/server.jl")
 # modes are actually wired to an entry point.
 
 # Core data structures
-export NetworkNode, SetExpansionMapping, ReactionNetwork
+export NetworkNode, SetExpansionMapping, ReactionNetwork, CyclePool
 export LogicNetworkEdge, ReactionParams, SolverResult
 
 # Parsing functions
 export parse_logic_network, parse_uuid_mapping, parse_set_mappings, parse_complete_network, create_reaction_network
 export parse_containment, network_containment_json, containment_from_json
 export parse_drug_list, drug_stids_json, drug_stids_from_json, drug_mode, drug_uuids
+export parse_pools, cycle_mode
 export conserved_mode, conserved_uuids
 export convert_to_reaction_network, aggregate_to_pathway_view, validate_network_pathway_mapping
 export compute_influence_scores, SteadyStateParams

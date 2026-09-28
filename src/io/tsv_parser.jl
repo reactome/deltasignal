@@ -26,6 +26,19 @@ struct SetExpansionMapping
     reactome_pathway_coords::Union{Dict{String, Any}, Nothing}
 end
 
+"""
+One protein's interconversion pool (specs/039): its forms (node uuids), its
+resting (base) form, and the curated reactions converting between forms, as
+(from form, to form, reaction node) triples. Read from the generator's
+`pools.csv` and `pool_transitions.csv`.
+"""
+struct CyclePool
+    id::String
+    forms::Vector{String}
+    base::String
+    transitions::Vector{Tuple{String, String, String}}
+end
+
 struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
     edges::Vector{LogicNetworkEdge}
@@ -47,12 +60,17 @@ struct ReactionNetwork
     # file, which is NOT the same as a file listing none: DS_DRUG_MODE=inert
     # reports the first as "inert: no drug table" instead of pretending.
     drug_stids::Union{Nothing, Set{String}}
+    # Interconversion pools from the generator's `pools.csv` (specs/039).
+    # `nothing` = the bundle has no such file (DS_CYCLE_MODE=balance then reports
+    # "inert: no pool table"); an empty vector = the file lists none.
+    pools::Union{Nothing, Vector{CyclePool}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
                     containment = Dict{String, Set{String}}(),
-                    drug_stids = nothing) =
-        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids)
+                    drug_stids = nothing,
+                    pools = nothing) =
+        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools)
 end
 
 """
@@ -322,6 +340,7 @@ function parse_complete_network(
     stids = parse_cofactor_list(resolved; required = cofactor_path !== nothing)
     containment = parse_containment(logic_network_path)
     drugs = parse_drug_list(logic_network_path)
+    pools = parse_pools(logic_network_path)
 
     if isempty(stids)
         # A file that declares nothing in-network is NOT the same as no file,
@@ -342,7 +361,7 @@ function parse_complete_network(
             end
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
-                               Set{String}(), containment, drugs)
+                               Set{String}(), containment, drugs, pools)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -371,7 +390,7 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs)
+                           containment, drugs, pools)
 end
 
 """
@@ -386,6 +405,40 @@ function parse_drug_list(logic_network_path::String)::Union{Nothing, Set{String}
     "stable_id" in names(df) ||
         throw(ArgumentError("$(path) has no `stable_id` column; it is not a generator drug list"))
     return Set(String(x) for x in df.stable_id if !ismissing(x) && !isempty(strip(x)))
+end
+
+"""
+Read `pools.csv` and `pool_transitions.csv` beside a logic network (specs/039).
+`nothing` when `pools.csv` is absent; pools are returned sorted by id.
+"""
+function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePool}}
+    dir = dirname(logic_network_path)
+    pf, tf = joinpath(dir, "pools.csv"), joinpath(dir, "pool_transitions.csv")
+    isfile(pf) || return nothing
+    forms = Dict{String, Vector{String}}(); base = Dict{String, String}()
+    df = CSV.read(pf, DataFrame; types = String)
+    for c in ("pool_id", "node_uuid", "is_base")
+        c in names(df) || throw(ArgumentError("$pf has no `$c` column"))
+    end
+    for r in eachrow(df)
+        (ismissing(r.pool_id) || ismissing(r.node_uuid)) && continue
+        push!(get!(forms, r.pool_id, String[]), r.node_uuid)
+        !ismissing(r.is_base) && lowercase(r.is_base) in ("true", "1") && (base[r.pool_id] = r.node_uuid)
+    end
+    trans = Dict{String, Vector{Tuple{String, String, String}}}()
+    if isfile(tf)
+        dt = CSV.read(tf, DataFrame; types = String)
+        for r in eachrow(dt)
+            any(ismissing, (r.pool_id, r.from_uuid, r.to_uuid, r.reaction_uuid)) && continue
+            push!(get!(trans, r.pool_id, Tuple{String, String, String}[]), (r.from_uuid, r.to_uuid, r.reaction_uuid))
+        end
+    end
+    out = CyclePool[]
+    for id in sort!(collect(keys(forms)))
+        haskey(base, id) || throw(ArgumentError("$pf: pool $id has no base form"))
+        push!(out, CyclePool(id, sort!(forms[id]), base[id], sort!(get(trans, id, Tuple{String, String, String}[]))))
+    end
+    return out
 end
 
 """JSON form of `drug_stids`: `nothing` stays null so "no table" survives a round trip."""

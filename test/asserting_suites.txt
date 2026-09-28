@@ -24,3 +24,4 @@ test_self_inhibition
 test_drugs
 test_set_pool
 test_conserved
+test_cycles
