@@ -1,4 +1,9 @@
-# specs/039 — Interconversion cycles as conserved pools (design; not yet pre-registered)
+# specs/039 — Interconversion cycles as conserved pools
+
+> **Status (2026-09-28): measured, NOT adopted.** Pre-registered, amended three
+> times before any arm, measured on build pools039d: see "Result" and
+> "Amendment 4 result" below. The rule ships default-off (`DS_CYCLE_MODE=off`).
+> Open: problem3.md (where a pool ends).
 
 **Status:** design, 2026-09-27. Awaiting Adam's decision on the fixed
 assumption (φ₀) and on where detection lives, before pre-registration.

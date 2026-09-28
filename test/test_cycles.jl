@@ -166,9 +166,14 @@ end
     @test r.diagnostics["cycle_supply_depletions_held"] == 1
     r = solve(net; obs = Dict("EF" => 80.0))
     @test fold(r, "B") ≈ 8.98876 atol = 1e-3           # the fixture, unmoved by W's rise
-    # ... and off, the edge still applies (default unchanged)
-    r = solve(net; mode = "off", obs = Dict("G" => 80.0))
-    @test r.diagnostics["cycle_rule"] == "off"
+    # ... and off, the pool table changes nothing: a pool-bearing network
+    # solves to exactly the values of the same network with no table
+    for obs in (Dict("G" => 80.0), Dict("EF" => 80.0), Dict("EB" => 0.0))
+        ra = solve(net; mode = "off", obs = obs)
+        rb = solve(fixture(; extra = [("W", "P", "depletion", false)], pools = nothing); mode = "off", obs = obs)
+        @test ra.diagnostics["cycle_rule"] == "off"
+        @test all(k -> ra.node_activities[k] == rb.node_activities[k], keys(rb.node_activities))
+    end
     # amendment 4 (post hoc): an inhibitor built from the pool's own base state
     # (SOCS-bound receptor: A + So -> Sq, Sq -| F) is read at baseline in the
     # drives, so gene 80x moves both forms 80x instead of the inhibitor
@@ -379,6 +384,18 @@ end
         @test all(q -> q.enzyme, p[1].paths) && isempty(p[1].intermediates)
         write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,is_base\npool1,u-a,R-A,False\n")
         @test_throws ArgumentError DS.parse_pools(ln)   # a pool must have a base form
+        # ... but a malformed table does not take a pathway out of service
+        # under the default mode: the loader drops it, and it throws under balance
+        write(ln, "source_id,target_id,pos_neg,and_or,edge_type\n")
+        write(joinpath(dir, "stid_to_uuid_mapping.csv"), "stable_id,uuid\n")
+        with_env("DS_CYCLE_MODE" => nothing) do
+            net = DS.parse_complete_network(ln, joinpath(dir, "stid_to_uuid_mapping.csv"))
+            @test net.pools === nothing
+        end
+        with_env("DS_CYCLE_MODE" => "balance") do
+            @test_throws ArgumentError DS.parse_complete_network(ln, joinpath(dir, "stid_to_uuid_mapping.csv"))
+        end
+        write(ln, "")
         # amendment 2: roles, one row per step, carriers
         write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,role,is_base\n" *
               "pool1,u-s,R-S,state,True\npool1,u-t,R-T,state,False\npool1,u-c,R-C,intermediate,False\n")

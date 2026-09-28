@@ -67,7 +67,17 @@ The network is split into strongly connected components (loops), and they are
 solved upstream first. Inside a loop, the solver iterates until the values
 stop changing.
 
-## 4. Loops, and why they need their own maths (designed, not yet measured: specs/039)
+## 4. Loops, and why they need their own maths (measured, NOT adopted: specs/039)
+
+> **Status.** Everything in this section is implemented behind
+> `DS_CYCLE_MODE=balance` and was measured on both benchmarks. It is **not
+> adopted** (curator held-out −5, experimental −8 against the rule off), and
+> the default remains `off`: loops are iterated as in §3. It fixes the case it
+> was built for (RAF NF1 knockout) and fails where a pool's own protein
+> regulates it through complexes outside the pool (SOCS in interferon
+> signalling). The numbers and the traced losses are in
+> `specs/039-cycle-balance/research.md`. The section is kept because it is the
+> design the next step builds on.
 
 **What the loops are.** Once the artefact loops are separated by uuids, most of
 what remains are **curated interconversion cycles**, where one reaction turns a
@@ -168,6 +178,10 @@ complexes on the way (S:kinase, RAS:GTP:GAP) are intermediates:
 - **Branched pools** (a protein modifiable at two sites) need one extra stated
   assumption about baseline rates: an equal split of flow between exits, or
   detailed balance.
+
+**Known limitation of the implementation:** influence scores (explainability)
+do not see the pool rule; under `balance` they are computed from the ordinary
+reaction model.
 
 **Who does what:**
 - **The generator** detects each pool once, when it builds the network from

@@ -156,6 +156,13 @@ Response:
   nodes this solve held at baseline. Under `inert` a drug participates at fold
   1.0 and never carries a perturbation; an explicit observation still wins.
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
+- **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
+  **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
+  `"off"` (default), `"balance"`, or `"balance: no pool table"`; how many
+  interconversion pools this solve handled as conserved pools, how many of
+  them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
+  forms it held. The rule is measured and NOT adopted; it is off unless
+  `DS_CYCLE_MODE=balance`.
 - **`scc`** (additive, specs/017): how the cyclic components were resolved —
   `method` (the `DS_SCC_METHOD` in force), `pooled`, `iterated`,
   `fallback_negative`, `fallback_inconsistent`, `pooled_nodes`. Under the
