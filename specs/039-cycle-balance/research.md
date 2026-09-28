@@ -396,3 +396,16 @@ The amendment 1 format stays readable, as one-step paths.
   - states on no kept path are omitted and counted;
   - variant signatures are the parent's;
   - base-rule residues are summed over all leaves.
+
+**Amendment 2 build `20260928-0037_ad5e06e_pools039c`** (generator `ad5e06e`;
+recorded before any arm):
+- Nodes 72,322 and edges 214,197: identical to pools039b, so only the pool
+  tables differ.
+- **41 pools in 19 pathways**: 103 states, 15 intermediates, 128 paths,
+  582 step-copy rows, **7 multi-step pools**, 169 carrier rows.
+- 0 orientation ties; 0 long-path or budget drops; 10 shared nodes dropped
+  (R-HSA-170834, R-HSA-8848021).
+- Autocatalysis: 177 source-form catalyst pairs, 0 product-form. So the
+  pre-registered bistable root rule is not exercised.
+- The generator's scratch run reported 20 pathways. Counting non-empty
+  `pools.csv` in the build gives 19, and 19 is the figure recorded.
