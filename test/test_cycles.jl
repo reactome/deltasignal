@@ -25,14 +25,17 @@ const BL = 0.01
 node(u) = u => DS.NetworkNode(u, "R-" * u, "protein", nothing, u, BL)
 edge(s, t, et; and = true) = DS.LogicNetworkEdge(s, t, and, true, 1.0, et)
 
-function fixture(; pools = :default, rl = identity)
-    ids = ["G", "P", "A", "B", "EF", "EB", "F", "R", "W", "D"]
+function fixture(; pools = :default, rl = identity, extra = [])
+    ids = ["G", "P", "A", "B", "EF", "EB", "F", "R", "W", "D", "Z", "Y"]
     nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
     E = [("G", "P", "input", true), ("P", "A", "output", false),
          ("A", "F", "input", true), ("EF", "F", "catalyst", true), ("F", "B", "output", false),
          ("B", "R", "input", true), ("EB", "R", "catalyst", true), ("R", "A", "output", false),
          ("B", "W", "input", true), ("W", "D", "output", false)]
     edges = [edge(rl(s), rl(t), et; and = a) for (s, t, et, a) in E]
+    for (s, t, et, pos) in extra
+        push!(edges, DS.LogicNetworkEdge(rl(s), rl(t), true, pos, 1.0, et))
+    end
     p = pools === :default ?
         [DS.CyclePool("pool1", sort([rl("A"), rl("B")]), rl("A"),
                       [(rl("A"), rl("B"), rl("F")), (rl("B"), rl("A"), rl("R"))])] : pools
@@ -40,9 +43,11 @@ function fixture(; pools = :default, rl = identity)
                        Dict{String, Set{String}}(), nothing, p)
 end
 
-function solve(net; mode = "balance", phi = "0.1", obs = Dict{String, Float64}(), rl = identity)
-    with_env("DS_CYCLE_MODE" => mode, "DS_CYCLE_PHI" => phi, "DS_SELF_INHIBITOR_WEIGHT" => "off") do
-        o = Dict(rl(k) => (1.0, 1.0) for k in ("G", "EF", "EB"))
+function solve(net; mode = "balance", phi = "0.1", obs = Dict{String, Float64}(), rl = identity,
+               method = nothing)
+    with_env("DS_CYCLE_MODE" => mode, "DS_CYCLE_PHI" => phi, "DS_SELF_INHIBITOR_WEIGHT" => "off",
+             "DS_SCC_METHOD" => method) do
+        o = Dict(rl(k) => (1.0, 1.0) for k in ("G", "EF", "EB", "Z"))
         for (k, v) in obs; o[rl(k)] = (v, 1.0); end
         DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
     end
@@ -91,6 +96,43 @@ end
     r = solve(fixture(); obs = Dict("B" => 5.0))
     @test fold(r, "B") ≈ 5.0 atol = 1e-9
     @test fold(r, "A") ≈ 5.0 atol = 1e-4              # unperturbed split: supply 5x
+end
+
+@testset "review fixes (specs/039 amendment 1)" begin
+    # finding 5: every drive at zero leaves the split at pi0, not wherever a
+    # constant added to Q puts it
+    r = solve(fixture(); obs = Dict("EF" => 0.0, "EB" => 0.0))
+    @test r.converged
+    @test fold(r, "A") ≈ 1.0 atol = 1e-6
+    @test fold(r, "B") ≈ 1.0 atol = 1e-6
+    # finding 6: a producer of a form inside the pool's own component is not
+    # supply. Y: B -> A is such a producer; the supply stays P's.
+    net = fixture(; extra = [("B", "Y", "input", true), ("Y", "A", "output", true)])
+    r = solve(net; obs = Dict("G" => 80.0))
+    @test r.converged
+    @test fold(r, "A") ≈ 80.0 atol = 1e-4
+    @test fold(r, "B") ≈ 80.0 atol = 1e-4
+    # finding 4: a depletion edge into a form from outside the pool still acts
+    net = fixture(; extra = [("Z", "B", "depletion", false)])
+    r0 = solve(net)
+    @test fold(r0, "B") ≈ 1.0 atol = 1e-6               # Z at baseline: no effect
+    r = solve(net; obs = Dict("Z" => 10.0))
+    @test r.converged
+    @test fold(r, "B") < 0.99
+    @test fold(r, "D") ≈ fold(r, "B") atol = 1e-6         # and the readout sees it
+    # ... but the pool's own catalyst ⊣ source-form depletion is not applied
+    # again (pre-registered: the balance already contains it)
+    net = fixture(; extra = [("EF", "A", "depletion", false)])
+    r = solve(net; obs = Dict("EF" => 80.0))
+    @test fold(r, "A") ≈ 0.11236 atol = 1e-4
+    @test fold(r, "B") ≈ 8.98876 atol = 1e-4
+    # finding 9: a component method that bypasses the sweep manages no pool,
+    # and says so
+    for m in ("pool", "minimize")
+        r = solve(fixture(); method = m)
+        @test r.diagnostics["cycle_pools_solved"] == 0
+        @test r.diagnostics["cycle_pools_unmanaged"] == 1
+    end
 end
 
 @testset "label-independent" begin

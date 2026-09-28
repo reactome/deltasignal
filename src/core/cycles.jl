@@ -55,8 +55,16 @@ struct IndexedPool
     trans_rxn::Vector{Int}              # index into rxns_idx of the transition reaction
     trans_node::Vector{Int}             # node index of the transition reaction
     trans_k::Vector{Float64}            # baseline rate
-    supply_rxns::Vector{Vector{Int}}    # per form: rxns_idx of its OUTSIDE producers' reaction nodes
+    supply_rxns::Vector{Vector{Int}}    # per form: node indices of its producers outside the pool
+                                        # (narrowed by the solver to those outside the component)
+    form_rxn::Vector{Int}               # per form: rxns_idx of the form's own update (0 if none),
+                                        # read for its non-activator inputs (depletion, inhibitors)
 end
+
+"""Drive regulariser: rates are k·(u + ε), so with every drive of a pool at zero
+the split tends to π0 rather than to whatever a constant added to Q selects
+(review of specs/039, finding 5). ε is relative to a drive of 1 at baseline."""
+const CYCLE_DRIVE_EPS = 1e-9
 
 """
 Resolve `pools` to solver indices. A pool is kept only if every form and every
@@ -123,7 +131,8 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             end
             push!(supply, prod)
         end
-        push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, tf, tt, tr, tn, tk, supply))
+        frx = [get(by_target, uuid_to_idx[f], 0) for f in p.forms]
+        push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, tf, tt, tr, tn, tk, supply, frx))
     end
     return out, skipped
 end
@@ -148,7 +157,7 @@ function pool_stationary(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, b
     Q = zeros(n, n)
     for q in eachindex(p.trans_from)
         i, j = p.trans_from[q], p.trans_to[q]
-        rate = p.trans_k[q] * u[q] + 1e-12       # irreducible even with a drive at 0
+        rate = p.trans_k[q] * (u[q] + CYCLE_DRIVE_EPS)
         Q[i, j] += rate; Q[i, i] -= rate
     end
     A = Matrix(transpose(Q)); A[n, :] .= 1.0
@@ -159,10 +168,40 @@ function pool_stationary(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, b
 end
 
 """
+Fold applied to a form by its non-activator inputs (depletion and inhibitor
+edges from outside the pool): the form's own update evaluated with every
+activator at baseline, divided by the form's baseline. 1 when it has none.
+Sources that drive the pool's own transitions (the catalyst ⊣ source-form
+depletion edge) are also held at baseline: the balance already contains them,
+as pre-registered.
+Without it the pool's management dropped those edges (review of specs/039,
+finding 4). The depleted share is removed, not redistributed to other forms.
+"""
+function form_modifier(x::AbstractVector{Float64}, p::IndexedPool, k::Int, rxns_idx, baseline_vec, config)
+    ri = p.form_rxn[k]
+    ri == 0 && return 1.0
+    r = rxns_idx[ri]
+    (isempty(r.inhibitor_indices) && isempty(r.depletion_indices)) && return 1.0
+    held = Set(r.activator_indices)
+    for q in p.trans_rxn
+        union!(held, rxns_idx[q].activator_indices)
+    end
+    held = sort!(collect(held))
+    keep = [x[a] for a in held]
+    for a in held; x[a] = baseline_vec[a]; end
+    out = compute_reaction_output_vec(x, r; config = config)
+    for (j, a) in enumerate(held); x[a] = keep[j]; end
+    bl = baseline_vec[r.target_idx]
+    return bl > 0 ? out / bl : 1.0
+end
+
+"""
 Write the pool's forms and transition-reaction nodes from its steady state.
 Pinned forms keep their value and fix the supply; otherwise the supply is the
-mean fold of the forms' producers outside the pool (1 if there are none).
-Returns the largest absolute change written.
+mean fold of the forms' producers outside the pool's component (1 if there are
+none). A form's value is then scaled by its non-activator inputs
+(`form_modifier`). A transition node reads its flux: its drive times the fold of
+its source form. Returns the largest absolute change written.
 """
 function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, obs_set, config)
     pi, u = pool_stationary(x, p, rxns_idx, baseline_vec, config)
@@ -186,14 +225,15 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
     maxch = 0.0
     for (k, f) in enumerate(p.forms)
         f in obs_set && continue
-        v = clamp(baseline_vec[f] * s * pi[k] / p.pi0[k], 0.0, 1.0)
+        m = form_modifier(x, p, k, rxns_idx, baseline_vec, config)
+        v = clamp(baseline_vec[f] * s * m * pi[k] / p.pi0[k], 0.0, 1.0)
         maxch = max(maxch, abs(v - x[f])); x[f] = v
     end
     for q in eachindex(p.trans_from)
         t = p.trans_node[q]
         t in obs_set && continue
-        i = p.trans_from[q]
-        v = clamp(baseline_vec[t] * s * u[q] * pi[i] / p.pi0[i], 0.0, 1.0)
+        src = p.forms[p.trans_from[q]]
+        v = clamp(baseline_vec[t] * u[q] * x[src] / baseline_vec[src], 0.0, 1.0)
         maxch = max(maxch, abs(v - x[t])); x[t] = v
     end
     return maxch

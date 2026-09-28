@@ -177,3 +177,90 @@ predecessor's share.
 - RAF's collapse stops (RAF reported);
 - the knockout and overexpression of reversal enzymes (phosphatases, GAPs)
   gain cases.
+
+## Amendment 1 (2026-09-27, after the adversarial review, before any arm)
+
+The first build (`20260927-2257_c210f21_pools039`, 102 pools) was reviewed
+before any arm ran. The review found that detection did not implement what this
+pre-registration describes, plus defects in the solve. No arm was run on that
+build, and it is not used.
+
+**Detection, as found.** Only 24 of 102 pools were pure interconversions of one
+protein.
+- 61 were enzyme binding cycles (E + S → E:S → E + P).
+- 17 had forms sharing no reference entity.
+- 11 used proteasomal degradation as the "reverse" step.
+
+The query asked only for "A → B and B → A". It never checked "forms of one
+protein", which this pre-registration's own text requires.
+
+**Detection, amended (generator `1358d03`):**
+- Each transition reaction's only non-small-molecule input is the source form,
+  and its only non-small-molecule output is the other form. Ubiquitin counts as
+  a co-substrate. This excludes binding, release, degradation, and reactions
+  taking two forms.
+- The two forms share a reference entity of an EWAS leaf.
+- A reaction node that would be a transition more than once is dropped, with
+  its loops. Its node would be written by two fluxes, which gave a
+  label-dependent value and no convergence (R-HSA-5654736, residual 0.79).
+  They are counted.
+
+**Base form, amended.**
+- The first build decided a donor rule first, then components, then residues.
+  The donor rule was not pre-registered, and the order was not the one
+  pre-registered. 30 of 78 exchange pools were oriented backwards; all 24 pure
+  pools were oriented correctly.
+- Now: residues first (as pre-registered). Then the donor rule, added because
+  RAS:GDP and RAS:GTP have no residue difference: the product of the direction
+  that consumes a group donor (ATP, GTP, SAM, acetyl-CoA, NAD+, ubiquitin) is
+  the modified form. Then components.
+- Undecided pools fall back to the smaller stId, and are counted.
+
+**Solve, amended:**
+- **Supply** comes only from producers outside the pool's cyclic component.
+  A producer inside it can be fed by the pool itself (11 pools).
+- **Regulariser:** rates are k·(u + 1e-9), not k·u + 1e-12. With every drive at
+  zero, the split now tends to π₀. Before, the constant chose it: a GEF+GAP
+  double knockout read CDC42:GTP at 5.0x.
+- **Depletion and inhibitor edges into a form from outside the pool** are
+  applied as a fold on that form. Before, pool management silently dropped them
+  (13 edges). The depleted share is removed, not redistributed.
+  - The pool's own catalyst ⊣ source-form edges stay unapplied, as
+    pre-registered.
+- **Transition nodes** carry their flux as drive × the fold of the source form.
+  This equals s·u·π_i/π₀_i when no modifier applies.
+- **`DS_SCC_METHOD` `pool*` / `minimize`** never run the sweep that updates
+  pools, so under them every pool is reported unmanaged. Before, they were
+  miscounted as solved.
+
+**Stated limitations (not fixed):**
+- Influence scores do not see the pool rule.
+- The autocatalysis rule is not implemented. No detected pool has a form
+  catalysing its own pool's transition; this is checked on the build and
+  reported.
+- Several pools in one component are updated in a fixed order each sweep. The
+  result is order-invariant only at a unique fixed point.
+
+The arms, gates and predictions above are unchanged. They run on a rebuild
+(`pools039b`) from generator `1358d03`. Its pool counts are recorded below
+before any arm.
+
+**Rebuild `20260927-2322_1358d03_pools039b` (recorded before any arm):**
+- **25 pools**, all two-form (50 forms, 204 transition-reaction copies), in 12
+  pathways. RHO GTPase cycle (R-HSA-9012999) has 12 of them; RAF/MAP (R-HSA-5673001) has 1.
+- 0 orientation ties; 0 multi-use reactions dropped.
+- At the stId level the amended query finds **55 form pairs in 19 pathways**.
+  The node-level check keeps the 25 whose loop exists in the network.
+- **Why so few:** the loose query found 203 distinct form pairs. 164 fail the
+  one-protein-interconversion test, almost all because they are the enzyme
+  step E ⇄ E:S (USP9X ⇄ Ub-SMAD4:USP9X, PPM1A ⇄ p-SMAD:PPM1A, …).
+  - Reactome usually curates a modification cycle in several steps: bind,
+    modify, release.
+  - The substrate cycle SMAD4 → … → Ub-SMAD4 → … → SMAD4 runs through
+    enzyme:substrate complexes, and a one-reaction A → B → A pool cannot see it.
+  - These **multi-step modification cycles** are the larger class. This rule
+    does not cover them, and treating them needs a design of its own: the
+    enzyme is a second conserved species. It is not attempted here.
+- **Consequence for the gates:** with 25 pools in 12 pathways, the
+  held-out > +15 and experimental ≥ +15 gates may be out of reach. The gates are
+  not lowered. A result under them is reported as it is.

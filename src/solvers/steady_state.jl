@@ -917,14 +917,22 @@ function solve_scc_ordered!(
 
     # specs/039: a pool is solved in closed form when all its nodes (forms and
     # transition reactions) sit in ONE cyclic component; its nodes then skip the
-    # ordinary update. Any other pool is left to the iteration and counted.
+    # ordinary update. Any other pool is left to the iteration and counted, as is
+    # every pool under a component method that does not run the sweep below
+    # (pool*, which returns before it; minimize, which overwrites it).
     comp_pools = Dict{Int, Vector{IndexedPool}}()
     managed = Set{Int}()
     n_pool_unmanaged = 0
     for p in pools
         nodes = vcat(p.forms, p.trans_node)
         c0 = comp_id[nodes[1]]
-        if baseline_vec !== nothing && all(v -> comp_id[v] == c0, nodes) && comp_size[c0] > 1
+        if baseline_vec !== nothing && !pooling && !minimize &&
+           all(v -> comp_id[v] == c0, nodes) && comp_size[c0] > 1
+            # supply comes from outside the component: a producer inside it can
+            # be fed by the pool itself (review of specs/039, finding 6)
+            for prods in p.supply_rxns
+                filter!(a -> comp_id[a] != c0, prods)
+            end
             push!(get!(comp_pools, c0, IndexedPool[]), p)
             union!(managed, nodes)
         else
