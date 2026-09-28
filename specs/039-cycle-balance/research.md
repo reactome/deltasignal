@@ -264,3 +264,113 @@ before any arm.
 - **Consequence for the gates:** with 25 pools in 12 pathways, the
   held-out > +15 and experimental ≥ +15 gates may be out of reach. The gates are
   not lowered. A result under them is reported as it is.
+
+## Amendment 2 (2026-09-28): multi-step cycles, pre-registered before any code or arm
+
+**Why.** The Fable review of amendment 1 traced RAF/MAP. The GAP reaction is
+curated as bind then hydrolyse (RAS:GTP + GAP → RAS:GTP:GAP → RAS:GDP + GAP), so
+the single-step pool never sees the GAP. NF1 KO then reads RAS:GTP 1.000 (pERK
+1.0) where `off` read UP by accident. That contradicts prediction 3 in the
+pathway the pre-registration names. No arm was run on amendment 1.
+
+**Method.** A second blind double derivation from `problem2.md`:
+`derivation2-opus.md` was committed (7778402) before `derivation2-fable.md` was
+read. The derivations agree on the structure. The rule below takes Fable's
+choice on each point of difference:
+
+| point | Opus | Fable (adopted) | why |
+|---|---|---|---|
+| baseline share of an enzyme complex | r = 1/9 | **0** (β₀ → 0) | Only the limit reduces to the pre-registered two-form rule (kinase 80x: 8.99; bound 1/φ₀). A share of 1/9 compresses to 3.67 and moves the bound to 12.2. |
+| states | forms carrying exactly the core proteins | least-bound form per **modification signature** | Signature = residues on R's leaves ∪ small molecules in the complex whose direct children include R's leaf. It attaches GTP to RAS, not to the GAP; R97 nests these (checked). |
+| intrinsic-step weight | per pair | **per exit** from a state: ε_int = 1e-3 for a non-enzyme exit beside an enzyme-driven one; self-catalysis counts as non-enzyme | RAS's intrinsic hydrolysis competes with the GAP *path*, which a per-pair weight cannot see. |
+| enzyme free form | loop left iterated | release-step producers dropped | Tested as its own arm (below): it resembles specs/035, which lost. |
+
+**Rule (generator: detection).**
+- **R-steps.** For each reference entity R: a reaction whose exactly one input
+  and exactly one output contain R, both at stoichiometry 1, and which differ.
+- **Pool candidate.** A strongly connected set of the R-graph with ≥ 2 forms and
+  ≥ 2 signatures. A set with one signature is a *carrier* loop (an enzyme, a
+  scaffold), not a pool.
+- **States.** Per signature, the forms with the fewest non-small slots. The rest
+  are intermediates. The base state follows amendment 1 (residues, donor,
+  components).
+- **Transitions.** Simple directed paths state → intermediates* → another state,
+  ≤ 6 steps. Longer paths are dropped and counted. A path is **enzyme-driven**
+  if a step has a catalyst or a joining input containing a protein other
+  than R.
+- **Node level.** As in amendment 1: every step exists as a reaction node
+  between form nodes, and each uuid path is a parallel transition.
+- **Shared nodes.** A node claimed by two pools is removed from both, recomputed
+  and counted.
+- **Carriers.** The enzyme's free-form node, and the release-step nodes that
+  produce it.
+
+**Rule (solver).**
+- **π₀.** Over states only, as pre-registered (ρ^m). Intermediates hold 0.
+- **Baseline flow.** J₀ is the stationary flow of the random walk on states
+  whose exits are weighted 1 (enzyme-driven) or ε_int. Then k_p = J₀_p / π₀_from,
+  so π₀ Q₀ = 0 on any graph. For two forms this is the amendment 1 rule, and the
+  fixtures are unchanged.
+- **Drive.** u_p = Π over steps of (the step with its source at baseline) /
+  baseline. Rate k_p·(u_p + 1e-9); π Q = 0.
+- **Values.**
+  - A state reads baseline × s × modifier × π/π₀.
+  - A path's flux fold is u_p · (state fold of its source).
+  - A step reaction node or intermediate reads Σ_p J₀_p·flux_p / Σ_p J₀_p over the
+    paths through it.
+- **Carrier (enzyme) free form.** It reads baseline × (the mean fold of its
+  producers other than release steps, else 1) × modifier. Pinned carriers keep
+  their pin.
+- **Unchanged from amendment 1.** Supply, pins, the unapplied catalyst ⊣
+  source-form edge, and fallbacks (counted).
+
+**Stated approximations.**
+- Enzyme in excess, not conserved: substrate 80x drives its complexes and flux
+  80x.
+- Sequestration of an enzyme between substrates is invisible.
+- A product of drives over-multiplies when two steps of one path are perturbed.
+- A stable complex that is not an enzyme intermediate (p-SMAD2,3:SMAD4, HRR's
+  13-form repair machine) reads as flux: direction right, magnitude not.
+- A set-member enzyme KO reads (N−1)/N.
+
+**Expected fixtures** (Fable hand-trace on pools039b RAF; numbers asserted in
+`test_cycles.jl`):
+
+| perturbation | RAS:GTP |
+|---|---|
+| NF1 KO | 1.29 UP |
+| all GAPs KO | 9.99 |
+| SOS1 80x | 8.99 |
+| KRAS 80x | 80 (all forms) |
+| GEF KO | 0.001 |
+
+Six-form ring:
+
+| perturbation | S* |
+|---|---|
+| kinase KO | 0 |
+| phosphatase KO | 10 |
+| kinase 80x | 8.99 |
+
+**Arms** (one new build; same pathway list):
+- `ctrl039` (`off`);
+- **`bal01`** (balance, φ₀ 0.1, carriers on). **Primary.**
+- `bal01nc` (carriers off). Isolates the release-drop.
+- `bal05` (φ₀ 0.5). Sensitivity, never used to choose.
+
+**Gates and predictions:** those of the original pre-registration, unchanged.
+Adopt `bal01` only if all its gates hold. If only `bal01nc` passes, adopt that
+configuration instead, and record why.
+
+**Coverage (R97, stId level, recorded before the build):** 78 pools in 37
+pathways (32 multi-step, 46 single-step). Pools reach 7 of the 9 experimental
+pathways. The node-level counts are recorded after the build, before any arm.
+
+**File contract** (generator → solver):
+- `pools.csv`: `pool_id,node_uuid,stable_id,role,is_base`, with role `state` or
+  `intermediate`.
+- `pool_transitions.csv`: one row per step, with
+  `pool_id,path_id,step,source_uuid,target_uuid,reaction_uuid,reaction_stid,enzyme_driven`.
+- `pool_carriers.csv`: `pool_id,carrier_uuid,release_reaction_uuid`.
+
+The amendment 1 format stays readable, as one-step paths.
