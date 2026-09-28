@@ -910,3 +910,37 @@ a7 flips those 3 plus CCNA:CDK2. That is exactly the pre-registered census.
   response. That is regeneration noise: the large-loop pathways move under uuid
   relabelling (specs/013). Every verdict above is balance vs ctrl within one
   build.
+
+### Amendment 7: are the "now NORMAL" gains real? (Fable trace, before any adoption)
+
+The question: of the 89 fixed cases, about 47 went from a railed 100/0 to about
+1.0 where curators expect NORMAL. Is that correct damping, or the pool blocking
+a signal? The harness reproduces every arm value.
+
+- **PTK6: DOK1 80x/KO (26). Correct.**
+  - DOK1 is a PTK6 substrate. Its phosphorylation regenerates p-Y342-PTK6
+    (input and output), so under ctrl the substrate fed the kinase back and the
+    loop railed.
+  - Under a7 those substrate reactions are pool-fed, so they are not supply
+    (pre-registered). s = 1, and every readout is 1.0.
+- **Intrinsic apoptosis: AKT1 (13). Correct, and it fixes the sign.**
+  - AKT1 80x → p-BAD 8.99, BAD 0.112, so BAK and caspases go DOWN; KO → UP.
+  - Under ctrl this was inverted: the calcineurin return fed p-BAD back into free
+    BAD. The residual misses are margin (0.82 against the 0.85 cutoff).
+- **Insulin: SOS1 (2). Correct.** The regeneration supply is dropped as
+  pre-registered.
+- **Insulin: IRS1 (2 broken). Two artefacts cancel; no block.**
+  - The IRS1 pin raises the receptor carrier (35.7). A GRB10:INSR inhibitor built
+    from the same receptor divides the SHC1 bind step by the same 35.7, so the
+    drive is 1.0.
+  - ctrl matched the curator only by railing.
+- **PTK6: ERBB2/3/4 (7 broken). The rule as written, on a competing exit, plus
+  a squared input.**
+  - The pool response is right: p-PTK6 is 8.95 UP.
+  - But the HIF1A readout runs through free PTK6 → GPNMB:LINC01139 complex. It is
+    starved by conservation (0.117), then squared by a reaction that takes the
+    same complex twice (0.014).
+- **Not traced:** chromatin KMT2C/D KO (8 fixed).
+- **Conclusion:** no case is the pool severing a path. About 83 of the 89 fixes
+  are right for a stated reason, and the 11 broken cases have known causes
+  outside the rule.
