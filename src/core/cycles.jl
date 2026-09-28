@@ -85,8 +85,9 @@ struct IndexedPool
     carriers::Vector{Int}               # enzyme free-form nodes
     carrier_rxn::Vector{Int}            # rxns_idx of each carrier's update
     carrier_release::Vector{Set{Int}}   # release step nodes excluded from each carrier's producers
-    held::Set{Int}                      # nodes the pool itself feeds, read at baseline in its
-                                        # drives (amendment 4; filled by the solver per solve)
+    reeval::Vector{Int}                 # pool-fed nodes the drives re-evaluate with the pool at
+                                        # baseline, in a fixed order (amendment 5; filled per solve)
+    reeval_rxn::Vector{Int}             # rxns_idx of each
 end
 
 """Drive regulariser: rates are k·(u + ε), so with every drive of a pool at zero
@@ -233,7 +234,7 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             push!(cs, ci); push!(crx, by_target[ci]); push!(crel, cmap[ci])
         end
         push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
-                               fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Set{Int}()))
+                               fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Int[], Int[]))
     end
     return out, skipped
 end
@@ -245,12 +246,17 @@ baseline; a step's drive is the mean over its copies (each carries an equal
 share at rest); a path's drive is the product over its steps.
 """
 function path_drives(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, config)
-    # amendment 4: inputs the pool itself feeds are read at baseline, as the
-    # source is (the pool's protein acts on its own transitions only through
-    # its states, not a second time through complexes built from them)
-    hv = sort!(collect(p.held))
+    # amendment 5: a drive is a rate per unit of source. Pool-fed inputs of the
+    # pool's steps (a SOCS complex built from a state) are re-evaluated from
+    # their own inputs with the pool at baseline, so they carry everything but
+    # their dependence on the pool's own protein (derivation3-fable).
+    pool_nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes)
+    hv = vcat(pool_nodes, p.reeval)
     hkeep = [x[h] for h in hv]
-    for h in hv; x[h] = baseline_vec[h]; end
+    for v in pool_nodes; x[v] = baseline_vec[v]; end
+    for (v, ri) in zip(p.reeval, p.reeval_rxn)
+        x[v] = compute_reaction_output_vec(x, rxns_idx[ri]; config = config)
+    end
     u = Vector{Float64}(undef, length(p.path_from))
     cu = Vector{Vector{Vector{Float64}}}(undef, length(p.path_from))
     for q in eachindex(p.path_from)

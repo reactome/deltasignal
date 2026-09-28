@@ -174,10 +174,11 @@ end
         @test ra.diagnostics["cycle_rule"] == "off"
         @test all(k -> ra.node_activities[k] == rb.node_activities[k], keys(rb.node_activities))
     end
-    # amendment 4 (post hoc): an inhibitor built from the pool's own base state
-    # (SOCS-bound receptor: A + So -> Sq, Sq -| F) is read at baseline in the
-    # drives, so gene 80x moves both forms 80x instead of the inhibitor
-    # tracking A and cancelling the forward drive exactly (IFN alpha/beta)
+    # amendment 5 (post hoc): an inhibitor built from the pool's own base state
+    # (SOCS-bound receptor: A + So -> Sq, Sq -| F) is re-evaluated in the
+    # drives with the pool at baseline, so it carries SOCS's fold but not A's:
+    # gene 80x moves both forms 80x instead of the inhibitor tracking A and
+    # cancelling the forward drive exactly (IFN alpha/beta) ...
     socs = [("A", "Sr", "input", true), ("So", "Sr", "input", true), ("Sr", "Sq", "output", true),
             ("Sq", "F", "regulator", false)]
     net = fixture(; extra = socs)
@@ -185,9 +186,18 @@ end
     @test r.converged
     @test fold(r, "A") ≈ 80.0 atol = 1e-3
     @test fold(r, "B") ≈ 80.0 atol = 1e-3
-    @test r.diagnostics["cycle_self_fed_inputs_held"] >= 1
+    @test r.diagnostics["cycle_self_fed_inputs"] >= 1
     r = solve(net; obs = Dict("So" => 1.0))
     @test fold(r, "B") ≈ 1.0 atol = 1e-9                  # baseline exact
+    # ... and SOCS itself still acts (amendment 4's hold silenced it): SOCS KO
+    # de-represses the forward step, SOCS 80x represses it
+    r = solve(net; obs = Dict("So" => 0.0))
+    @test r.converged
+    @test fold(r, "B") > 1.15
+    r = solve(net; obs = Dict("So" => 80.0))
+    @test r.converged
+    @test fold(r, "B") < 0.5
+    @test fold(r, "B") ≈ (1 / 80) / (0.1 * (1 / 80) + 0.9) atol = 1e-3   # u = 1/SOCS fold
     # an OUTSIDE inhibitor of the same step still acts (Z, not fed by the pool)
     net = fixture(; extra = [("Z", "F", "regulator", false)])
     r = solve(net; obs = Dict("Z" => 10.0))
