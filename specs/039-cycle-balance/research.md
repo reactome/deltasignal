@@ -735,3 +735,212 @@ the byte-identity check.
   positive on the curator axis and neutral (not significantly negative) on the
   experimental one. Whether to adopt on those terms is Adam's decision. It is
   not decided here.
+
+### The three amendment-5 experimental losses, traced (2026-09-28)
+
+- **MYC 80x, S phase ×2 (pre-RC and p-FZR1/p-RB1 read 1.11; expected UP).**
+  - The pool is CCNA:CDK2 ⇄ CCNA:p-Y15-CDK2 (WEE1 forward, CDC25A/B reverse).
+    MYC raises CDC25A.
+  - Y15 phosphorylation is **inhibitory**, so the unmodified base state is the
+    *active* kinase. φ₀ = 0.1 gives it 90% of the pool at rest, so activation
+    can raise it only to 1/(1 − φ₀) = 1.11.
+  - φ₀'s justification is "activated forms are a minority at rest" (§Decisions).
+    The implementation reads it as "modified forms are a minority". For an
+    inhibitory modification the two are opposite.
+  - This is Fable review finding 7 (amendment 2), now shown to cost cases.
+- **CCNB1 80x, Prophase (p-lamin reads 0.11; expected UP).**
+  - The lamin readout's ancestry reaches the lipin pools (LPIN1/2/3 ⇄
+    p-S106-LPIN) eight edges up, through a set-pool catalyst.
+  - CDK1 phosphorylates lipin, which inactivates it. Resting (active) lipin
+    drops to 0.11, and the lamin reaction ANDs CDK1's direct action with the
+    lipin-dependent chain.
+  - The pool's direction (lipin inactivated) is plausible. The loss comes from
+    AND composition downstream, not from the pool rule.
+- Neither needs the pool boundary changed. The first is a question about what φ₀
+  refers to, which is Adam's decision (φ₀ was his call).
+
+## Amendment 6 (2026-09-28): φ₀ refers to the ACTIVE form. Pre-registered before code
+
+**Decision (Adam, 2026-09-28):** φ₀ is the share of the **active** form at rest,
+not of the modified form. This is the meaning its justification always had
+("activated forms are a minority at rest").
+
+**Rule (generator, orientation only; the solver is unchanged):**
+- A pool's state is **active** if it acts downstream of the pool: at node level
+  it has a `catalyst` edge, or a positive `regulator` edge, into a reaction
+  that is **not** one of the pool's own steps.
+- If exactly one state of a two-state pool is active, the other state is the
+  base (the resting, inactive form), and φ₀ goes to the active one.
+- For pools with more than two states: if exactly one state is active, the base
+  is the non-active state furthest from it; ties fall back.
+- Otherwise (no state active, or several) the current rule applies: residues,
+  then donor, then components.
+- Counted: pools oriented by activity, pools whose base **flips** relative to
+  pools039e, and pools that fall back.
+
+**Expected:**
+- CCNA:CDK2 ⇄ CCNA:p-Y15-CDK2 flips (base = p-Y15). MYC 80x then drives active
+  CDK2 up to 1/φ₀ → S-phase readouts UP (2 experimental cases).
+- RAS keeps its orientation (base GDP).
+- Lipin: active = unphosphorylated, which is currently the base, so it flips
+  (base p-S106). CCNB1 80x → active lipin falls further; the lamin case stays
+  lost (AND downstream).
+
+**Census before the build:** every flipped pool listed by name and hand-checked
+for plausibility, before any arm. If a flip is implausible (the "active" state
+is not the biologically active one), that is recorded, not special-cased.
+
+**Arms:** one build, ctrl039 and bal01a6 (balance, φ₀ 0.1, carriers on) at one
+solver commit, plus bal01a5 re-run on the same build for byte-identity. Only
+pools that flipped may change anything.
+
+**Gates (to adopt `balance` as the default):**
+- curator held-out > +15, p < 0.05, vs ctrl on the same build;
+- experimental net ≥ 0, and not significantly negative;
+- no pathway loses > 10;
+- gains span ≥ 2 pathways and ≥ 5 perturbations.
+
+The experimental gate is relaxed from the original "≥ +15, p < 0.05". The
+reason is Adam's decision to hold amendment 5 "until the resting-form issue is
+addressed". Adopting on that basis is **Adam's to confirm** before the default
+changes.
+
+**Amendment 6 census (LNG `8e527d7`, on pools039e; before any build or
+arm).** As implemented, it flips **0 of 37** pools. 1 is oriented by activity
+(PTK6, unchanged), and 36 fall back. On its own, the amendment is therefore
+inert.
+- **RAS does not flip,** as expected: RAS:GTP reaches RAF and PI3K as an
+  *input*, not a catalyst.
+- **CCNA:CDK2 does not flip, contrary to the expectation.**
+  - Neither state catalyses anything. The acting kinase is CCNA:p-T160-CDK2,
+    made from CCNA:CDK2 by CAK one reaction outside the pool.
+  - Seeing it would need a rule extension ("the state the catalytic form is
+    made from"). That is a new rule, not recorded as part of amendment 6.
+- **Lipin: an implementation gap, and a clarification (not a rule change).**
+  - Unphosphorylated LPIN1/2/3 (the current base) reach catalysis through
+    `set_member` edges into the set-valued catalyst's pool node. Since
+    specs/033, that is how a member of a set-valued catalyst is represented.
+  - A `set_member` edge into a pool node that is itself a catalyst or positive
+    regulator of a non-pool reaction therefore counts as "acts downstream".
+  - Expected flip: lipin base → p-S106 (active = unphosphorylated). The lamin
+    case is still expected lost: AND downstream.
+- **Correction:** the generator report said "no lipin pool exists in this
+  build". That is wrong: pools 2–4 of R-HSA-68875 are LPIN1/2/3 ⇄ p-S106.
+
+**Amendment 6 census with the set-pool clarification** (LNG `cb30bf6`,
+pools039e):
+- 4 pools oriented by activity, 33 fall back.
+- **3 flips, all lipin:** LPIN1/2/3 base → p-S106-LPINn. The active,
+  unphosphorylated lipin catalyses PA → DAG (5221130) through the lipins
+  set-pool node. Plausible: dephosphorylated lipin is the active phosphatase.
+- RAS and CCNA:CDK2 do not flip.
+
+## Amendment 7 (2026-09-28): the state the catalytic form is made from. POST HOC; pre-registered before code
+
+**Why:** it completes Adam's "φ₀ refers to the active form" decision for an
+active kinase that sits one reaction outside the pool. CCNA:CDK2 is made into
+the catalytic CCNA:p-T160-CDK2 by CAK. It is post hoc, because it was designed
+after the amendment 6 census.
+
+**Rule (generator orientation only):** a state is also active if an input
+(mass-flow) edge from it enters a reaction that is not a pool step, and within
+2 reactions that route reaches a catalyst or positive regulator of another
+non-pool reaction. The regulator node may be reached directly, or through a
+`set_member` edge into a set-pool node.
+- Amendment 6's direct test is applied first.
+- Otherwise the rules of amendment 6 hold as stated: exactly one active state,
+  else fall back.
+
+**Census before code** (Fable, pools039e; script only, no commit): exactly
+**one** additional flip, CCNA:CDK2 → base CCNA:p-Y15-CDK2.
+- Active via 187949 (CAK) → CCNA:p-T160-CDK2 → G1/S substrates, ORC1, CDC6.
+- **RAS does not flip:** RAS:GTP:RAF is not a catalyst within 2 reactions.
+- The two 3-state IFN pools tie and fall back; their base is unchanged.
+
+**Arms** (one build per rule; the same solver commit):
+- `ctrl039`;
+- `bal01a5` on each build, for byte-identity;
+- `bal01a6` (amendment 6 + clarification);
+- `bal01a7` (amendments 6 + 7).
+
+Only flipped pools may change predictions.
+
+**Expected:**
+- a6: the lipin pathways move (Prophase and anything downstream). The lamin
+  case is expected lost regardless.
+- a7: additionally MYC 80x in S phase → UP (2 experimental cases).
+
+**Gates:** amendment 6's gates, which include the relaxed experimental gate
+that Adam confirms. Each arm is judged against ctrl on its own build.
+
+### Amendments 6 and 7: results
+
+Builds `20260928-0934_5151e63_pools039f_a6` (`LNG_POOL_ACTIVE_VIA=direct`)
+and `20260928-0948_5151e63_pools039g_a7` (`made_from`). Arms at solver
+`6643c18`, which equals main's solver.
+
+**Flips, verified by stable id against pools039e:** a6 flips the 3 lipin pools;
+a7 flips those 3 plus CCNA:CDK2. That is exactly the pre-registered census.
+
+| arm vs ctrl039, same build | curator held-out | curator tuning | curator all | experimental |
+|---|---|---|---|---|
+| bal01a6 | +77 (87/10, p 1.8e-16) | −5 | +72 | −2 (1/3) |
+| **bal01a7** | **+77** (87/10, p 1.8e-16) | **+1** | **+78** (89/11, p 2.5e-16) | **0** (1/1) |
+
+- **a6 is identical to a5:** the lipin flips change no scored case.
+- **a7 fixes S phase:**
+  - The tuning −6 is gone.
+  - MYC 80x now reads 8.99, UP (correct; both cases). MYC KO is DOWN in both
+    arms.
+  - Remaining experimental changes: +1 RAF NF1 KO, −1 CCNB1 lamin (the AND
+    downstream, as predicted).
+- **a7 gates (the amendment 6 gates):**
+
+  | gate | result |
+  |---|---|
+  | curator held-out > +15, p < 0.05 | **pass** |
+  | experimental net ≥ 0, not significantly negative | **pass** (0) |
+  | no pathway loses > 10 | pass (worst: Prophase −1) |
+  | ≥ 2 pathways and ≥ 5 perturbations | pass (8 pathways, 26 perturbations) |
+
+- **Verdict:** it passes the relaxed experimental gate. Making `balance` the
+  default is Adam's to confirm, as recorded.
+- **Control arms differ between builds** (+5 to +52 curator), almost entirely
+  in Transcriptional Regulation by TP53 (+42 to +49), Fanconi Anemia and DSB
+  response. That is regeneration noise: the large-loop pathways move under uuid
+  relabelling (specs/013). Every verdict above is balance vs ctrl within one
+  build.
+
+### Amendment 7: are the "now NORMAL" gains real? (Fable trace, before any adoption)
+
+The question: of the 89 fixed cases, about 47 went from a railed 100/0 to about
+1.0 where curators expect NORMAL. Is that correct damping, or the pool blocking
+a signal? The harness reproduces every arm value.
+
+- **PTK6: DOK1 80x/KO (26). Correct.**
+  - DOK1 is a PTK6 substrate. Its phosphorylation regenerates p-Y342-PTK6
+    (input and output), so under ctrl the substrate fed the kinase back and the
+    loop railed.
+  - Under a7 those substrate reactions are pool-fed, so they are not supply
+    (pre-registered). s = 1, and every readout is 1.0.
+- **Intrinsic apoptosis: AKT1 (13). Correct, and it fixes the sign.**
+  - AKT1 80x → p-BAD 8.99, BAD 0.112, so BAK and caspases go DOWN; KO → UP.
+  - Under ctrl this was inverted: the calcineurin return fed p-BAD back into free
+    BAD. The residual misses are margin (0.82 against the 0.85 cutoff).
+- **Insulin: SOS1 (2). Correct.** The regeneration supply is dropped as
+  pre-registered.
+- **Insulin: IRS1 (2 broken). Two artefacts cancel; no block.**
+  - The IRS1 pin raises the receptor carrier (35.7). A GRB10:INSR inhibitor built
+    from the same receptor divides the SHC1 bind step by the same 35.7, so the
+    drive is 1.0.
+  - ctrl matched the curator only by railing.
+- **PTK6: ERBB2/3/4 (7 broken). The rule as written, on a competing exit, plus
+  a squared input.**
+  - The pool response is right: p-PTK6 is 8.95 UP.
+  - But the HIF1A readout runs through free PTK6 → GPNMB:LINC01139 complex. It is
+    starved by conservation (0.117), then squared by a reaction that takes the
+    same complex twice (0.014).
+- **Not traced:** chromatin KMT2C/D KO (8 fixed).
+- **Conclusion:** no case is the pool severing a path. About 83 of the 89 fixes
+  are right for a stated reason, and the 11 broken cases have known causes
+  outside the rule.

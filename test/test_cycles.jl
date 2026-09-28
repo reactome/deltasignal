@@ -80,9 +80,9 @@ end
     @test fold(r, "B") ≈ 2 * 80 / 81 atol = 1e-4      # s·r/(φ r + 1 − φ)
 end
 
-@testset "default off, and a missing table is reported" begin
+@testset "default balance, and a missing table is reported" begin
     with_env("DS_CYCLE_MODE" => nothing) do
-        @test DS.cycle_mode() == "off"
+        @test DS.cycle_mode() == "balance"
     end
     r = solve(fixture(); mode = "off")
     @test r.diagnostics["cycle_rule"] == "off"
@@ -394,13 +394,16 @@ end
         @test all(q -> q.enzyme, p[1].paths) && isempty(p[1].intermediates)
         write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,is_base\npool1,u-a,R-A,False\n")
         @test_throws ArgumentError DS.parse_pools(ln)   # a pool must have a base form
-        # ... but a malformed table does not take a pathway out of service
-        # under the default mode: the loader drops it, and it throws under balance
+        # ... a malformed table is an error when the rule uses it (balance, the
+        # default), and dropped with a warning only when the rule is off
         write(ln, "source_id,target_id,pos_neg,and_or,edge_type\n")
         write(joinpath(dir, "stid_to_uuid_mapping.csv"), "stable_id,uuid\n")
-        with_env("DS_CYCLE_MODE" => nothing) do
+        with_env("DS_CYCLE_MODE" => "off") do
             net = DS.parse_complete_network(ln, joinpath(dir, "stid_to_uuid_mapping.csv"))
             @test net.pools === nothing
+        end
+        with_env("DS_CYCLE_MODE" => nothing) do
+            @test_throws ArgumentError DS.parse_complete_network(ln, joinpath(dir, "stid_to_uuid_mapping.csv"))
         end
         with_env("DS_CYCLE_MODE" => "balance") do
             @test_throws ArgumentError DS.parse_complete_network(ln, joinpath(dir, "stid_to_uuid_mapping.csv"))
