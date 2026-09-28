@@ -365,10 +365,9 @@ function parse_complete_network(
     stids = parse_cofactor_list(resolved; required = cofactor_path !== nothing)
     containment = parse_containment(logic_network_path)
     drugs = parse_drug_list(logic_network_path)
-    # A malformed pool table is an error only when the solve would use it:
-    # under the default DS_CYCLE_MODE=off it must not take a pathway out of
-    # service, so it is reported and dropped (the solve then says
-    # "balance: no pool table" if balance is later switched on).
+    # A malformed pool table is an error when the solve would use it (the
+    # default, DS_CYCLE_MODE=balance). Under DS_CYCLE_MODE=off it must not take
+    # a pathway out of service, so it is reported and dropped.
     pools = try
         parse_pools(logic_network_path)
     catch err

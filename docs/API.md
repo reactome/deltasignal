@@ -161,8 +161,8 @@ Response:
   `"off"` (default), `"balance"`, or `"balance: no pool table"`; how many
   interconversion pools this solve handled as conserved pools, how many of
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
-  forms it held. The rule is measured and NOT adopted; it is off unless
-  `DS_CYCLE_MODE=balance`.
+  forms it held. `balance` is the default (specs/039); `off` restores
+  iterated loops.
 - **`scc`** (additive, specs/017): how the cyclic components were resolved —
   `method` (the `DS_SCC_METHOD` in force), `pooled`, `iterated`,
   `fallback_negative`, `fallback_inconsistent`, `pooled_nodes`. Under the

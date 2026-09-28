@@ -39,15 +39,16 @@ graph, reversible or not.
 catalyses; that closes a gain-1 loop of its own. Under DS_CYCLE_CARRIERS=on
 (default) the free form reads its OTHER producers (else baseline).
 
-  DS_CYCLE_MODE=off      (default) previous behaviour: loops are iterated.
-  DS_CYCLE_MODE=balance  pools listed in the bundle's pools.csv are solved as above.
+  DS_CYCLE_MODE=balance  (default since 2026-09-28, specs/039 amendment 7) pools
+                         listed in the bundle's pools.csv are solved as above.
+  DS_CYCLE_MODE=off      previous behaviour: loops are iterated.
   DS_CYCLE_CARRIERS=on|off  (balance only) the carrier rule above.
 """
 
 const DS_VALID_CYCLE_MODES = Set(["off", "balance"])
 
 function cycle_mode()::String
-    value = get(ENV, "DS_CYCLE_MODE", "off")
+    value = get(ENV, "DS_CYCLE_MODE", "balance")
     value in DS_VALID_CYCLE_MODES || throw(ArgumentError(
         "DS_CYCLE_MODE must be one of $(join(sort(collect(DS_VALID_CYCLE_MODES)), ", ")); got $(repr(value))"))
     return value

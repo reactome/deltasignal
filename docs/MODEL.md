@@ -67,26 +67,24 @@ The network is split into strongly connected components (loops), and they are
 solved upstream first. Inside a loop, the solver iterates until the values
 stop changing.
 
-## 4. Loops, and why they need their own maths (measured, NOT adopted: specs/039)
+## 4. Loops, and why they need their own maths (implemented, the default: specs/039)
 
-> **Status.** Everything in this section is implemented behind
-> `DS_CYCLE_MODE=balance` and was measured on both benchmarks. The default
-> remains `off`: loops are iterated as in §3.
-> - **As first pre-registered, it was not adopted:** curator held-out −5,
->   experimental −8 against the rule off.
-> - **With the pool boundary fixed (amendment 5):** curator held-out is +77
->   (p 1.8e-16), and experimental is −2 (not significant). That fails the
->   pre-registered experimental gate, so it is **held off by default** (Adam,
->   2026-09-28).
-> - The amendment 5 fix: a regulator built from a pool's own form keeps its
->   own effect but loses its tracking of the pool, and a multi-step path must
->   regenerate its enzyme.
-> - **The remaining loss:** readouts on a pool's resting form. At φ₀ = 0.1,
->   driving a pool toward its modified form moves the resting form only to
->   1.11.
+> **Status.** This is the default since 2026-09-28 (`DS_CYCLE_MODE=balance`,
+> adopted by Adam; `off` restores iterated loops, §3). Against the rule off,
+> on the same catalog build:
+> - curator held-out **+77** (87 fixed / 10 broken, p 1.8e-16);
+> - curator tuning +1;
+> - experimental 0 (1 / 1).
 >
-> The numbers and the traced losses are in
-> `specs/039-cycle-balance/research.md`.
+> It took seven amendments, all recorded in
+> `specs/039-cycle-balance/research.md` with the traced cases:
+> - the version first pre-registered lost;
+> - the pool boundary had to be fixed (a regulator built from a pool's own form
+>   keeps its own effect but loses its tracking of the pool, and a multi-step
+>   path must regenerate its enzyme);
+> - φ₀ had to refer to the pool's **active** form (below).
+>
+> The gains were traced; none is a blocked signal.
 
 **What the loops are.** Once the artefact loops are separated by uuids, most of
 what remains are **curated interconversion cycles**, where one reaction turns a
@@ -137,10 +135,17 @@ two models (specs/039):
     modified form B  = supply × r / (φ₀·r + 1 − φ₀)
     unmodified form A = supply     / (φ₀·r + 1 − φ₀)
 
-φ₀ is the fraction of the protein in the modified form at rest. **φ₀ = 0.1**
-(decided by Adam, 2026-09-27): activated or modified forms are a minority in a
-resting cell (RAS is about 5–10% GTP-bound; basal phosphorylation is usually
-≤10–20%). It is fixed in advance, not fitted.
+φ₀ is the fraction of the protein in its **active** form at rest. **φ₀ = 0.1**
+(decided by Adam, 2026-09-27): activated forms are a minority in a resting
+cell (RAS is about 5–10% GTP-bound; basal phosphorylation is usually ≤10–20%).
+It is fixed in advance, not fitted.
+- For an activating modification, the active form is the modified one.
+- For an **inhibitory** modification it is the unmodified one: CDK2
+  phosphorylated on Y15 is inactive, and so is lipin phosphorylated on S106.
+- The generator marks the active state: the one that acts downstream of the
+  pool, or the one the catalytic form is made from (CCNA:CDK2 → CCNA:p-T160-CDK2
+  by CAK). In the formulas below, "modified form B" means the active form
+  (Adam, 2026-09-28; amendments 6 and 7).
 
 **Cycles curated in steps.** The states of the chain are the protein's
 distinct modification states (S and p-S; RAS:GDP and RAS:GTP). The enzyme
