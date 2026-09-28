@@ -826,3 +826,49 @@ inert.
     case is still expected lost: AND downstream.
 - **Correction:** the generator report said "no lipin pool exists in this
   build". That is wrong: pools 2–4 of R-HSA-68875 are LPIN1/2/3 ⇄ p-S106.
+
+**Amendment 6 census with the set-pool clarification** (LNG `cb30bf6`,
+pools039e):
+- 4 pools oriented by activity, 33 fall back.
+- **3 flips, all lipin:** LPIN1/2/3 base → p-S106-LPINn. The active,
+  unphosphorylated lipin catalyses PA → DAG (5221130) through the lipins
+  set-pool node. Plausible: dephosphorylated lipin is the active phosphatase.
+- RAS and CCNA:CDK2 do not flip.
+
+## Amendment 7 (2026-09-28): the state the catalytic form is made from. POST HOC; pre-registered before code
+
+**Why:** it completes Adam's "φ₀ refers to the active form" decision for an
+active kinase that sits one reaction outside the pool. CCNA:CDK2 is made into
+the catalytic CCNA:p-T160-CDK2 by CAK. It is post hoc, because it was designed
+after the amendment 6 census.
+
+**Rule (generator orientation only):** a state is also active if an input
+(mass-flow) edge from it enters a reaction that is not a pool step, and within
+2 reactions that route reaches a catalyst or positive regulator of another
+non-pool reaction. The regulator node may be reached directly, or through a
+`set_member` edge into a set-pool node.
+- Amendment 6's direct test is applied first.
+- Otherwise the rules of amendment 6 hold as stated: exactly one active state,
+  else fall back.
+
+**Census before code** (Fable, pools039e; script only, no commit): exactly
+**one** additional flip, CCNA:CDK2 → base CCNA:p-Y15-CDK2.
+- Active via 187949 (CAK) → CCNA:p-T160-CDK2 → G1/S substrates, ORC1, CDC6.
+- **RAS does not flip:** RAS:GTP:RAF is not a catalyst within 2 reactions.
+- The two 3-state IFN pools tie and fall back; their base is unchanged.
+
+**Arms** (one build per rule; the same solver commit):
+- `ctrl039`;
+- `bal01a5` on each build, for byte-identity;
+- `bal01a6` (amendment 6 + clarification);
+- `bal01a7` (amendments 6 + 7).
+
+Only flipped pools may change predictions.
+
+**Expected:**
+- a6: the lipin pathways move (Prophase and anything downstream). The lamin
+  case is expected lost regardless.
+- a7: additionally MYC 80x in S phase → UP (2 experimental cases).
+
+**Gates:** amendment 6's gates, which include the relaxed experimental gate
+that Adam confirms. Each arm is judged against ctrl on its own build.
