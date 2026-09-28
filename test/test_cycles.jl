@@ -147,6 +147,14 @@ end
     @test r.converged
     @test fold(r, "A") ≈ 40.5 atol = 1e-3                # mean of P (1x) and M (80x)
     @test fold(r, "B") ≈ 40.5 atol = 1e-3
+    # review of amendment 2, finding 1: a depletion edge from the pool's own
+    # downstream onto the supply reaction does not make the supply "fed by the
+    # pool" -- only mass flow does
+    net = fixture(; extra = [("D", "P", "depletion", false)])
+    r = solve(net; obs = Dict("G" => 80.0))
+    @test r.converged
+    @test fold(r, "A") ≈ fold(r, "P") atol = 1e-6
+    @test fold(r, "A") > 5.0
     # finding 9: a component method that bypasses the sweep manages no pool,
     # and says so
     for m in ("pool", "minimize")
@@ -161,9 +169,9 @@ end
 #   Ss + Ph -> SsP -> SP -> S + Ph
 # G -> P -> S supplies the protein; Ss -> W -> D is the readout. K has its own
 # supply KG -> KP -> K besides the release step (a carrier).
-function ring(; rl = identity, carriers = true, copies = false)
+function ring(; rl = identity, carriers = true, copies = false, c1cat = false, extra_carriers = [])
     ids = ["G", "P", "S", "SE", "SsE", "Ss", "SsP", "SP", "K", "Ph", "b1", "c1", "r1", "b2", "c2", "r2",
-           "W", "D", "KG", "KP", "K2", "b1x"]
+           "W", "D", "KG", "KP", "K2", "b1x", "C1"]
     nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
     E = [("G", "P", "input"), ("P", "S", "output"),
          ("S", "b1", "input"), ("K", "b1", "input"), ("b1", "SE", "output"),
@@ -175,12 +183,14 @@ function ring(; rl = identity, carriers = true, copies = false)
          ("Ss", "W", "input"), ("W", "D", "output"),
          ("KG", "KP", "input"), ("KP", "K", "output")]
     copies && append!(E, [("S", "b1x", "input"), ("K2", "b1x", "input"), ("b1x", "SE", "output")])
+    c1cat && push!(E, ("C1", "c1", "input"))
     edges = [edge(rl(s), rl(t), et; and = et == "input") for (s, t, et) in E]
     st(a, b, rs...) = (rl(a), rl(b), sort([rl(r) for r in rs]))
     bind1 = copies ? st("S", "SE", "b1", "b1x") : st("S", "SE", "b1")
     paths = [DS.PoolPath(rl("S"), rl("Ss"), [bind1, st("SE", "SsE", "c1"), st("SsE", "Ss", "r1")], true),
              DS.PoolPath(rl("Ss"), rl("S"), [st("Ss", "SsP", "b2"), st("SsP", "SP", "c2"), st("SP", "S", "r2")], true)]
     cs = carriers ? [(rl("K"), rl("r1")), (rl("Ph"), rl("r2"))] : Tuple{String, String}[]
+    append!(cs, [(rl(a), rl(b)) for (a, b) in extra_carriers])
     p = [DS.CyclePool("pool1", sort([rl("S"), rl("Ss")]), rl("S"), paths,
                       sort([rl(k) for k in ("SE", "SsE", "SsP", "SP")]), sort(cs))]
     DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
@@ -238,6 +248,26 @@ end
     rc0 = solve_ring(ring(; copies = true); pinned = ("G", "K", "Ph", "K2"))
     @test fold(rc0, "b1") ≈ 1.0 atol = 1e-9
     @test fold(rc0, "b1x") ≈ 1.0 atol = 1e-9
+    # review of amendment 2, finding 4: an intermediate is v / k_cat. When the
+    # step that EXITS it is blocked (C1, the modification step's co-input,
+    # knocked out) the complex upstream accumulates; the one downstream empties
+    rb = solve_ring(ring(; c1cat = true); obs = Dict("C1" => 0.0), pinned = ("G", "K", "Ph", "C1"))
+    @test rb.converged
+    @test fold(rb, "Ss") ≈ 0.0 atol = 1e-3
+    @test fold(rb, "SE") ≈ fold(rb, "S") atol = 1e-6          # source fold x the other drives (1)
+    @test fold(rb, "SE") > 1.0
+    @test fold(rb, "SsE") ≈ 0.0 atol = 1e-6
+    rb0 = solve_ring(ring(; c1cat = true); pinned = ("G", "K", "Ph", "C1"))
+    @test fold(rb0, "SE") ≈ 1.0 atol = 1e-9
+    # finding 2: a declared carrier that a pool writes is not a carrier
+    r = solve_ring(ring(; extra_carriers = [("SE", "r1")]); obs = Dict("K" => 80.0))
+    @test r.converged
+    @test r.diagnostics["cycle_carrier_conflicts"] == 1
+    @test fold(r, "Ss") ≈ 8.98876 atol = 1e-3
+    # finding 5: a pinned intermediate makes the pool fall back, counted
+    r = solve_ring(ring(); obs = Dict("SE" => 1.0))
+    @test r.diagnostics["cycle_pools_solved"] == 0
+    @test r.diagnostics["cycle_pools_pinned_fallback"] == 1
     # label independence on the ring
     rl(u) = "zz_" * u
     r1 = solve_ring(ring(); obs = Dict("K" => 3.0))

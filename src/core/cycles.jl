@@ -77,7 +77,7 @@ struct IndexedPool
     path_j0::Vector{Float64}            # baseline flow
     path_steps::Vector{Vector{Tuple{Vector{Int}, Int}}}   # per step: (rxns_idx of its copies, its source node)
     flux_nodes::Vector{Int}             # intermediates
-    flux_paths::Vector{Vector{Int}}     # the paths through each
+    flux_paths::Vector{Vector{Tuple{Int, Int}}}   # (path, step that EXITS it) for each
     copy_nodes::Vector{Int}             # step reaction-node copies
     copy_refs::Vector{Vector{Tuple{Int, Int, Int}}}  # (path, step, copy position) of each
     supply_rxns::Vector{Vector{Int}}    # per state: its producers outside the pool
@@ -190,11 +190,11 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
         j0 = [mu[pf[q]] * w[q] / W[pf[q]] for q in eachindex(pf)]
         k = [j0[q] / pi0[pf[q]] for q in eachindex(pf)]
         # flux nodes: intermediates (by path) and step copies (by path, step, copy)
-        fl = Dict{Int, Vector{Int}}()
+        fl = Dict{Int, Vector{Tuple{Int, Int}}}()
         cr = Dict{Int, Vector{Tuple{Int, Int, Int}}}()
         for (q, st) in enumerate(psteps)
             for (s_i, (ris, src)) in enumerate(st)
-                s_i > 1 && push!(get!(fl, src, Int[]), q)
+                s_i > 1 && push!(get!(fl, src, Tuple{Int, Int}[]), (q, s_i))
                 for (c, ri) in enumerate(ris)
                     push!(get!(cr, rxns_idx[ri].target_idx, Tuple{Int, Int, Int}[]), (q, s_i, c))
                 end
@@ -354,12 +354,23 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
         v = clamp(baseline_vec[f] * s * m * pi[k] / p.pi0[k], 0.0, 1.0)
         maxch = max(maxch, abs(v - x[f])); x[f] = v
     end
-    flux = [u[q] * x[p.forms[p.path_from[q]]] / baseline_vec[p.forms[p.path_from[q]]] for q in eachindex(u)]
+    srcfold = [x[p.forms[p.path_from[q]]] / baseline_vec[p.forms[p.path_from[q]]] for q in eachindex(u)]
+    flux = [u[q] * srcfold[q] for q in eachindex(u)]
+    # An intermediate is [ES] = v / k_cat (derivation2-fable §4): the path's
+    # flux over the drive of the step that exits it, i.e. the source fold times
+    # the product of every OTHER step's drive. Computed without the division, so
+    # a blocked exit makes the complex accumulate (up to the cap) instead of
+    # reading 0 (review of amendment 2, finding 4).
     for (v, qs) in zip(p.flux_nodes, p.flux_paths)
         v in obs_set && continue
         num = 0.0; den = 0.0
-        for q in qs
-            num += p.path_j0[q] * flux[q]; den += p.path_j0[q]
+        for (q, s_exit) in qs
+            m = srcfold[q]
+            for (s_i, cs) in enumerate(cu[q])
+                s_i == s_exit && continue
+                m *= sum(cs) / length(cs)
+            end
+            num += p.path_j0[q] * m; den += p.path_j0[q]
         end
         val = clamp(baseline_vec[v] * (den > 0 ? num / den : 1.0), 0.0, 1.0)
         maxch = max(maxch, abs(val - x[v])); x[v] = val

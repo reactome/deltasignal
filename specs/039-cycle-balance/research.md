@@ -409,3 +409,54 @@ recorded before any arm):
   pre-registered bistable root rule is not exercised.
 - The generator's scratch run reported 20 pathways. Counting non-empty
   `pools.csv` in the build gives 19, and 19 is the figure recorded.
+
+## Amendment 3 (2026-09-28): fixes from the pre-arm review of amendment 2
+
+This is Fable's adversarial review, with an end-to-end RAF solve on the pool
+tables. No balance arm had run. `ctrl039` ran at `173b36a` and is re-run at
+the final commit, so every arm shares one solver commit.
+
+**Solver fixes:**
+1. **Supply reachability follows mass flow only** (activator edges).
+   - Through a depletion edge (RAS:GTP:BRAP ⊣ mature RAS), the pool "reached"
+     RAS's own maturation supply, so KRAS 80x and KO read NORMAL.
+2. **A carrier that any pool writes is not a carrier.** Such cases are counted
+   (`cycle_carrier_conflicts`).
+   - In Insulin, pool2's carrier was pool1's intermediate. It was written twice
+     and did not converge.
+3. **An intermediate reads v / k_cat**, as the adopted derivation states: the
+   path flux over the drive of the step that exits it.
+   - The implementation had given it the whole path's flux. A blocked exit then
+     read 0 where the complex accumulates: calcineurin KO put
+     14-3-3:p-S99-BAD at 0.
+   - This is an implementation error, not a rule change.
+4. **A pinned intermediate or step copy makes its pool fall back to the
+   iteration**, counted (`cycle_pools_pinned_fallback`), as pre-registered.
+   - It had been silently overwritten: root_cycle pins RAS:GTP:GAP for
+     SPRED1/2/3 KO.
+
+**Generator fix (states must be core-only):**
+- Curators annotate a receptor's residues inconsistently across complexes, so
+  enzyme carrier loops became pools: FGFR4 ⇄ FGFR4:PLCG1 ⇄ FGFR4:p-4Y-PLCG1,
+  and EGFR:ERBB2 with PLCG1/PTK6, the latter an experimental-axis pathway.
+- **Rule:** the core is the set of proteins present in every form of the
+  candidate. Only core-only forms can be states. The candidate is a pool only if
+  its core-only forms carry ≥ 2 signatures. This is the core rule of
+  `derivation2-opus.md` §1, combined with the adopted signature.
+
+**Recorded in advance (not fixed):**
+- **RAF's downstream collapse is untouched.** p-MEK, p-ERK and the p-MAPK set
+  read about 0 for every perturbation in every mode. The MAPK cycle closes only
+  through sets, which the stId-level detection does not see.
+  - **Prediction 2 ("RAF's collapse stops") is expected to fail** for scored
+    RAF readouts. It holds only for RAS:GTP and convergence.
+- **`bal01` vs `bal01nc` differ only through UNPERTURBED enzymes.** Root pinning
+  already pins the perturbed enzyme's carriers.
+  - There the carrier rule is load-bearing. With carriers off, SOS1 80x reads
+    RAS:GTP 1.00, because the release loop restores the gain-1 knife-edge.
+- **`bal05` compresses by construction:** NF1 KO → 1.14 (NORMAL), SOS1 80x →
+  1.98.
+- **Expected fixture on the real RAF bundle after the fixes:** KRAS 80x → RAS
+  forms UP. Checked on the rebuild, before the arms.
+
+`test_cycles.jl` goes 174 → 188. The mutants for fixes 1 and 3 each go red.

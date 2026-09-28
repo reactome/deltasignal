@@ -926,18 +926,37 @@ function solve_scc_ordered!(
     comp_pools = Dict{Int, Vector{IndexedPool}}()
     managed = Set{Int}()
     n_pool_unmanaged = 0
-    # Out-edges (source -> target) of every update, for the supply test below.
+    # Mass-flow out-edges (activator source -> target) of every update, for the
+    # supply test below. Depletion and inhibitor edges do not carry the pool's
+    # protein: following them marked RAS's own maturation supply as fed by the
+    # pool (RAS:GTP:BRAP -| mature RAS), so KRAS 80x read NORMAL (review of
+    # amendment 2, finding 1).
     pool_out = isempty(pools) ? Dict{Int, Vector{Int}}() : begin
         d = Dict{Int, Vector{Int}}()
-        for r in rxns_idx, s in Iterators.flatten((r.activator_indices, r.inhibitor_indices, r.depletion_indices))
+        for r in rxns_idx, s in r.activator_indices
             push!(get!(d, s, Int[]), r.target_idx)
         end
         d
     end
+    # Every node some pool writes (states, intermediates, step copies): a carrier
+    # must not be one of them, or two updates write it (finding 2).
+    pool_written = Set{Int}()
+    for p in pools
+        union!(pool_written, p.forms, p.flux_nodes, p.copy_nodes)
+    end
+    n_carrier_conflicts = 0; n_pinned_fallback = 0
     n_carriers_held = 0; n_multistep = 0
     for p in pools
         nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes)
         c0 = comp_id[nodes[1]]
+        # A pinned intermediate or step copy has no place in the chain (its value
+        # is not the flux through it): the pool falls back to the iteration and
+        # is counted, as pre-registered (finding 5). A pinned STATE is handled:
+        # it sets the supply.
+        if any(v -> v in obs_set, p.flux_nodes) || any(v -> v in obs_set, p.copy_nodes)
+            n_pool_unmanaged += 1; n_pinned_fallback += 1
+            continue
+        end
         if baseline_vec !== nothing && !pooling && !minimize &&
            all(v -> comp_id[v] == c0, nodes) && comp_size[c0] > 1
             # Supply excludes a producer the pool's own forms reach, since it
@@ -959,7 +978,8 @@ function solve_scc_ordered!(
             end
             # carriers are managed only inside the pool's component, and never
             # a node the pool already writes
-            keepc = [comp_id[c] == c0 && !(c in nodes) for c in p.carriers]
+            keepc = [comp_id[c] == c0 && !(c in pool_written) for c in p.carriers]
+            n_carrier_conflicts += count(c -> c in pool_written, p.carriers)
             deleteat!(p.carrier_rxn, findall(!, keepc)); deleteat!(p.carrier_release, findall(!, keepc))
             deleteat!(p.carriers, findall(!, keepc))
             push!(get!(comp_pools, c0, IndexedPool[]), p)
@@ -977,6 +997,8 @@ function solve_scc_ordered!(
     pool_stats["cycle_pools_multistep"] = n_multistep
     pool_stats["cycle_carriers_held"] = n_carriers_held
     pool_stats["cycle_carriers_flag"] = pool_carriers
+    pool_stats["cycle_carrier_conflicts"] = n_carrier_conflicts
+    pool_stats["cycle_pools_pinned_fallback"] = n_pinned_fallback
     # For the final consistency check: managed nodes are held by their pool, not
     # by the forward model (like pinned nodes), and are checked against it.
     pool_stats["cycle_managed"] = managed
@@ -1429,6 +1451,8 @@ function solve_steady_state_penalty(
             "cycle_pools_skipped" => get(index_stats, "cycle_pools_skipped", 0),
             "cycle_pools_multistep" => get(index_stats, "cycle_pools_multistep", 0),
             "cycle_carriers_held" => get(index_stats, "cycle_carriers_held", 0),
+            "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
+            "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
         ),
     )
 end
