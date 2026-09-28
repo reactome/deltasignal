@@ -214,11 +214,13 @@ function solve_steady_state(
     result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                         self_shared = self_shared,
                                         cycle_pools = ypools,
-                                        cycle_phi = ymode == "balance" ? cycle_phi() : 0.1)
+                                        cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
+                                        cycle_carriers = ymode == "balance" ? cycle_carriers() : true)
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
     result.diagnostics["cycle_rule"] = cycle_rule
+    result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["drug_rule"] = drug_rule
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["conserved_rule"] = cmode
@@ -696,6 +698,7 @@ function solve_scc_ordered!(
     baseline_vec::Union{Nothing,Vector{Float64}} = nothing;
     pools::Vector{IndexedPool} = IndexedPool[],
     pool_stats::Dict{String, Any} = Dict{String, Any}(),
+    pool_carriers::Bool = true,
 )
     # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
     # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
@@ -931,8 +934,9 @@ function solve_scc_ordered!(
         end
         d
     end
+    n_carriers_held = 0; n_multistep = 0
     for p in pools
-        nodes = vcat(p.forms, p.trans_node)
+        nodes = vcat(p.forms, p.flux_nodes)
         c0 = comp_id[nodes[1]]
         if baseline_vec !== nothing && !pooling && !minimize &&
            all(v -> comp_id[v] == c0, nodes) && comp_size[c0] > 1
@@ -953,14 +957,26 @@ function solve_scc_ordered!(
             for prods in p.supply_rxns
                 filter!(a -> !(a in reach), prods)
             end
+            # carriers are managed only inside the pool's component, and never
+            # a node the pool already writes
+            keepc = [comp_id[c] == c0 && !(c in nodes) for c in p.carriers]
+            deleteat!(p.carrier_rxn, findall(!, keepc)); deleteat!(p.carrier_release, findall(!, keepc))
+            deleteat!(p.carriers, findall(!, keepc))
             push!(get!(comp_pools, c0, IndexedPool[]), p)
             union!(managed, nodes)
+            if pool_carriers
+                union!(managed, p.carriers); n_carriers_held += count(c -> !(c in obs_set), p.carriers)
+            end
+            any(st -> length(st) > 1, p.path_steps) && (n_multistep += 1)
         else
             n_pool_unmanaged += 1
         end
     end
     pool_stats["cycle_pools_solved"] = sum(length(v) for v in values(comp_pools); init = 0)
     pool_stats["cycle_pools_unmanaged"] = n_pool_unmanaged
+    pool_stats["cycle_pools_multistep"] = n_multistep
+    pool_stats["cycle_carriers_held"] = n_carriers_held
+    pool_stats["cycle_carriers_flag"] = pool_carriers
     # For the final consistency check: managed nodes are held by their pool, not
     # by the forward model (like pinned nodes), and are checked against it.
     pool_stats["cycle_managed"] = managed
@@ -1043,7 +1059,7 @@ function solve_scc_ordered!(
                     end
                 end
                 for p in get(comp_pools, c, IndexedPool[])
-                    ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config)
+                    ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = pool_carriers)
                     ch > maxch && (maxch = ch)
                 end
                 comp_residual = maxch
@@ -1201,6 +1217,7 @@ function solve_steady_state_penalty(
         Dict{Tuple{String, String}, Vector{String}}(),
     cycle_pools = nothing,
     cycle_phi::Float64 = 0.1,
+    cycle_carriers::Bool = true,
 )::SolverResult
 
     all_nodes = collect(keys(x0))
@@ -1291,7 +1308,7 @@ function solve_steady_state_penalty(
         index_stats["cycle_pools_skipped"] = n_skipped
         iters, max_change, scc_stats = solve_scc_ordered!(
             x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec;
-            pools = ipools, pool_stats = index_stats)
+            pools = ipools, pool_stats = index_stats, pool_carriers = cycle_carriers)
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
@@ -1346,7 +1363,7 @@ function solve_steady_state_penalty(
             bvec[i] = get(baseline_activities, uuid, 0.01)
         end
         for p in solved_final
-            d = update_pool!(xp, p, rxns_idx, bvec, obs_set, eval_config)
+            d = update_pool!(xp, p, rxns_idx, bvec, obs_set, eval_config; carriers = cycle_carriers)
             isfinite(d) || (saw_nonfinite = true)
             isfinite(d) && d > free_residual && (free_residual = d)
         end
@@ -1410,6 +1427,8 @@ function solve_steady_state_penalty(
             "cycle_pools_solved" => get(index_stats, "cycle_pools_solved", 0),
             "cycle_pools_unmanaged" => get(index_stats, "cycle_pools_unmanaged", 0),
             "cycle_pools_skipped" => get(index_stats, "cycle_pools_skipped", 0),
+            "cycle_pools_multistep" => get(index_stats, "cycle_pools_multistep", 0),
+            "cycle_carriers_held" => get(index_stats, "cycle_carriers_held", 0),
         ),
     )
 end

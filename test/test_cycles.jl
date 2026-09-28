@@ -156,6 +156,119 @@ end
     end
 end
 
+# A kinase/phosphatase cycle curated in steps (problem2.md, amendment 2):
+#   S + K -> SE -> SsE -> Ss + K        (bind, modify, release)
+#   Ss + Ph -> SsP -> SP -> S + Ph
+# G -> P -> S supplies the protein; Ss -> W -> D is the readout. K has its own
+# supply KG -> KP -> K besides the release step (a carrier).
+function ring(; rl = identity, carriers = true)
+    ids = ["G", "P", "S", "SE", "SsE", "Ss", "SsP", "SP", "K", "Ph", "b1", "c1", "r1", "b2", "c2", "r2",
+           "W", "D", "KG", "KP"]
+    nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
+    E = [("G", "P", "input"), ("P", "S", "output"),
+         ("S", "b1", "input"), ("K", "b1", "input"), ("b1", "SE", "output"),
+         ("SE", "c1", "input"), ("c1", "SsE", "output"),
+         ("SsE", "r1", "input"), ("r1", "Ss", "output"), ("r1", "K", "output"),
+         ("Ss", "b2", "input"), ("Ph", "b2", "input"), ("b2", "SsP", "output"),
+         ("SsP", "c2", "input"), ("c2", "SP", "output"),
+         ("SP", "r2", "input"), ("r2", "S", "output"), ("r2", "Ph", "output"),
+         ("Ss", "W", "input"), ("W", "D", "output"),
+         ("KG", "KP", "input"), ("KP", "K", "output")]
+    edges = [edge(rl(s), rl(t), et; and = et == "input") for (s, t, et) in E]
+    st(a, b, r) = (rl(a), rl(b), rl(r))
+    paths = [DS.PoolPath(rl("S"), rl("Ss"), [st("S", "SE", "b1"), st("SE", "SsE", "c1"), st("SsE", "Ss", "r1")], true),
+             DS.PoolPath(rl("Ss"), rl("S"), [st("Ss", "SsP", "b2"), st("SsP", "SP", "c2"), st("SP", "S", "r2")], true)]
+    cs = carriers ? [(rl("K"), rl("r1")), (rl("Ph"), rl("r2"))] : Tuple{String, String}[]
+    p = [DS.CyclePool("pool1", sort([rl("S"), rl("Ss")]), rl("S"), paths,
+                      sort([rl(k) for k in ("SE", "SsE", "SsP", "SP")]), sort(cs))]
+    DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                       Dict{String, Set{String}}(), nothing, p)
+end
+
+function solve_ring(net; obs = Dict{String, Float64}(), phi = "0.1", carriers = "on", rl = identity,
+                    pinned = ("G", "K", "Ph"))
+    with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => phi, "DS_CYCLE_CARRIERS" => carriers,
+             "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        o = Dict(rl(k) => (1.0, 1.0) for k in pinned)
+        for (k, v) in obs; o[rl(k)] = (v, 1.0); end
+        DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+end
+
+@testset "multi-step cycles (amendment 2)" begin
+    net = ring()
+    # Fable's fixtures: the lumped ring reduces to the two-form rule
+    for (obs, s, ss, cx) in ((Dict{String,Float64}(), 1.0, 1.0, 1.0),
+                             (Dict("K" => 0.0), 1.11111, 0.0, 0.0),
+                             (Dict("Ph" => 0.0), 0.0, 10.0, 0.0),
+                             (Dict("K" => 80.0), 0.11236, 8.98876, 8.98876),
+                             (Dict("K" => 80.0, "Ph" => 80.0), 1.0, 1.0, 80.0),
+                             (Dict("G" => 80.0), 80.0, 80.0, 80.0))
+        r = solve_ring(net; obs = obs)
+        @test r.converged
+        @test fold(r, "S") ≈ s atol = 1e-3
+        @test fold(r, "Ss") ≈ ss atol = 1e-3
+        @test fold(r, "D") ≈ ss atol = 1e-3             # the readout follows the modified state
+        @test fold(r, "SE") ≈ cx atol = 1e-3            # an intermediate reads its path's flux
+        @test fold(r, "r1") ≈ cx atol = 1e-3            # and so does each step's reaction node
+        @test r.diagnostics["cycle_pools_solved"] == 1
+        @test r.diagnostics["cycle_pools_multistep"] == 1
+    end
+    # carriers: with the kinase not pinned, its free form reads its OTHER
+    # producer (KP), not the release step that closes its own loop
+    r = solve_ring(net; obs = Dict("KG" => 80.0), pinned = ("G", "Ph"))
+    @test r.converged
+    @test fold(r, "K") ≈ 80.0 atol = 1e-6
+    @test fold(r, "Ss") ≈ 8.98876 atol = 1e-3
+    @test r.diagnostics["cycle_carriers"] == "on" && r.diagnostics["cycle_carriers_held"] == 1
+    r0 = solve_ring(net; pinned = ("G", "Ph"))
+    @test fold(r0, "K") ≈ 1.0 atol = 1e-6              # baseline exact with the carrier held
+    roff = solve_ring(net; obs = Dict("KG" => 80.0), pinned = ("G", "Ph"), carriers = "off")
+    @test roff.diagnostics["cycle_carriers"] == "off" && roff.diagnostics["cycle_carriers_held"] == 0
+    @test !(fold(roff, "K") ≈ 80.0)                     # off: the release step still feeds K
+    # label independence on the ring
+    rl(u) = "zz_" * u
+    r1 = solve_ring(ring(); obs = Dict("K" => 3.0))
+    r2 = solve_ring(ring(; rl = rl); obs = Dict("K" => 3.0), rl = rl)
+    for k in ("S", "Ss", "SE", "SsP", "D")
+        @test r1.node_activities[k] ≈ r2.node_activities[rl(k)] atol = 1e-12
+    end
+end
+
+@testset "an irreversible three-state ring is exactly baseline at rest" begin
+    # A -> B -> C -> A, one step each, no reverse: sqrt(pi0_j/pi0_i) rates would
+    # not make pi0 stationary; the baseline flow does
+    ids = ["G", "P", "A", "B", "C", "E1", "E2", "E3", "t1", "t2", "t3"]
+    nodes = Dict(k => DS.NetworkNode(k, "R-" * k, "protein", nothing, k, BL) for k in ids)
+    E = [("G", "P", "input", true), ("P", "A", "output", false),
+         ("A", "t1", "input", true), ("E1", "t1", "catalyst", true), ("t1", "B", "output", false),
+         ("B", "t2", "input", true), ("E2", "t2", "catalyst", true), ("t2", "C", "output", false),
+         ("C", "t3", "input", true), ("E3", "t3", "catalyst", true), ("t3", "A", "output", false)]
+    edges = [edge(s, t, et; and = a) for (s, t, et, a) in E]
+    p = [DS.CyclePool("pool1", ["A", "B", "C"], "A", [("A", "B", "t1"), ("B", "C", "t2"), ("C", "A", "t3")])]
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict{String, Set{String}}(), nothing, p)
+    r = with_env("DS_CYCLE_MODE" => "balance", "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        DS.solve_steady_state(net, Dict(k => (1.0, 1.0) for k in ("G", "E1", "E2", "E3")),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    @test r.converged
+    for k in ("A", "B", "C", "t1", "t2", "t3")
+        @test fold(r, k) ≈ 1.0 atol = 1e-9
+    end
+end
+
+@testset "configuration: DS_CYCLE_CARRIERS" begin
+    for bad in ("On", "yes", "")
+        with_env("DS_CYCLE_CARRIERS" => bad) do
+            @test_throws ArgumentError DS.cycle_carriers()
+        end
+    end
+    with_env("DS_CYCLE_CARRIERS" => nothing) do
+        @test DS.cycle_carriers()
+    end
+end
+
 @testset "label-independent" begin
     rl(u) = "zz_" * u
     r1 = solve(fixture(); obs = Dict("EF" => 3.0))
@@ -187,9 +300,29 @@ end
               "pool_id,from_uuid,to_uuid,reaction_uuid,reaction_stid\npool1,u-a,u-b,u-f,R-F\npool1,u-b,u-a,u-r,R-R\n")
         p = DS.parse_pools(ln)
         @test length(p) == 1 && p[1].base == "u-a" && p[1].forms == ["u-a", "u-b"]
-        @test p[1].transitions == [("u-a", "u-b", "u-f"), ("u-b", "u-a", "u-r")]
+        @test [(q.from, q.to, q.steps) for q in p[1].paths] ==
+              [("u-a", "u-b", [("u-a", "u-b", "u-f")]), ("u-b", "u-a", [("u-b", "u-a", "u-r")])]
+        @test all(q -> q.enzyme, p[1].paths) && isempty(p[1].intermediates)
         write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,is_base\npool1,u-a,R-A,False\n")
         @test_throws ArgumentError DS.parse_pools(ln)   # a pool must have a base form
+        # amendment 2: roles, one row per step, carriers
+        write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,role,is_base\n" *
+              "pool1,u-s,R-S,state,True\npool1,u-t,R-T,state,False\npool1,u-c,R-C,intermediate,False\n")
+        write(joinpath(dir, "pool_transitions.csv"),
+              "pool_id,path_id,step,source_uuid,target_uuid,reaction_uuid,reaction_stid,enzyme_driven\n" *
+              "pool1,p2,1,u-t,u-s,u-h,R-H,False\npool1,p1,2,u-c,u-t,u-r,R-R,True\npool1,p1,1,u-s,u-c,u-b,R-B,True\n")
+        write(joinpath(dir, "pool_carriers.csv"), "pool_id,carrier_uuid,release_reaction_uuid\npool1,u-e,u-r\n")
+        p = DS.parse_pools(ln)
+        @test p[1].forms == ["u-s", "u-t"] && p[1].intermediates == ["u-c"]
+        @test [(q.from, q.to, length(q.steps), q.enzyme) for q in p[1].paths] ==
+              [("u-s", "u-t", 2, true), ("u-t", "u-s", 1, false)]
+        @test p[1].paths[1].steps == [("u-s", "u-c", "u-b"), ("u-c", "u-t", "u-r")]
+        @test p[1].carriers == [("u-e", "u-r")]
+        # a path whose steps do not chain is an error, not a silent pool
+        write(joinpath(dir, "pool_transitions.csv"),
+              "pool_id,path_id,step,source_uuid,target_uuid,reaction_uuid,reaction_stid,enzyme_driven\n" *
+              "pool1,p1,1,u-s,u-c,u-b,R-B,True\npool1,p1,2,u-x,u-t,u-r,R-R,True\n")
+        @test_throws ArgumentError DS.parse_pools(ln)
     end
 end
 

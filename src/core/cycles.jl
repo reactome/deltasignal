@@ -25,8 +25,23 @@ modified form at rest. It uses detailed balance, with each step away from the ba
 rates are k_ij = sqrt(π0_j / π0_i), which satisfy detailed balance, so π = π0 when
 nothing is perturbed.
 
+**Multi-step cycles (amendment 2).** Reactome usually curates a modification in
+steps (S + E → S:E → S*:E → S* + E). The chain's states are the least-bound form
+of each modification signature; a transition is a PATH state → intermediates →
+state, with drive = the product of its steps' drives, and the intermediates
+(enzyme complexes) hold no baseline share and read the flux through them. This
+reduces exactly to the two-form rule. Baseline rates come from the stationary
+flow of a random walk on the states (exits weighted 1 if enzyme-driven, else
+CYCLE_INTRINSIC_WEIGHT beside an enzyme-driven exit), so π0 is stationary on any
+graph, reversible or not.
+
+**Carriers.** The enzyme's free form is fed back by the release steps it
+catalyses; that closes a gain-1 loop of its own. Under DS_CYCLE_CARRIERS=on
+(default) the free form reads its OTHER producers (else baseline).
+
   DS_CYCLE_MODE=off      (default) previous behaviour: loops are iterated.
   DS_CYCLE_MODE=balance  pools listed in the bundle's pools.csv are solved as above.
+  DS_CYCLE_CARRIERS=on|off  (balance only) the carrier rule above.
 """
 
 const DS_VALID_CYCLE_MODES = Set(["off", "balance"])
@@ -38,6 +53,12 @@ function cycle_mode()::String
     return value
 end
 
+function cycle_carriers()::Bool
+    value = get(ENV, "DS_CYCLE_CARRIERS", "on")
+    value in ("on", "off") || throw(ArgumentError("DS_CYCLE_CARRIERS must be on or off; got $(repr(value))"))
+    return value == "on"
+end
+
 function cycle_phi()::Float64
     raw = strip(get(ENV, "DS_CYCLE_PHI", "0.1"))
     phi = tryparse(Float64, raw)
@@ -46,19 +67,22 @@ function cycle_phi()::Float64
     return phi
 end
 
-"""A pool resolved to solver indices."""
+"""A pool resolved to solver indices. Positions refer to `forms` (the states)."""
 struct IndexedPool
-    forms::Vector{Int}                  # node indices of the forms
-    pi0::Vector{Float64}                # baseline split, aligned with forms
-    trans_from::Vector{Int}             # position in `forms`
-    trans_to::Vector{Int}
-    trans_rxn::Vector{Int}              # index into rxns_idx of the transition reaction
-    trans_node::Vector{Int}             # node index of the transition reaction
-    trans_k::Vector{Float64}            # baseline rate
-    supply_rxns::Vector{Vector{Int}}    # per form: node indices of its producers outside the pool
-                                        # (narrowed by the solver to those outside the component)
-    form_rxn::Vector{Int}               # per form: rxns_idx of the form's own update (0 if none),
-                                        # read for its non-activator inputs (depletion, inhibitors)
+    forms::Vector{Int}                  # node indices of the states
+    pi0::Vector{Float64}                # baseline split over states
+    path_from::Vector{Int}              # position in `forms`
+    path_to::Vector{Int}
+    path_k::Vector{Float64}             # baseline rate
+    path_j0::Vector{Float64}            # baseline flow
+    path_steps::Vector{Vector{Tuple{Int, Int}}}   # (rxns_idx of the step's reaction, its source node)
+    flux_nodes::Vector{Int}             # step reaction nodes and intermediates
+    flux_paths::Vector{Vector{Int}}     # the paths through each
+    supply_rxns::Vector{Vector{Int}}    # per state: its producers outside the pool
+    form_rxn::Vector{Int}               # per state: rxns_idx of the state's own update (0 if none)
+    carriers::Vector{Int}               # enzyme free-form nodes
+    carrier_rxn::Vector{Int}            # rxns_idx of each carrier's update
+    carrier_release::Vector{Set{Int}}   # release step nodes excluded from each carrier's producers
 end
 
 """Drive regulariser: rates are k·(u + ε), so with every drive of a pool at zero
@@ -66,19 +90,36 @@ the split tends to π0 rather than to whatever a constant added to Q selects
 (review of specs/039, finding 5). ε is relative to a drive of 1 at baseline."""
 const CYCLE_DRIVE_EPS = 1e-9
 
-"""Baseline share of an UNCATALYSED transition beside a catalysed one for the
-same pair of forms, relative to each catalysed one (specs/039 amendment 2).
+"""Baseline weight of a NON-enzyme exit from a state that also has an
+enzyme-driven exit, relative to each enzyme-driven one (specs/039 amendment 2).
 Intrinsic GTP hydrolysis and nucleotide exchange run orders of magnitude slower
 than the GAP- or GEF-stimulated reactions, and basal (de)modification slower
-than the enzyme's. An equal split made SOS1 knockout read RAS:GTP at 0.53
-(Fable review, finding 5). Declared, not fitted. A pair with only uncatalysed
-reactions is unaffected."""
+than the enzyme's. Weighed per exit, so RAS's intrinsic hydrolysis competes
+with the GAP path. Declared, not fitted."""
 const CYCLE_INTRINSIC_WEIGHT = 1e-3
 
+"""Paths longer than this are not resolved (the generator already caps at 6)."""
+const CYCLE_MAX_STEPS = 6
+
 """
-Resolve `pools` to solver indices. A pool is kept only if every form and every
-transition reaction has a node, and every transition reaction has an
-IndexedReaction; otherwise it is skipped and counted (reported as a fallback).
+Stationary distribution of an n-state chain with rate matrix Q (rows sum to 0),
+normalised; negative round-off clipped.
+"""
+function _stationary(Q::Matrix{Float64})
+    n = size(Q, 1)
+    A = Matrix(transpose(Q)); A[n, :] .= 1.0
+    b = zeros(n); b[n] = 1.0
+    pi = A \ b
+    pi = max.(pi, 0.0)
+    return pi ./ sum(pi)
+end
+
+"""
+Resolve `pools` to solver indices. A pool is kept only if every state,
+intermediate and step reaction has a node, every step reaction has an
+IndexedReaction, every path is at most CYCLE_MAX_STEPS long, and the state graph
+is connected; otherwise it is skipped and counted (reported as a fallback).
+Carriers whose node or release node is missing are dropped from the pool.
 """
 function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float64)
     by_target = Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
@@ -86,15 +127,17 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
     skipped = 0
     ratio = phi / (1.0 - phi)
     for p in pools
-        if !all(f -> haskey(uuid_to_idx, f), p.forms) || isempty(p.transitions)
+        nodes_ok = all(f -> haskey(uuid_to_idx, f), p.forms) && all(f -> haskey(uuid_to_idx, f), p.intermediates)
+        if !nodes_ok || isempty(p.paths) || !(p.base in p.forms)
             skipped += 1; continue
         end
         pos = Dict(f => i for (i, f) in enumerate(p.forms))
-        # distance from the base form over the (undirected) transition graph
+        n = length(p.forms)
+        # π0 over states: ρ^(distance from the base state) on the state graph
         adj = Dict(f => Set{String}() for f in p.forms)
-        for (a, b, _) in p.transitions
-            (haskey(adj, a) && haskey(adj, b)) || continue
-            push!(adj[a], b); push!(adj[b], a)
+        for q in p.paths
+            (haskey(adj, q.from) && haskey(adj, q.to)) || continue
+            push!(adj[q.from], q.to); push!(adj[q.to], q.from)
         end
         dist = Dict(p.base => 0); frontier = [p.base]
         while !isempty(frontier)
@@ -105,105 +148,137 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             end
             frontier = nxt
         end
-        if length(dist) != length(p.forms)
-            skipped += 1; continue           # disconnected pool: not solvable as one chain
+        if length(dist) != n
+            skipped += 1; continue
         end
-        w = [ratio ^ dist[f] for f in p.forms]
-        pi0 = w ./ sum(w)
-        tf = Int[]; tt = Int[]; tr = Int[]; tn = Int[]; tk = Float64[]
+        w0 = [ratio ^ dist[f] for f in p.forms]
+        pi0 = w0 ./ sum(w0)
+        # paths
+        pf = Int[]; pt = Int[]; psteps = Vector{Tuple{Int, Int}}[]; penz = Bool[]
         ok = true
-        wsum = Dict{Tuple{Int, Int}, Float64}()
-        paircat = Dict{Tuple{Int, Int}, Bool}()
-        for (a, b, rx) in p.transitions
-            (haskey(pos, a) && haskey(pos, b)) || continue
-            k = (pos[a], pos[b])
-            paircat[k] = get(paircat, k, false) || !(rx in p.uncatalysed)
+        for q in p.paths
+            (haskey(pos, q.from) && haskey(pos, q.to) && q.from != q.to &&
+             1 <= length(q.steps) <= CYCLE_MAX_STEPS) || (ok = false; break)
+            st = Tuple{Int, Int}[]
+            for (a, b, rx) in q.steps
+                (haskey(uuid_to_idx, a) && haskey(uuid_to_idx, rx)) || (ok = false; break)
+                node = uuid_to_idx[rx]
+                haskey(by_target, node) || (ok = false; break)
+                push!(st, (by_target[node], uuid_to_idx[a]))
+            end
+            ok || break
+            push!(pf, pos[q.from]); push!(pt, pos[q.to]); push!(psteps, st); push!(penz, q.enzyme)
         end
-        wt = Float64[]
-        for (a, b, rx) in p.transitions
-            (haskey(pos, a) && haskey(pos, b) && haskey(uuid_to_idx, rx)) || (ok = false; break)
-            node = uuid_to_idx[rx]
-            haskey(by_target, node) || (ok = false; break)
-            i, j = pos[a], pos[b]
-            push!(tf, i); push!(tt, j); push!(tr, by_target[node]); push!(tn, node)
-            w = (rx in p.uncatalysed && paircat[(i, j)]) ? CYCLE_INTRINSIC_WEIGHT : 1.0
-            push!(wt, w)
-            wsum[(i, j)] = get(wsum, (i, j), 0.0) + w
+        (ok && !isempty(pf)) || (skipped += 1; continue)
+        # baseline flow: the random walk on states, exits weighted by kind
+        has_enz = falses(n)
+        for q in eachindex(pf); penz[q] && (has_enz[pf[q]] = true); end
+        w = [(!penz[q] && has_enz[pf[q]]) ? CYCLE_INTRINSIC_WEIGHT : 1.0 for q in eachindex(pf)]
+        W = zeros(n)
+        for q in eachindex(pf); W[pf[q]] += w[q]; end
+        if any(==(0.0), W)
+            skipped += 1; continue                 # a state with no exit: not one chain
         end
-        ok || (skipped += 1; continue)
-        for q in eachindex(tf)
-            i, j = tf[q], tt[q]
-            # parallel reactions share the pair's baseline rate by weight
-            push!(tk, sqrt(pi0[j] / pi0[i]) * wt[q] / wsum[(i, j)])
+        P = zeros(n, n)
+        for q in eachindex(pf); P[pf[q], pt[q]] += w[q] / W[pf[q]]; end
+        Qw = P - Matrix{Float64}(I, n, n)
+        mu = _stationary(Qw)
+        if any(<=(0.0), mu)
+            skipped += 1; continue                 # not strongly connected
         end
-        trans_nodes = Set(tn)
+        j0 = [mu[pf[q]] * w[q] / W[pf[q]] for q in eachindex(pf)]
+        k = [j0[q] / pi0[pf[q]] for q in eachindex(pf)]
+        # flux nodes: step reaction nodes and intermediates
+        fl = Dict{Int, Vector{Int}}()
+        for (q, st) in enumerate(psteps)
+            for (s_i, (ri, src)) in enumerate(st)
+                push!(get!(fl, rxns_idx[ri].target_idx, Int[]), q)
+                s_i > 1 && push!(get!(fl, src, Int[]), q)
+            end
+        end
+        fnodes = sort!(collect(keys(fl)))
+        fpaths = [unique(fl[v]) for v in fnodes]
+        step_nodes = Set(rxns_idx[ri].target_idx for st in psteps for (ri, _) in st)
         supply = Vector{Vector{Int}}()
         for f in p.forms
             fi = uuid_to_idx[f]
             prod = Int[]
             if haskey(by_target, fi)
                 for a in rxns_idx[by_target[fi]].activator_indices
-                    a in trans_nodes && continue
+                    a in step_nodes && continue
                     push!(prod, a)
                 end
             end
             push!(supply, prod)
         end
         frx = [get(by_target, uuid_to_idx[f], 0) for f in p.forms]
-        push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, tf, tt, tr, tn, tk, supply, frx))
+        # carriers
+        cs = Int[]; crx = Int[]; crel = Set{Int}[]
+        cmap = Dict{Int, Set{Int}}()
+        for (c, rel) in p.carriers
+            (haskey(uuid_to_idx, c) && haskey(uuid_to_idx, rel)) || continue
+            ci = uuid_to_idx[c]
+            haskey(by_target, ci) || continue
+            push!(get!(cmap, ci, Set{Int}()), uuid_to_idx[rel])
+        end
+        for ci in sort!(collect(keys(cmap)))
+            push!(cs, ci); push!(crx, by_target[ci]); push!(crel, cmap[ci])
+        end
+        push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
+                               fnodes, fpaths, supply, frx, cs, crx, crel))
     end
     return out, skipped
 end
 
 """
-Stationary distribution of the pool's chain at the current drives, and the
-drives themselves. The drives are evaluated with each transition's source form
-held at baseline (the rate is k · u · π_i; its π_i is the unknown).
+Drive of each path: the product over its steps of the step's reaction, evaluated
+with that step's source held at baseline, over the reaction's baseline.
 """
-function pool_stationary(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, config)
-    n = length(p.forms)
-    u = Vector{Float64}(undef, length(p.trans_from))
-    for q in eachindex(p.trans_from)
-        src = p.forms[p.trans_from[q]]
-        keep = x[src]
-        x[src] = baseline_vec[src]
-        out = compute_reaction_output_vec(x, rxns_idx[p.trans_rxn[q]]; config = config)
-        x[src] = keep
-        bl = baseline_vec[p.trans_node[q]]
-        u[q] = bl > 0 ? out / bl : 0.0
+function path_drives(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, config)
+    u = Vector{Float64}(undef, length(p.path_from))
+    for q in eachindex(p.path_from)
+        d = 1.0
+        for (ri, src) in p.path_steps[q]
+            keep = x[src]
+            x[src] = baseline_vec[src]
+            out = compute_reaction_output_vec(x, rxns_idx[ri]; config = config)
+            x[src] = keep
+            bl = baseline_vec[rxns_idx[ri].target_idx]
+            d *= bl > 0 ? out / bl : 0.0
+            d == 0.0 && break
+        end
+        u[q] = d
     end
-    Q = zeros(n, n)
-    for q in eachindex(p.trans_from)
-        i, j = p.trans_from[q], p.trans_to[q]
-        rate = p.trans_k[q] * (u[q] + CYCLE_DRIVE_EPS)
-        Q[i, j] += rate; Q[i, i] -= rate
-    end
-    A = Matrix(transpose(Q)); A[n, :] .= 1.0
-    b = zeros(n); b[n] = 1.0
-    pi = A \ b
-    pi = max.(pi, 0.0); pi ./= sum(pi)
-    return pi, u
+    return u
 end
 
 """
-Fold applied to a form by its non-activator inputs (depletion and inhibitor
-edges from outside the pool): the form's own update evaluated with every
-activator at baseline, divided by the form's baseline. 1 when it has none.
-Sources that drive the pool's own transitions (the catalyst ⊣ source-form
-depletion edge) are also held at baseline: the balance already contains them,
-as pre-registered.
-Without it the pool's management dropped those edges (review of specs/039,
-finding 4). The depleted share is removed, not redistributed to other forms.
+Stationary distribution over the pool's states at the current drives, and the
+drives themselves.
 """
-function form_modifier(x::AbstractVector{Float64}, p::IndexedPool, k::Int, rxns_idx, baseline_vec, config)
-    ri = p.form_rxn[k]
+function pool_stationary(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, config)
+    u = path_drives(x, p, rxns_idx, baseline_vec, config)
+    n = length(p.forms)
+    Q = zeros(n, n)
+    for q in eachindex(p.path_from)
+        i, j = p.path_from[q], p.path_to[q]
+        rate = p.path_k[q] * (u[q] + CYCLE_DRIVE_EPS)
+        Q[i, j] += rate; Q[i, i] -= rate
+    end
+    return _stationary(Q), u
+end
+
+"""
+Fold applied to a node by its non-activator inputs (depletion and inhibitor
+edges): its own update evaluated with every activator, and every node in
+`extra_held`, at baseline, divided by its baseline. 1 when it has none.
+"""
+function _modifier(x::AbstractVector{Float64}, ri::Int, rxns_idx, baseline_vec, config, extra_held)
     ri == 0 && return 1.0
     r = rxns_idx[ri]
     (isempty(r.inhibitor_indices) && isempty(r.depletion_indices)) && return 1.0
     held = Set(r.activator_indices)
-    for q in p.trans_rxn
-        union!(held, rxns_idx[q].activator_indices)
-    end
+    union!(held, extra_held)
     held = sort!(collect(held))
     keep = [x[a] for a in held]
     for a in held; x[a] = baseline_vec[a]; end
@@ -214,14 +289,32 @@ function form_modifier(x::AbstractVector{Float64}, p::IndexedPool, k::Int, rxns_
 end
 
 """
-Write the pool's forms and transition-reaction nodes from its steady state.
-Pinned forms keep their value and fix the supply; otherwise the supply is the
-mean fold of the forms' producers outside the pool's component (1 if there are
-none). A form's value is then scaled by its non-activator inputs
-(`form_modifier`). A transition node reads its flux: its drive times the fold of
-its source form. Returns the largest absolute change written.
+Fold applied to a state by its non-activator inputs from outside the pool
+(review of specs/039, finding 4). Sources that drive the pool's own steps (the
+catalyst ⊣ source-form depletion edge) are also held at baseline: the balance
+already contains them, as pre-registered. The depleted share is removed, not
+redistributed to other states.
 """
-function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, obs_set, config)
+function form_modifier(x::AbstractVector{Float64}, p::IndexedPool, k::Int, rxns_idx, baseline_vec, config)
+    held = Set{Int}()
+    for st in p.path_steps, (ri, _) in st
+        union!(held, rxns_idx[ri].activator_indices)
+    end
+    return _modifier(x, p.form_rxn[k], rxns_idx, baseline_vec, config, held)
+end
+
+"""
+Write the pool's states, step reaction nodes and intermediates from its steady
+state, and (with `carriers`) its carriers. Pinned nodes keep their value; a
+pinned state fixes the supply, otherwise the supply is the mean fold of the
+states' producers outside the pool (1 if none). A path's flux fold is its drive
+times its source state's fold; a flux node reads the baseline-flow-weighted mean
+of the paths through it. A carrier reads the mean fold of its producers other
+than the release steps (1 if none), times its modifier. Returns the largest
+absolute change written.
+"""
+function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, obs_set, config;
+                      carriers::Bool = true)
     pi, u = pool_stationary(x, p, rxns_idx, baseline_vec, config)
     s = NaN
     for (k, f) in enumerate(p.forms)
@@ -247,12 +340,31 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
         v = clamp(baseline_vec[f] * s * m * pi[k] / p.pi0[k], 0.0, 1.0)
         maxch = max(maxch, abs(v - x[f])); x[f] = v
     end
-    for q in eachindex(p.trans_from)
-        t = p.trans_node[q]
-        t in obs_set && continue
-        src = p.forms[p.trans_from[q]]
-        v = clamp(baseline_vec[t] * u[q] * x[src] / baseline_vec[src], 0.0, 1.0)
-        maxch = max(maxch, abs(v - x[t])); x[t] = v
+    flux = [u[q] * x[p.forms[p.path_from[q]]] / baseline_vec[p.forms[p.path_from[q]]] for q in eachindex(u)]
+    for (v, qs) in zip(p.flux_nodes, p.flux_paths)
+        v in obs_set && continue
+        num = 0.0; den = 0.0
+        for q in qs
+            num += p.path_j0[q] * flux[q]; den += p.path_j0[q]
+        end
+        val = clamp(baseline_vec[v] * (den > 0 ? num / den : 1.0), 0.0, 1.0)
+        maxch = max(maxch, abs(val - x[v])); x[v] = val
+    end
+    if carriers
+        for (c, ri, rel) in zip(p.carriers, p.carrier_rxn, p.carrier_release)
+            c in obs_set && continue
+            tot = 0.0; cnt = 0
+            for a in rxns_idx[ri].activator_indices
+                a in rel && continue
+                bl = baseline_vec[a]
+                bl > 0 || continue
+                tot += x[a] / bl; cnt += 1
+            end
+            sc = cnt == 0 ? 1.0 : tot / cnt
+            m = _modifier(x, ri, rxns_idx, baseline_vec, config, Set{Int}())
+            val = clamp(baseline_vec[c] * sc * m, 0.0, 1.0)
+            maxch = max(maxch, abs(val - x[c])); x[c] = val
+        end
     end
     return maxch
 end

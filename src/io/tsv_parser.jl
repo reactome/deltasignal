@@ -27,21 +27,40 @@ struct SetExpansionMapping
 end
 
 """
-One protein's interconversion pool (specs/039): its forms (node uuids), its
-resting (base) form, and the curated reactions converting between forms, as
-(from form, to form, reaction node) triples. Read from the generator's
-`pools.csv` and `pool_transitions.csv`.
+One transition of a pool (specs/039 amendment 2): a directed path from one state
+to another through zero or more intermediates (enzyme complexes). `steps` are
+(source node, target node, reaction node) in order; `enzyme` says whether a
+step is driven by a protein other than the pool's own.
+"""
+struct PoolPath
+    from::String
+    to::String
+    steps::Vector{Tuple{String, String, String}}
+    enzyme::Bool
+end
+
+"""
+One protein's modification pool (specs/039): its states (node uuids), its
+resting (base) state, the paths converting between states, the intermediates
+those paths pass through, and its carriers: (enzyme free-form node, release
+reaction node producing it). Read from the generator's `pools.csv`,
+`pool_transitions.csv` and `pool_carriers.csv`.
 """
 struct CyclePool
     id::String
-    forms::Vector{String}
+    forms::Vector{String}                       # states
     base::String
-    transitions::Vector{Tuple{String, String, String}}
-    # transition reaction uuids with no catalyst edge (intrinsic steps); empty
-    # when the table has no `catalysed` column (specs/039 amendment 2)
-    uncatalysed::Set{String}
+    paths::Vector{PoolPath}
+    intermediates::Vector{String}
+    carriers::Vector{Tuple{String, String}}
 end
-CyclePool(id, forms, base, transitions) = CyclePool(id, forms, base, transitions, Set{String}())
+
+"""Amendment 1 form: one-step transitions (from, to, reaction) between two or
+more forms, none of them intermediates. `uncatalysed` lists intrinsic steps."""
+function CyclePool(id, forms, base, transitions::AbstractVector{<:Tuple}, uncatalysed = Set{String}())
+    paths = [PoolPath(a, b, [(a, b, rx)], !(rx in uncatalysed)) for (a, b, rx) in transitions]
+    return CyclePool(id, forms, base, paths, String[], Tuple{String, String}[])
+end
 
 struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
@@ -417,36 +436,69 @@ Read `pools.csv` and `pool_transitions.csv` beside a logic network (specs/039).
 """
 function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePool}}
     dir = dirname(logic_network_path)
-    pf, tf = joinpath(dir, "pools.csv"), joinpath(dir, "pool_transitions.csv")
+    pf, tf, cf = (joinpath(dir, f) for f in ("pools.csv", "pool_transitions.csv", "pool_carriers.csv"))
     isfile(pf) || return nothing
-    forms = Dict{String, Vector{String}}(); base = Dict{String, String}()
+    states = Dict{String, Vector{String}}(); inter = Dict{String, Vector{String}}()
+    base = Dict{String, String}()
     df = CSV.read(pf, DataFrame; types = String)
     for c in ("pool_id", "node_uuid", "is_base")
         c in names(df) || throw(ArgumentError("$pf has no `$c` column"))
     end
+    hasrole = "role" in names(df)
     for r in eachrow(df)
         (ismissing(r.pool_id) || ismissing(r.node_uuid)) && continue
-        push!(get!(forms, r.pool_id, String[]), r.node_uuid)
+        role = hasrole && !ismissing(r.role) ? lowercase(r.role) : "state"
+        role in ("state", "intermediate") || throw(ArgumentError("$pf: unknown role $(repr(role))"))
+        push!(get!(role == "state" ? states : inter, r.pool_id, String[]), r.node_uuid)
         !ismissing(r.is_base) && lowercase(r.is_base) in ("true", "1") && (base[r.pool_id] = r.node_uuid)
     end
-    trans = Dict{String, Vector{Tuple{String, String, String}}}()
-    uncat = Dict{String, Set{String}}()
+    paths = Dict{String, Vector{PoolPath}}()
     if isfile(tf)
         dt = CSV.read(tf, DataFrame; types = String)
-        hascat = "catalysed" in names(dt)
-        for r in eachrow(dt)
-            any(ismissing, (r.pool_id, r.from_uuid, r.to_uuid, r.reaction_uuid)) && continue
-            push!(get!(trans, r.pool_id, Tuple{String, String, String}[]), (r.from_uuid, r.to_uuid, r.reaction_uuid))
-            if hascat && !ismissing(r.catalysed) && !(lowercase(r.catalysed) in ("true", "1"))
-                push!(get!(uncat, r.pool_id, Set{String}()), r.reaction_uuid)
+        truthy(v) = !ismissing(v) && lowercase(v) in ("true", "1")
+        if "path_id" in names(dt)                 # amendment 2: one row per step
+            steps = Dict{Tuple{String, String}, Vector{Tuple{Int, String, String, String}}}()
+            enz = Dict{Tuple{String, String}, Bool}()
+            for r in eachrow(dt)
+                any(ismissing, (r.pool_id, r.path_id, r.step, r.source_uuid, r.target_uuid, r.reaction_uuid)) && continue
+                key = (r.pool_id, r.path_id)
+                push!(get!(steps, key, Tuple{Int, String, String, String}[]),
+                      (parse(Int, r.step), r.source_uuid, r.target_uuid, r.reaction_uuid))
+                enz[key] = get(enz, key, false) | truthy(r.enzyme_driven)
+            end
+            for key in sort!(collect(keys(steps)))
+                st = sort!(steps[key])
+                for q in 2:length(st)
+                    st[q][2] == st[q - 1][3] || throw(ArgumentError(
+                        "$tf: pool $(key[1]) path $(key[2]) step $(st[q][1]) does not start where step $(st[q - 1][1]) ends"))
+                end
+                push!(get!(paths, key[1], PoolPath[]),
+                      PoolPath(st[1][2], st[end][3], [(a, b, rx) for (_, a, b, rx) in st], enz[key]))
+            end
+        else                                       # amendment 1: one row per one-step transition
+            hascat = "catalysed" in names(dt)
+            for r in eachrow(dt)
+                any(ismissing, (r.pool_id, r.from_uuid, r.to_uuid, r.reaction_uuid)) && continue
+                push!(get!(paths, r.pool_id, PoolPath[]),
+                      PoolPath(r.from_uuid, r.to_uuid, [(r.from_uuid, r.to_uuid, r.reaction_uuid)],
+                               hascat ? truthy(r.catalysed) : true))
             end
         end
     end
+    carriers = Dict{String, Vector{Tuple{String, String}}}()
+    if isfile(cf)
+        dc = CSV.read(cf, DataFrame; types = String)
+        for r in eachrow(dc)
+            any(ismissing, (r.pool_id, r.carrier_uuid, r.release_reaction_uuid)) && continue
+            push!(get!(carriers, r.pool_id, Tuple{String, String}[]), (r.carrier_uuid, r.release_reaction_uuid))
+        end
+    end
     out = CyclePool[]
-    for id in sort!(collect(keys(forms)))
+    for id in sort!(collect(keys(states)))
         haskey(base, id) || throw(ArgumentError("$pf: pool $id has no base form"))
-        push!(out, CyclePool(id, sort!(forms[id]), base[id], sort!(get(trans, id, Tuple{String, String, String}[])),
-                             get(uncat, id, Set{String}())))
+        ps = sort!(get(paths, id, PoolPath[]); by = p -> (p.from, p.to, p.steps))
+        push!(out, CyclePool(id, sort!(states[id]), base[id], ps, sort!(get(inter, id, String[])),
+                             sort!(get(carriers, id, Tuple{String, String}[]))))
     end
     return out
 end
