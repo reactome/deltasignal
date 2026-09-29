@@ -359,7 +359,8 @@ env vars only override for benchmark sweeps:
   tables; a bundle without them reports `balance: no pool table` (loops then
   iterate as under `off`), and the bench refuses such a build. φ₀ refers to
   the pool's ACTIVE form, which the generator marks (`LNG_POOL_ACTIVE_VIA`).
-- `DS_SELF_FED_MODE=off` (default) | `entry` (specs/040 rule A): in an
+- `DS_SELF_FED_MODE=off` (default; `entry` measured and **refuted**: TP53 −190,
+  PIP3 −126, experimental −66) | `entry` (specs/040 rule A): in an
   iterated cyclic component, an input fed by nothing except what it feeds
   (every signal path from a component entry passes through the input's own
   consumers; set pools transparent) reads its component-entry value, which
@@ -369,7 +370,8 @@ env vars only override for benchmark sweeps:
   residual now reads held edges (specs/018 closures too) at the value the
   iteration used, not the live state, which had reported residual ≈ 1 on
   converged solves.
-- `DS_SELF_INHIBITOR_LEAVES=0` (default) | `1` (specs/040 rule B): the
+- `DS_SELF_INHIBITOR_LEAVES=1` (**default since 2026-09-28**; curator held-out
+  +48, experimental +20 at p 0.0012 against `0`) | `0` (specs/040 rule B): the
   specs/022 pair test also matches an inhibitor that shares a non-cofactor
   leaf with the input when a carrier of that leaf reaches both (built from
   the same species). Same weight, weaken-only. Reports
@@ -480,7 +482,8 @@ for the last feature that touched it rather than re-deriving from the code.
   it (RAF traced: recycled set-pool members, bundle leaves fed only by their
   step's downstream, a leaf-sharing inhibitor). Two blind derivations; the
   rules `DS_SELF_FED_MODE` and `DS_SELF_INHIBITOR_LEAVES` above are
-  pre-registered there. Default off until the arms are measured.
+  pre-registered there. **Rule B adopted** (held-out +48, experimental +20,
+  worst pathway −3); rule A refuted (TP53 −190, PIP3 −126).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

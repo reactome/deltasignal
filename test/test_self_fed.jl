@@ -89,7 +89,7 @@ fixture_noact() = net(["X", "L1", "L2", "R1", "C", "R2", "N"],
 end
 
 
-@testset "mode readers reject typos, defaults are off" begin
+@testset "mode readers reject typos; rule A defaults off, rule B on" begin
     with_env("DS_SELF_FED_MODE" => nothing) do
         @test DS.self_fed_mode() == "off"
     end
@@ -103,7 +103,7 @@ end
         end
     end
     with_env("DS_SELF_INHIBITOR_LEAVES" => nothing) do
-        @test DS.self_inhibitor_leaves() == false
+        @test DS.self_inhibitor_leaves() == true
     end
     for bad in ("yes", "on", "2", "")
         with_env("DS_SELF_INHIBITOR_LEAVES" => bad) do
@@ -172,10 +172,10 @@ end
     end
 end
 
-@testset "off is byte-identical to unset; baseline is exact" begin
+@testset "the defaults are byte-identical to A off, B on; baseline is exact" begin
     for f in (fixture_pool(), fixture_leaves(), fixture_inh())
         a = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = nothing, DS_SELF_INHIBITOR_LEAVES = nothing)
-        b = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "off", DS_SELF_INHIBITOR_LEAVES = "0")
+        b = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "off", DS_SELF_INHIBITOR_LEAVES = "1")
         @test a.node_activities == b.node_activities
         # At rest every held edge reads fold 1: nothing moves, on or off.
         for mode in ("off", "entry"), lv in ("0", "1")

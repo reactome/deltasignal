@@ -62,7 +62,7 @@ end
 const DS_VALID_SELF_INHIBITOR_LEAVES = Set(["0", "1"])
 
 function self_inhibitor_leaves()::Bool
-    value = get(ENV, "DS_SELF_INHIBITOR_LEAVES", "0")
+    value = get(ENV, "DS_SELF_INHIBITOR_LEAVES", "1")   # default on since 2026-09-28 (specs/040 result)
     value in DS_VALID_SELF_INHIBITOR_LEAVES || throw(ArgumentError(
         "DS_SELF_INHIBITOR_LEAVES must be 0 or 1; got $(repr(value))"))
     return value == "1"
