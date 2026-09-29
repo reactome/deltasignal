@@ -224,3 +224,36 @@ on the canonical build at one solver commit.
 - **net ≥ 0 on both axes outside RAF**;
 - Class I MHC, Mitotic G2 and HRR/NHEJ/DSB named with their nets;
 - pathways with zero flags bit-identical to ctrl.
+
+### Amendment 1 result: rule A2 NOT adopted (fails the held-out gate)
+
+Build `20260928-1110_06ccb63`; `ctrlA2` = current default (039 + B) and `a2`
+(+ `DS_SELF_FED_MODE=multi`) at solver `31c1f91` (`results/31c1f91`).
+
+| a2 vs ctrlA2 | net | p |
+|---|---|---|
+| **curator held-out** | **−6** (6/12) | 0.24 |
+| curator tuning | +58 (58/0) | 6.9e-18 |
+| curator all | +52 (64/12) | 1e-9 |
+| experimental | +12 (12/0) | 0.00049 |
+
+- **Every gain is in two tuning pathways** (the paper's ten): RAF +30 curator /
+  +12 experimental, and HDR +26.
+- **Held-out:** Transcriptional regulation of pluripotent stem cells −6,
+  ERBB2 +2. Nothing else moves.
+- **The experimental +12 is 1 pathway and 5 perturbations,** so by the
+  concentration rule its p-value is not evidence of generality.
+- **Gates:**
+
+  | gate | result |
+  |---|---|
+  | curator held-out > +15, p < 0.05 | **fail** |
+  | experimental > 0 | pass |
+  | no pathway loses > 10 | pass |
+  | net ≥ 0 outside RAF | pass (experimental 0, curator +22) |
+
+- **Verdict: not adopted.** The rule fixes the tuning pathway it was designed
+  on (RAF) and HDR, and does not generalise to the held-out set.
+  `DS_SELF_FED_MODE=multi` stays available, default off.
+- **Convergence** is unchanged: 1,669 of 1,725 curator and 218 of 244
+  experimental solves, as ctrl.
