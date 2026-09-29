@@ -1079,6 +1079,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY[f"cycle_carriers={ds_result.get('cycle_carriers', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_carriers_held"] += int(ds_result.get("cycle_carriers_held") or 0)
             SOLVE_TALLY["conserved_held"] += int(ds_result.get("conserved_held") or 0)
+            SOLVE_TALLY[f"self_fed_rule={ds_result.get('self_fed_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["self_fed_edges_held"] += int(ds_result.get("self_fed_edges_held") or 0)
+            SOLVE_TALLY[f"self_inhibitor_leaves={ds_result.get('self_inhibitor_leaves', 'unknown')}"] += 1
+            SOLVE_TALLY["self_inhibitor_leaf_pairs"] += int(ds_result.get("self_inhibitor_leaf_pairs") or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
 
         for r in rows:
@@ -1381,6 +1385,14 @@ def main():
     print(f"\nConserved: rule {'/'.join(crules) or 'unknown'}, {SOLVE_TALLY['conserved_held']} node-solves held (specs/035)")
     if "inert" in crules and SOLVE_TALLY["conserved_held"] == 0:
         raise SystemExit("DS_CONSERVED_MODE=inert but no solve held a conserved node; the arm is the control.")
+    srules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_fed_rule="))
+    lrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_inhibitor_leaves="))
+    print(f"\nSelf-feedback: rule {'/'.join(srules) or 'unknown'}, {SOLVE_TALLY['self_fed_edges_held']} edge-solves held; "
+          f"leaf inhibitors {'/'.join(lrules) or 'unknown'}, {SOLVE_TALLY['self_inhibitor_leaf_pairs']} pair-solves (specs/040)")
+    if "entry" in srules and SOLVE_TALLY["self_fed_edges_held"] == 0:
+        raise SystemExit("DS_SELF_FED_MODE=entry but no solve held a self-fed edge; the arm is the control.")
+    if "on" in lrules and SOLVE_TALLY["self_inhibitor_leaf_pairs"] == 0:
+        raise SystemExit("DS_SELF_INHIBITOR_LEAVES=1 but no solve flagged a leaf-shared inhibitor; the arm is the control.")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
           f"perturbations, {PIN_TALLY['pinned_roots']} of them roots, "
           f"{PIN_TALLY['pinned_drugs']} drug nodes (DS_PIN_SCOPE={PIN_SCOPE})")

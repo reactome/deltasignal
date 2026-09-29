@@ -54,6 +54,13 @@ absent, and the cap is 100.
   (substrates, catalysts, positive regulators; AND), and divides by each
   inhibitor's fold-change. Doubling a required input doubles the reaction;
   doubling an inhibitor halves it; removing a required input stops it.
+- **An inhibitor built from the reaction's own input** (a sequestering complex,
+  or one assembled from the same proteins) would otherwise rise exactly as the
+  input does and cancel it. The part of its change that the shared input
+  explains is kept only at weight 0.1 (specs/022). Since specs/040 the rule
+  also applies when the two share a component rather than a whole complex, as
+  the PEBP1 complex does with RAS:GTP:RAF. That was measured at curator
+  held-out +48 and experimental +20.
 - **An entity** made by several reactions takes their average (OR).
 - **A set pool** multiplies its members' fold-changes (`DS_SET_POOL_MODE=product`).
   So every member's change passes through: one member doubled doubles the
