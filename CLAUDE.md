@@ -366,7 +366,17 @@ env vars only override for benchmark sweeps:
   consumers; set pools transparent) reads its component-entry value, which
   is baseline. Entries are per solve: pins off baseline and targets with an
   outside activator off baseline. The solve reports `self_fed_rule`,
-  `self_fed_nodes` and `self_fed_edges_held`. Also fixed there: the final
+  `self_fed_nodes` and `self_fed_edges_held`.
+  | `multi` (specs/040 amendment 1, rule A2; pre-registered post hoc, **not
+  yet measured**): an edge is held only if the input is *dominated, not
+  unreached* (some entry reaches it with its consumers passable; under
+  `entry` a loop whose signal enters through a negative edge was vacuously
+  "self-fed" and every node of it was held, which is what disconnected TP53
+  and PIP3) **and** the step *multiplies* it in (the target is a set-pool
+  node, or the step reads ≥ 2 dominated AND inputs: RAF's 21 scaffold leaves
+  and 3 pooled p-MEK dimers). A width-1 recycling (PIP2 ⇄ PIP3) stays live.
+  Traced in the amendment; `self_fed_nodes` then counts nodes with a held
+  edge. Also fixed with rule A: the final
   residual now reads held edges (specs/018 closures too) at the value the
   iteration used, not the live state, which had reported residual ≈ 1 on
   converged solves.
@@ -514,7 +524,7 @@ other seven execute code and print output.
 | `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 213 | specs/039, added 2026-09-27 |
-| `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
+| `test/test_self_fed.jl` | 147 | specs/040, added 2026-09-28; rule A2 tests 2026-09-28 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

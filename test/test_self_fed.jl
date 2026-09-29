@@ -77,7 +77,137 @@ fixture_noact() = net(["X", "L1", "L2", "R1", "C", "R2", "N"],
      edge("R2", "L1", true, "output"; and = false), edge("R2", "L2", true, "output"; and = false),
      edge("C", "N", false, "depletion")])
 
+"""
+A2 vacuous case (TP53 / PIP3 shape): the loop L1, L2 -> R1 -> C -> R2 -> L1, L2
+is entered only through a NEGATIVE edge. X pins R3 (an activator entry inside
+the component, since C feeds R3 and R3's product Y inhibits R1), but no
+activator path leads from R3 to any loop node. Under `entry` "every path passes
+through Out(u)" is vacuously true and the whole loop is held; under `multi`
+nothing is, even though R1 reads two recycled AND leaves (condition ii alone
+would hold them: this fixture pins condition i).
+"""
+fixture_negentry() = net(["X", "L1", "L2", "R1", "C", "R2", "R3", "Y"],
+    [edge("X", "R3", true, "input"), edge("C", "R3", true, "input"),
+     edge("R3", "Y", true, "output"; and = false),
+     edge("Y", "R1", false, "regulator"; and = false),
+     edge("L1", "R1", true, "input"), edge("L2", "R1", true, "input"),
+     edge("R1", "C", true, "output"; and = false),
+     edge("C", "R2", true, "input"),
+     edge("R2", "L1", true, "output"; and = false), edge("R2", "L2", true, "output"; and = false)])
+
+"""
+A2 width-1 recycling (PIP2 <-> PIP3 shape): A -> Ra -> B -> Rb -> A, with the
+pinned enzyme X the catalyst of Rb (PTEN dephosphorylates PIP3). B is dominated
+(its only feed, Ra, is downstream of its consumer Rb, which is the entry), but
+Rb reads ONE dominated AND input, so under `multi` B stays live and carries the
+signal; under `entry` B -> Rb is held.
+"""
+fixture_width1() = net(["X", "A", "Ra", "B", "Rb"],
+    [edge("A", "Ra", true, "input"), edge("Ra", "B", true, "output"; and = false),
+     edge("B", "Rb", true, "input"), edge("X", "Rb", true, "catalyst"),
+     edge("Rb", "A", true, "output"; and = false)])
+
 @testset "self-fed inputs and leaf-shared inhibitors (specs/040)" begin
+
+@testset "A2 (multi): a loop entered only through a negative edge is unreached, not dominated" begin
+    f = fixture_negentry()
+    r_e = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "entry")
+    r_m = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "multi")
+    r_o = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "off")
+    # entry: the five loop nodes are vacuously self-fed and their seven
+    # in-component activator edges held (C feeds both R2 and R3).
+    @test r_e.diagnostics["self_fed_rule"] == "entry"
+    @test r_e.diagnostics["self_fed_nodes"] == 5
+    @test r_e.diagnostics["self_fed_edges_held"] == 7
+    # R1 -> C is held at its entry value, so the inhibition of R1 never reaches C.
+    @test fold(r_e, "C") ≈ 1.0 atol = 1e-9
+    # multi: nothing is held, so the solve is `off`'s and the inhibition of R1
+    # reaches C. (The two-leaf loop has gain 2, so under off it rails, as the
+    # RAF loop did: this fixture pins the flag set, not the loop's fate.)
+    @test r_m.diagnostics["self_fed_rule"] == "multi"
+    @test r_m.diagnostics["self_fed_nodes"] == 0
+    @test r_m.diagnostics["self_fed_edges_held"] == 0
+    @test fold(r_m, "C") < 1.0
+    @test !(fold(r_m, "Y") ≈ 1.0)
+    @test r_m.node_activities == r_o.node_activities
+end
+
+@testset "A2 (multi): a width-1 dominated recycling stays live" begin
+    f = fixture_width1()
+    r_e = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "entry")
+    r_m = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "multi")
+    r_o = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "off")
+    # entry: B is self-fed (Rb, its consumer, is the entry) and B -> Rb is held.
+    @test r_e.diagnostics["self_fed_nodes"] == 1
+    @test r_e.diagnostics["self_fed_edges_held"] == 1
+    # multi: B is dominated (condition i holds) but Rb reads only ONE dominated
+    # AND input, so condition (ii) fails and nothing is held.
+    @test r_m.diagnostics["self_fed_nodes"] == 0
+    @test r_m.diagnostics["self_fed_edges_held"] == 0
+    @test r_m.node_activities == r_o.node_activities
+    @test !(r_e.node_activities == r_m.node_activities)
+end
+
+@testset "A2 (multi): the RAF shapes are held exactly as under entry" begin
+    # A1 (a recycled set-pool member) and A2 (two leaves, AND inputs of one
+    # step) satisfy both conditions: reached once Out(u) is passable, and
+    # multiplied in (a pool target; >= 2 dominated AND inputs).
+    for (f, n_nodes, n_edges) in ((fixture_pool(), 1, 1), (fixture_leaves(), 2, 2))
+        r_e = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "entry")
+        r_m = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "multi")
+        @test r_m.diagnostics["self_fed_nodes"] == n_nodes
+        @test r_m.diagnostics["self_fed_edges_held"] == n_edges
+        @test r_m.node_activities == r_e.node_activities
+        @test r_m.converged && r_m.final_residual < PARAMS.tolerance
+    end
+    r_m = solve(fixture_pool(), obs("X" => 2.0); DS_SELF_FED_MODE = "multi")
+    @test fold(r_m, "D") ≈ 2.0 rtol = 1e-6
+    @test fold(r_m, "P") ≈ 1.0 rtol = 1e-6
+    r_m = solve(fixture_leaves(), obs("X" => 2.0); DS_SELF_FED_MODE = "multi")
+    @test fold(r_m, "C") ≈ 2.0 rtol = 1e-6
+    # A single leaf (width 1) in the same loop is NOT held under multi.
+    one_leaf = net(["X", "L1", "R1", "C", "R2"],
+        [edge("X", "R1", true, "input"), edge("L1", "R1", true, "input"),
+         edge("R1", "C", true, "output"; and = false), edge("C", "R2", true, "input"),
+         edge("R2", "L1", true, "output"; and = false)])
+    @test solve(one_leaf, obs("X" => 2.0); DS_SELF_FED_MODE = "entry").diagnostics["self_fed_edges_held"] == 1
+    @test solve(one_leaf, obs("X" => 2.0); DS_SELF_FED_MODE = "multi").diagnostics["self_fed_edges_held"] == 0
+    # A pinned member is an entry under multi too: nothing is held.
+    r_p = solve(fixture_pool(), obs("X" => 2.0, "M" => 0.5); DS_SELF_FED_MODE = "multi")
+    @test r_p.diagnostics["self_fed_edges_held"] == 0
+    @test fold(r_p, "P") ≈ 0.5 rtol = 1e-6
+end
+
+@testset "A2 (multi): off and entry are unchanged; multi is exact at rest" begin
+    with_env("DS_SELF_FED_MODE" => "multi") do
+        @test DS.self_fed_mode() == "multi"
+    end
+    for f in (fixture_pool(), fixture_leaves(), fixture_negentry(), fixture_width1())
+        d = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = nothing)
+        o = solve(f, obs("X" => 2.0); DS_SELF_FED_MODE = "off")
+        @test d.node_activities == o.node_activities
+        @test o.diagnostics["self_fed_edges_held"] == 0
+        r = solve(f, obs(); DS_SELF_FED_MODE = "multi")
+        @test all(abs(v - BL) < 1e-12 for v in values(r.node_activities))
+        @test r.diagnostics["self_fed_edges_held"] == 0
+    end
+end
+
+@testset "self_fed_nodes, condition (i) by hand" begin
+    # ring e -> t -> a -> b -> t with entry t: b is dominated either way.
+    act = Dict(1 => [2], 2 => [3], 3 => [1])
+    @test DS.self_fed_nodes([1, 2, 3], act, Set{Int}(), Set{Int}(), Set([1]), Set{Int}(); dominated_only = true) == Set([3])
+    # entry 5 -> 6 beside the ring, no activator edge into it: under the
+    # registered rule every ring node with an out is vacuously self-fed;
+    # dominated-only flags nothing (unreached, not dominated).
+    act2 = Dict(1 => [2], 2 => [3], 3 => [1], 5 => [6])
+    @test DS.self_fed_nodes([1, 2, 3, 5, 6], act2, Set{Int}(), Set{Int}(), Set([5]), Set{Int}()) == Set([1, 2, 3])
+    @test isempty(DS.self_fed_nodes([1, 2, 3, 5, 6], act2, Set{Int}(), Set{Int}(), Set([5]), Set{Int}(); dominated_only = true))
+    # a blocked node is not passable in the reach test either: 5 -> 7 -> 3 with 7 pinned at baseline.
+    act3 = Dict(1 => [2], 2 => [3], 3 => [1], 5 => [7], 7 => [3])
+    @test isempty(DS.self_fed_nodes([1, 2, 3, 5, 7], act3, Set{Int}(), Set{Int}(), Set([5]), Set([7]); dominated_only = true))
+end
+
 
 @testset "rule A: entries are only what the pre-registration lists (review of specs/040)" begin
     # A node with no activator input is not an entry by that fact alone: at rest

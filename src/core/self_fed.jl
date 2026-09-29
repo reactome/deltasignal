@@ -31,8 +31,24 @@ not of node labels or visit order. It is computed once per component per
 solve; it does not change between sweeps.
 
   DS_SELF_FED_MODE=off    (default) previous behaviour.
-  DS_SELF_FED_MODE=entry  the rule above. The solve reports `self_fed_rule`,
-                          `self_fed_nodes` and `self_fed_edges_held`.
+  DS_SELF_FED_MODE=entry  the rule above (specs/040 rule A, measured and
+                          refuted: it held TP53's and PIP3's signal routes).
+  DS_SELF_FED_MODE=multi  rule A2 (specs/040 amendment 1). An edge from u into
+                          a step is held only if BOTH hold:
+                          (i) u is dominated, not merely unreached: some entry
+                              reaches u by activator paths with Out(u)
+                              passable, and none with Out(u) blocked. Under
+                              `entry` "every path passes through Out(u)" was
+                              vacuously true for a loop whose signal enters
+                              through a negative edge (TP53, PIP3), and every
+                              node of it was held.
+                          (ii) the recycled fold is multiplied into the step:
+                              the step's target is a set-pool node, or the
+                              step reads >= 2 dominated AND inputs (RAF's 21
+                              scaffold leaves; its 3 p-MEK dimers in a pool).
+                              A width-1 recycling (PIP2 <-> PIP3) stays live.
+                          The solve reports `self_fed_rule`, `self_fed_nodes`
+                          (nodes with a held edge) and `self_fed_edges_held`.
 
 **Rule B.** specs/022 flags an inhibitor that CONTAINS its reaction's input
 (whole-node stId containment) and is computed from it. The PEBP1 inhibitor of
@@ -50,7 +66,7 @@ Both rules are exact at baseline (every held edge reads fold 1 there) and
 byte-identical off: they add flags and pairs, never nodes or edges.
 """
 
-const DS_VALID_SELF_FED_MODES = Set(["off", "entry"])
+const DS_VALID_SELF_FED_MODES = Set(["off", "entry", "multi"])
 
 function self_fed_mode()::String
     value = get(ENV, "DS_SELF_FED_MODE", "off")
@@ -84,12 +100,14 @@ The self-fed nodes of one component (specs/040 rule A).
   search may not pass through them.
 
 u is self-fed iff no entry reaches u along in-component activator edges without
-passing through Out(u). Deterministic: the result is a set, and the search
-visits nodes in sorted order.
+passing through Out(u). With `dominated_only` (rule A2, condition i), u must
+ALSO be reached by some entry once Out(u) is passable: a node no entry reaches
+at all is unreached, not dominated, and stays live. Deterministic: the result
+is a set, and the search visits nodes in sorted order.
 """
 function self_fed_nodes(nodes_c::Vector{Int}, act_out::Dict{Int, Vector{Int}},
                         is_pool::Set{Int}, skip::Set{Int}, entry::Set{Int},
-                        blocked::Set{Int})::Set{Int}
+                        blocked::Set{Int}; dominated_only::Bool = false)::Set{Int}
     out = Set{Int}()
     isempty(entry) && return out
     seen = Set{Int}()
@@ -117,7 +135,24 @@ function self_fed_nodes(nodes_c::Vector{Int}, act_out::Dict{Int, Vector{Int}},
                 push!(seen, w); push!(stack, w)
             end
         end
-        reached || push!(out, u)
+        reached && continue
+        if dominated_only
+            # Condition (i): with Out(u) passable, does any entry reach u at all?
+            empty!(seen); union!(seen, entry)
+            stack = sort(collect(entry))
+            any_reach = false
+            while !isempty(stack)
+                v = pop!(stack)
+                if v == u; any_reach = true; break; end
+                v in blocked && continue
+                for w in get(act_out, v, Int[])
+                    w in seen && continue
+                    push!(seen, w); push!(stack, w)
+                end
+            end
+            any_reach || continue   # unreached: not dominated, stays live
+        end
+        push!(out, u)
     end
     return out
 end

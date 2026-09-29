@@ -766,7 +766,7 @@ function solve_scc_ordered!(
     end
     # `supply` (component-entry state) is read by recycling-closure edges: the
     # legacy catalyst knob and the role list of specs/018.
-    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
+    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() != "off")
     max_inner = params.max_iters
     tol = params.tolerance
 
@@ -948,7 +948,8 @@ function solve_scc_ordered!(
 
     # Pool bookkeeping (specs/017): member node lists and an internal-negative
     # census per component, built only when pooling is on.
-    self_fed_on = self_fed_mode() == "entry"
+    sf_mode_c = self_fed_mode()
+    self_fed_on = sf_mode_c != "off"
     # Node lists per component: for pooling, for rule A, and for the entry
     # snapshot the final residual reads (specs/040).
     need_nodes = pooling || self_fed_on || entry_supply !== nothing
@@ -1197,19 +1198,32 @@ function solve_scc_ordered!(
                     end
                 end
                 blocked = Set{Int}(u for u in nodes_c if u in obs_set && !(u in entry))
-                sf = self_fed_nodes(nodes_c, act_out, is_pool, skip, entry, blocked)
+                multi = sf_mode_c == "multi"
+                sf = self_fed_nodes(nodes_c, act_out, is_pool, skip, entry, blocked;
+                                    dominated_only = multi)
                 n_held = 0
+                held_nodes = Set{Int}()
                 for ri in rs
                     r = rxns_idx[ri]
+                    # Rule A2 condition (ii): the step multiplies the recycled
+                    # fold in -- a set pool, or >= 2 dominated AND inputs.
+                    n_dom_and = multi ? count(k -> r.activator_is_and[k] &&
+                                                   r.activator_indices[k] in sf &&
+                                                   r.activator_indices[k] != r.target_idx,
+                                              eachindex(r.activator_indices)) : 0
+                    to_pool = multi && is_set_pool_reaction(r)
                     for k in eachindex(r.activator_indices)
                         s = r.activator_indices[k]
                         if s in sf && s != r.target_idx && k <= length(r.activator_break)
+                            multi && !(to_pool || (r.activator_is_and[k] && n_dom_and >= 2)) && continue
                             r.activator_break[k] || (n_held += 1)
                             r.activator_break[k] = true
+                            push!(held_nodes, s)
                         end
                     end
                 end
-                pool_stats["self_fed_nodes"] = get(pool_stats, "self_fed_nodes", 0) + length(sf)
+                pool_stats["self_fed_nodes"] = get(pool_stats, "self_fed_nodes", 0) +
+                                               (multi ? length(held_nodes) : length(sf))
                 pool_stats["self_fed_edges_held"] = get(pool_stats, "self_fed_edges_held", 0) + n_held
             end
             # Genuine loop: damped fixed point confined to this component.
@@ -1478,7 +1492,7 @@ function solve_steady_state_penalty(
     # and in influence scores that zeroed the influence of every other input
     # under assembly-limiting. Pass the live state instead wherever closures
     # are marked: it IS the entry value there.
-    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
+    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() != "off")
     max_change = 0.0
 
     # Optional damping for loop convergence. The original feed-forward
@@ -1694,7 +1708,7 @@ function compute_influence_scores(
     end
 
     eval_config = resolve_reaction_eval_config()
-    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
+    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() != "off")
     influence_scores = Dict{String, Float64}()
     h = 1e-6
     for rxn in indexed
