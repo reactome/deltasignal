@@ -133,3 +133,38 @@ something still oscillates. **It must be traced before the arms.**
   pins it.
 - **Only u's *activator* edges into Out(u) are held.** Its inhibitor and
   depletion edges stay live.
+
+## Result (2026-09-28)
+
+Build `20260928-1110_06ccb63` (canonical), all arms at solver `f05efe4`
+(`results/f05efe4/{ctrl040,sf040A,sf040B,sf040AB}`); `ctrl040` = current defaults
+(cycle balance on). Protocol `root_cycle`.
+
+| arm vs ctrl040 | curator held-out | curator tuning | curator all | experimental |
+|---|---|---|---|---|
+| **B** (leaf inhibitors) | **+48** (68/20, p 2.8e-7) | +5 | +53 (p 2.2e-5) | **+20** (28/8, p 0.0012) |
+| A (self-fed) | −33 (p 0.027) | **−303** | −336 | **−66** (p 5.6e-9) |
+| A+B | +24 (p 0.17) | −211 | −187 | −1 |
+
+**B: every gate passes, including the original strict experimental gate
+(≥ +15, p < 0.05).**
+- No pathway loses more than 3 (worst: Transcriptional regulation −3,
+  FGFR2 −2, FGFR4 −2).
+- Curator gains span 22 pathways and 46 distinct readouts (MET/HGF +10, VEGF
+  +6, RAF, WNT5A, Activin, BMP, CIT, IQGAPs).
+- Experimental gains span 3 pathways and 10 distinct readouts: RAF net +15
+  (23/8), WNT +4, TP53 (ATM) +1. Outside RAF the net is +5, with nothing lost.
+- Chromatin: 0 of 216 cases change, despite 308 flagged pairs. Class I MHC
+  +20.
+- Convergence is unchanged.
+
+**A fails decisively.**
+- TP53 −190 and PIP3/AKT −126 carry it; experimental −66.
+- Holding self-fed edges at baseline removes load-bearing feedback in those two
+  pathways. That is the risk the Opus derivation named: the specs/035-like
+  footprint and the MAPK/insulin/AKT loops.
+- A+B fixes RAF (+32 curator) but inherits A's losses.
+- **Not adopted.** Untraced.
+
+**Verdict:** adopt **B** (`DS_SELF_INHIBITOR_LEAVES=1`) as the default, pending
+Adam's confirmation. A is recorded as a negative result.
