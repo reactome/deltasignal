@@ -458,3 +458,96 @@ outside knowledge, did they apply?
   is RB1 ⊣ E2F1-driven expression (14 of 15).
 - **Rule-level questions went to a curator** on 2026-09-28. The answers are to
   be recorded here.
+
+### 12d. Revealed intent of the 219 added inhibitions, by ablation (2026-09-29)
+
+**Method.** MP-BioPath's 85 shipped networks were turned into a DeltaSignal
+catalog and scored against the curator cases. Then variants were scored with
+the added inhibitions removed:
+- all at once;
+- with their same-edit deletes also restored (the full rewiring reverted);
+- one class, and one edge, at a time.
+
+An edit "fixes" a case when the shipped network gets it right and the ablated
+one gets it wrong. This is intent revealed **under DeltaSignal's solver**, not
+MP-BioPath's.
+- Results: `~/deltasignal-catalogs/mpb_intent/results/`.
+- Tables: session scratch `intent/` (`intent_by_class.tsv`,
+  `intent_by_edge_named.tsv`, `fixed_cases.tsv`).
+- The shipped networks score 92.66% (22,331 / 24,100), consistent with §1 of
+  RESULTS.md under the older protocol.
+
+**Headline.**
+
+| ablation | fixed / broken | net | held-out |
+|---|---|---|---|
+| remove all 202 ablatable adds | 1,223 / 182 | **+1,041** | +602 |
+| also restore the paired deletes | — | **+1,273** | +646 |
+
+- **Every case the edits fix reads NORMAL without them.** They are **routes**,
+  not sign or magnitude corrections.
+- In the logic network, a reverse enzyme, sequestering binder, E3 ligase,
+  endocytic partner or repressor has no path to what it lowers, because the
+  consuming reaction is a positive sink. The brake gives a KO or 80x of it,
+  or of anything upstream of it, a way to move the downstream readouts.
+- They were added **selectively** (about 5% of consuming reactions), where an
+  expected answer needed one.
+
+**By class** (net fixed; held-out in brackets):
+- Reverse enzyme ⊣ modified form, curated in the pathway: **+441** (+103).
+  - E3 ligase +290, 400 of it TP53 (MDM2 ⊣ TP53); phosphatase +187 (WNT
+    destruction complex +95, SHP1/2 ⊣ IFNGR1 +34); DUB +56 (USP18); GAP +24.
+- Binder or trap ⊣ partner: **+203 (+195)**. The binder is the perturbed gene
+  in 65% (CDK6, SOCS6, SH2B3, IL13RA2, FSTL3, DLK1, BCL2).
+- Endocytosis/Ub machinery ⊣ active receptor: +112 (+112), at no cost.
+- Repressor ⊣ expression (RB1 ⊣ 14 E2F1 events): +44.
+- No Reactome support ("curator judgement"): +230 (+212).
+- **Negative regulation already curated: −56.** These edits hurt under our
+  solver.
+- Demethylases (13), Ub/proteasome (10) and "other form" (16): **no case
+  moves.**
+- **Restoring paired deletes:** inert for phosphatases and binders, but E3 goes
+  +290 → +478. The deleted edge (TP53 → "MDM2 ubiquitinates TP53") closed a
+  loop regenerating the tetramer: *delete = loop cut, add = brake, one repair.*
+- **Non-additive:** only 68 of 192 single edges move anything alone, so the
+  class is the unit.
+- **Costs the curators accepted:** p14ARF ⊣ MDM2 is 0 fixed / 100 broken on
+  cases whose expected answer is NORMAL; RNF34/MDM2 ⊣ TP53 breaks 122.
+
+**Curator B's edits (the rule-level questions sent 2026-09-28):**
+
+| edits | effect |
+|---|---|
+| WNT, 2 edges | fixed 134, broke 42: the most consequential pair in the set |
+| FGFR1–4, 16 edges | only PTPN11 ⊣ "SPRY2 binds GRB2" moves anything (2 per pathway) |
+| Chromatin demethylases, 13 edges | nothing |
+
+**What remains for OUR networks** (canonical build `20260928-1110_06ccb63`,
+solver `8d6d27c`). Of the 1,223 cases the edits fix on MP-BioPath's networks:
+
+| | cases |
+|---|---|
+| already right on ours | 541 |
+| wrong on ours | **632**: 495 with no route, 137 propagator |
+| invalid (release skew) | 50 |
+
+- E3 ligase: 375 right / 53 wrong. Our ubiquitin depletion already covers it.
+- **Binder/trap: 1 right / 212 wrong, 192 of them with no route** (CDK6 ⊣
+  RUNX1, BCL2 ⊣ tBID/BAK, IL13RA2, SOCS6/SH2B3 ⊣ KIT).
+- Phosphatase: 101 / 106. 56 WNT cases read the **opposite sign** on ours:
+  APC/AMER1 KO, a set-pinning problem, not a route.
+- Endocytosis 40 / 72; DUB 0 / 56; repressor 1 / 49; GAP 2 / 22.
+- **The next lever to consider:** about 470 cases where Reactome curates a
+  binding, GAP, DUB, repressor or endocytic partner and our network gives no
+  route. The candidate rule is "a curated reaction whose product is a dead end
+  in the pathway gives its non-enzyme input a negative route to the partner's
+  downstream".
+  - This must be checked against specs/019, where three sink-bridge variants
+    failed, before it is pre-registered.
+
+**Caveats:**
+- Only the negative adds and their paired deletes were ablated. The change files
+  also hold 410 positive adds and 1,157 positive deletes (loop cuts), so every
+  effect is conditional on those staying in.
+- MP-BioPath's own solver differs from ours. Fixed counts are a lower bound where
+  ours reads NORMAL.
