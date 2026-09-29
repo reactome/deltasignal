@@ -68,7 +68,26 @@ end
 fold(r, u) = r.node_activities[u] / BL
 obs(pairs...) = Dict{String, Tuple{Float64, Float64}}(u => (v, 1.0) for (u, v) in pairs)
 
+"A2 plus N: a node with NO activator input (only a depletion from C) inside the component."
+fixture_noact() = net(["X", "L1", "L2", "R1", "C", "R2", "N"],
+    [edge("X", "R1", true, "input"), edge("L1", "R1", true, "input"), edge("L2", "R1", true, "input"),
+     edge("N", "R1", true, "input"),
+     edge("R1", "C", true, "output"; and = false),
+     edge("C", "R2", true, "input"),
+     edge("R2", "L1", true, "output"; and = false), edge("R2", "L2", true, "output"; and = false),
+     edge("C", "N", false, "depletion")])
+
 @testset "self-fed inputs and leaf-shared inhibitors (specs/040)" begin
+
+@testset "rule A: entries are only what the pre-registration lists (review of specs/040)" begin
+    # A node with no activator input is not an entry by that fact alone: at rest
+    # nothing is off baseline, so nothing is self-fed.
+    r = solve(fixture_noact(), obs("X" => 1.0); DS_SELF_FED_MODE = "entry")
+    @test r.diagnostics["self_fed_nodes"] == 0
+    @test r.diagnostics["self_fed_edges_held"] == 0
+    @test all(v -> isapprox(v, BL; atol = 1e-12), values(r.node_activities))
+end
+
 
 @testset "mode readers reject typos, defaults are off" begin
     with_env("DS_SELF_FED_MODE" => nothing) do

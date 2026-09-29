@@ -1180,8 +1180,7 @@ function solve_scc_ordered!(
                     end
                     if t in obs_set
                         abs(x[t] - baseline_vec[t]) > SELF_FED_TOL && push!(entry, t)
-                    elseif isempty(r.activator_indices) ||
-                           any(s -> !(s in in_c) && abs(x[s] - baseline_vec[s]) > SELF_FED_TOL,
+                    elseif any(s -> !(s in in_c) && abs(x[s] - baseline_vec[s]) > SELF_FED_TOL,
                                r.activator_indices)
                         push!(entry, t)
                     end
@@ -1515,11 +1514,16 @@ function solve_steady_state_penalty(
         index_stats["cycle_pools_skipped"] = n_skipped
         # Component-entry values, for the final residual below: a held edge
         # (specs/018 closure, specs/040 self-fed) reads these, not the live state.
-        entry_supply = copy(x)
+        # Only iterated components record one (NaN elsewhere); every other node
+        # is checked against its live value, as before (review of specs/040).
+        entry_supply = fill(NaN, length(x))
         iters, max_change, scc_stats = solve_scc_ordered!(
             x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec;
             pools = ipools, pool_stats = index_stats, pool_carriers = cycle_carriers,
             entry_supply = entry_supply)
+        @inbounds for i in eachindex(entry_supply)
+            isnan(entry_supply[i]) && (entry_supply[i] = x[i])
+        end
         converged = max_change < params.tolerance
     else
         for it in 1:params.max_iters
