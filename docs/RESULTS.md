@@ -19,7 +19,41 @@ commit.
 ---
 
 
-> **2026-09-28: canonical numbers, with cycle balance (specs/039).** This is
+> **2026-09-28 (evening): canonical numbers, with cycle balance and leaf-sharing
+> self-contained inhibitors (specs/039, 040).** This is the box below, plus
+> specs/040 rule B (`DS_SELF_INHIBITOR_LEAVES=1`, default since #84):
+> - specs/022's damping of an inhibitor built from its reaction's own input now
+>   also applies when the two share a component rather than a whole complex;
+> - an example is the PEBP1 complex, which is built from RAS:GTP and RAF1.
+>
+> Build `20260928-1110_06ccb63`, solver `8d6d27c` (`results/8d6d27c`).
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **87.94%** | **0.8449** |
+> | curator held-out, every case (71 pathways) | 19,000 | 87.36% | 0.8367 |
+> | curator, all pathways, in release (81) | 23,625 | 85.53% | 0.8241 |
+> | curator, all pathways, every case | 24,100 | 84.99% | 0.8170 |
+> | experimental, every case (10 pathways) | 849 | **69.85%** | **0.6088** |
+>
+> **Against MP-BioPath's published figures**, every case against every case:
+> - Curator: ours 84.99% / 0.8170 against their 83.34% / 0.8063, a lead of
+>   **+1.65pp** / +0.011.
+> - Experimental: ours 69.85% (593/849) against their 75.74% (643/849),
+>   **−5.9pp**. It was −8.3pp.
+>
+> **What rule B did**, against the box below on the same build:
+> - curator held-out +48 (p 2.8e-7);
+> - experimental **+20** (28 fixed / 8 broken, p 0.0012). That is RAF +15,
+>   WNT +4 and TP53 +1: the first significant experimental gain in this work;
+> - the worst pathway loses 3.
+>
+> specs/040 rule A (self-fed inputs read at baseline) was refuted: TP53 −190,
+> PIP3 −126, experimental −66.
+>
+> **Previous box**, kept below for the record.
+>
+> **2026-09-28 (morning) canonical numbers, with cycle balance (specs/039), superseded.** This is
 > the protocol and generator of the 2026-09-27 box below, plus one change.
 > Curated interconversion cycles are now solved as conserved pools
 > (`DS_CYCLE_MODE=balance`, the default since #82):
