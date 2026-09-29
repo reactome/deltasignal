@@ -168,3 +168,92 @@ Build `20260928-1110_06ccb63` (canonical), all arms at solver `f05efe4`
 
 **Verdict:** adopt **B** (`DS_SELF_INHIBITOR_LEAVES=1`) as the default, pending
 Adam's confirmation. A is recorded as a negative result.
+
+## Amendment 1 (2026-09-28): a narrower rule A. POST HOC; pre-registered before code
+
+**Why rule A failed** (Fable trace; `scratchpad/traceA`; the traces reproduce
+the arm exactly):
+- **TP53 −190 and PIP3 −126:** every lost case reads exactly 1.000. The readout
+  was disconnected, not reversed.
+- **Mechanism 1, "unreached" read as "dominated"** (about 85% of TP53, about 60%
+  of PIP3).
+  - The pin's signal enters these loops only through **negative** edges:
+    - p-MDM2:MDM4:TP53 depletes TP53;
+    - PRDM1 represses TP53;
+    - AKT:PIP3:THEM4 and PDPK1 regulators.
+  - The activator-path search cannot cross negative edges, so no activator path
+    exists. "Every path passes through Out(u)" is then **vacuously true**, and
+    23–41 nodes per case were held.
+  - This is a defect of the rule as worded, not a choice anyone made.
+- **Mechanism 2, genuine single-input recycling that carries the signal.**
+  - PIP2 ⇄ PIP3: PTEN is the catalyst of Out(PIP3), and the cycle is not a
+    specs/039 pool.
+  - PDPK1:PIP3 recycling.
+  - Holding width-1 dominated inputs cuts real signal.
+- **RAF's harmful edges are different in kind:**
+  - they are reached and dominated (0 of 24 unreached);
+  - they enter one step many times: 21 scaffold leaves are AND inputs of one
+    step, and 3 p-MEK dimers feed a set pool.
+
+**Rule A2** (`DS_SELF_FED_MODE=multi`; `entry` stays as the refuted rule). A
+node u's edge into a step is held only if **both** conditions hold:
+1. **Dominated, not unreached.** Some entry reaches u by activator paths with
+   Out(u) passable, and no entry reaches u with Out(u) blocked.
+2. **Multiplied.** The step's target is a set-pool node, or the step reads
+   ≥ 2 such dominated AND inputs.
+
+Everything else is as in rule A.
+
+**Predictions from the prototype** (Fable `src_c6`; RAF, TP53 and PIP3,
+with B on):
+- RAF: the same 24 held edges as A+B. KRAS/HRAS/BRAF KO → p-MAPK DOWN;
+  NF1 KO → UP.
+- TP53 and PIP3: **bit-identical to B** in all 18 scenarios.
+- Static census: 19 pathways / 799 pins, against A's 67 / 2,791. TP53, PIP3
+  and IFN-γ are 0.
+- Named large footprints: Class I MHC (263 nodes, 331 edges; A cost −19),
+  Mitotic G2 (A −32), HRR/NHEJ/DSB repair, NOTCH1, L1CAM.
+
+**Arms:** `ctrl` (the current default: 039 + B) and `a2` (+ `DS_SELF_FED_MODE=multi`),
+on the canonical build at one solver commit.
+
+**Gates (stricter, because this is post hoc):**
+- curator held-out > +15, p < 0.05;
+- experimental > 0, and not significantly negative;
+- no pathway loses > 10;
+- **net ≥ 0 on both axes outside RAF**;
+- Class I MHC, Mitotic G2 and HRR/NHEJ/DSB named with their nets;
+- pathways with zero flags bit-identical to ctrl.
+
+### Amendment 1 result: rule A2 NOT adopted (fails the held-out gate)
+
+Build `20260928-1110_06ccb63`; `ctrlA2` = current default (039 + B) and `a2`
+(+ `DS_SELF_FED_MODE=multi`) at solver `31c1f91` (`results/31c1f91`).
+
+| a2 vs ctrlA2 | net | p |
+|---|---|---|
+| **curator held-out** | **−6** (6/12) | 0.24 |
+| curator tuning | +58 (58/0) | 6.9e-18 |
+| curator all | +52 (64/12) | 1e-9 |
+| experimental | +12 (12/0) | 0.00049 |
+
+- **Every gain is in two tuning pathways** (the paper's ten): RAF +30 curator /
+  +12 experimental, and HDR +26.
+- **Held-out:** Transcriptional regulation of pluripotent stem cells −6,
+  ERBB2 +2. Nothing else moves.
+- **The experimental +12 is 1 pathway and 5 perturbations,** so by the
+  concentration rule its p-value is not evidence of generality.
+- **Gates:**
+
+  | gate | result |
+  |---|---|
+  | curator held-out > +15, p < 0.05 | **fail** |
+  | experimental > 0 | pass |
+  | no pathway loses > 10 | pass |
+  | net ≥ 0 outside RAF | pass (experimental 0, curator +22) |
+
+- **Verdict: not adopted.** The rule fixes the tuning pathway it was designed
+  on (RAF) and HDR, and does not generalise to the held-out set.
+  `DS_SELF_FED_MODE=multi` stays available, default off.
+- **Convergence** is unchanged: 1,669 of 1,725 curator and 218 of 244
+  experimental solves, as ctrl.
