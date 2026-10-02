@@ -90,6 +90,15 @@ end
     r = solve(fixture(; pools = nothing))
     @test r.diagnostics["cycle_rule"] == "balance: no pool table"
     @test r.diagnostics["cycle_pools_solved"] == 0
+    # only the SCC fixed point solves pools; any other method must not say "balance"
+    for m in ("minimize", "pool", "pool_parity", "pool_all")
+        r = solve(fixture(); method = m)
+        @test r.diagnostics["cycle_rule"] == "balance: inert under DS_SCC_METHOD=$m"
+        @test r.diagnostics["cycle_pools_solved"] == 0
+    end
+    r = solve(fixture(); method = "fixed_point")
+    @test r.diagnostics["cycle_rule"] == "balance"
+    @test r.diagnostics["cycle_pools_solved"] == 1
 end
 
 @testset "a pinned form sets the pool" begin

@@ -213,7 +213,14 @@ function solve_steady_state(
     # specs/039: interconversion pools solved at steady state (pi = pi P).
     ymode = cycle_mode()
     ypools = ymode == "balance" ? network.pools : nothing
-    cycle_rule = ymode == "off" ? "off" : network.pools === nothing ? "balance: no pool table" : "balance"
+    # Pools are solved only by the SCC fixed point; the other methods and the
+    # legacy flat iteration never build them, so say so instead of "balance"
+    # (code review 2026-10-02: they reported "balance" with 0 pools solved).
+    smethod = get(ENV, "DS_SCC_METHOD", "fixed_point")
+    y_inert = !_bool_env("DS_SCC_SOLVE", true) ? "DS_SCC_SOLVE=0" :
+              smethod != "fixed_point" ? "DS_SCC_METHOD=$smethod" : nothing
+    cycle_rule = ymode == "off" ? "off" : network.pools === nothing ? "balance: no pool table" :
+                 y_inert !== nothing ? "balance: inert under $y_inert" : "balance"
     result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                         self_shared = self_shared,
                                         cycle_pools = ypools,

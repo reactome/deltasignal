@@ -355,7 +355,9 @@ env vars only override for benchmark sweeps:
   `DS_CYCLE_CARRIERS=on` (default; `off` for the isolation arm) makes the
   enzyme's free form read its producers other than the release steps. The
   solve reports `cycle_rule`, `cycle_pools_solved`, `cycle_pools_multistep`,
-  `cycle_carriers` and `cycle_carriers_held`. It needs the generator's pool
+  `cycle_carriers` and `cycle_carriers_held`; under any `DS_SCC_METHOD` other than
+  `fixed_point`, or `DS_SCC_SOLVE=0`, pools are not solved and `cycle_rule`
+  says `balance: inert under ...`. It needs the generator's pool
   tables; a bundle without them reports `balance: no pool table` (loops then
   iterate as under `off`), and the bench refuses such a build. φ₀ refers to
   the pool's ACTIVE form, which the generator marks (`LNG_POOL_ACTIVE_VIA`).
@@ -513,7 +515,7 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
 | `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 224 | specs/039, added 2026-09-27 |
+| `test/test_cycles.jl` | 234 | specs/039, added 2026-09-27 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_cli_observations.jl` | 39 | |
 | `test/test_api_errors.jl` | 44 | |
