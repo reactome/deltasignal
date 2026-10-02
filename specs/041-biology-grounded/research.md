@@ -42,3 +42,22 @@ Predictions are canonical: build `20260928-1110_06ccb63`, solver `8d6d27c`.
     variant table shows the sensitivity to the ubiquitin/cofactor exclusion.
   - A route existing does not mean the curated mechanism produces the
     *expected sign*.
+
+## Step 2a: blind drafts reconciled (2026-10-02)
+
+- **Drafts:** two independent blind drafts, Fable (132 rows) and Sonnet
+  (84 rows), each written without access to the benchmarks or to the other.
+  Opus did not draft, having seen RAF's experimental expectations earlier.
+- **Merged:** 167 distinct (gene, KO/80x, readout) expectations after
+  normalising readout names; RAF/MAPK 77, PI3K/AKT 90.
+  - 49 rows appear in both drafts: **42 agree** (86%), 7 are disputed.
+  - **No dispute is a flat UP vs DOWN contradiction.** Six are definite vs
+    uncertain (BRAF 80x on p-MEK/p-ERK, SOS1 KO/80x on RAS:GTP, PPP2CA KO,
+    RICTOR KO). One is a real biology question: RAF1 KO on p-ERK, NONE
+    (BRAF compensation) vs DOWN.
+  - 118 rows come from one draft only.
+- Files: `~/deltasignal-catalogs/analysis/041/bio041/reconciled.tsv`.
+- **Adam's review** is collected on a private review page; verdicts are stored
+  in its `verdicts` collection. **The model is not run on these expectations
+  until the review is done**, so the review is blind to the model's
+  predictions.
