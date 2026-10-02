@@ -517,7 +517,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 234 | specs/039, added 2026-09-27 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_cli_observations.jl` | 39 | |
+| `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 50 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |

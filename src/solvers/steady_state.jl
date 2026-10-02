@@ -18,6 +18,20 @@ struct SteadyStateParams
 end
 
 function default_steady_state_params()
+    return steady_state_params()
+end
+
+"""
+    steady_state_params(; mu, gamma, max_iters, tolerance)
+
+Solver parameters: an argument given here wins, else its `DS_*` variable, else
+the code default; every value is validated the same way whichever it came from.
+The CLI passes its flags here (code review 2026-10-02: it built
+`SteadyStateParams` from its own defaults, so it ignored `DS_MAX_ITERS`,
+`DS_TOLERANCE`, `DS_MU` and `DS_GAMMA`, which the API honours, and skipped
+their validation).
+"""
+function steady_state_params(; mu = nothing, gamma = nothing, max_iters = nothing, tolerance = nothing)
     # DS_MAX_ITERS overrides the per-SCC iteration budget. Added because the
     # budget was hardcoded with no way to distinguish "this component is
     # oscillating" from "this component is converging but needs more sweeps" —
@@ -25,7 +39,7 @@ function default_steady_state_params()
     # all here. Weaker damping made non-convergence WORSE (122 -> 152 TP53
     # cases at lambda=0.1), which points at slow convergence rather than
     # oscillation, but only a larger budget settles it.
-    max_iters = round(Int, _float_env("DS_MAX_ITERS", 500.0))
+    max_iters = max_iters === nothing ? round(Int, _float_env("DS_MAX_ITERS", 500.0)) : max_iters
     if max_iters < 1
         throw(ArgumentError("DS_MAX_ITERS=$max_iters must be at least 1."))
     end
@@ -40,21 +54,19 @@ function default_steady_state_params()
     # at the doc's 0.1 it competes with model consistency hard enough to read a
     # 100x perturbation as 51x. 1e-6 is three orders above the floor and five
     # below the doc.
-    mu = _float_env("DS_MU", 1.0)
-    gamma = _float_env("DS_GAMMA", 1e-6)
+    mu = mu === nothing ? _float_env("DS_MU", 1.0) : Float64(mu)
+    gamma = gamma === nothing ? _float_env("DS_GAMMA", 1e-6) : Float64(gamma)
     if !(mu > 0.0) || !isfinite(mu)
         throw(ArgumentError("DS_MU=$mu must be finite and > 0."))
     end
     if gamma < 0.0 || !isfinite(gamma)
         throw(ArgumentError("DS_GAMMA=$gamma must be finite and >= 0."))
     end
-    return SteadyStateParams(
-        mu,
-        gamma,
-        max_iters,
-        _float_env("DS_TOLERANCE", 1e-6),
-        "penalty"
-    )
+    tolerance = tolerance === nothing ? _float_env("DS_TOLERANCE", 1e-6) : Float64(tolerance)
+    if !(tolerance > 0.0) || !isfinite(tolerance)
+        throw(ArgumentError("DS_TOLERANCE=$tolerance must be finite and > 0."))
+    end
+    return SteadyStateParams(mu, gamma, max_iters, tolerance, "penalty")
 end
 
 """
