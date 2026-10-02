@@ -74,3 +74,14 @@ observed, and is not a logic-network-generator artefact.
 order is fixed: **the generator rejoin is designed first**, as its own spec
 change, because it is an artefact. A solver rule for the curated cases is
 pre-registered only after the rejoin is measured.
+
+### Correction (2026-10-02, diagram check, see specs/043)
+
+The WNT CTNNB1 split is **faithful to Reactome's diagrams**, not a generator
+artefact.
+- Association with the destruction complex and release / nuclear import are
+  drawn in separate sub-pathway diagrams, on separate glyphs.
+- So the WNT M1 cases return to the solver/semantics column. Free cytosolic
+  β-catenin is curated only as a release product, and APC's real lever
+  (degradation) is not represented as acting on it.
+- The TP53 tetramer split **is** an artefact: a diagram draws one shared glyph.
