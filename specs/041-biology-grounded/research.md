@@ -125,3 +125,38 @@ consumes where they stop: Ac-TP53 a dead end, PTEN reached through the set
 - **The four motifs in ≥ 3 pathways (M4, M3, M2, M1) account for 118 of the
   182** and are the work. M4 and M3 are solver shapes; M2 and M1 are generator
   shapes.
+
+## Step 3b: M2, M3 and M4 checked against Reactome (2026-10-02)
+
+Reactome 97 (DBInfo 2026-06-17). The build's reaction set matches it exactly
+in all 8 pathways.
+- **Every traced edge is a curated relation**, or a declared derived class
+  (assembly, dissociation, depletion, set_member). There are 0 invented
+  relations.
+- Tables: `~/deltasignal-catalogs/analysis/041/verify041/` (`verify.tsv`,
+  `trace_edges.tsv`, scripts).
+
+| motif | curated as-is | generator artefact | mixed |
+|---|---|---|---|
+| M2 (15) | 4 (CCC ATM: pin-form/scope) | 11 (TP53 CDKN2A 10: tetramer copies joined only along precedingEvent; S CCNE1 1: output set dissolved to leaves) | 0 |
+| M3 (27) | 0 | 4 (CCC MDM2: `_leaf_uuid` counts depletion edges as reachability and splits the pin) | 23 (RAF 16: curated drug and PEBP1 brakes, plus a variant-cap bundle making an OR set 28 AND inputs; PIP3 PDPK1 7: a curated SARS-CoV-2 brake) |
+| M4 (62) | 34 (TP53 23, HDR 8, WNT 3: the loops are Reactome's own) | 0 | 28 (PIP3 25, ERBB2 3: curated cycles that close through the adopted depletion/set-pool representation) |
+
+**Generator fixes identified:**
+1. **Per-position uuid copies are joined only along precedingEvent.**
+   - The WNT and TP53 cases.
+   - `_get_or_create_entity_uuid`; reactions with no following event leave
+     orphan copies.
+2. **Output sets are dissolved to leaves,** orphaning the member complex that
+   acts (CCNE1).
+3. **`_leaf_uuid` treats depletion edges as reachability** (MDM2).
+4. **The variant-cap bundle turns an OR set into AND inputs** (RAF;
+   `_complex_variant_leafsets`, MAX_VARIANTS = 512).
+
+**Scope / data (not topology):**
+- Curated brakes from things absent in the assayed cell: drug-bound RAF, and
+  a SARS-CoV-2 complex on PDPK1.
+- CCC ATM: pin-form and scope.
+
+**Solver:** the M4 loops in TP53, HDR and WNT are Reactome's own. No M4 loop
+is a weld, so a loop-gain rule is legitimately a solver question there.
