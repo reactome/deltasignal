@@ -134,6 +134,19 @@ const SRV = DeltaSignal
     # The whole point is that the RUNNING service reports its catalog, so test
     # the handler itself, not only the helper (kills the mutant that drops the
     # "catalog" key from the response).
+    # Duplicate keys in the observations object: JSON allows them, and the
+    # handler used to keep the last. Conflict is a 400 naming the problem; an
+    # exact repeat is fine (it reaches the membership check instead).
+    @testset "/api/solve rejects conflicting observations for one node" begin
+        req(b) = SRV.HTTP.Request("POST", "/api/solve", ["Content-Type" => "application/json"], b)
+        resp = SRV.solve_handler(req("""{"observations": {"X": [80.0, 1.0], "X": [0.0, 1.0]}}"""))
+        @test resp.status == 400
+        @test SRV.JSON3.read(String(resp.body))[:message] == SRV.OBS_CONFLICT_ERROR
+        resp = SRV.solve_handler(req("""{"observations": {"X": [80.0, 1.0], "X": [80.0, 1.0]}}"""))
+        @test resp.status == 400
+        @test SRV.JSON3.read(String(resp.body))[:message] == SRV.OBS_UNKNOWN_ERROR
+    end
+
     @testset "/api/health answers 200 and carries the catalog" begin
         resp = SRV.health_handler(nothing)
         @test resp.status == 200

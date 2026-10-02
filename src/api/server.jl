@@ -149,6 +149,10 @@ const JSON_HEADERS = ["Content-Type" => "application/json"]
 # client-controlled, so it is logged server-side rather than echoed back.
 const OBS_SHAPE_ERROR = "Each observation must be a 2-element numeric array [activity, confidence]."
 const OBS_RANGE_ERROR = "Observation activity must be within 0-100 and confidence within 0-1."
+# A node listed twice with different values: two contradictory measurements
+# are a conflict, not a set (the CLI already rejects this). The API used to keep
+# whichever came last, so an 80x entry silently became a knockout.
+const OBS_CONFLICT_ERROR = "A node is observed twice with different values; send one observation per node."
 # Every observation named a node this network does not contain, so nothing was
 # perturbed and the solve would return the unperturbed baseline with HTTP 200 —
 # the same "confident, plausible, wrong answer" class as the shape and range
@@ -182,7 +186,7 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
         # test_api_errors.jl asserts this list covers them all.
         elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR || msg == NODE_BASELINE_ERROR ||
                msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR ||
-               msg == OBS_UNKNOWN_ERROR
+               msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
             return 400, "Required input not found."
@@ -804,7 +808,12 @@ function solve_handler(req)
                     @warn "Observation confidence out of range" node=string(node_uuid) confidence
                     throw(ArgumentError(OBS_RANGE_ERROR))
                 end
-                observations[String(node_uuid)] = (activity, confidence)
+                key = String(node_uuid)
+                if haskey(observations, key) && observations[key] != (activity, confidence)
+                    @warn "Conflicting observations for one node" node=key
+                    throw(ArgumentError(OBS_CONFLICT_ERROR))
+                end
+                observations[key] = (activity, confidence)
             end
         end
         

@@ -140,6 +140,8 @@ Solve the steady state under a set of perturbations. JSON body:
 - **`observations`**: object keyed by node `uuid`; each value is
   `[activity, confidence]` where `activity` is **0–100** and `confidence` is
   `0–1`. Confidence `> 0` pins the node as a hard constraint; `0` ignores it.
+  A uuid repeated in the object with **different** values is a `400`
+  (two contradictory measurements are a conflict); an exact repeat is fine.
 
 Response:
 ```json
