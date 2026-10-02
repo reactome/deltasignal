@@ -511,7 +511,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 80 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 80 | specs/022, added 2026-09-25 |
+| `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
 | `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
 | `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |

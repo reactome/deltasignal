@@ -1697,14 +1697,29 @@ function compute_influence_scores(
     all_nodes = collect(keys(result.node_activities))
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
 
-    # Baselines are the universal spec x₀ = 0.01 (see tsv_parser). Passing an
-    # empty dict lets index_reactions default every target to 0.01, matching
-    # exactly what the solver built.
-    # Pass `network` so the self-inhibitor rule (specs/022) is applied here too;
-    # without it the scores describe the old double-counting model.
+    # Index exactly as solve_steady_state does: the network's own baselines
+    # (an empty dict defaulted every one to 0.01, so a network with baselines
+    # 0.5 read influence 0 where the derivative is 1 -- code review
+    # 2026-10-02), its gene uuids, and the self-inhibitor rule (specs/022).
+    # Without `network` the scores describe the default-baseline model.
+    #
+    # Known limit: a node set by the specs/039 pool solve, or a supply edge the
+    # cyclic-component solve held, is differentiated through its reaction's
+    # forward model here, which is not how the solve set it.
     self_shared = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
                   first(self_inhibitor_setup(network))
-    indexed, _, _ = index_reactions(reactions, uuid_to_idx, Dict{String, Float64}();
+    baselines = Dict{String, Float64}()
+    gene_uuids = Set{String}()
+    if network !== nothing
+        gene_stids = gene_stid_set()
+        for (u, node) in network.nodes
+            baselines[u] = node.baseline
+            if !isempty(gene_stids) && node.reactome_id !== nothing && node.reactome_id in gene_stids
+                push!(gene_uuids, u)
+            end
+        end
+    end
+    indexed, _, _ = index_reactions(reactions, uuid_to_idx, baselines, gene_uuids;
                                     self_shared = self_shared)
 
     x = Vector{Float64}(undef, length(all_nodes))
