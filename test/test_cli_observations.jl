@@ -110,6 +110,40 @@ end
         @test obs == Dict("X" => (2.0, 1.0))
     end
 
+    # The CLI built its parameters from its own flag defaults, so DS_MAX_ITERS,
+    # DS_TOLERANCE, DS_MU and DS_GAMMA were ignored (the API honours them) and
+    # never validated. Code review 2026-10-02. Driven through the real parser.
+    @testset "solve parameters: flag, else DS_* variable, else default" begin
+        function argsof(extra...)
+            saved = copy(ARGS)
+            empty!(ARGS); append!(ARGS, ["solve", "--network", "n.json", "--observations", "o.csv",
+                                         "--output", "r.json", extra...])
+            try
+                return parse_solve_args()
+            finally
+                empty!(ARGS); append!(ARGS, saved)
+            end
+        end
+        function withenv_(f, pairs...)
+            withenv(f, (k => v for (k, v) in pairs)...)
+        end
+        withenv_("DS_MAX_ITERS" => nothing, "DS_TOLERANCE" => nothing, "DS_MU" => nothing, "DS_GAMMA" => nothing) do
+            p = solve_params(argsof())
+            @test (p.mu, p.gamma, p.max_iters, p.tolerance) == (1.0, 1e-6, 500, 1e-6)
+        end
+        withenv_("DS_MAX_ITERS" => "7", "DS_TOLERANCE" => "1e-8", "DS_MU" => "2", "DS_GAMMA" => "0.5") do
+            p = solve_params(argsof())
+            @test (p.mu, p.gamma, p.max_iters, p.tolerance) == (2.0, 0.5, 7, 1e-8)
+            p = solve_params(argsof("--max-iters", "9", "--tolerance", "1e-4", "--mu", "3", "--gamma", "0"))
+            @test (p.mu, p.gamma, p.max_iters, p.tolerance) == (3.0, 0.0, 9, 1e-4)
+        end
+        withenv_("DS_TOLERANCE" => "-1") do
+            @test_throws ArgumentError solve_params(argsof())
+        end
+        @test_throws ArgumentError("--max-iters=0 must be at least 1.") solve_params(argsof("--max-iters", "0"))
+        @test_throws ArgumentError solve_params(argsof("--gamma", "-1"))
+    end
+
     @testset "results provenance reports only what was read" begin
         # mu/gamma are read ONLY by the minimising cyclic-component solver.
         # The CLI used to print them and write them into every results file

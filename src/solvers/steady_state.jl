@@ -18,6 +18,20 @@ struct SteadyStateParams
 end
 
 function default_steady_state_params()
+    return steady_state_params()
+end
+
+"""
+    steady_state_params(; mu, gamma, max_iters, tolerance)
+
+Solver parameters: an argument given here wins, else its `DS_*` variable, else
+the code default; every value is validated the same way whichever it came from.
+The CLI passes its flags here (code review 2026-10-02: it built
+`SteadyStateParams` from its own defaults, so it ignored `DS_MAX_ITERS`,
+`DS_TOLERANCE`, `DS_MU` and `DS_GAMMA`, which the API honours, and skipped
+their validation).
+"""
+function steady_state_params(; mu = nothing, gamma = nothing, max_iters = nothing, tolerance = nothing)
     # DS_MAX_ITERS overrides the per-SCC iteration budget. Added because the
     # budget was hardcoded with no way to distinguish "this component is
     # oscillating" from "this component is converging but needs more sweeps" —
@@ -25,9 +39,16 @@ function default_steady_state_params()
     # all here. Weaker damping made non-convergence WORSE (122 -> 152 TP53
     # cases at lambda=0.1), which points at slow convergence rather than
     # oscillation, but only a larger budget settles it.
-    max_iters = round(Int, _float_env("DS_MAX_ITERS", 500.0))
+    # An error names where the value came from: the argument (the CLI's flag)
+    # or the DS_* variable.
+    src(given, flag, var) = given ? flag : var
+    n_it = src(max_iters !== nothing, "--max-iters", "DS_MAX_ITERS")
+    n_mu = src(mu !== nothing, "--mu", "DS_MU")
+    n_ga = src(gamma !== nothing, "--gamma", "DS_GAMMA")
+    n_to = src(tolerance !== nothing, "--tolerance", "DS_TOLERANCE")
+    max_iters = max_iters === nothing ? round(Int, _float_env("DS_MAX_ITERS", 500.0)) : max_iters
     if max_iters < 1
-        throw(ArgumentError("DS_MAX_ITERS=$max_iters must be at least 1."))
+        throw(ArgumentError("$n_it=$max_iters must be at least 1."))
     end
     # mu and gamma are read ONLY by DS_SCC_METHOD=minimize (specs/003). Under
     # the default fixed-point method they are still inert, which is why they
@@ -40,21 +61,19 @@ function default_steady_state_params()
     # at the doc's 0.1 it competes with model consistency hard enough to read a
     # 100x perturbation as 51x. 1e-6 is three orders above the floor and five
     # below the doc.
-    mu = _float_env("DS_MU", 1.0)
-    gamma = _float_env("DS_GAMMA", 1e-6)
+    mu = mu === nothing ? _float_env("DS_MU", 1.0) : Float64(mu)
+    gamma = gamma === nothing ? _float_env("DS_GAMMA", 1e-6) : Float64(gamma)
     if !(mu > 0.0) || !isfinite(mu)
-        throw(ArgumentError("DS_MU=$mu must be finite and > 0."))
+        throw(ArgumentError("$n_mu=$mu must be finite and > 0."))
     end
     if gamma < 0.0 || !isfinite(gamma)
-        throw(ArgumentError("DS_GAMMA=$gamma must be finite and >= 0."))
+        throw(ArgumentError("$n_ga=$gamma must be finite and >= 0."))
     end
-    return SteadyStateParams(
-        mu,
-        gamma,
-        max_iters,
-        _float_env("DS_TOLERANCE", 1e-6),
-        "penalty"
-    )
+    tolerance = tolerance === nothing ? _float_env("DS_TOLERANCE", 1e-6) : Float64(tolerance)
+    if !(tolerance > 0.0) || !isfinite(tolerance)
+        throw(ArgumentError("$n_to=$tolerance must be finite and > 0."))
+    end
+    return SteadyStateParams(mu, gamma, max_iters, tolerance, "penalty")
 end
 
 """
@@ -213,7 +232,14 @@ function solve_steady_state(
     # specs/039: interconversion pools solved at steady state (pi = pi P).
     ymode = cycle_mode()
     ypools = ymode == "balance" ? network.pools : nothing
-    cycle_rule = ymode == "off" ? "off" : network.pools === nothing ? "balance: no pool table" : "balance"
+    # Pools are solved only by the SCC fixed point; the other methods and the
+    # legacy flat iteration never build them, so say so instead of "balance"
+    # (code review 2026-10-02: they reported "balance" with 0 pools solved).
+    smethod = get(ENV, "DS_SCC_METHOD", "fixed_point")
+    y_inert = !_bool_env("DS_SCC_SOLVE", true) ? "DS_SCC_SOLVE=0" :
+              smethod != "fixed_point" ? "DS_SCC_METHOD=$smethod" : nothing
+    cycle_rule = ymode == "off" ? "off" : network.pools === nothing ? "balance: no pool table" :
+                 y_inert !== nothing ? "balance: inert under $y_inert" : "balance"
     result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                         self_shared = self_shared,
                                         cycle_pools = ypools,
@@ -1678,14 +1704,30 @@ function compute_influence_scores(
     all_nodes = collect(keys(result.node_activities))
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
 
-    # Baselines are the universal spec x₀ = 0.01 (see tsv_parser). Passing an
-    # empty dict lets index_reactions default every target to 0.01, matching
-    # exactly what the solver built.
-    # Pass `network` so the self-inhibitor rule (specs/022) is applied here too;
-    # without it the scores describe the old double-counting model.
+    # Index as solve_steady_state does (silo bridges aside: an off-by-default
+    # arm whose bridged edges this pass does not see): the network's own baselines
+    # (an empty dict defaulted every one to 0.01, so a network with baselines
+    # 0.5 read influence 0 where the derivative is 1 -- code review
+    # 2026-10-02), its gene uuids, and the self-inhibitor rule (specs/022).
+    # Without `network` the scores describe the default-baseline model.
+    #
+    # Known limit: a node set by the specs/039 pool solve, or a supply edge the
+    # cyclic-component solve held, is differentiated through its reaction's
+    # forward model here, which is not how the solve set it.
     self_shared = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
                   first(self_inhibitor_setup(network))
-    indexed, _, _ = index_reactions(reactions, uuid_to_idx, Dict{String, Float64}();
+    baselines = Dict{String, Float64}()
+    gene_uuids = Set{String}()
+    if network !== nothing
+        gene_stids = gene_stid_set()
+        for (u, node) in network.nodes
+            baselines[u] = node.baseline
+            if !isempty(gene_stids) && node.reactome_id !== nothing && node.reactome_id in gene_stids
+                push!(gene_uuids, u)
+            end
+        end
+    end
+    indexed, _, _ = index_reactions(reactions, uuid_to_idx, baselines, gene_uuids;
                                     self_shared = self_shared)
 
     x = Vector{Float64}(undef, length(all_nodes))

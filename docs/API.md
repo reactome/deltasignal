@@ -104,6 +104,11 @@ are what the solver needs to run the default model; send them back with an
 inline network. `drug_stids` (specs/032, additive) lists the bundle's
 drug-derived stable ids, or is `null` when the bundle has no `drugs.csv`; send
 it back too, or `DS_DRUG_MODE=inert` reports `"inert: no drug table"`.
+`pools` (specs/039, additive) is the interconversion-pool table, or `null`
+when the bundle has no `pools.csv`. Send it back with an inline network, or the
+default `DS_CYCLE_MODE=balance` reports `"balance: no pool table"` and loops
+iterate instead (until 2026-10-02 it was not returned at all, so every inline
+solve silently ran without it).
 
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is
@@ -135,6 +140,8 @@ Solve the steady state under a set of perturbations. JSON body:
 - **`observations`**: object keyed by node `uuid`; each value is
   `[activity, confidence]` where `activity` is **0–100** and `confidence` is
   `0–1`. Confidence `> 0` pins the node as a hard constraint; `0` ignores it.
+  A uuid repeated in the object with **different** values is a `400`
+  (two contradictory measurements are a conflict); an exact repeat is fine.
 
 Response:
 ```json
@@ -158,7 +165,9 @@ Response:
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
-  `"off"` (default), `"balance"`, or `"balance: no pool table"`; how many
+  `"balance"` (default), `"off"`, `"balance: no pool table"`, or
+  `"balance: inert under DS_SCC_METHOD=…"` / `"…DS_SCC_SOLVE=0"` (a solver
+  method that never solves pools, so they were not applied); how many
   interconversion pools this solve handled as conserved pools, how many of
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores

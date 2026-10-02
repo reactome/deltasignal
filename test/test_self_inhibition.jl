@@ -220,6 +220,25 @@ end
     @test DS.self_contained_inhibitor_map(net) == Dict(("C", "T1") => ["L1"])
 end
 
+# Code review 2026-10-02: the influence pass indexed with every baseline at
+# 0.01, so a network with other baselines was differentiated as a different
+# model (the inhibitor term reads its baseline). Oracle: the solve itself.
+# X -> T, Y -| T, all at baseline 0.5; T's only varying input is X, so the
+# influence of X must equal the finite difference of two whole solves.
+@testset "influence scores use the network's baselines" begin
+    nodes = Dict(u => DS.NetworkNode(u, "R-" * u, "protein", nothing, u, 0.5) for u in ("X", "T", "Y"))
+    edges = [DS.LogicNetworkEdge("X", "T", true, true, 1.0, "input"),
+             DS.LogicNetworkEdge("Y", "T", true, false, 1.0, "regulator")]
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict{String, Set{String}}())
+    T(xp) = DS.solve_steady_state(net, Dict("X" => (xp, 1.0))).node_activities["T"]
+    slope = (T(60.1) - T(60.0)) / 0.001
+    r = DS.solve_steady_state(net, Dict("X" => (60.0, 1.0)))
+    rx = DS.convert_to_reaction_network(net)
+    @test slope ≈ 1.0 atol = 1e-3
+    @test DS.compute_influence_scores(r, rx; network = net)["X"] ≈ slope atol = 1e-3
+end
+
 @testset "influence scores use the same model when given the network" begin
     net = fixture()
     r = solve(net; x = 0.5, w = "0.1")

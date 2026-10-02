@@ -106,22 +106,18 @@ function parse_solve_args()
                    "solver is the minimiser (DS_SCC_METHOD=minimize); the default " *
                    "fixed-point method ignores it. See specs/003-solver-objective."
             arg_type = Float64
-            default = 1.0
         "--gamma"
             help = "Baseline prior weight. READ ONLY under DS_SCC_METHOD=minimize; " *
                    "the default fixed-point method ignores it. It is the term that " *
                    "stops a loop settling into the all-zero root, which at gamma=0 " *
                    "is a global minimum tied with the correct answer."
             arg_type = Float64
-            default = 1e-6
         "--max-iters"
-            help = "Maximum optimization iterations"
+            help = "Iteration budget per cyclic component (default: DS_MAX_ITERS, else 500)"
             arg_type = Int
-            default = 500
         "--tolerance"
-            help = "Convergence tolerance"
+            help = "Convergence tolerance (default: DS_TOLERANCE, else 1e-6)"
             arg_type = Float64
-            default = 1e-6
         "--aggregation"
             help = "Pathway aggregation method"
             arg_type = String
@@ -205,6 +201,7 @@ function execute_parse_command(args)
             "containment" => network_containment_json(network),
             # And for DS_DRUG_MODE (specs/032); null when the bundle has no list.
             "drug_stids" => drug_stids_json(network),
+            "pools" => pools_json(network),
             "set_mappings" => Dict(set_id => Dict(
                 "original_set_id" => mapping.original_set_id,
                 "original_name" => mapping.original_name,
@@ -331,6 +328,14 @@ function read_observations(obs_path::String)::Dict{String, Tuple{Float64, Float6
     return observations
 end
 
+"""
+Solver parameters for `solve`: a flag wins, else its DS_* variable, else the
+code default -- the same values the API runs with, validated the same way.
+"""
+solve_params(args) = DeltaSignal.steady_state_params(mu = args[:mu], gamma = args[:gamma],
+                                                     max_iters = args[:max_iters],
+                                                     tolerance = args[:tolerance])
+
 function execute_solve_command(args)
     println("🧮 Solving steady-state network...")
 
@@ -382,7 +387,8 @@ function execute_solve_command(args)
             Set(String.(network_json["cofactor_stids"])) : Set{String}()
         containment = containment_from_json(get(network_json, "containment", nothing))
         drug_stids = drug_stids_from_json(get(network_json, "drug_stids", nothing))
-        network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids)
+        pools = pools_from_json(get(network_json, "pools", nothing))
+        network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools)
         println("✓ Network loaded: $(length(nodes)) nodes, $(length(edges)) edges")
 
         # Load observations CSV
@@ -401,13 +407,7 @@ function execute_solve_command(args)
         end
 
         # Create solver parameters
-        params = SteadyStateParams(
-            args[:mu],
-            args[:gamma],
-            args[:max_iters],
-            args[:tolerance],
-            "penalty"  # Default to penalty method
-        )
+        params = solve_params(args)
 
         # Solve steady-state.
         #
