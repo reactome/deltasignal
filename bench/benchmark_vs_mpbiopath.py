@@ -1415,6 +1415,22 @@ def main():
                             f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\t{gus}\t{kus}\t{excl}\n")
         print(f"Per-case dump: {args.dump_cases}")
 
+    # A pathway whose parse or solve FAILED is not the same as one with no
+    # network or no ground truth: its cases silently drop out of every metric
+    # above, so a partial run would be filed as a complete one (catalog.sh and
+    # run_arm.sh trust the exit code). Fail the run instead (code review
+    # 2026-10-02; the hazard already voided a decision in specs/010).
+    failed = [r for r in results if r["status"] in FATAL_STATUSES]
+    if failed:
+        for r in failed:
+            print(f"FAILED {r['name']}: {r['status']}: {r.get('error')}", file=sys.stderr)
+        sys.exit(f"{len(failed)} pathway(s) failed to parse or solve; "
+                 "the metrics above are incomplete and must not be recorded.")
+
+
+# Statuses that mean the pathway SHOULD have been scored but was not.
+FATAL_STATUSES = frozenset({"parse_failed", "solve_failed", "solve_error"})
+
 
 if __name__ == "__main__":
     main()
