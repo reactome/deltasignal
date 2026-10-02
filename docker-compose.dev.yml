@@ -149,6 +149,10 @@ services:
 
   # Test Runner - On-demand testing
   test-runner:
+    # Same image as julia-api: a separately tagged build of the same target
+    # went stale (12 months), and its Manifest no longer matched the shared
+    # julia-cache volume, so every suite died at load (code review 2026-10-02).
+    image: deltasignal-julia-api
     build:
       context: .
       target: julia-builder
@@ -156,6 +160,9 @@ services:
       - JULIA_NUM_THREADS=2
     volumes:
       - ./src:/app/src:ro
+      # test_cli_observations includes cli/deltasignal.jl; without this it
+      # tested the copy baked into the image (code review 2026-10-02).
+      - ./cli:/app/cli:ro
       - ./test:/app/test:ro
       - ./examples:/app/examples:ro
       # Project.toml is NOT baked-in-and-forgotten: without this mount the
@@ -189,6 +196,7 @@ services:
 
   # CLI Runner - Interactive command execution
   cli:
+    image: deltasignal-julia-api   # one image for all three; see test-runner
     build:
       context: .
       target: julia-builder
