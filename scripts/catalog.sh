@@ -296,6 +296,26 @@ cmd_use() {
   point_current_at "$id"
 }
 
+# The API container must run what HEAD says and nothing else. It loads src/ when
+# it starts, so a commit after that is not what it serves; and its DS_* must be
+# exactly the compose file's (an override left by hand would be filed as the
+# code default).
+check_server_code() {
+  local compose="$DS_REPO/docker-compose.dev.yml" cid started src_time want have
+  cid="$(docker compose -f "$compose" ps -q julia-api 2>/dev/null)"
+  [ -n "$cid" ] || die "julia-api (dev compose) is not running; the bench scores that container"
+  started="$(date -d "$(docker inspect -f '{{.State.StartedAt}}' "$cid")" +%s)"
+  src_time="$(git -C "$DS_REPO" log -1 --format=%ct -- src Project.toml)"
+  [ "$started" -gt "$src_time" ] || die "julia-api started before the last src/ commit, so it is not running HEAD; restart it: docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api"
+  want="$(env -i HOME="$HOME" PATH="$PATH" docker compose -f "$compose" config --format json 2>/dev/null |
+    python3 -c 'import json,sys; e=json.load(sys.stdin)["services"]["julia-api"].get("environment") or {}
+print("\n".join(sorted(f"{k}={v}" for k,v in e.items() if k.startswith("DS_") and v is not None)))')" ||
+    die "could not read the compose environment"
+  have="$(docker exec "$cid" env | grep -E '^DS_' | sort || true)"
+  [ "$want" = "$have" ] || die "julia-api's DS_* differ from docker-compose.dev.yml (recreate it):
+$(diff <(echo "$want") <(echo "$have") | grep '^[<>]')"
+}
+
 cmd_bench() {
   local cur="$HOME_DIR/current"
   [ -L "$cur" ] || die "no current catalog (run: scripts/catalog.sh build)"
@@ -316,6 +336,15 @@ cmd_bench() {
     [ "$s" = "$build" ] || die "API at $API serves '$s' but this run is scoring '$build'${1:+ ($1)}; recreate it: docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api"
   }
   check_served ""
+
+  # Nothing but the code defaults may reach a canonical run (code review
+  # 2026-10-02; run_arm.sh already guards both of these). A DS_* exported in
+  # this shell reaches the benchmark script, e.g. DS_UP_CUTOFF or DS_PIN_SCOPE.
+  local leaked
+  # DS_CATALOG_HOME (this script) and DS_CATALOG_ROOT (set below) are paths, not knobs.
+  leaked="$(env | grep -oE '^DS_[A-Z0-9_]+' | grep -vxE 'DS_CATALOG_(HOME|ROOT)' | sort -u | tr '\n' ' ' || true)"
+  [ -z "$leaked" ] || die "DS_* set in this shell: $leaked-- unset them; a canonical run takes code defaults (use scripts/run_arm.sh for an arm)"
+  check_server_code
 
   local out="$target/results/$ds"
   mkdir -p "$out"
