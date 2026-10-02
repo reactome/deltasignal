@@ -140,7 +140,7 @@ end
         withenv_("DS_TOLERANCE" => "-1") do
             @test_throws ArgumentError solve_params(argsof())
         end
-        @test_throws ArgumentError solve_params(argsof("--max-iters", "0"))
+        @test_throws ArgumentError("--max-iters=0 must be at least 1.") solve_params(argsof("--max-iters", "0"))
         @test_throws ArgumentError solve_params(argsof("--gamma", "-1"))
     end
 

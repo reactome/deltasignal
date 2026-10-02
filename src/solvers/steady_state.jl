@@ -39,9 +39,16 @@ function steady_state_params(; mu = nothing, gamma = nothing, max_iters = nothin
     # all here. Weaker damping made non-convergence WORSE (122 -> 152 TP53
     # cases at lambda=0.1), which points at slow convergence rather than
     # oscillation, but only a larger budget settles it.
+    # An error names where the value came from: the argument (the CLI's flag)
+    # or the DS_* variable.
+    src(given, flag, var) = given ? flag : var
+    n_it = src(max_iters !== nothing, "--max-iters", "DS_MAX_ITERS")
+    n_mu = src(mu !== nothing, "--mu", "DS_MU")
+    n_ga = src(gamma !== nothing, "--gamma", "DS_GAMMA")
+    n_to = src(tolerance !== nothing, "--tolerance", "DS_TOLERANCE")
     max_iters = max_iters === nothing ? round(Int, _float_env("DS_MAX_ITERS", 500.0)) : max_iters
     if max_iters < 1
-        throw(ArgumentError("DS_MAX_ITERS=$max_iters must be at least 1."))
+        throw(ArgumentError("$n_it=$max_iters must be at least 1."))
     end
     # mu and gamma are read ONLY by DS_SCC_METHOD=minimize (specs/003). Under
     # the default fixed-point method they are still inert, which is why they
@@ -57,14 +64,14 @@ function steady_state_params(; mu = nothing, gamma = nothing, max_iters = nothin
     mu = mu === nothing ? _float_env("DS_MU", 1.0) : Float64(mu)
     gamma = gamma === nothing ? _float_env("DS_GAMMA", 1e-6) : Float64(gamma)
     if !(mu > 0.0) || !isfinite(mu)
-        throw(ArgumentError("DS_MU=$mu must be finite and > 0."))
+        throw(ArgumentError("$n_mu=$mu must be finite and > 0."))
     end
     if gamma < 0.0 || !isfinite(gamma)
-        throw(ArgumentError("DS_GAMMA=$gamma must be finite and >= 0."))
+        throw(ArgumentError("$n_ga=$gamma must be finite and >= 0."))
     end
     tolerance = tolerance === nothing ? _float_env("DS_TOLERANCE", 1e-6) : Float64(tolerance)
     if !(tolerance > 0.0) || !isfinite(tolerance)
-        throw(ArgumentError("DS_TOLERANCE=$tolerance must be finite and > 0."))
+        throw(ArgumentError("$n_to=$tolerance must be finite and > 0."))
     end
     return SteadyStateParams(mu, gamma, max_iters, tolerance, "penalty")
 end
@@ -1697,7 +1704,8 @@ function compute_influence_scores(
     all_nodes = collect(keys(result.node_activities))
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
 
-    # Index exactly as solve_steady_state does: the network's own baselines
+    # Index as solve_steady_state does (silo bridges aside: an off-by-default
+    # arm whose bridged edges this pass does not see): the network's own baselines
     # (an empty dict defaulted every one to 0.01, so a network with baselines
     # 0.5 read influence 0 where the derivative is 1 -- code review
     # 2026-10-02), its gene uuids, and the self-inhibitor rule (specs/022).

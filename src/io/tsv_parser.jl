@@ -543,9 +543,19 @@ function pools_json(network::ReactionNetwork)
 end
 
 """Inverse of `pools_json`. Malformed input is an ArgumentError, never a
-silently smaller table."""
+silently smaller table (a wrong type or a short tuple is converted to one, so
+the CLI reports it like the API does)."""
 function pools_from_json(raw)::Union{Nothing, Vector{CyclePool}}
     raw === nothing && return nothing
+    try
+        return _pools_from_json(raw)
+    catch e
+        e isa ArgumentError && rethrow()
+        throw(ArgumentError("pools: malformed table ($(typeof(e)))"))
+    end
+end
+
+function _pools_from_json(raw)::Vector{CyclePool}
     raw isa AbstractVector || throw(ArgumentError("pools must be a list or null"))
     bad() = throw(ArgumentError("pools: each pool needs id, forms, base, intermediates, carriers and paths"))
     out = CyclePool[]
@@ -559,7 +569,6 @@ function pools_from_json(raw)::Union{Nothing, Vector{CyclePool}}
             push!(paths, PoolPath(String(q[:from]), String(q[:to]), steps, Bool(q[:enzyme])))
         end
         forms = String.(collect(p[:forms]))
-        String(p[:base]) in forms || bad()
         push!(out, CyclePool(String(p[:id]), forms, String(p[:base]), paths,
                              String.(collect(p[:intermediates])),
                              Tuple{String, String}[(String(c[1]), String(c[2])) for c in p[:carriers]]))

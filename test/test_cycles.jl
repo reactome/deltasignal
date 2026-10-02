@@ -388,7 +388,9 @@ end
     @test DS.pools_json(fixture(; pools = nothing)) === nothing
     @test DS.pools_from_json(nothing) === nothing
     @test_throws ArgumentError DS.pools_from_json("x")
-    @test_throws ArgumentError DS.pools_from_json(DS.JSON3.read("""[{"id":"p","forms":["a"],"base":"z","intermediates":[],"carriers":[],"paths":[]}]"""))
+    @test_throws ArgumentError DS.pools_from_json(DS.JSON3.read("""[{"id":1,"forms":["a"],"base":"a","intermediates":[],"carriers":[],"paths":[]}]"""))
+    @test_throws ArgumentError DS.pools_from_json(DS.JSON3.read("""[{"id":"p","forms":["a"],"base":"a","intermediates":[],"carriers":[["c"]],"paths":[]}]"""))
+    @test_throws ArgumentError DS.pools_from_json(DS.JSON3.read("""[{"id":"p","forms":["a"],"base":"a","intermediates":[],"carriers":[]}]"""))
 end
 
 @testset "label-independent" begin

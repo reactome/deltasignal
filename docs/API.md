@@ -165,7 +165,9 @@ Response:
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
-  `"off"` (default), `"balance"`, or `"balance: no pool table"`; how many
+  `"balance"` (default), `"off"`, `"balance: no pool table"`, or
+  `"balance: inert under DS_SCC_METHOD=…"` / `"…DS_SCC_SOLVE=0"` (a solver
+  method that never solves pools, so they were not applied); how many
   interconversion pools this solve handled as conserved pools, how many of
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores

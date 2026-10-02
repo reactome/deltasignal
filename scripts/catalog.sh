@@ -304,14 +304,18 @@ check_server_code() {
   local compose="$DS_REPO/docker-compose.dev.yml" cid started src_time want have
   cid="$(docker compose -f "$compose" ps -q julia-api 2>/dev/null)"
   [ -n "$cid" ] || die "julia-api (dev compose) is not running; the bench scores that container"
-  started="$(date -d "$(docker inspect -f '{{.State.StartedAt}}' "$cid")" +%s)"
+  # Limit: this compares times, not the commit the container loaded; a
+  # checkout to an OLDER branch after starting it would pass. Recreate after
+  # switching branches.
+  started="$(docker inspect -f '{{.State.StartedAt}}' "$cid")" || die "cannot inspect julia-api"
+  started="$(date -d "$started" +%s)"
   src_time="$(git -C "$DS_REPO" log -1 --format=%ct -- src Project.toml)"
   [ "$started" -gt "$src_time" ] || die "julia-api started before the last src/ commit, so it is not running HEAD; restart it: docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api"
   want="$(env -i HOME="$HOME" PATH="$PATH" docker compose -f "$compose" config --format json 2>/dev/null |
     python3 -c 'import json,sys; e=json.load(sys.stdin)["services"]["julia-api"].get("environment") or {}
 print("\n".join(sorted(f"{k}={v}" for k,v in e.items() if k.startswith("DS_") and v is not None)))')" ||
     die "could not read the compose environment"
-  have="$(docker exec "$cid" env | grep -E '^DS_' | sort || true)"
+  have="$(docker exec "$cid" env | grep -E '^DS_' | LC_ALL=C sort || true)"
   [ "$want" = "$have" ] || die "julia-api's DS_* differ from docker-compose.dev.yml (recreate it):
 $(diff <(echo "$want") <(echo "$have") | grep '^[<>]')"
 }
@@ -327,7 +331,7 @@ cmd_bench() {
   build="$(basename "$target")"
   ds="$(git -C "$DS_REPO" rev-parse --short HEAD)"
   # Everything that produces the numbers must be committed, not just src/.
-  dirty="$(git -C "$DS_REPO" status --porcelain src bench | wc -l | tr -d ' ')"
+  dirty="$(git -C "$DS_REPO" status --porcelain src bench Project.toml | wc -l | tr -d ' ')"
   [ "$dirty" = "0" ] || die "deltasignal src/ or bench/ has $dirty uncommitted change(s); results must come from a commit"
 
   check_served() {
@@ -342,7 +346,8 @@ cmd_bench() {
   # this shell reaches the benchmark script, e.g. DS_UP_CUTOFF or DS_PIN_SCOPE.
   local leaked
   # DS_CATALOG_HOME (this script) and DS_CATALOG_ROOT (set below) are paths, not knobs.
-  leaked="$(env | grep -oE '^DS_[A-Z0-9_]+' | grep -vxE 'DS_CATALOG_(HOME|ROOT)' | sort -u | tr '\n' ' ' || true)"
+  # compgen -e, as cmd_build does: parsing `env` text breaks on multi-line values.
+  leaked="$( (compgen -e | grep -E '^DS_' | grep -vxE 'DS_CATALOG_(HOME|ROOT)|DS_REPO' | sort -u | tr '\n' ' ') || true)"
   [ -z "$leaked" ] || die "DS_* set in this shell: $leaked-- unset them; a canonical run takes code defaults (use scripts/run_arm.sh for an arm)"
   check_server_code
 

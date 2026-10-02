@@ -5,6 +5,8 @@ version: '3.8'
 services:
   # Julia API Backend - Core computation engine
   julia-api:
+    # Named so test-runner and cli use this exact image under any project name.
+    image: deltasignal-julia-api
     build:
       context: .
       dockerfile: Dockerfile
