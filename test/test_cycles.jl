@@ -358,6 +358,30 @@ end
     end
 end
 
+@testset "the pool table survives a JSON round trip (code review 2026-10-02)" begin
+    net = ring()
+    raw = DS.JSON3.read(DS.JSON3.write(DS.pools_json(net)))
+    back = DS.pools_from_json(raw)
+    @test length(back) == length(net.pools)
+    for (a, b) in zip(net.pools, back)
+        @test (a.id, a.forms, a.base, a.intermediates, a.carriers) == (b.id, b.forms, b.base, b.intermediates, b.carriers)
+        @test [(q.from, q.to, q.steps, q.enzyme) for q in a.paths] == [(q.from, q.to, q.steps, q.enzyme) for q in b.paths]
+    end
+    # the round-tripped network solves exactly as the original
+    net2 = DS.ReactionNetwork(net.nodes, net.edges, net.set_mappings, net.cofactor_stids,
+                              net.containment, net.drug_stids, back)
+    for obs in (Dict("K" => 80.0), Dict("Ph" => 0.0))
+        r1 = solve_ring(net; obs = obs); r2 = solve_ring(net2; obs = obs)
+        @test r1.node_activities == r2.node_activities
+        @test r2.diagnostics["cycle_rule"] == "balance"
+    end
+    # "no table" stays "no table"; malformed input is an error, not a smaller table
+    @test DS.pools_json(fixture(; pools = nothing)) === nothing
+    @test DS.pools_from_json(nothing) === nothing
+    @test_throws ArgumentError DS.pools_from_json("x")
+    @test_throws ArgumentError DS.pools_from_json(DS.JSON3.read("""[{"id":"p","forms":["a"],"base":"z","intermediates":[],"carriers":[],"paths":[]}]"""))
+end
+
 @testset "label-independent" begin
     rl(u) = "zz_" * u
     r1 = solve(fixture(); obs = Dict("EF" => 3.0))

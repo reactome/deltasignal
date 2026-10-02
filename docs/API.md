@@ -104,6 +104,11 @@ are what the solver needs to run the default model; send them back with an
 inline network. `drug_stids` (specs/032, additive) lists the bundle's
 drug-derived stable ids, or is `null` when the bundle has no `drugs.csv`; send
 it back too, or `DS_DRUG_MODE=inert` reports `"inert: no drug table"`.
+`pools` (specs/039, additive) is the interconversion-pool table, or `null`
+when the bundle has no `pools.csv`. Send it back with an inline network, or the
+default `DS_CYCLE_MODE=balance` reports `"balance: no pool table"` and loops
+iterate instead (until 2026-10-02 it was not returned at all, so every inline
+solve silently ran without it).
 
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is

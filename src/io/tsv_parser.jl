@@ -528,6 +528,45 @@ end
 drug_stids_json(network::ReactionNetwork) =
     network.drug_stids === nothing ? nothing : sort(collect(network.drug_stids))
 
+"""JSON form of `pools` (specs/039): `nothing` stays null so "no pool table"
+survives a round trip, and a parse -> POSTed (or CLI) solve runs the same model
+as a solve by network_id (code review 2026-10-02: the table was dropped)."""
+function pools_json(network::ReactionNetwork)
+    network.pools === nothing && return nothing
+    return [Dict("id" => p.id, "forms" => p.forms, "base" => p.base,
+                 "intermediates" => p.intermediates,
+                 "carriers" => [[c, r] for (c, r) in p.carriers],
+                 "paths" => [Dict("from" => q.from, "to" => q.to, "enzyme" => q.enzyme,
+                                  "steps" => [[a, b, copies] for (a, b, copies) in q.steps])
+                             for q in p.paths])
+            for p in network.pools]
+end
+
+"""Inverse of `pools_json`. Malformed input is an ArgumentError, never a
+silently smaller table."""
+function pools_from_json(raw)::Union{Nothing, Vector{CyclePool}}
+    raw === nothing && return nothing
+    raw isa AbstractVector || throw(ArgumentError("pools must be a list or null"))
+    bad() = throw(ArgumentError("pools: each pool needs id, forms, base, intermediates, carriers and paths"))
+    out = CyclePool[]
+    for p in raw
+        all(k -> haskey(p, k), (:id, :forms, :base, :intermediates, :carriers, :paths)) || bad()
+        paths = PoolPath[]
+        for q in p[:paths]
+            steps = Tuple{String, String, Vector{String}}[(String(s[1]), String(s[2]), String.(collect(s[3])))
+                                                          for s in q[:steps]]
+            isempty(steps) && bad()
+            push!(paths, PoolPath(String(q[:from]), String(q[:to]), steps, Bool(q[:enzyme])))
+        end
+        forms = String.(collect(p[:forms]))
+        String(p[:base]) in forms || bad()
+        push!(out, CyclePool(String(p[:id]), forms, String(p[:base]), paths,
+                             String.(collect(p[:intermediates])),
+                             Tuple{String, String}[(String(c[1]), String(c[2])) for c in p[:carriers]]))
+    end
+    return out
+end
+
 """Inverse of `drug_stids_json`."""
 function drug_stids_from_json(raw)::Union{Nothing, Set{String}}
     raw === nothing && return nothing

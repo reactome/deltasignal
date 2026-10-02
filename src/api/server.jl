@@ -325,8 +325,13 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     catch
         throw(ArgumentError("`drug_stids` must be a list of stable ids or null."))
     end
+    pools = try
+        DeltaSignal.pools_from_json(get(data, :pools, nothing))
+    catch
+        throw(ArgumentError("`pools` must be null or the list /api/parse returns."))
+    end
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment,
-                                       drug_stids)
+                                       drug_stids, pools)
 end
 
 """
@@ -708,6 +713,9 @@ function parse_handler(req)
             # specs/032: the bundle's drug list (null when it has none), so a
             # parse -> POSTed solve runs the same model as a solve by network_id.
             "drug_stids" => DeltaSignal.drug_stids_json(network),
+            # specs/039: the interconversion pool table (null when none), so a
+            # parse -> POSTed solve runs the same cycle model as a solve by id.
+            "pools" => DeltaSignal.pools_json(network),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
