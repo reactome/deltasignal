@@ -110,7 +110,7 @@ cmd_build() {
   # did. `|| true`: grep exits 1 when nothing leaked, which set -e made fatal.
   local leaked; leaked=$( (compgen -e | grep '^LNG_' | grep -vx LNG_PYTHON | sort -u | tr '\n' ' ') || true)
   [ -z "$leaked" ] || die "the calling shell exports $leaked-- unset them, or pass them with --env"
-  [ -d "$LNG/.git" ] || die "no generator checkout at $LNG"
+  git -C "$LNG" rev-parse --git-dir >/dev/null 2>&1 || die "no generator checkout at $LNG"  # a worktree has a .git FILE
   local py sha dirty branch id dir
   py="$(lng_python)"
   sha="$(git -C "$LNG" rev-parse --short HEAD)"
