@@ -776,9 +776,14 @@ under Gauss-Seidel (specs/013 amendment 2).
 - `structure`: sorted by a label-free colour of each reaction's target node --
   its stable id refined by its neighbours' (Weisfeiler-Lehman, see
   `structural_node_colours`). Only structurally identical positions tie; a tie
-  keeps the label order and is counted (`scc_order_ties`).
+  keeps the label order and is counted (`scc_order_ties`). Label-free, but it
+  converged 1.3-7% less often than the label order (amendment 2).
+- `flow` (amendment 3): downstream first -- by breadth-first distance inside
+  the component from its entries (members fed from outside it, or pinned),
+  then by the structural colour. Gauss-Seidel converges fastest sweeping with
+  the signal.
 """
-const SCC_ORDERS = ("label", "structure")
+const SCC_ORDERS = ("label", "structure", "flow")
 
 function scc_order_mode()::String
     m = get(ENV, "DS_SCC_ORDER", "label")
@@ -990,14 +995,39 @@ function solve_scc_ordered!(
     # tie keeps the label order; ties are counted so a run says how much order
     # is still left to labels.
     if order_key !== nothing
+        flow = get(pool_stats, "scc_order", "structure") == "flow"
         n_tied = 0
         for c in 1:n_comp
             rs_c = comp_rxns[c]
             length(rs_c) > 1 || continue
-            sort!(rs_c; alg = MergeSort, by = ri -> order_key[rxns_idx[ri].target_idx])
+            dist = Dict{Int, Int}()
+            if flow
+                # entries: a target fed from outside the component, or pinned
+                succ = Dict{Int, Vector{Int}}()
+                queue = Int[]
+                for ri in rs_c
+                    r = rxns_idx[ri]; t = r.target_idx
+                    srcs = vcat(r.activator_indices, r.inhibitor_indices,
+                                r.depletion_indices, r.substrate_indices)
+                    if t in obs_set || any(s -> comp_id[s] != c, srcs)
+                        haskey(dist, t) || (dist[t] = 0; push!(queue, t))
+                    end
+                    for s_ in srcs
+                        comp_id[s_] == c && push!(get!(succ, s_, Int[]), t)
+                    end
+                end
+                head = 1
+                while head <= length(queue)
+                    u = queue[head]; head += 1
+                    for v in get(succ, u, Int[])
+                        haskey(dist, v) || (dist[v] = dist[u] + 1; push!(queue, v))
+                    end
+                end
+            end
+            key(ri) = (get(dist, rxns_idx[ri].target_idx, typemax(Int)), order_key[rxns_idx[ri].target_idx])
+            sort!(rs_c; alg = MergeSort, by = key)
             for k in 2:length(rs_c)
-                a_, b_ = order_key[rxns_idx[rs_c[k - 1]].target_idx], order_key[rxns_idx[rs_c[k]].target_idx]
-                a_ == b_ && (n_tied += 1)
+                key(rs_c[k - 1]) == key(rs_c[k]) && (n_tied += 1)
             end
         end
         pool_stats["scc_order_ties"] = n_tied
@@ -1542,9 +1572,9 @@ function solve_steady_state_penalty(
     order_mode = scc_order_mode()
     index_stats["scc_order"] = order_mode
     order_key = nothing
-    if order_mode == "structure"
+    if order_mode in ("structure", "flow")
         node_keys === nothing && throw(ArgumentError(
-            "DS_SCC_ORDER=structure needs the network's stable ids; this solve was given none."))
+            "DS_SCC_ORDER=$order_mode needs the network's stable ids; this solve was given none."))
         order_key = structural_node_colours(rxns_idx, String[get(node_keys, u, "") for u in all_nodes])
     end
 

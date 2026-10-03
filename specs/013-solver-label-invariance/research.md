@@ -251,3 +251,24 @@ entries (members with an input from outside the component, or pinned). The
 structural colour is used only to break ties. Gauss-Seidel converges fastest
 when it sweeps downstream, so this should restore or improve convergence while
 staying label-free.
+
+## Amendment 3 (2026-10-03): the flow order, pre-registered
+
+`DS_SCC_ORDER=flow` sorts each cyclic component's reactions by breadth-first
+distance from the component's entries, then by the structural colour:
+- entries are targets with an input from outside the component, or targets
+  that are pinned;
+- unreached members go last.
+
+Both keys are label-free. Test: exact relabel invariance on the cyclic
+fixture, for `structure` and `flow`.
+
+**Arms:** `canon_flow` (split044) and `f7ctrl_flow`, `DS_SCC_ORDER=flow`.
+
+**Predictions:**
+1. canonical against rebuild: 0 changed predictions on both axes;
+2. converged solves at least those of the label order on the canonical build
+   (1,669 / 1,725 curator, 218 / 244 experimental), within 1% below;
+3. held-out and experimental within ±15 of the label order. Tuning is reported.
+
+**Decision rule:** adopt as the default if 1, 2 and 3 all hold.
