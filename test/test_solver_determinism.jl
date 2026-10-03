@@ -132,6 +132,33 @@ withenv_sweep(f, mode) = withenv(f, "DS_SCC_SWEEP" => mode)
         end
     end
 
+    # specs/013 amendment 2: Gauss-Seidel swept in a label-free order. Under
+    # the label order the fixture deviates across relabellings by ~2e-9 (see
+    # the caveat at the top), so exact equality separates the two orders.
+    @testset "DS_SCC_ORDER=structure makes gauss_seidel exactly relabel-invariant" begin
+        net = cyclic_net()
+        label_dev = 0.0
+        for obsval in (0.0, 1.0, 50.0, 100.0)
+            obs = Dict("U1" => (obsval, 1.0))
+            ref = withenv(() -> solve_by_original(net, obs, identity), "DS_SCC_ORDER" => "structure")
+            refl = solve_by_original(net, obs, identity)
+            for (nm, f) in RELABELLINGS
+                got = withenv(() -> solve_by_original(net, obs, f), "DS_SCC_ORDER" => "structure")
+                @test all(got[k] == ref[k] for k in keys(ref))
+                gotl = solve_by_original(net, obs, f)
+                label_dev = max(label_dev, maximum(abs(gotl[k] - refl[k]) for k in keys(refl)))
+            end
+        end
+        @test label_dev > 0.0      # the label order really does depend on labels here
+        r = withenv(() -> DS.solve_steady_state(net, Dict("U1" => (50.0, 1.0)), params()),
+                    "DS_SCC_ORDER" => "structure")
+        @test r.diagnostics["scc_order"] == "structure"
+        @test r.diagnostics["scc_order_ties"] == 0
+        @test DS.solve_steady_state(net, Dict("U1" => (50.0, 1.0)), params()).diagnostics["scc_order"] == "label"
+        @test_throws ArgumentError withenv(
+            () -> DS.solve_steady_state(net, Dict("U1" => (50.0, 1.0)), params()), "DS_SCC_ORDER" => "structural")
+    end
+
     @testset "jacobi reaches the same fixed point as gauss_seidel here" begin
         # This fixture's component has a single root, so the two schemes must
         # agree on it. The point is to guard against Jacobi being order-free by

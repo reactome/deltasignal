@@ -508,7 +508,7 @@ other seven execute code and print output.
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
-| `test/test_solver_determinism.jl` | 80 | |
+| `test/test_solver_determinism.jl` | 105 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
