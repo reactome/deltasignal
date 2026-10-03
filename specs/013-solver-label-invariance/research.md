@@ -184,3 +184,43 @@ removes the dependence on minted uuids. It is untried, and needs its own
 pre-registration. Until then, every tuning-pathway number (TP53, RUNX2) is
 quoted with the ±150-case rebuild band measured here, and the held-out split
 remains the number of record.
+
+## Amendment 2 (2026-10-03): a label-free Gauss-Seidel order, pre-registered
+
+Amendment 1 showed two things:
+- the uuid-driven sweep order is the *whole* source of label dependence;
+- Jacobi cannot replace Gauss-Seidel (held-out −94, it converges less).
+
+The fix keeps Gauss-Seidel and changes only where its order comes from.
+`DS_SCC_ORDER=structure` sorts each cyclic component's reactions, stably, by a
+structural colour of their target node:
+- start from its stable id;
+- refine four rounds by the neighbours' colours, with integer edge-role codes
+  (Weisfeiler-Lehman);
+- a tie keeps the label order and is counted (`scc_order_ties`).
+
+The default stays `label`. Test: on the cyclic fixture, the label order
+deviates across relabellings and the structural order is exactly invariant.
+
+**Arms** (solver 379fa40 or later, Gauss-Seidel):
+- `canon_struct`: build `20260928-1110_06ccb63_split044`, `DS_SCC_ORDER=structure`;
+- `f7ctrl_struct`: build `20261003-1058_1491276_f7ctrl`, `DS_SCC_ORDER=structure`.
+
+**Predictions:**
+1. **Label invariance.** `canon_struct` against `f7ctrl_struct`: 0 changed
+   predictions on both axes (the label order gave 219), provided
+   `scc_order_ties` leaves no symmetric positions in a component that does
+   not converge. Any non-zero count is traced to tied positions.
+2. **Convergence:** within 1% of the label order on the same build (it is the
+   same scheme, only reordered).
+3. **Cost:** against the label order on the canonical build, held-out within
+   ±15 and experimental within ±15.
+   - Tuning (TP53, RUNX2) may move by up to about 150, the measured rebuild
+     band. Any one order picks one basin, and the label order's choice was
+     itself arbitrary.
+   - Tuning is reported, not judged.
+
+**Decision rule:** make `structure` the default if (1) holds, (2) holds, and
+(3) is within the floor on held-out and experimental. The canonical results
+are then re-scored under it and become the new reproducible baseline, with
+the tuning shift reported.
