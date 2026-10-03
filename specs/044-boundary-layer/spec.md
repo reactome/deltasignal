@@ -60,8 +60,10 @@ The generator, logic-network-generator branch `feat/boundary-edges-file`:
 
 DeltaSignal:
 - `parse_logic_network` reads `boundary_edges.csv` beside `logic_network.csv`,
-  appended after the curated rows. That is the order the generator built
-  them in, so sweep order is unchanged.
+  appended after the curated rows. This is not exactly the generator's
+  original row order: the diagram set-member edges are emitted after the
+  boundary pass, and they now sit before it. Verification 2 shows the order
+  changes no prediction.
 - The columns must match, or the read fails.
 - Every Python reader goes through `bench/network_files.py:open_network`.
 - `catalog.sh` counts both files in `BUILD.json`.
@@ -78,11 +80,19 @@ decision.
    for edge by stable id. `logic_network.csv` has no assembly or dissociation
    edges. Done 2026-10-03.
 2. **DeltaSignal:** split the served build's `logic_network.csv` by
-   `edge_type` into the two files. For that build the boundary pass is exactly
+   `edge_type` into the two files (`builds/20260928-1110_06ccb63_split044`). For that build the boundary pass is exactly
    `assembly` + `dissociation`: composition and capped pools are off, and
    every assembly edge there has no `edge_reaction_id`. Score it with this
    branch, then compare against the unsplit build scored by the same code.
    **Required: every prediction identical on both axes.**
+
+   **Result (2026-10-03, solver 8030591):** identical. All 24,100 curator cases
+   and all 849 experimental cases match in every field, the numeric
+   prediction `pred_ui` included. Both arms score 20,482 of 24,100 (84.99%),
+   the canonical figure. The split moved 19,903 edges (10,165 assembly and
+   9,738 dissociation) and left 194,294 curated. Results:
+   `builds/20260928-1110_06ccb63/results/8030591/ctrl044` and
+   `builds/20260928-1110_06ccb63_split044/results/8030591/split044`.
 3. Merge DeltaSignal first, then the generator. A DeltaSignal that does not
    read `boundary_edges.csv` would silently lose those edges from a new
    catalog.
