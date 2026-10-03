@@ -105,3 +105,82 @@ budget.
    order-dependence for non-convergence?
 
 A decision on the default waits on 1–3.
+
+## Amendment 1 (2026-10-03): the default sweep, pre-registered before the arm
+
+**Why now.** A real-catalog relabelling happened by accident. Two builds have
+networks identical by stable id, with curated rows in the same order; only
+the minted uuids differ:
+- canonical `20260928-1110_06ccb63`;
+- `20261003-1058_1491276_f7ctrl`, the same generator content after the specs/044 split.
+
+Under the default Gauss-Seidel sweep they differ by **158 TP53 predictions
+(−145 cases)**, plus RUNX2 (45) and Fanconi (2); held-out is +2. TP53 is a
+tuning pathway, so every tuning-half number is a coin flip across rebuilds.
+specs/044 also showed the cost: a +96 TP53 "gain" in the F7 arm that vanished
+under `jacobi`.
+
+**Arm:** canonical split build `20260928-1110_06ccb63_split044`, whose
+predictions are proven identical to canonical, scored with
+`DS_SCC_SWEEP=jacobi`. It is compared with the existing `f7ctrl_jacobi` and
+with both Gauss-Seidel scorings.
+
+**Predictions:**
+1. **Label invariance on the real catalog.** Jacobi on canonical against
+   Jacobi on `f7ctrl` changes **0** predictions on both axes (Gauss-Seidel:
+   205). Any non-zero count means order-dependence remains somewhere else
+   (iteration over a Dict keyed by uuid outside the sweep, for example) and
+   must be traced.
+2. **Cost**, Jacobi against Gauss-Seidel on the same build:
+   - held-out within ±15, the noise floor;
+   - experimental within ±15.
+   - On `f7ctrl` this was already seen once: curator all 85.22% vs 85.20%,
+     experimental −2. That is not a pre-registration, so it is quoted here only
+     as the reason for running.
+3. **Convergence.** Report `Converged: N of M solves` for both sweeps. Jacobi
+   may converge less often on the large components. A drop of more than 1% of
+   solves is a finding to trace, not to accept.
+
+**Decision rule:** make `jacobi` the default if (1) holds and (2) is within the
+floor on both axes. Otherwise record it and keep Gauss-Seidel.
+
+### Result (2026-10-03, solver ab0f44d / a952354)
+
+Arms:
+- `canon_jacobi`: build `20260928-1110_06ccb63_split044`, `DS_SCC_SWEEP=jacobi`;
+- `f7ctrl_jacobi`;
+- the two Gauss-Seidel scorings `split044` and `f7ctrl`.
+
+1. **Label invariance holds exactly on the real catalog.** Jacobi on canonical
+   against Jacobi on `f7ctrl` changes 0 predictions and 0 numeric values on
+   both axes. Gauss-Seidel changes 205 + 14 predictions and 2,193 + 189
+   values. So uuid-driven sweep order is the whole cause; nothing else in the
+   solver depends on labels.
+2. **Cost: fails.** Jacobi against Gauss-Seidel on the canonical build:
+   - held-out **−94** (19 fixed / 113 broken, p = 1.8e-17);
+   - tuning −42;
+   - experimental −6 (0/6, p = 0.031).
+
+   The held-out loss is DNA Double-Strand Break Repair −86 (KPNA2, MDC1,
+   MRE11, NBN, KAT5) and DSB Response −14. Tuning is TP53 −42, nearly all MDM4
+   (−49).
+3. **Convergence: fails.** Converged solves:
+   - curator: 1,669 → 1,609 of 1,725 (−3.5%);
+   - experimental: 218 → 185 of 244 (−13.5%).
+
+   Jacobi trades order dependence for non-convergence in the large
+   components. That answers open question 3 above.
+
+The near-zero difference seen first on `f7ctrl` (85.22% vs 85.20%) was not a
+cost estimate: that build's Gauss-Seidel had landed in TP53's worse basin
+(−145 against canonical).
+
+**Decision: Gauss-Seidel stays the default.** Jacobi as it stands is not
+adoptable. The label dependence remains open. The direct fix it points to is
+to keep Gauss-Seidel and take its order from a **label-free key** (the
+reaction's stable id and a structural signature, with ties broken by
+structure) instead of from the uuid. That keeps the convergence properties and
+removes the dependence on minted uuids. It is untried, and needs its own
+pre-registration. Until then, every tuning-pathway number (TP53, RUNX2) is
+quoted with the ±150-case rebuild band measured here, and the held-out split
+remains the number of record.
