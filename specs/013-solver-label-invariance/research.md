@@ -105,3 +105,41 @@ budget.
    order-dependence for non-convergence?
 
 A decision on the default waits on 1–3.
+
+## Amendment 1 (2026-10-03): the default sweep, pre-registered before the arm
+
+**Why now.** A real-catalog relabelling happened by accident. Two builds have
+networks identical by stable id, with curated rows in the same order; only
+the minted uuids differ:
+- canonical `20260928-1110_06ccb63`;
+- `20261003-1058_1491276_f7ctrl`, the same generator content after the specs/044 split.
+
+Under the default Gauss-Seidel sweep they differ by **158 TP53 predictions
+(−145 cases)**, plus RUNX2 (45) and Fanconi (2); held-out is +2. TP53 is a
+tuning pathway, so every tuning-half number is a coin flip across rebuilds.
+specs/044 also showed the cost: a +96 TP53 "gain" in the F7 arm that vanished
+under `jacobi`.
+
+**Arm:** canonical split build `20260928-1110_06ccb63_split044`, whose
+predictions are proven identical to canonical, scored with
+`DS_SCC_SWEEP=jacobi`. It is compared with the existing `f7ctrl_jacobi` and
+with both Gauss-Seidel scorings.
+
+**Predictions:**
+1. **Label invariance on the real catalog.** Jacobi on canonical against
+   Jacobi on `f7ctrl` changes **0** predictions on both axes (Gauss-Seidel:
+   205). Any non-zero count means order-dependence remains somewhere else
+   (iteration over a Dict keyed by uuid outside the sweep, for example) and
+   must be traced.
+2. **Cost**, Jacobi against Gauss-Seidel on the same build:
+   - held-out within ±15, the noise floor;
+   - experimental within ±15.
+   - On `f7ctrl` this was already seen once: curator all 85.22% vs 85.20%,
+     experimental −2. That is not a pre-registration, so it is quoted here only
+     as the reason for running.
+3. **Convergence.** Report `Converged: N of M solves` for both sweeps. Jacobi
+   may converge less often on the large components. A drop of more than 1% of
+   solves is a finding to trace, not to accept.
+
+**Decision rule:** make `jacobi` the default if (1) holds and (2) is within the
+floor on both axes. Otherwise record it and keep Gauss-Seidel.
