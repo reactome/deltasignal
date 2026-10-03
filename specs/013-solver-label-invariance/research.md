@@ -272,3 +272,26 @@ fixture, for `structure` and `flow`.
 3. held-out and experimental within ±15 of the label order. Tuning is reported.
 
 **Decision rule:** adopt as the default if 1, 2 and 3 all hold.
+
+### Result (2026-10-03, solver b1cd593): adopted
+
+1. **Label invariance holds exactly.** `canon_flow` against `f7ctrl_flow`: 0
+   predictions and 0 numeric values change, on both axes.
+2. **Convergence holds:**
+   - curator: 1,668 of 1,725 (label order 1,669);
+   - experimental: 222 of 244 (label order 218), **better**.
+3. **Cost is within the floor.** Against the label order on the canonical
+   build:
+   - held-out **0**: not one held-out case changed;
+   - experimental −8 (0/8, p = 0.008), all RAF, 3 perturbations;
+   - tuning −18 (RAF −12, TP53 −6), reported. The label order's basins there
+     were arbitrary: a rebuild under it moved TP53 by 145.
+
+**Decision: `flow` becomes the default** (all three criteria hold).
+Consequences:
+- every rebuild of identical content now scores identically;
+- the ±150-case tuning band is gone;
+- arms that differ in structure are no longer confounded by re-minted uuids,
+  as the F7 arm was in specs/044.
+
+The canonical results are re-scored under it (docs/RESULTS.md).

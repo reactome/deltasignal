@@ -141,11 +141,11 @@ withenv_sweep(f, mode) = withenv(f, "DS_SCC_SWEEP" => mode)
         for obsval in (0.0, 1.0, 50.0, 100.0), mode in ("structure", "flow")
             obs = Dict("U1" => (obsval, 1.0))
             ref = withenv(() -> solve_by_original(net, obs, identity), "DS_SCC_ORDER" => mode)
-            refl = solve_by_original(net, obs, identity)
+            refl = withenv(() -> solve_by_original(net, obs, identity), "DS_SCC_ORDER" => "label")
             for (nm, f) in RELABELLINGS
                 got = withenv(() -> solve_by_original(net, obs, f), "DS_SCC_ORDER" => mode)
                 @test all(got[k] == ref[k] for k in keys(ref))
-                gotl = solve_by_original(net, obs, f)
+                gotl = withenv(() -> solve_by_original(net, obs, f), "DS_SCC_ORDER" => "label")
                 label_dev = max(label_dev, maximum(abs(gotl[k] - refl[k]) for k in keys(refl)))
             end
         end
@@ -157,7 +157,7 @@ withenv_sweep(f, mode) = withenv(f, "DS_SCC_SWEEP" => mode)
         rf = withenv(() -> DS.solve_steady_state(net, Dict("U1" => (50.0, 1.0)), params()),
                      "DS_SCC_ORDER" => "flow")
         @test rf.diagnostics["scc_order"] == "flow"
-        @test DS.solve_steady_state(net, Dict("U1" => (50.0, 1.0)), params()).diagnostics["scc_order"] == "label"
+        @test DS.solve_steady_state(net, Dict("U1" => (50.0, 1.0)), params()).diagnostics["scc_order"] == "flow"
         @test_throws ArgumentError withenv(
             () -> DS.solve_steady_state(net, Dict("U1" => (50.0, 1.0)), params()), "DS_SCC_ORDER" => "structural")
     end

@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-09-28. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-03. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,42 @@ commit.
 
 ---
 
+
+> **2026-10-03: canonical numbers, now reproducible across rebuilds (specs/013
+> amendment 3).** The model is unchanged except the order cyclic components
+> are swept in: `DS_SCC_ORDER=flow` (default since this date) replaces an order
+> that came from uuid hashing. Under the old order, rebuilding identical
+> content moved 158 TP53 predictions (−145 cases). Under `flow`, a rebuild
+> changes 0 of 24,949.
+>
+> Build `20260928-1110_06ccb63` (scored through its specs/044 split,
+> `..._split044`, proven identical), solver `b1cd593` (`results/b1cd593/canon_flow`).
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **87.94%** | **0.8449** |
+> | curator held-out, every case (71 pathways) | 19,000 | 87.36% | 0.8366 |
+> | curator, all pathways, in release (81) | 23,625 | 85.46% | 0.8229 |
+> | curator, all pathways, every case | 24,100 | 84.91% | 0.8158 |
+> | experimental, every case (10 pathways) | 849 | **68.90%** | **0.6015** |
+>
+> **Against the previous box:**
+> - held-out is unchanged: not one held-out case moved;
+> - the tuning half is −18 (RAF −12, TP53 −6);
+> - experimental is −8 (585 against 593), all RAF, in 3 perturbations.
+>
+> Those were cases the uuid order happened to get right. Under it, the same
+> pathways moved by up to 145 cases on a rebuild, so the previous tuning and
+> experimental figures were one draw from that band, not a reproducible
+> measurement.
+>
+> **Against MP-BioPath's published figures**, every case against every case:
+> - Curator: ours 84.91% / 0.8158 against their 83.34% / 0.8063, a lead of
+>   **+1.57pp**.
+> - Experimental: ours 68.90% (585/849) against their 75.74% (643/849),
+>   **−6.8pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-09-28 (evening): canonical numbers, with cycle balance and leaf-sharing
 > self-contained inhibitors (specs/039, 040).** This is the box below, plus

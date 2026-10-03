@@ -295,6 +295,15 @@ env vars only override for benchmark sweeps:
   was measured against a `hill_sat` that could not represent a knockout and
   inverted its own saturation on wide reactions. Why the remaining 16-case
   downward compression helps is still unexplained.
+- `DS_SCC_ORDER=flow` (**default since 2026-10-03**, specs/013 amendments 2–3)
+  | `structure` | `label`: the Gauss-Seidel sweep order inside a cyclic component.
+  `flow` sweeps downstream, by breadth-first distance from the component's
+  entries, with ties broken by a stable-id structural colour. It is
+  label-free, so rebuilding a catalog (which re-mints every uuid) no longer
+  moves predictions. Under `label`, a rebuild of identical content moved 158
+  TP53 predictions. Held-out and convergence are unchanged. The solve reports
+  `scc_order` and `scc_order_ties`. `DS_SCC_SWEEP=jacobi` is also
+  label-free, but costs held-out −94 and converges less (amendment 1).
 - SCC-condensation solve is on by default (`DS_SCC_SOLVE=1`); the legacy flat
   iteration and the `"fixed_point"` `SteadyStateParams.method` are not used by
   the CLI or API (both use the penalty/SCC path).

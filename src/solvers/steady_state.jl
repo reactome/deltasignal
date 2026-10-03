@@ -769,7 +769,7 @@ end
 `DS_SCC_ORDER`: the order reactions are swept in inside a cyclic component
 under Gauss-Seidel (specs/013 amendment 2).
 
-- `label` (default, historical): the order of the indexed reactions, which comes
+- `label` (historical; the default until 2026-10-03): the order of the indexed reactions, which comes
   from `Dict` iteration over node uuids. A rebuild re-mints uuids, so it
   re-orders the sweep: canonical and an identical rebuild differ by 158 TP53
   predictions (specs/013 amendment 1).
@@ -778,7 +778,8 @@ under Gauss-Seidel (specs/013 amendment 2).
   `structural_node_colours`). Only structurally identical positions tie; a tie
   keeps the label order and is counted (`scc_order_ties`). Label-free, but it
   converged 1.3-7% less often than the label order (amendment 2).
-- `flow` (amendment 3): downstream first -- by breadth-first distance inside
+- `flow` (**default**, amendment 3: rebuilds score identically, convergence
+  and held-out unchanged): downstream first -- by breadth-first distance inside
   the component from its entries (members fed from outside it, or pinned),
   then by the structural colour. Gauss-Seidel converges fastest sweeping with
   the signal.
@@ -786,7 +787,7 @@ under Gauss-Seidel (specs/013 amendment 2).
 const SCC_ORDERS = ("label", "structure", "flow")
 
 function scc_order_mode()::String
-    m = get(ENV, "DS_SCC_ORDER", "label")
+    m = get(ENV, "DS_SCC_ORDER", "flow")
     m in SCC_ORDERS || throw(ArgumentError(
         "DS_SCC_ORDER=$m is not an order; expected one of $(join(SCC_ORDERS, ", "))."))
     return m
