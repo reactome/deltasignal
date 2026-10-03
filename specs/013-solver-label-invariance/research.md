@@ -224,3 +224,30 @@ deviates across relabellings and the structural order is exactly invariant.
 (3) is within the floor on held-out and experimental. The canonical results
 are then re-scored under it and become the new reproducible baseline, with
 the tuning shift reported.
+
+### Result (2026-10-03, solver 2c37fed)
+
+1. **Label invariance holds exactly.** `canon_struct` against `f7ctrl_struct`:
+   0 predictions and 0 numeric values change, on both axes (the label order
+   gave 219 and 2,382). The structural colours separated every position that
+   matters.
+2. **Convergence fails the 1% criterion.** Against the label order on the same
+   build:
+   - curator: 1,669 → 1,646 of 1,725 solves (−1.3%);
+   - experimental: 218 → 201 of 244 (−7.0%).
+3. **Cost is within the floor:**
+   - held-out −1 (1/2);
+   - experimental −8 (0/8, p = 0.008), all RAF, 3 perturbations;
+   - tuning −12, all RAF.
+   - TP53 did not move: the structural order happens to keep canonical's basin.
+
+**Decision: not adopted** (criterion 2). Gauss-Seidel's convergence depends on
+the order, and an order that is label-free but otherwise arbitrary converges
+worse than the uuid order did on this build.
+
+**Next (amendment 3, to pre-register):** order each component by the flow of
+signal through it, ranked by breadth-first distance from the component's
+entries (members with an input from outside the component, or pinned). The
+structural colour is used only to break ties. Gauss-Seidel converges fastest
+when it sweeps downstream, so this should restore or improve convergence while
+staying label-free.
