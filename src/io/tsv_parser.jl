@@ -112,6 +112,19 @@ Schema is detected from the header. Delimiter is autodetected by CSV.jl.
 """
 function parse_logic_network(filepath::String)::Vector{LogicNetworkEdge}
     df = CSV.read(filepath, DataFrame, header=true)
+    # specs/044: the generator writes the curated network to logic_network.csv
+    # and the edges it DERIVES at root inputs and terminal outputs (assembly,
+    # dissociation) to boundary_edges.csv beside it, same columns. The model
+    # runs on both, in that order (the order the generator built them in, so
+    # sweep order is unchanged). A bundle from before the split has no
+    # boundary file and is read as before.
+    boundary = joinpath(dirname(filepath), "boundary_edges.csv")
+    if basename(filepath) == "logic_network.csv" && isfile(boundary)
+        bdf = CSV.read(boundary, DataFrame, header=true)
+        names(bdf) == names(df) || throw(ArgumentError(
+            "boundary_edges.csv columns $(names(bdf)) differ from logic_network.csv $(names(df))"))
+        df = vcat(df, bdf; cols = :orderequal)
+    end
     cols = Set(Symbol.(names(df)))
 
     # Generator schema detection: source_id + target_id + pos_neg

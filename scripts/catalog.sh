@@ -162,6 +162,10 @@ for p in sorted(os.path.basename(x) for x in glob.glob(os.path.join(d, "R-HSA-*"
 nodes = edges = 0
 for p in built:
     rows = list(csv.DictReader(open(os.path.join(d, p, "logic_network.csv"), newline="")))
+    # specs/044: derived boundary edges live beside the curated network.
+    bf = os.path.join(d, p, "boundary_edges.csv")
+    if os.path.exists(bf):
+        rows += list(csv.DictReader(open(bf, newline="")))
     edges += len(rows)
     nodes += len({r["source_id"] for r in rows} | {r["target_id"] for r in rows})
 

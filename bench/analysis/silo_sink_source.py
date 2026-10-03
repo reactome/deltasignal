@@ -50,6 +50,9 @@ import argparse
 import csv
 import collections
 from pathlib import Path
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 
 def scan(pathway_dir: Path):
@@ -66,7 +69,7 @@ def scan(pathway_dir: Path):
 
     indeg: collections.Counter = collections.Counter()
     outdeg: collections.Counter = collections.Counter()
-    with logic_file.open() as fh:
+    with open_network(logic_file.parent) as fh:
         for e in csv.DictReader(fh):
             outdeg[e["source_id"]] += 1
             indeg[e["target_id"]] += 1
@@ -143,7 +146,7 @@ def report_reach(rows, catalog: Path) -> None:
         adj = collections.defaultdict(list)
         indeg: collections.Counter = collections.Counter()
         outdeg: collections.Counter = collections.Counter()
-        with (d / "logic_network.csv").open() as fh:
+        with open_network(d) as fh:
             for e in csv.DictReader(fh):
                 adj[e["source_id"]].append(e["target_id"])
                 outdeg[e["source_id"]] += 1

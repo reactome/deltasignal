@@ -47,6 +47,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cycle_structure import tarjan_sccs  # noqa: E402
 from holdout_report import TUNING_PATHWAYS  # noqa: E402
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 DERIVED = {"assembly", "depletion", "catalyst"}
 
@@ -56,7 +58,7 @@ class Network:
         self.fwd = defaultdict(list)          # u -> [(v, is_neg, edge_type)]
         self.bwd = defaultdict(list)
         nodes = set()
-        with open(pathway_dir / "logic_network.csv", newline="") as fh:
+        with open_network(pathway_dir) as fh:
             for r in csv.DictReader(fh):
                 u, v = r["source_id"], r["target_id"]
                 neg = r.get("pos_neg") == "neg"

@@ -28,6 +28,8 @@ import collections
 import csv
 import sys
 from pathlib import Path
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -96,7 +98,7 @@ def main() -> int:
         drugs = set()
         if (d / "drugs.csv").exists():
             drugs = {x["stable_id"] for x in csv.DictReader(open(d / "drugs.csv"))}
-        E = list(csv.DictReader(open(d / "logic_network.csv")))
+        E = list(csv.DictReader(open_network(d)))
         fwd = collections.defaultdict(set)
         indeg = collections.Counter()
         for e in E:

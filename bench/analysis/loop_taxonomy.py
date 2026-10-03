@@ -34,6 +34,8 @@ import collections
 import csv
 import sys
 from pathlib import Path
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 
 def tarjan(nodes, adj):
@@ -95,7 +97,7 @@ def classify_pathway(d: Path):
     edges = []
     adj = collections.defaultdict(list)
     nodes = set()
-    with logic.open() as fh:
+    with open_network(logic.parent) as fh:
         for e in csv.DictReader(fh):
             edges.append(e)
             adj[e["source_id"]].append(e["target_id"])

@@ -20,6 +20,8 @@ import csv
 import sys
 from collections import Counter, defaultdict, deque
 from pathlib import Path
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 DOWN, NORMAL, UP = "0", "1", "2"
 
@@ -28,7 +30,7 @@ def load_network(pathway_dir: Path):
     adjacency: dict[str, list[str]] = defaultdict(list)
     sources: set[str] = set()
     targets: set[str] = set()
-    with (pathway_dir / "logic_network.csv").open(newline="") as handle:
+    with open_network(pathway_dir) as handle:
         for row in csv.DictReader(handle):
             s, t = row["source_id"].strip(), row["target_id"].strip()
             adjacency[s].append(t)

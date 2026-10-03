@@ -28,6 +28,9 @@ import collections
 import csv
 import json
 from pathlib import Path
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 
 def network_reachability(pathway_dir: Path):
@@ -44,7 +47,7 @@ def network_reachability(pathway_dir: Path):
     lf = pathway_dir / "logic_network.csv"
     if not lf.exists():
         return None, None
-    with lf.open() as fh:
+    with open_network(lf.parent) as fh:
         for e in csv.DictReader(fh):
             adj[e["source_id"]].add(e["target_id"])
     by_stid = collections.defaultdict(set)

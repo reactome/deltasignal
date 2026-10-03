@@ -49,6 +49,8 @@ import csv, sys
 from collections import defaultdict, deque
 from pathlib import Path
 from _common import CATALOG, EXP_PATHWAYS, graph, pw_dir
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 
 def _bfs_reach(out_map, sources, sinks, max_depth=15):
@@ -97,7 +99,7 @@ def silo_analysis(dirname, effective=False):
     inc = defaultdict(list)
     out = defaultdict(list)  # uuid → [(target, pn, ao, et)]
     fp = CATALOG / dirname / "logic_network.csv"
-    for r in csv.reader(open(fp)):
+    for r in csv.reader(open_network(fp.parent)):
         if r[0] == "source_id":
             continue
         src, tgt, pn, ao, et, _ = r

@@ -30,13 +30,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import benchmark_vs_mpbiopath as b  # noqa: E402
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 
 def load_graph(pathway_dir: Path):
     fwd = defaultdict(list)
     rev = defaultdict(list)
     un = defaultdict(set)
-    for r in csv.DictReader(open(pathway_dir / "logic_network.csv")):
+    for r in csv.DictReader(open_network(pathway_dir)):
         s, t = r["source_id"], r["target_id"]
         fwd[s].append(t)
         rev[t].append(s)

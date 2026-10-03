@@ -30,6 +30,9 @@ import csv
 from pathlib import Path
 
 from loop_taxonomy import tarjan  # reuse the iterative Tarjan
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 
 def classify(d: Path):
@@ -60,7 +63,7 @@ def classify(d: Path):
     # negative edges, by the entity that carries them
     neg_nodes = set()
     node_kind = {}
-    with logic.open() as fh:
+    with open_network(logic.parent) as fh:
         for e in csv.DictReader(fh):
             if e["pos_neg"] == "neg":
                 neg_nodes.add(e["source_id"])

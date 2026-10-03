@@ -38,6 +38,8 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Iterable
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 SIGNED_ADJ = dict[str, set[tuple[str, int]]]
 ADJ = dict[str, set[str]]
@@ -284,7 +286,7 @@ def load_bundle(pathway_dir: Path):
     ladj: ADJ = collections.defaultdict(set)
     uadj: ADJ = collections.defaultdict(set)
     edge_uuids: dict[tuple[str, str], list[tuple[str, str]]] = collections.defaultdict(list)
-    for e in csv.DictReader((pathway_dir / "logic_network.csv").open()):
+    for e in csv.DictReader(open_network(pathway_dir)):
         a, b = e["source_id"], e["target_id"]
         sa, sb = u2s.get(a, a), u2s.get(b, b)
         ladj[sa].add(sb); uadj[a].add(b); edge_uuids[(sa, sb)].append((a, b))

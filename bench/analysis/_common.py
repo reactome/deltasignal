@@ -10,6 +10,9 @@ import os
 import re
 from collections import defaultdict, deque
 from pathlib import Path
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 CATALOG = Path(os.environ.get(
     "PATHWAY_CATALOG",
@@ -48,7 +51,7 @@ def pw_dir(pname):
 
 def load_one(dirname):
     """Load a single pathway. Returns (incoming, outgoing, stids, rev_stids, proxies)."""
-    rows = list(csv.reader(open(CATALOG / dirname / "logic_network.csv")))[1:]
+    rows = list(csv.reader(open_network(CATALOG / dirname)))[1:]
     incoming = defaultdict(list)
     outgoing = defaultdict(list)
     for r in rows:
@@ -73,7 +76,7 @@ def load_joint(dirnames):
     inc, out = defaultdict(list), defaultdict(list)
     stids, rev, proxies = {}, defaultdict(list), defaultdict(list)
     for d in dirnames:
-        rows = list(csv.reader(open(CATALOG / d / "logic_network.csv")))[1:]
+        rows = list(csv.reader(open_network(CATALOG / d)))[1:]
         for r in rows:
             src, tgt, pn, ao, et, *_ = r   # 6 or 7 columns (edge_reaction_id added 2026-09)
             inc[tgt].append((src, pn, ao, et))

@@ -23,6 +23,7 @@ from collections import defaultdict
 from pathlib import Path
 from urllib.request import Request, urlopen
 from py2neo import Graph
+from network_files import open_network  # specs/044
 
 DS = os.environ.get("DS_URL", "http://127.0.0.1:8080")
 CAT = Path(os.environ.get("PATHWAY_CATALOG",
@@ -105,7 +106,7 @@ def build_joint_network(pathway_dirs):
     edges = set()
     self_loops = 0
     for d in pathway_dirs:
-        with open(CAT / d / "logic_network.csv") as f:
+        with open_network(CAT / d) as f:
             for r in csv.DictReader(f):
                 s = uuid_to_stid.get(r["source_id"])
                 t = uuid_to_stid.get(r["target_id"])

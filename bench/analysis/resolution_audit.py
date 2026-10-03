@@ -14,6 +14,8 @@ import csv
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 
 def orphan_report(catalog: Path) -> dict:
@@ -27,7 +29,7 @@ def orphan_report(catalog: Path) -> dict:
         if not (net.exists() and ctx.exists()):
             continue
         live: set[str] = set()
-        with net.open(newline="") as handle:
+        with open_network(net.parent) as handle:
             for row in csv.DictReader(handle):
                 live.add((row["source_id"] or "").strip())
                 live.add((row["target_id"] or "").strip())
