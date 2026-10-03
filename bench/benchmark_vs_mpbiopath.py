@@ -1079,6 +1079,11 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["cycle_pools_multistep"] += int(ds_result.get("cycle_pools_multistep") or 0)
             SOLVE_TALLY[f"cycle_carriers={ds_result.get('cycle_carriers', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_carriers_held"] += int(ds_result.get("cycle_carriers_held") or 0)
+            # specs/013 amendment 3: sweep order, and adjacent reactions in a
+            # cyclic component it could not tell apart (they keep label order).
+            SOLVE_TALLY[f"scc_order={ds_result.get('scc_order', 'unknown')}"] += 1
+            SOLVE_TALLY["scc_order_ties_max"] = max(SOLVE_TALLY["scc_order_ties_max"],
+                                                    int(ds_result.get("scc_order_ties") or 0))
             SOLVE_TALLY["conserved_held"] += int(ds_result.get("conserved_held") or 0)
             SOLVE_TALLY[f"self_fed_rule={ds_result.get('self_fed_rule', 'unknown')}"] += 1
             SOLVE_TALLY["self_fed_edges_held"] += int(ds_result.get("self_fed_edges_held") or 0)
@@ -1370,6 +1375,9 @@ def main():
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
     print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
+    orders = {k.split("=", 1)[1]: v for k, v in SOLVE_TALLY.items() if k.startswith("scc_order=")}
+    print(f"Sweep order: {orders or 'unreported'}; most tied reactions in one solve: "
+          f"{SOLVE_TALLY['scc_order_ties_max']}")
     rules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("drug_rule="))
     print(f"\nDrugs: rule {'/'.join(rules) or 'unknown'}, {SOLVE_TALLY['drugs_held']} node-solves held (specs/032)")
     if "inert" in rules and SOLVE_TALLY["drugs_held"] == 0:

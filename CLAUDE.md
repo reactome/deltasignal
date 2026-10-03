@@ -300,7 +300,10 @@ env vars only override for benchmark sweeps:
   `flow` sweeps downstream, by breadth-first distance from the component's
   entries, with ties broken by a stable-id structural colour. It is
   label-free, so rebuilding a catalog (which re-mints every uuid) no longer
-  moves predictions. Under `label`, a rebuild of identical content moved 158
+  moves predictions. Values agree to `pred_ui` precision, not bit for bit:
+  tied positions keep label order, and RAF/IFN differ by up to 6e-16. The order
+  depends on Julia's `hash`, so re-check invariance when the Julia version
+  changes. Under `label`, a rebuild of identical content moved 158
   TP53 predictions. Held-out and convergence are unchanged. The solve reports
   `scc_order` and `scc_order_ties`. `DS_SCC_SWEEP=jacobi` is also
   label-free, but costs held-out −94 and converges less (amendment 1).

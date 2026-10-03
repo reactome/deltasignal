@@ -24,7 +24,8 @@ commit.
 > are swept in: `DS_SCC_ORDER=flow` (default since this date) replaces an order
 > that came from uuid hashing. Under the old order, rebuilding identical
 > content moved 158 TP53 predictions (−145 cases). Under `flow`, a rebuild
-> changes 0 of 24,949.
+> changes 0 of 24,949 predictions. Values agree to the reported precision; RAF
+> and IFN α/β still differ by up to 6e-16 (specs/013, review).
 >
 > Build `20260928-1110_06ccb63` (scored through its specs/044 split,
 > `..._split044`, proven identical), solver `b1cd593` (`results/b1cd593/canon_flow`).
@@ -42,10 +43,11 @@ commit.
 > - the tuning half is −18 (RAF −12, TP53 −6);
 > - experimental is −8 (585 against 593), all RAF, in 3 perturbations.
 >
-> Those were cases the uuid order happened to get right. Under it, the same
-> pathways moved by up to 145 cases on a rebuild, so the previous tuning and
-> experimental figures were one draw from that band, not a reproducible
-> measurement.
+> Under the uuid order the tuning pathways moved by up to 145 cases on a
+> rebuild, so the previous tuning figure was one draw from that band (`flow`
+> sits inside it). Experimental RAF is different: every label-free order scores
+> below both label draws there (585 against 593 and 589). That is a small,
+> consistent cost in 3 perturbations (RAF1, BRAF, ARAF), not noise.
 >
 > **Against MP-BioPath's published figures**, every case against every case:
 > - Curator: ours 84.91% / 0.8158 against their 83.34% / 0.8063, a lead of

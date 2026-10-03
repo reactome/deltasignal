@@ -295,3 +295,30 @@ Consequences:
   as the F7 arm was in specs/044.
 
 The canonical results are re-scored under it (docs/RESULTS.md).
+
+
+### Review of the adoption (2026-10-03): precision of the claims
+
+- **"Identical" means at prediction level and at the 6 decimals of `pred_ui`.**
+  - An in-process relabelling of every uuid (two seeds, 6 root pins × {0, 80}
+    per pathway) gives bit-identical values in TP53 and DSB repair.
+  - It does not in RAF (2,212 values, at most 5.6e-16) or IFN α/β (724, at
+    most 4.4e-16). The label order gives differences of 0.6–1.0 in the same test.
+  - The residue comes from tied positions, which keep label order, and from the
+    summation order of index vectors inside a reaction. It could matter only in
+    a component that does not converge or sits on a knife-edge.
+- **Ties are common:** `scc_order_ties` of 169 (RAF), 133 (IFN), 366 (DSB) and
+  202 for single knockouts, and 0 in TP53. The bench now prints them.
+- **Still in label (index) order, and inert on this catalog at prediction
+  level:** the specs/039 pool re-evaluation BFS, the carrier order, and the
+  activator order within a reaction.
+- **The order depends on Julia's `hash`** of strings, tuples and vectors. It is
+  deterministic across processes on 1.10.10, but a Julia version that changes
+  string hashing reorders every colour tie-break. Re-check invariance when the
+  Julia version changes. It also depends on the release: a new neighbour
+  recolours its surroundings, which is the point.
+- **Experimental RAF:** all three label-free orders score 585 / 849, below both
+  label draws (593 canonical, 589 rebuild). So "cases the label order happened
+  to get right" holds for the curator tuning half (`flow` sits inside the label
+  band). For experimental RAF, `flow` is a small but consistent −4 to −8 (3
+  perturbations: RAF1, BRAF, ARAF), recorded as such.
