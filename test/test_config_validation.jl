@@ -391,6 +391,50 @@ end
     end
 end
 
+@testset "boundary_edges.csv is read with the network (specs/044)" begin
+    # The generator writes curated edges to logic_network.csv and the edges it
+    # derives at root inputs / terminal outputs to boundary_edges.csv. The
+    # model runs on both, curated first; a pre-split bundle reads as before.
+    hdr = "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n"
+    mktempdir() do dir
+        logic = joinpath(dir, "logic_network.csv")
+        uuidf = joinpath(dir, "stid_to_uuid_mapping.csv")
+        write(logic, hdr * "u-x,u-r,pos,and,input,1\nu-r,u-y,pos,,output,1\n")
+        write(uuidf, "uuid,stable_id\nu-a,R-HSA-1\nu-x,R-HSA-2\nu-r,R-HSA-3\nu-y,R-HSA-4\n")
+        pre = DeltaSignal.parse_logic_network(logic)
+        @test [(e.parent_uuid, e.child_uuid) for e in pre] == [("u-x", "u-r"), ("u-r", "u-y")]
+
+        write(joinpath(dir, "boundary_edges.csv"), hdr * "u-a,u-x,pos,and,assembly,1\n")
+        both = DeltaSignal.parse_logic_network(logic)
+        @test [(e.parent_uuid, e.child_uuid, e.edge_type) for e in both] ==
+              [("u-x", "u-r", "input"), ("u-r", "u-y", "output"), ("u-a", "u-x", "assembly")]
+        net = DeltaSignal.parse_complete_network(logic, uuidf)
+        @test length(net.edges) == 3
+        @test haskey(net.nodes, "u-a")
+
+        # an empty boundary file (header only) adds nothing
+        write(joinpath(dir, "boundary_edges.csv"), hdr)
+        @test length(DeltaSignal.parse_logic_network(logic)) == 2
+
+        # different columns are an error, not a silent partial read
+        write(joinpath(dir, "boundary_edges.csv"), "source_id,target_id\nu-a,u-x\n")
+        @test_throws ArgumentError DeltaSignal.parse_logic_network(logic)
+
+        # An upload or a renamed copy cannot use the sibling rule: the boundary
+        # file is named explicitly; `nothing` reads the curated network alone.
+        renamed = joinpath(dir, "logic_network_upload.csv")
+        cp(logic, renamed)
+        bnd = joinpath(dir, "boundary_upload.csv")
+        write(bnd, hdr * "u-a,u-x,pos,and,assembly,1\n")
+        @test length(DeltaSignal.parse_logic_network(renamed)) == 2
+        @test length(DeltaSignal.parse_logic_network(renamed; boundary_path = bnd)) == 3
+        @test length(DeltaSignal.parse_complete_network(renamed, uuidf; boundary_path = bnd).edges) == 3
+        rm(joinpath(dir, "boundary_edges.csv"))
+        @test length(DeltaSignal.parse_logic_network(logic; boundary_path = nothing)) == 2
+        @test_throws ArgumentError DeltaSignal.parse_logic_network(logic; boundary_path = joinpath(dir, "nope.csv"))
+    end
+end
+
 @testset "the cofactor list that ships with a bundle wins" begin
     # The generator derives the list from the same release it generated the
     # network from, so it cannot drift from it. The built-in list can, and did.

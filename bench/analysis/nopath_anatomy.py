@@ -21,6 +21,7 @@ import argparse, collections, csv, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from network_files import open_network  # noqa: E402  (specs/044)
 from benchmark_vs_mpbiopath import (neo4j_gene_to_stids, neo4j_dbid_to_stid,  # noqa: E402
                                     load_stid_to_uuids)
 
@@ -29,7 +30,7 @@ def load_edges(pathway_dir: Path):
     f = pathway_dir / "logic_network.csv"
     if not f.exists():
         return []
-    with f.open(newline="") as fh:
+    with open_network(f.parent) as fh:
         return [(r["source_id"], r["target_id"]) for r in csv.DictReader(fh)]
 
 
@@ -44,7 +45,7 @@ def reaction_stids(pathway_dir: Path) -> set[str]:
     f = pathway_dir / "logic_network.csv"
     if not f.exists():
         return set()
-    with f.open(newline="") as fh:
+    with open_network(f.parent) as fh:
         return {r["edge_reaction_id"] for r in csv.DictReader(fh) if r.get("edge_reaction_id")}
 
 

@@ -60,6 +60,11 @@ function parse_parse_args()
             help = "Logic network TSV file"
             arg_type = String
             required = true
+        "--boundary"
+            help = "Derived boundary edges (specs/044). Default: boundary_edges.csv " *
+                   "beside a file named logic_network.csv; give it explicitly for a " *
+                   "renamed copy"
+            arg_type = String
         "--uuid-map", "-u"
             help = "UUID to Reactome ID mapping TSV file"
             arg_type = String
@@ -154,7 +159,8 @@ function execute_parse_command(args)
         network = parse_complete_network(
             args[:logic],
             args[:uuid_map],
-            args[:set_map]
+            args[:set_map];
+            boundary_path = something(args[:boundary], :sibling)
         )
         
         if args[:validate]

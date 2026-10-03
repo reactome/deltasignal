@@ -25,6 +25,8 @@ Usage:
 import csv, os, sys
 from collections import defaultdict
 from pathlib import Path
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 CATALOG = Path(os.environ.get(
     "PATHWAY_CATALOG", str(Path.home() / "gitroot" / "logic-network-generator" / "output")))
@@ -53,7 +55,7 @@ def audit(dirname):
     deg = defaultdict(int)
     is_target = set()
     reg_cat_edges = []  # (source_uuid, edge_type)
-    with open(d / "logic_network.csv") as f:
+    with open_network(d) as f:
         for r in csv.DictReader(f):
             s, t, et = r["source_id"], r["target_id"], r["edge_type"]
             deg[s] += 1; deg[t] += 1

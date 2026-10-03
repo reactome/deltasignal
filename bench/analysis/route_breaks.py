@@ -29,6 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from case_oracle import MADE, USE, faithful_comp_pairs, fetch_one_level, oracle_graph  # noqa: E402
 from curator_oracle import fetch_reaction_rows, shortest_path  # noqa: E402
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 RX = ("Reaction", "BlackBoxEvent", "Polymerisation", "Depolymerisation", "FailedReaction")
 
@@ -99,7 +101,7 @@ def main() -> int:
             nodes = list(csv.DictReader(open(a.catalog / pid / "nodes.csv", newline="")))
             ident = {x["uuid"]: x["diagram_entity_id"].split("::")[0] for x in nodes}
             fwd = collections.defaultdict(list)
-            for e in csv.DictReader(open(a.catalog / pid / "logic_network.csv", newline="")):
+            for e in csv.DictReader(open_network(a.catalog / pid)):
                 fwd[e["source_id"]].append(e["target_id"])
             graphs[pw] = ({k: {t for t, _ in v} for k, v in adj.items()}, ident, fwd,
                           set(ident.values()), expand,

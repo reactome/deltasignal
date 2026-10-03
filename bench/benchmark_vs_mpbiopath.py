@@ -34,6 +34,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from network_files import open_network  # specs/044
 
 # Locations of the upstream data, overridable via env so the harness isn't
 # pinned to one developer's checkout:
@@ -381,7 +382,7 @@ def load_entity_reaction_proxies(pathway_dir: Path):
 def build_adjacency(pathway_dir: Path) -> dict:
     """Forward adjacency: source → [target,...]. Used for reachability checks."""
     adj = defaultdict(list)
-    with open(pathway_dir / "logic_network.csv") as f:
+    with open_network(pathway_dir) as f:
         reader = csv.DictReader(f)
         for row in reader:
             adj[row["source_id"]].append(row["target_id"])
@@ -523,7 +524,7 @@ def self_contained_inhibitor_pairs(pathway_dir: Path) -> set:
             contains.setdefault(row["stable_id"], set()).add(row["contains_stable_id"])
     acts: dict = defaultdict(set)
     inh_rows = []
-    with open(pathway_dir / "logic_network.csv") as f:
+    with open_network(pathway_dir) as f:
         for row in csv.DictReader(f):
             su, tu = str(row["source_id"]), str(row["target_id"])
             if row.get("pos_neg") == "neg":
@@ -551,7 +552,7 @@ def cycle_closing_composition_pairs(pathway_dir: Path) -> set:
     i.e. on uuids, which are redrawn per build (80 of 1,114 on the comp build)."""
     fwd: dict = defaultdict(set)
     comp = []
-    with open(pathway_dir / "logic_network.csv", newline="") as f:
+    with open_network(pathway_dir) as f:
         for r in csv.DictReader(f):
             if r.get("edge_type") == "composition":
                 comp.append((r["source_id"], r["target_id"]))
@@ -593,7 +594,7 @@ def sibling_regulator_pairs(pathway_dir: Path) -> set:
             leaves = {x for x in (r.get("member_leaves") or "").split("|") if x}
             de = (r.get("diagram_entity_id") or "").strip()
             nodes[r["uuid"]] = (de, leaves | ({de} if de else set()))
-    rows = list(csv.DictReader(open(pathway_dir / "logic_network.csv", newline="")))
+    rows = list(csv.DictReader(open_network(pathway_dir)))
     in_leaves: dict = defaultdict(set)
     for r in rows:
         if r["pos_neg"] == "pos" and r.get("edge_type") in ("input", "catalyst", "assembly"):
@@ -626,7 +627,7 @@ def sibling_regulator_pairs(pathway_dir: Path) -> set:
 def load_edge_pairs(pathway_dir: Path, edge_types: set) -> set:
     """(source_id, target_id) pairs whose edge_type is in `edge_types`."""
     pairs = set()
-    with open(pathway_dir / "logic_network.csv") as f:
+    with open_network(pathway_dir) as f:
         for row in csv.DictReader(f):
             if row.get("edge_type") in edge_types:
                 pairs.add((str(row["source_id"]), str(row["target_id"])))
@@ -869,7 +870,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             uuids.extend(stid_to_uuids.get(sid, []))
         gene_to_uuids[g] = uuids
     indeg = Counter()
-    with open(pathway_dir / "logic_network.csv") as f:
+    with open_network(pathway_dir) as f:
         for row in csv.DictReader(f):
             indeg[row["target_id"]] += 1
     if PIN_SCOPE == "entry":
@@ -880,7 +881,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         roots = {g: root_occurrences(us, indeg) for g, us in gene_to_uuids.items()}
         if PIN_SCOPE == "root_cycle" and any(us and not roots[g] for g, us in gene_to_uuids.items()):
             inc, fwd, ident = defaultdict(list), defaultdict(list), {}
-            with open(pathway_dir / "logic_network.csv") as f:
+            with open_network(pathway_dir) as f:
                 for row in csv.DictReader(f):
                     inc[row["target_id"]].append((row["source_id"], row.get("edge_type", "")))
                     fwd[row["source_id"]].append(row["target_id"])
@@ -1178,8 +1179,8 @@ def network_edge_count(pathway_id: str) -> int:
     f = d / "logic_network.csv"
     if not f.exists():
         return -1
-    # Subtract 1 for the header row.
-    with open(f) as fh:
+    # Subtract 1 for the header row. Boundary edges count (specs/044).
+    with open_network(d) as fh:
         return sum(1 for _ in fh) - 1
 
 

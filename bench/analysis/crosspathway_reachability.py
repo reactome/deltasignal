@@ -21,6 +21,9 @@ Reads the case dumps /tmp/dsX_{cur,exp}_cases.tsv and /tmp/gene_to_stids.json.
 import csv, json, os
 from collections import defaultdict, deque
 from pathlib import Path
+import sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 CATALOG = Path(os.environ.get(
     "PATHWAY_CATALOG", str(Path.home() / "gitroot" / "logic-network-generator" / "output")))
@@ -44,7 +47,7 @@ def stid_adj(dirname):
         for r in csv.DictReader(f):
             u2s[r["uuid"]] = r["stable_id"]
     adj = defaultdict(set)
-    with open(d / "logic_network.csv") as f:
+    with open_network(d) as f:
         for r in csv.DictReader(f):
             s, t = u2s.get(r["source_id"]), u2s.get(r["target_id"])
             if s and t:

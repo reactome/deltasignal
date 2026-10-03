@@ -110,8 +110,33 @@ Parse the main logic network file. Accepts two schemas:
 
 Schema is detected from the header. Delimiter is autodetected by CSV.jl.
 """
-function parse_logic_network(filepath::String)::Vector{LogicNetworkEdge}
+function parse_logic_network(filepath::String;
+                             boundary_path::Union{String, Nothing, Symbol} = :sibling)::Vector{LogicNetworkEdge}
     df = CSV.read(filepath, DataFrame, header=true)
+    # specs/044: the generator writes the curated network to logic_network.csv
+    # and the edges it DERIVES at root inputs and terminal outputs (assembly,
+    # dissociation) to boundary_edges.csv beside it, same columns. The model
+    # runs on both, in that order (the order the generator built them in, so
+    # sweep order is unchanged). A bundle from before the split has no
+    # boundary file and is read as before.
+    # `boundary_path`: :sibling (the default) finds it beside a file named
+    # logic_network.csv; a path names it explicitly (an upload, or a renamed
+    # copy, whose sibling rule cannot fire); `nothing` reads the curated
+    # network alone.
+    boundary = boundary_path === :sibling ?
+        (basename(filepath) == "logic_network.csv" ?
+            joinpath(dirname(filepath), "boundary_edges.csv") : nothing) :
+        boundary_path
+    boundary isa Symbol && throw(ArgumentError("boundary_path must be :sibling, a path or nothing"))
+    if boundary !== nothing && boundary_path !== :sibling && !isfile(boundary)
+        throw(ArgumentError("boundary edges file not found: $boundary"))
+    end
+    if boundary !== nothing && isfile(boundary)
+        bdf = CSV.read(boundary, DataFrame, header=true)
+        names(bdf) == names(df) || throw(ArgumentError(
+            "boundary_edges.csv columns $(names(bdf)) differ from logic_network.csv $(names(df))"))
+        df = vcat(df, bdf; cols = :orderequal)
+    end
     cols = Set(Symbol.(names(df)))
 
     # Generator schema detection: source_id + target_id + pos_neg
@@ -339,11 +364,12 @@ function parse_complete_network(
     logic_network_path::String,
     uuid_mapping_path::String,
     set_mapping_path::Union{String, Nothing} = nothing,
-    cofactor_path::Union{String, Nothing} = nothing
+    cofactor_path::Union{String, Nothing} = nothing;
+    boundary_path::Union{String, Nothing, Symbol} = :sibling
 )::ReactionNetwork
     
     println("Parsing logic network...")
-    edges = parse_logic_network(logic_network_path)
+    edges = parse_logic_network(logic_network_path; boundary_path = boundary_path)
     println("Found $(length(edges)) edges")
     
     println("Parsing UUID mappings...")

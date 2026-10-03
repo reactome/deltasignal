@@ -153,15 +153,32 @@ def network_ok(path):
     except (OSError, csv.Error):
         return False
 
+def boundary_ok(pdir):
+    """specs/044: a boundary_edges.csv, when present, must have the network's
+    columns, or every solve of this pathway fails at parse time."""
+    bf = os.path.join(pdir, "boundary_edges.csv")
+    if not os.path.exists(bf):
+        return True
+    try:
+        with open(bf, newline="") as fb, open(os.path.join(pdir, "logic_network.csv"), newline="") as fl:
+            return next(csv.reader(fb), None) == next(csv.reader(fl), None)
+    except (OSError, csv.Error):
+        return False
+
 wanted = [r["id"] for r in csv.DictReader(open(os.path.join(d, "pathways.tsv")), delimiter="\t")]
 built, bad = [], []
 for p in sorted(os.path.basename(x) for x in glob.glob(os.path.join(d, "R-HSA-*"))):
-    (built if network_ok(os.path.join(d, p, "logic_network.csv")) else bad).append(p)
+    ok = network_ok(os.path.join(d, p, "logic_network.csv")) and boundary_ok(os.path.join(d, p))
+    (built if ok else bad).append(p)
 
 # Summed per pathway, the way every earlier measurement in this repo counted.
 nodes = edges = 0
 for p in built:
     rows = list(csv.DictReader(open(os.path.join(d, p, "logic_network.csv"), newline="")))
+    # specs/044: derived boundary edges live beside the curated network.
+    bf = os.path.join(d, p, "boundary_edges.csv")
+    if os.path.exists(bf):
+        rows += list(csv.DictReader(open(bf, newline="")))
     edges += len(rows)
     nodes += len({r["source_id"] for r in rows} | {r["target_id"] for r in rows})
 

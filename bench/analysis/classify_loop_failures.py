@@ -16,6 +16,8 @@ Usage:
 import csv, os, sys
 from collections import defaultdict
 from pathlib import Path
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 CATALOG = Path(os.environ.get(
     "PATHWAY_CATALOG", str(Path.home() / "gitroot" / "logic-network-generator" / "output")))
@@ -28,7 +30,7 @@ def load(dirname):
         stid[r["uuid"]] = r["stable_id"]
     adj = defaultdict(list)         # u -> [(v, sign, edge_type)]
     radj = defaultdict(list)        # reverse
-    for r in csv.DictReader(open(d / "logic_network.csv")):
+    for r in csv.DictReader(open_network(d)):
         s, t = r["source_id"], r["target_id"]
         sign = -1 if r["pos_neg"] == "neg" else 1
         adj[s].append((t, sign, r["edge_type"]))

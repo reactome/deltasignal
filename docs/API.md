@@ -70,7 +70,11 @@ Parse a logic network into nodes + edges. Three input modes (checked in order):
    { "pathway_id": "Cell_Cycle_Checkpoints_R-HSA-69620" }
    ```
 2. **File upload** (escape hatch) — `multipart/form-data` with parts
-   `logic_network` and `uuid_mapping` (required), `set_mappings` (optional).
+   `logic_network` and `uuid_mapping` (required), `set_mappings` (optional),
+   and `boundary_edges` (optional, specs/044): a generator bundle's
+   `boundary_edges.csv`, the edges it derives at root inputs and terminal
+   outputs. Send it with a bundle from a split generator, or the network is the
+   curated one alone. A catalog `pathway_id` reads it automatically.
    A request that declares `multipart/form-data` but is missing either required
    part is a **`400`** — it is not silently treated as mode 3.
 3. **No body** — falls back to the bundled sample network. This applies only to

@@ -26,6 +26,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from network_files import open_network  # specs/044
 
 
 DOWN, NORMAL, UP = 0, 1, 2
@@ -317,7 +318,7 @@ def derive_proxy_dbid_to_uuids(pathway_dir: Path) -> dict[str, dict[str, list[st
             if node_kinds.get(uuid) != "reaction":
                 entity_to_dbids[uuid].add(dbid)
     mapping: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
-    with (pathway_dir / "logic_network.csv").open(newline="") as handle:
+    with open_network(pathway_dir) as handle:
         for row in csv.DictReader(handle):
             source = normalize_cell(row["source_id"])
             target = normalize_cell(row["target_id"])
@@ -397,7 +398,7 @@ def set_coverage(perturbed: set[str], sets: dict[str, set[str]]) -> tuple[float,
 def load_network_adjacency(pathway_dir: Path) -> dict[str, list[tuple[str, int]]]:
     """Load the signed directed graph used by the structural baselines."""
     adjacency: dict[str, list[tuple[str, int]]] = defaultdict(list)
-    with (pathway_dir / "logic_network.csv").open(newline="") as handle:
+    with open_network(pathway_dir) as handle:
         reader = csv.DictReader(handle)
         required = {"source_id", "target_id", "pos_neg"}
         missing = sorted(required - set(reader.fieldnames or []))
@@ -423,7 +424,7 @@ def load_root_input_nodes(pathway_dir: Path) -> set[str]:
     """
     targets: set[str] = set()
     sources: set[str] = set()
-    with (pathway_dir / "logic_network.csv").open(newline="") as handle:
+    with open_network(pathway_dir) as handle:
         for row in csv.DictReader(handle):
             sources.add(normalize_cell(row["source_id"]))
             targets.add(normalize_cell(row["target_id"]))
@@ -1254,6 +1255,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             name: {"path": str(path), "sha256": sha256(path), "size_bytes": path.stat().st_size}
             for name in (
                 "logic_network.csv",
+                "boundary_edges.csv",
                 "stid_to_uuid_mapping.csv",
                 "entity_reaction_proxy_mapping.csv",
                 "nodes.csv",

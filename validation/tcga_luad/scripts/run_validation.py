@@ -1031,6 +1031,10 @@ def main() -> None:
                 "pathways": {
                     spec.pathway_id: {
                         "logic_network": file_provenance(spec.logic_network),
+                        # specs/044: derived edges the CLI reads beside it
+                        "boundary_edges": (file_provenance(spec.logic_network.parent / "boundary_edges.csv")
+                                           if (spec.logic_network.parent / "boundary_edges.csv").exists()
+                                           else None),
                         "uuid_map": file_provenance(spec.uuid_map),
                         "parsed_network": file_provenance(spec.parsed_network),
                     }

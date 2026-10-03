@@ -26,6 +26,8 @@ import json
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from network_files import open_network  # noqa: E402  (specs/044)
 
 DEFAULT_RATIO_THRESHOLD = 15.0
 
@@ -80,7 +82,7 @@ def tarjan_sccs(adjacency: dict[str, list[str]], nodes: set[str]) -> list[list[s
 
 
 def read_lng_network(path: Path) -> list[dict[str, str]]:
-    with (path / "logic_network.csv").open(newline="") as handle:
+    with open_network(path) as handle:
         reader = csv.DictReader(handle)
         required = {"source_id", "target_id"}
         missing = sorted(required - set(reader.fieldnames or []))

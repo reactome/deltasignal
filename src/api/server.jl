@@ -221,7 +221,7 @@ function error_response(e::Exception; context::String="")
     return HTTP.Response(status, JSON_HEADERS, JSON3.write(body))
 end
 
-const PARSE_FIELDS = ("logic_network", "uuid_mapping", "set_mappings", "observations")
+const PARSE_FIELDS = ("logic_network", "boundary_edges", "uuid_mapping", "set_mappings", "observations")
 
 # Server-side cache of parsed networks, so a client can /api/parse once and then
 # /api/solve many times against a `network_id` — sending only observations, not
@@ -615,12 +615,16 @@ function parse_handler(req)
     try
         upload = extract_uploaded_files(req)
         local logic_network_path, uuid_mapping_path, set_mapping_path
+        boundary_path = :sibling
         pathway_id = nothing
 
         if upload !== nothing
             logic_network_path = upload.paths["logic_network"]
             uuid_mapping_path = upload.paths["uuid_mapping"]
             set_mapping_path = get(upload.paths, "set_mappings", nothing)
+            # specs/044: an upload is saved under its part name, so the sibling
+            # rule cannot find boundary_edges.csv; it comes as its own part.
+            boundary_path = get(upload.paths, "boundary_edges", nothing)
         else
             # Check for JSON body with a catalog pathway_id
             body = String(req.body)
@@ -653,7 +657,8 @@ function parse_handler(req)
         network = DeltaSignal.parse_complete_network(
             logic_network_path,
             uuid_mapping_path,
-            set_mapping_path
+            set_mapping_path;
+            boundary_path = boundary_path
         )
 
         # Cache the parsed network so subsequent /api/solve calls can reference it
