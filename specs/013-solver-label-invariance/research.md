@@ -184,3 +184,141 @@ removes the dependence on minted uuids. It is untried, and needs its own
 pre-registration. Until then, every tuning-pathway number (TP53, RUNX2) is
 quoted with the ±150-case rebuild band measured here, and the held-out split
 remains the number of record.
+
+## Amendment 2 (2026-10-03): a label-free Gauss-Seidel order, pre-registered
+
+Amendment 1 showed two things:
+- the uuid-driven sweep order is the *whole* source of label dependence;
+- Jacobi cannot replace Gauss-Seidel (held-out −94, it converges less).
+
+The fix keeps Gauss-Seidel and changes only where its order comes from.
+`DS_SCC_ORDER=structure` sorts each cyclic component's reactions, stably, by a
+structural colour of their target node:
+- start from its stable id;
+- refine four rounds by the neighbours' colours, with integer edge-role codes
+  (Weisfeiler-Lehman);
+- a tie keeps the label order and is counted (`scc_order_ties`).
+
+The default stays `label`. Test: on the cyclic fixture, the label order
+deviates across relabellings and the structural order is exactly invariant.
+
+**Arms** (solver 379fa40 or later, Gauss-Seidel):
+- `canon_struct`: build `20260928-1110_06ccb63_split044`, `DS_SCC_ORDER=structure`;
+- `f7ctrl_struct`: build `20261003-1058_1491276_f7ctrl`, `DS_SCC_ORDER=structure`.
+
+**Predictions:**
+1. **Label invariance.** `canon_struct` against `f7ctrl_struct`: 0 changed
+   predictions on both axes (the label order gave 219), provided
+   `scc_order_ties` leaves no symmetric positions in a component that does
+   not converge. Any non-zero count is traced to tied positions.
+2. **Convergence:** within 1% of the label order on the same build (it is the
+   same scheme, only reordered).
+3. **Cost:** against the label order on the canonical build, held-out within
+   ±15 and experimental within ±15.
+   - Tuning (TP53, RUNX2) may move by up to about 150, the measured rebuild
+     band. Any one order picks one basin, and the label order's choice was
+     itself arbitrary.
+   - Tuning is reported, not judged.
+
+**Decision rule:** make `structure` the default if (1) holds, (2) holds, and
+(3) is within the floor on held-out and experimental. The canonical results
+are then re-scored under it and become the new reproducible baseline, with
+the tuning shift reported.
+
+### Result (2026-10-03, solver 2c37fed)
+
+1. **Label invariance holds exactly.** `canon_struct` against `f7ctrl_struct`:
+   0 predictions and 0 numeric values change, on both axes (the label order
+   gave 219 and 2,382). The structural colours separated every position that
+   matters.
+2. **Convergence fails the 1% criterion.** Against the label order on the same
+   build:
+   - curator: 1,669 → 1,646 of 1,725 solves (−1.3%);
+   - experimental: 218 → 201 of 244 (−7.0%).
+3. **Cost is within the floor:**
+   - held-out −1 (1/2);
+   - experimental −8 (0/8, p = 0.008), all RAF, 3 perturbations;
+   - tuning −12, all RAF.
+   - TP53 did not move: the structural order happens to keep canonical's basin.
+
+**Decision: not adopted** (criterion 2). Gauss-Seidel's convergence depends on
+the order, and an order that is label-free but otherwise arbitrary converges
+worse than the uuid order did on this build.
+
+**Next (amendment 3, to pre-register):** order each component by the flow of
+signal through it, ranked by breadth-first distance from the component's
+entries (members with an input from outside the component, or pinned). The
+structural colour is used only to break ties. Gauss-Seidel converges fastest
+when it sweeps downstream, so this should restore or improve convergence while
+staying label-free.
+
+## Amendment 3 (2026-10-03): the flow order, pre-registered
+
+`DS_SCC_ORDER=flow` sorts each cyclic component's reactions by breadth-first
+distance from the component's entries, then by the structural colour:
+- entries are targets with an input from outside the component, or targets
+  that are pinned;
+- unreached members go last.
+
+Both keys are label-free. Test: exact relabel invariance on the cyclic
+fixture, for `structure` and `flow`.
+
+**Arms:** `canon_flow` (split044) and `f7ctrl_flow`, `DS_SCC_ORDER=flow`.
+
+**Predictions:**
+1. canonical against rebuild: 0 changed predictions on both axes;
+2. converged solves at least those of the label order on the canonical build
+   (1,669 / 1,725 curator, 218 / 244 experimental), within 1% below;
+3. held-out and experimental within ±15 of the label order. Tuning is reported.
+
+**Decision rule:** adopt as the default if 1, 2 and 3 all hold.
+
+### Result (2026-10-03, solver b1cd593): adopted
+
+1. **Label invariance holds exactly.** `canon_flow` against `f7ctrl_flow`: 0
+   predictions and 0 numeric values change, on both axes.
+2. **Convergence holds:**
+   - curator: 1,668 of 1,725 (label order 1,669);
+   - experimental: 222 of 244 (label order 218), **better**.
+3. **Cost is within the floor.** Against the label order on the canonical
+   build:
+   - held-out **0**: not one held-out case changed;
+   - experimental −8 (0/8, p = 0.008), all RAF, 3 perturbations;
+   - tuning −18 (RAF −12, TP53 −6), reported. The label order's basins there
+     were arbitrary: a rebuild under it moved TP53 by 145.
+
+**Decision: `flow` becomes the default** (all three criteria hold).
+Consequences:
+- every rebuild of identical content now scores identically;
+- the ±150-case tuning band is gone;
+- arms that differ in structure are no longer confounded by re-minted uuids,
+  as the F7 arm was in specs/044.
+
+The canonical results are re-scored under it (docs/RESULTS.md).
+
+
+### Review of the adoption (2026-10-03): precision of the claims
+
+- **"Identical" means at prediction level and at the 6 decimals of `pred_ui`.**
+  - An in-process relabelling of every uuid (two seeds, 6 root pins × {0, 80}
+    per pathway) gives bit-identical values in TP53 and DSB repair.
+  - It does not in RAF (2,212 values, at most 5.6e-16) or IFN α/β (724, at
+    most 4.4e-16). The label order gives differences of 0.6–1.0 in the same test.
+  - The residue comes from tied positions, which keep label order, and from the
+    summation order of index vectors inside a reaction. It could matter only in
+    a component that does not converge or sits on a knife-edge.
+- **Ties are common:** `scc_order_ties` of 169 (RAF), 133 (IFN), 366 (DSB) and
+  202 for single knockouts, and 0 in TP53. The bench now prints them.
+- **Still in label (index) order, and inert on this catalog at prediction
+  level:** the specs/039 pool re-evaluation BFS, the carrier order, and the
+  activator order within a reaction.
+- **The order depends on Julia's `hash`** of strings, tuples and vectors. It is
+  deterministic across processes on 1.10.10, but a Julia version that changes
+  string hashing reorders every colour tie-break. Re-check invariance when the
+  Julia version changes. It also depends on the release: a new neighbour
+  recolours its surroundings, which is the point.
+- **Experimental RAF:** all three label-free orders score 585 / 849, below both
+  label draws (593 canonical, 589 rebuild). So "cases the label order happened
+  to get right" holds for the curator tuning half (`flow` sits inside the label
+  band). For experimental RAF, `flow` is a small but consistent −4 to −8 (3
+  perturbations: RAF1, BRAF, ARAF), recorded as such.

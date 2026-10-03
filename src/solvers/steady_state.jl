@@ -244,7 +244,9 @@ function solve_steady_state(
                                         self_shared = self_shared,
                                         cycle_pools = ypools,
                                         cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
-                                        cycle_carriers = ymode == "balance" ? cycle_carriers() : true)
+                                        cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
+                                        node_keys = Dict{String, String}(
+                                            u => something(nd.reactome_id, "") for (u, nd) in network.nodes))
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
@@ -763,6 +765,73 @@ function _lm_iter_cap()
     n
 end
 
+"""
+`DS_SCC_ORDER`: the order reactions are swept in inside a cyclic component
+under Gauss-Seidel (specs/013 amendment 2).
+
+- `label` (historical; the default until 2026-10-03): the order of the indexed reactions, which comes
+  from `Dict` iteration over node uuids. A rebuild re-mints uuids, so it
+  re-orders the sweep: canonical and an identical rebuild differ by 158 TP53
+  predictions (specs/013 amendment 1).
+- `structure`: sorted by a label-free colour of each reaction's target node --
+  its stable id refined by its neighbours' (Weisfeiler-Lehman, see
+  `structural_node_colours`). Only structurally identical positions tie; a tie
+  keeps the label order and is counted (`scc_order_ties`). Label-free, but it
+  converged 1.3-7% less often than the label order (amendment 2).
+- `flow` (**default**, amendment 3: rebuilds score identically, convergence
+  and held-out unchanged): downstream first -- by breadth-first distance inside
+  the component from its entries (members fed from outside it, or pinned),
+  then by the structural colour. Gauss-Seidel converges fastest sweeping with
+  the signal.
+"""
+const SCC_ORDERS = ("label", "structure", "flow")
+
+function scc_order_mode()::String
+    m = get(ENV, "DS_SCC_ORDER", "flow")
+    m in SCC_ORDERS || throw(ArgumentError(
+        "DS_SCC_ORDER=$m is not an order; expected one of $(join(SCC_ORDERS, ", "))."))
+    return m
+end
+
+"""
+    structural_node_colours(rxns_idx, node_key; rounds = 4) -> Vector{UInt64}
+
+A colour per node that depends only on the network's structure and its stable
+ids, never on uuids: start from `hash(stable id)`, then `rounds` times rehash
+each node with the sorted colours of its in- and out-neighbours, each tagged by
+the edge's role (AND / OR activator, inhibitor, depletion, substrate). Roles
+are integer codes: `hash(::Symbol)` is by object identity, which differs
+between processes. `hash` of strings, integers, tuples and vectors of them is
+deterministic for a given Julia version.
+"""
+function structural_node_colours(rxns_idx::Vector{IndexedReaction}, node_key::Vector{String};
+                                 rounds::Int = 4)::Vector{UInt64}
+    n = length(node_key)
+    col = UInt64[hash(k) for k in node_key]
+    ins = [Tuple{Int, Int}[] for _ in 1:n]
+    outs = [Tuple{Int, Int}[] for _ in 1:n]
+    link(role, s, t) = (push!(ins[t], (role, s)); push!(outs[s], (role, t)))
+    for r in rxns_idx
+        t = r.target_idx
+        for (j, s) in enumerate(r.activator_indices)
+            link(r.activator_is_and[j] ? 1 : 2, s, t)
+        end
+        for s in r.inhibitor_indices; link(3, s, t); end
+        for s in r.depletion_indices; link(4, s, t); end
+        for s in r.substrate_indices; link(5, s, t); end
+    end
+    for _ in 1:rounds
+        new = similar(col)
+        @inbounds for i in 1:n
+            a = sort!(UInt64[hash((role, col[s])) for (role, s) in ins[i]])
+            b = sort!(UInt64[hash((role, col[t])) for (role, t) in outs[i]])
+            new[i] = hash((col[i], a, b))
+        end
+        col = new
+    end
+    return col
+end
+
 function solve_scc_ordered!(
     x::Vector{Float64},
     rxns_idx::Vector{IndexedReaction},
@@ -776,6 +845,7 @@ function solve_scc_ordered!(
     pool_stats::Dict{String, Any} = Dict{String, Any}(),
     pool_carriers::Bool = true,
     entry_supply::Union{Nothing, Vector{Float64}} = nothing,
+    order_key::Union{Nothing, Vector{UInt64}} = nothing,
 )
     # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
     # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
@@ -921,6 +991,47 @@ function solve_scc_ordered!(
     @inbounds for ri in eachindex(rxns_idx)
         c = comp_id[rxns_idx[ri].target_idx]
         push!(comp_rxns[c], ri)
+    end
+    # specs/013 amendment 2: a label-free sweep order. MergeSort is stable, so a
+    # tie keeps the label order; ties are counted so a run says how much order
+    # is still left to labels.
+    if order_key !== nothing
+        flow = get(pool_stats, "scc_order", "structure") == "flow"
+        n_tied = 0
+        for c in 1:n_comp
+            rs_c = comp_rxns[c]
+            length(rs_c) > 1 || continue
+            dist = Dict{Int, Int}()
+            if flow
+                # entries: a target fed from outside the component, or pinned
+                succ = Dict{Int, Vector{Int}}()
+                queue = Int[]
+                for ri in rs_c
+                    r = rxns_idx[ri]; t = r.target_idx
+                    srcs = vcat(r.activator_indices, r.inhibitor_indices,
+                                r.depletion_indices, r.substrate_indices)
+                    if t in obs_set || any(s -> comp_id[s] != c, srcs)
+                        haskey(dist, t) || (dist[t] = 0; push!(queue, t))
+                    end
+                    for s_ in srcs
+                        comp_id[s_] == c && push!(get!(succ, s_, Int[]), t)
+                    end
+                end
+                head = 1
+                while head <= length(queue)
+                    u = queue[head]; head += 1
+                    for v in get(succ, u, Int[])
+                        haskey(dist, v) || (dist[v] = dist[u] + 1; push!(queue, v))
+                    end
+                end
+            end
+            key(ri) = (get(dist, rxns_idx[ri].target_idx, typemax(Int)), order_key[rxns_idx[ri].target_idx])
+            sort!(rs_c; alg = MergeSort, by = key)
+            for k in 2:length(rs_c)
+                key(rs_c[k - 1]) == key(rs_c[k]) && (n_tied += 1)
+            end
+        end
+        pool_stats["scc_order_ties"] = n_tied
     end
     # Node count per component → distinguishes acyclic singletons from real SCCs.
     comp_size = zeros(Int, n_comp)
@@ -1450,6 +1561,7 @@ function solve_steady_state_penalty(
     cycle_pools = nothing,
     cycle_phi::Float64 = 0.1,
     cycle_carriers::Bool = true,
+    node_keys::Union{Nothing, Dict{String, String}} = nothing,
 )::SolverResult
 
     all_nodes = collect(keys(x0))
@@ -1458,6 +1570,14 @@ function solve_steady_state_penalty(
     index_stats = Dict{String, Any}()
     rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids;
                                                stats = index_stats, self_shared = self_shared)
+    order_mode = scc_order_mode()
+    index_stats["scc_order"] = order_mode
+    order_key = nothing
+    if order_mode in ("structure", "flow")
+        node_keys === nothing && throw(ArgumentError(
+            "DS_SCC_ORDER=$order_mode needs the network's stable ids; this solve was given none."))
+        order_key = structural_node_colours(rxns_idx, String[get(node_keys, u, "") for u in all_nodes])
+    end
 
     # Resolve the per-reaction DS_* knobs ONCE here (not once per reaction per
     # iteration inside compute_reaction_output_vec). Threaded into every forward
@@ -1546,7 +1666,7 @@ function solve_steady_state_penalty(
         iters, max_change, scc_stats = solve_scc_ordered!(
             x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec;
             pools = ipools, pool_stats = index_stats, pool_carriers = cycle_carriers,
-            entry_supply = entry_supply)
+            entry_supply = entry_supply, order_key = order_key)
         @inbounds for i in eachindex(entry_supply)
             isnan(entry_supply[i]) && (entry_supply[i] = x[i])
         end
@@ -1678,6 +1798,10 @@ function solve_steady_state_penalty(
             "cycle_self_fed_inputs" => get(index_stats, "cycle_self_fed_inputs", 0),
             # specs/040 rule A: nodes found self-fed and edges held at entry (0 when off).
             "self_fed_nodes" => get(index_stats, "self_fed_nodes", 0),
+            # specs/013 amendment 2: the sweep order and how many adjacent
+            # reactions in a cyclic component it could not tell apart.
+            "scc_order" => get(index_stats, "scc_order", "label"),
+            "scc_order_ties" => get(index_stats, "scc_order_ties", 0),
             "self_fed_edges_held" => get(index_stats, "self_fed_edges_held", 0),
         ),
     )

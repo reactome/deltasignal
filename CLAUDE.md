@@ -295,6 +295,18 @@ env vars only override for benchmark sweeps:
   was measured against a `hill_sat` that could not represent a knockout and
   inverted its own saturation on wide reactions. Why the remaining 16-case
   downward compression helps is still unexplained.
+- `DS_SCC_ORDER=flow` (**default since 2026-10-03**, specs/013 amendments 2–3)
+  | `structure` | `label`: the Gauss-Seidel sweep order inside a cyclic component.
+  `flow` sweeps downstream, by breadth-first distance from the component's
+  entries, with ties broken by a stable-id structural colour. It is
+  label-free, so rebuilding a catalog (which re-mints every uuid) no longer
+  moves predictions. Values agree to `pred_ui` precision, not bit for bit:
+  tied positions keep label order, and RAF/IFN differ by up to 6e-16. The order
+  depends on Julia's `hash`, so re-check invariance when the Julia version
+  changes. Under `label`, a rebuild of identical content moved 158
+  TP53 predictions. Held-out and convergence are unchanged. The solve reports
+  `scc_order` and `scc_order_ties`. `DS_SCC_SWEEP=jacobi` is also
+  label-free, but costs held-out −94 and converges less (amendment 1).
 - SCC-condensation solve is on by default (`DS_SCC_SOLVE=1`); the legacy flat
   iteration and the `"fixed_point"` `SteadyStateParams.method` are not used by
   the CLI or API (both use the penalty/SCC path).
@@ -508,7 +520,7 @@ other seven execute code and print output.
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
-| `test/test_solver_determinism.jl` | 80 | |
+| `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |

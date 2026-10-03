@@ -176,6 +176,10 @@ Response:
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores
   iterated loops.
+- **`scc_order`**, **`scc_order_ties`** (additive, specs/013): the Gauss-Seidel
+  sweep order inside cyclic components (`flow` by default; `structure`, or
+  `label` for the old uuid order), and how many adjacent reactions it could not
+  tell apart (they keep uuid order).
 - **`scc`** (additive, specs/017): how the cyclic components were resolved —
   `method` (the `DS_SCC_METHOD` in force), `pooled`, `iterated`,
   `fallback_negative`, `fallback_inconsistent`, `pooled_nodes`. Under the

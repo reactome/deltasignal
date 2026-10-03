@@ -882,6 +882,10 @@ function solve_handler(req)
             "cycle_pools_multistep" => get(solver_result.diagnostics, "cycle_pools_multistep", 0),
             "cycle_carriers" => get(solver_result.diagnostics, "cycle_carriers", "off"),
             "cycle_carriers_held" => get(solver_result.diagnostics, "cycle_carriers_held", 0),
+            # specs/013 amendment 3: the sweep order in cyclic components, and
+            # how many adjacent reactions it could not tell apart.
+            "scc_order" => get(solver_result.diagnostics, "scc_order", "label"),
+            "scc_order_ties" => get(solver_result.diagnostics, "scc_order_ties", 0),
             # specs/040 (additive): rule A ("off"/"entry") with the edges held at
             # entry, and rule B ("off"/"on") with the inhibitor slots it alone flags.
             "self_fed_rule" => get(solver_result.diagnostics, "self_fed_rule", "unknown"),
