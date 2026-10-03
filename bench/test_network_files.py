@@ -43,3 +43,10 @@ def test_mismatched_header_is_an_error(tmp_path):
     (tmp_path / "boundary_edges.csv").write_text("source_id,target_id\na,x\n")
     with pytest.raises(ValueError):
         open_network(tmp_path)
+
+
+def test_header_compared_as_columns(tmp_path):
+    (tmp_path / "logic_network.csv").write_text(HDR + "x,r,pos,and,input,1\n")
+    (tmp_path / "boundary_edges.csv").write_text(
+        "\ufeff" + ",".join(f'"{c}"' for c in HDR.strip().split(",")) + "\na,x,pos,and,assembly,1\n")
+    assert rows(tmp_path) == [("x", "r", "input"), ("a", "x", "assembly")]

@@ -60,13 +60,23 @@ The generator, logic-network-generator branch `feat/boundary-edges-file`:
 
 DeltaSignal:
 - `parse_logic_network` reads `boundary_edges.csv` beside `logic_network.csv`,
-  appended after the curated rows. This is not exactly the generator's
-  original row order: the diagram set-member edges are emitted after the
-  boundary pass, and they now sit before it. Verification 2 shows the order
-  changes no prediction.
+  appended after the curated rows. With the default generator switches this
+  is the original row order (see Row order below).
 - The columns must match, or the read fails.
 - Every Python reader goes through `bench/network_files.py:open_network`.
-- `catalog.sh` counts both files in `BUILD.json`.
+- `catalog.sh` counts both files in `BUILD.json`, and treats a pathway whose
+  boundary file has different columns as not built.
+- An upload or a renamed copy cannot use the "beside logic_network.csv" rule.
+  `/api/parse` therefore takes a `boundary_edges` part, the CLI `parse` takes
+  `--boundary`, and `parse_logic_network` / `parse_complete_network` take
+  `boundary_path` (`:sibling`, a path, or `nothing`).
+- Row order (review of #89): in the served build every boundary edge is
+  already at the end of `logic_network.csv` (checked: GPVI, NODAL, RAF). The
+  diagram set-member and handoff passes, both off, are the only ones emitted
+  after the boundary pass. So the split keeps the original row order. Two
+  regenerations of one commit can still differ in row order (RAF, from row
+  3,243). That is the pre-existing ordering nondeterminism (code review F14),
+  present without the split as well.
 - A bundle from before the split has no boundary file and reads as before.
 
 Still inferred, and still in `logic_network.csv`: `depletion` edges and set-pool

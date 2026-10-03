@@ -419,6 +419,19 @@ end
         # different columns are an error, not a silent partial read
         write(joinpath(dir, "boundary_edges.csv"), "source_id,target_id\nu-a,u-x\n")
         @test_throws ArgumentError DeltaSignal.parse_logic_network(logic)
+
+        # An upload or a renamed copy cannot use the sibling rule: the boundary
+        # file is named explicitly; `nothing` reads the curated network alone.
+        renamed = joinpath(dir, "logic_network_upload.csv")
+        cp(logic, renamed)
+        bnd = joinpath(dir, "boundary_upload.csv")
+        write(bnd, hdr * "u-a,u-x,pos,and,assembly,1\n")
+        @test length(DeltaSignal.parse_logic_network(renamed)) == 2
+        @test length(DeltaSignal.parse_logic_network(renamed; boundary_path = bnd)) == 3
+        @test length(DeltaSignal.parse_complete_network(renamed, uuidf; boundary_path = bnd).edges) == 3
+        rm(joinpath(dir, "boundary_edges.csv"))
+        @test length(DeltaSignal.parse_logic_network(logic; boundary_path = nothing)) == 2
+        @test_throws ArgumentError DeltaSignal.parse_logic_network(logic; boundary_path = joinpath(dir, "nope.csv"))
     end
 end
 

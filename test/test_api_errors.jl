@@ -147,6 +147,31 @@ const SRV = DeltaSignal
         @test SRV.JSON3.read(String(resp.body))[:message] == SRV.OBS_UNKNOWN_ERROR
     end
 
+    # specs/044: an uploaded network is saved under its part name, so the
+    # sibling rule cannot find boundary_edges.csv; it is its own part.
+    @testset "/api/parse reads an uploaded boundary_edges part" begin
+        hdr = "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n"
+        part(name, text) = SRV.HTTP.Multipart("$(name).csv", IOBuffer(text), "text/csv")
+        # fresh parts per request: a Multipart's buffer is consumed when sent
+        fields() = Dict(
+            "logic_network" => part("logic_network", hdr * "u-x,u-r,pos,and,input,1\nu-r,u-y,pos,,output,1\n"),
+            "uuid_mapping" => part("map", "uuid,stable_id\nu-a,R-HSA-1\nu-x,R-HSA-2\nu-r,R-HSA-3\nu-y,R-HSA-4\n"))
+        function upload(fields)
+            form = SRV.HTTP.Form(fields)
+            SRV.HTTP.Request("POST", "/api/parse",
+                ["Content-Type" => "multipart/form-data; boundary=$(form.boundary)"], read(form))
+        end
+        nedges(resp) = length(SRV.JSON3.read(String(resp.body))[:edges])
+        r = SRV.parse_handler(upload(fields()))
+        @test r.status == 200
+        @test nedges(r) == 2
+        f = fields()
+        f["boundary_edges"] = part("boundary_edges", hdr * "u-a,u-x,pos,and,assembly,1\n")
+        r = SRV.parse_handler(upload(f))
+        @test r.status == 200
+        @test nedges(r) == 3
+    end
+
     @testset "/api/health answers 200 and carries the catalog" begin
         resp = SRV.health_handler(nothing)
         @test resp.status == 200
