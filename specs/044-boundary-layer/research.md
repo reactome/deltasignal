@@ -101,3 +101,55 @@ Verified: GPVI's VAV1 complex now reads GDP + "VAV1 effectors"
   - number of predictions changed;
   - how many pathways and distinct readouts the changes span;
   - McNemar p.
+
+## Result (2026-10-03)
+
+Builds:
+- `f7ctrl`: 20261003-1058_1491276_f7ctrl, 72,322 nodes / 214,197 edges.
+- `f7set`: 20261003-1113_83a71a2_f7set, 73,570 nodes / 215,731 edges.
+
+Solver a952354, code defaults (Gauss-Seidel sweep):
+
+| | Net | Fixed / broken | p | Pathways |
+|---|---|---|---|---|
+| Curator held-out | +8 | 26 / 18 | 0.29 | 6 |
+| Curator tuning | +88 | 105 / 17 | | TP53 +96, Mitotic G1 −8 |
+| Experimental | −6 | 4 / 10 | 0.18 | Mitotic G1, TP53 |
+
+**The TP53 swing is node-label noise, not F7.** Two builds with identical
+networks (by stable id, curated rows in the same order) but freshly minted
+uuids differ by 158 TP53 predictions:
+- canonical 20260928 against `f7ctrl`: TP53 −145, held-out +2;
+- the cause is that the Gauss-Seidel sweep order inside a cycle follows label
+  order (specs/013), and TP53's cycle is the catalog's largest.
+
+So any number for the tuning pathways is a coin flip across rebuilds.
+Re-scored with `DS_SCC_SWEEP=jacobi`, which does not depend on labels, the
+TP53 change disappears:
+
+| (Jacobi) | Net | Fixed / broken | p | Where |
+|---|---|---|---|---|
+| Curator held-out | +5 | 12 / 7 | 0.36 | NODAL +8, DDX58 +2 |
+| Curator tuning | −9 | 6 / 15 | 0.078 | Mitotic G1 −8, DSB repair −5 |
+| Experimental | −5 | 0 / 5 | 0.062 | Mitotic G1 only (MYC, RB1 and RBL1 knockouts) |
+
+**Trace.** Mitotic G1's boundary changes are almost all the same produced
+sources rewired through set nodes (cyclin D, CDK4/6, CDKN1A/B/C, cyclin E/A
+families), which is identical under `product`. One edge is new (mechanism 4):
+Cyclin E:p-T160-CDK2, which the pathway produces, now joins the set
+"CCNA:p-T160-CDK2, CCNE:p-T160-CDK2" that it is a member of. That is faithful
+to the curation, and it adds a route into the p27↔CDK2 loop (the M1 / M4
+motifs of specs/041).
+
+**Against the pre-registration:**
+- held-out (+5 / +8) and experimental (−5 / −6) are within the noise floor;
+- experimental changes: 5, against "fewer than 5" predicted;
+- all changes are traced: the rewiring, plus one new join into a curated loop.
+
+The decision rule permits adoption on faithfulness. The residual loss is in
+one tuning pathway and runs through a curated loop.
+
+**Incidental:** `jacobi` versus Gauss-Seidel on `f7ctrl` gives curator all
+85.22% vs 85.20%, and experimental 69.47% vs 69.70% (−2 cases). This is the
+measurement to start from for making the sweep label-independent by default
+(specs/013, code review F14).
