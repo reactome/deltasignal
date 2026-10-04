@@ -454,3 +454,24 @@ control `canon_flow`):
   convergence holds;
 - before adoption, re-run it on the rebuild `20261003-1058_1491276_f7ctrl`,
   which must show 0 changed predictions against the canonical scoring.
+
+### Result (2026-10-04, solver 9edbf8e, against `canon_flow`): both refuted
+
+| | `elast_A` (ε_lo 0.5) | `elast_B` (ε_lo 0.3) |
+|---|---|---|
+| Curator held-out | **−22** (18/40, p 0.0054) | **−39** (23/62, p 2.8e-5) |
+| Curator tuning | −123 (TP53 −151) | −134 (TP53 −157) |
+| Experimental | −4 (7/11, p 0.48) | −6 (7/13, p 0.26) |
+| Converged | 1,684 / 234 (better) | 1,676 / 231 (better) |
+
+Prediction 1 failed. The 2026-09-19 +29 and +78 were measured on an older
+stack and under the label order; they do not reproduce.
+
+**Both arms help and hurt the same pathways:**
+- they help WNT (+18 / +13), ERBB2 (+11) and EGFR (+9);
+- they lose TP53 (−151 / −157), IFN-γ (−17) and PTK6.
+
+**RAF:** 0 of 22 ARAF/BRAF/RAF1 experimental cases change under either arm.
+Elasticity damps only the *activator* edges that close a loop, so RAF's rail
+must run through edges it does not touch: inhibitor or depletion edges, or a
+set pool. Not adopted.
