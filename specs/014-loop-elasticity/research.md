@@ -421,3 +421,36 @@ expects.
 
 Non-goals: no change to acyclic evaluation (it is exact and stays exact); no
 edge deletion; no entity-level loop classification (specs/008 records why).
+
+## Re-measurement under the label-free order (2026-10-04), pre-registered
+
+**Why.** Relabelling churn kept the best configurations out: the ε_lo=0.3
+combination had held-out +78 but churn 21. `DS_SCC_ORDER=flow` (specs/013
+amendment 3) has since made rebuilds score identically. Two more facts make
+loop damping the open lever:
+- specs/012's 2026-10-04 addendum shows RAF's loops rail: dominant gain
+  1.37–1.79, from squared input+catalyst folds;
+- deduplication left them at the knife-edge, gain 1, and refuted (held-out −56).
+
+**Arms** (build `20260928-1110_06ccb63_split044`, solver main 9edbf8e,
+control `canon_flow`):
+- `elast_A`: `DS_LOOP_ELASTICITY=0.5 DS_LOOP_ELASTICITY_WIDTH=0.2 DS_LOOP_ELASTICITY_HI=0.95`
+- `elast_B`: `DS_LOOP_ELASTICITY=0.3 DS_LOOP_ELASTICITY_WIDTH=0.2 DS_LOOP_ELASTICITY_HI=0.95`
+
+**Predictions:**
+1. Held-out positive for both: A about +29, B about +78 as before. Either
+   could differ, because the stack has changed (root pinning, cycle balance,
+   rule B). Gains spread over at least 5 genes and more than one pathway.
+2. Tuning negative, led by TP53, as in every loop configuration so far.
+3. Experimental within the floor (≥ −15). RAF is **not** predicted to
+   recover under A: ε_hi=0.95 scales the squared gain-2 edges to about 1.9, so
+   the 129-node loop stays above 1. Under B it may: ε_lo=0.3 damps hard
+   within the band.
+4. Convergence not worse than `canon_flow` by more than 1%.
+
+**Decision rule:**
+- adopt the configuration with the larger held-out gain, provided held-out is
+  ≥ +15 at p < 0.05 over at least 5 genes, experimental ≥ −15, and
+  convergence holds;
+- before adoption, re-run it on the rebuild `20261003-1058_1491276_f7ctrl`,
+  which must show 0 changed predictions against the canonical scoring.
