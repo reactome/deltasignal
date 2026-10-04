@@ -164,3 +164,55 @@ reactions.
 Related: specs/021 traced a dose-response reversal through a reaction with two
 such inhibitors. There the tracking is produced by the benchmark pinning a
 set-containing complex, not by self-containment alone.
+
+## Addendum 2026-10-04: the squared fold makes RAF's loops switches, re-measured
+
+**Finding** (`~/deltasignal-catalogs/analysis/044/raf_gain_edges.tsv`).
+RAF's cyclic components have dominant log-gain at baseline above 1: 1.37
+(138 nodes), **1.79** (129 nodes) and 1.19 (4 nodes). The other two are at
+the knife-edge, 1.00. Every edge above 1 has gain exactly 2.0, and all five
+distinct ones are an entity curated as both `input` and `catalyst` of one
+reaction (checked in Neo4j). Examples:
+- the activated RAF:scaffold:MAP2K:MAPK complex in "RAF phosphorylates MAP2K
+  dimer";
+- RAS:GTP:RAS GAPs in "RAS GAPs stimulate RAS GTPase activity" (48 copies);
+- RAS:GTP in "RAS intrinsic GTPase activity".
+
+This is faithful curation, of complexes that act on themselves. The model
+counts the entity twice, so its fold is squared.
+
+**Consequence, traced.** A loop gain above 1 makes the loop a switch:
+- a 1.5× RAF overexpression rails the MAPK readouts to the 100× cap under the
+  label order, and to ≈0 under `flow`. Both converge;
+- a gradual ramp from 1× follows the same rail (branch `exp/continuation`);
+- BRAF knockouts are predicted UP under both orders (expected DOWN).
+
+So every RAF prediction is a rail artefact. The −8 experimental cases at the
+`flow` adoption (specs/013) are these rails.
+
+**Why re-measure the refuted dedup arm.** It was measured on 2026-09-18, on
+the curator axis only, at held-out −15 (3/18, p = 0.0015). That was before
+root pinning (specs/023), cycle balance (039) and rule B (040), and under the
+label order, which moved tuning predictions by up to 158 per rebuild.
+
+**Arm:** `dedup_flow`. Build `20260928-1110_06ccb63_split044`, solver main
+9edbf8e (`DS_SCC_ORDER=flow`), `--server DS_DEDUP_ACTIVATORS=1`.
+Control: `canon_flow`.
+
+**Predictions:**
+1. RAF: the dominant loop gains drop to 1.00 (the edges above 1 are all
+   duplicates). Experimental RAF gains: the 8 overexpression cases recover,
+   and some of the BRAF/RAF1/ARAF knockouts predicted UP turn DOWN.
+   Experimental net **≥ +5**.
+2. Held-out: within ±20 of `canon_flow`. The old −15 is not assumed to
+   reproduce, because the model has changed since.
+3. Report both axes, held-out and tuning, concentration, McNemar p, and the
+   number of converged solves.
+
+**Decision rule:**
+- adopt `DS_DEDUP_ACTIVATORS=1` as the default if experimental is ≥ +5 at
+  p < 0.05 across more than one perturbation, held-out is ≥ −15, and
+  convergence is not worse than 1%;
+- if held-out loses beyond −15, record it, and design a narrower rule (for
+  example, count a self-acting complex once only where it closes a loop), with
+  blind derivations first.
