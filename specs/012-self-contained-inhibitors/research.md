@@ -216,3 +216,29 @@ Control: `canon_flow`.
 - if held-out loses beyond −15, record it, and design a narrower rule (for
   example, count a self-acting complex once only where it closes a loop), with
   blind derivations first.
+
+### Result (2026-10-04, solver 9edbf8e, `dedup_flow` against `canon_flow`): refuted again, more strongly
+
+| | Net | Fixed / broken | p |
+|---|---|---|---|
+| Curator held-out | **−56** | 6 / 62 | 8.2e-13 (14 pathways) |
+| Curator tuning | −139 | 12 / 151 | TP53 −125 |
+| Experimental | **−23** | 3 / 26 | 1.5e-5 (3 pathways, 9 perturbations) |
+
+Convergence is unchanged: 1,669 / 1,725 and 218 / 244.
+
+**Prediction 1 failed.**
+- None of the 8 ARAF/BRAF/RAF1 overexpression cases recovered.
+- HRAS, KRAS and NRAS overexpression each lost 5 experimental cases.
+- With the duplicates collapsed, RAF's loops sit at gain 1.00: the knife-edge
+  of specs/014. A knife-edge loop rails on any leak too.
+
+So the squared fold strengthens RAF's switch, but it is not its cause. The
+cause is a positive loop with no damping. Deduplication remains refuted, and
+the "load-bearing" record stands at greater strength.
+
+**Next:** the lever for loop rails (the M4 motif of specs/041) is loop damping,
+not edge accounting. specs/014's loop elasticity (`DS_LOOP_ELASTICITY`,
+`DS_LOOP_GAIN`) was measured under the label order, and its relabel churn was
+part of the reason it was not adopted. With the order now label-free, it can be
+re-measured cleanly.
