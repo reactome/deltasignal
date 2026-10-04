@@ -69,3 +69,38 @@ catalog-wide on the cap-pools build.
 is ≥ −15, experimental ≥ 0, and no misalignment in the refined check is left
 unexplained. If RAF does not move, trace it against MP-BioPath's network to the
 first divergent node.
+
+## Result (2026-10-04, solver 5221abf with `DS_SCC_ORDER=flow`, `cappools` against `f7ctrl_flow`)
+
+| | Net | Fixed / broken | p |
+|---|---|---|---|
+| Curator held-out | **0** | 0 / 0 | – |
+| Curator tuning | +21 | 21 / 0 | RAF only |
+| Experimental | **+14** | 14 / 0 | 0.00012 (RAF only, 6 perturbations) |
+
+- Convergence is identical (1,668 / 1,725 and 222 / 244).
+- ARAF, BRAF and RAF1 are now right both as knockouts (DOWN) and as
+  overexpressions (UP).
+- Experimental is 68.90% → about 70.6% of all 849 cases. That is more than
+  the 8 cases the label-free order cost.
+- Every gain is in RAF, so this fixes RAF's bundle; it is not catalog-wide
+  evidence. The other over-cap reactions moved no prediction.
+- The glyph alignment check (`glyph_alignment.py`) finds the same result on
+  `f7ctrl` and on `cappools`:
+  - 77 produced/consumed copy pairs drawn as different glyphs (faithful);
+  - 1 same-glyph pair in Class I MHC (R-ALL-29926), present before;
+  - 9 pathways have no diagram.
+
+  The check reads only each pathway's own (or nearest ancestor's) diagram, so
+  it is a lower bound.
+
+**Decision: adopt** (held-out ≥ −15, experimental ≥ 0, no new misalignment).
+Generator PR `feat/cap-pools-default`: the default is on, and code-review F6
+(the dependence of `CAPPED_IDS` on the cache) is fixed. The default build
+equals the measured build, and a cached rebuild equals a fresh one (RAF,
+Class I MHC).
+
+**RAF is not finished.** MP-BioPath's network scores 100% on RAF experimental
+with our solver; ours now scores higher than before, but not that. The next
+step is a node-level trace of RAF against MP-BioPath's network, to the first
+divergence.
