@@ -96,6 +96,33 @@ end
     @test vals[1] ≈ 2.0 rtol = 1e-6                        # mean(3, 1): the OR rule
 end
 
+@testset "variant_pool edges are OR inputs, under every pool mode (specs/046 D5)" begin
+    # The generator's pool of an entity's variants: V1..V3 -> Q by `variant_pool`
+    # OR edges; Q catalyses T (with X) and depletes S. Q must be the OR rule
+    # (mean), whatever DS_SET_POOL_MODE says, because only `set_member` pools
+    # take that mode.
+    function vfixture()
+        nodes = Dict(node.(["V1", "V2", "V3", "Q", "X", "T", "S", "SP"]))
+        edges = [edge("V1", "Q", true, "variant_pool"; and = false),
+                 edge("V2", "Q", true, "variant_pool"; and = false),
+                 edge("V3", "Q", true, "variant_pool"; and = false),
+                 edge("X", "T", true, "input"), edge("Q", "T", true, "catalyst"),
+                 edge("SP", "S", true, "output"; and = false), edge("Q", "S", false, "depletion")]
+        DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}())
+    end
+    for mode in ("product", "extreme", "mean", "max"), (v1, q) in ((2.0, 4/3), (0.0, 2/3), (1.0, 1.0))
+        r = with_env("DS_SET_POOL_MODE" => mode, "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+            obs = Dict("V1" => (v1, 1.0), "V2" => (1.0, 1.0), "V3" => (1.0, 1.0),
+                       "X" => (1.0, 1.0), "SP" => (1.0, 1.0))
+            DS.solve_steady_state(vfixture(), obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+        end
+        @test fold(r, "Q") ≈ q rtol = 1e-6
+        @test fold(r, "T") ≈ q rtol = 1e-6
+        # ONE depletion from the pool: S moves opposite to Q, never by Q^n
+        @test (fold(r, "S") - 1) * (q - 1) <= 0
+    end
+end
+
 @testset "a typo in the mode is an error" begin
     for bad in ("Product", "maximum", "")
         with_env("DS_SET_POOL_MODE" => bad) do
