@@ -4,6 +4,8 @@
 #   scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--limit N]
 #
 #   --limit N      benchmark only the first N pathways (a smoke test, not an arm)
+#   --max-edges N  skip pathways larger than N edges (default 40000; variant-node
+#                  catalogs need more: TP53 exceeds it, specs/046)
 #   --catalog ID   run against builds/ID instead of `current` (a variant build)
 #
 #   --server K=V   a DS_* override for the SOLVER (set in the API container)
@@ -41,13 +43,14 @@ die() { echo "run_arm: $*" >&2; exit 1; }
 [ $# -ge 1 ] || die "usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N]"
 NAME=$1; shift
 [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]] || die "NAME must be [A-Za-z0-9._-]+"
-SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""
+SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=40000
 while [ $# -gt 0 ]; do
   case "$1" in
     --server) [[ "${2:-}" == DS_*=* ]] || die "--server needs DS_NAME=value"; SERVER+=("$2"); shift 2 ;;
     --bench)  [[ "${2:-}" == *=* ]] || die "--bench needs NAME=value"; BENCH+=("$2"); shift 2 ;;
     --port)   PORT=$2; shift 2 ;;
     --limit)  LIMIT=(--limit "$2"); shift 2 ;;
+    --max-edges) [[ "${2:-}" =~ ^[0-9]+$ ]] || die "--max-edges needs a number"; MAX_EDGES=$2; shift 2 ;;
     --catalog) [ -n "${2:-}" ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
     *) die "unknown argument $1" ;;
   esac
@@ -136,7 +139,7 @@ mkdir -p "$OUT"
 STARTED=$(date -Is); status=0
 for gt in curator experimental; do
   env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
-    "$PY" "$WT/bench/benchmark_vs_mpbiopath.py" --max-edges 40000 "${LIMIT[@]}" --ground-truth "$gt" \
+    "$PY" "$WT/bench/benchmark_vs_mpbiopath.py" --max-edges "$MAX_EDGES" "${LIMIT[@]}" --ground-truth "$gt" \
     --report "$OUT/${gt}_report.tsv" --dump-cases "$OUT/${gt}_cases.tsv" > "$OUT/$gt.log" 2>&1 \
     || { echo "run_arm: $gt benchmark failed; see $OUT/$gt.log" >&2; status=1; break; }
 done
