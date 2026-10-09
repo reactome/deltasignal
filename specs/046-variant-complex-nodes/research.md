@@ -259,3 +259,47 @@ The TP53 sign inversion is gone, but the case reads near baseline. The
 producer of TP53 (R-HSA-69488) reads 0.97 where vn4 read 2.05, so the
 equilibrium of the TP53 loop has moved, not only the depletion term. Left for
 the arm, then traced if it still loses.
+
+## Arm vn5 (build `20261009-1854_5514785_vn5`, solver 0525296): NOT adopted
+
+Structural checks pass catalog-wide:
+- cap seams 0; duplicated depleters 0; regulators on an unfed copy 0;
+- required inputs beyond curated 0; missed joins 0 in all 92 pathways.
+
+D6 resolved 19 capped reactions at step 1 and 8 at step 3.
+
+Coverage is within the 1% check, but not equal. Curator valid cases are
+23,367 against 23,511 (−144); experimental is identical. All 144 are in ROBO:
+RPL10, RPL22 and RPL5, knockout and overexpression, now resolve to no node.
+
+| | Net (fixed / broken) | McNemar p |
+|---|---|---|
+| Curator held-out | **+119** (239 / 120) | 3.3e-10 |
+| Curator tuning | −52 (217 / 269) | 0.021 |
+| Experimental | **−36** (22 / 58) | 7e-5 |
+
+The held-out gain is concentrated: DSB repair +79, intrinsic apoptosis +28,
+IFN α/β +25. Experimental is past the floor, so it is traced.
+
+**All −36 experimental is newly unreachable (no path).** RAF −34, WNT −8,
+TP53 +9. Two seams were traced to a line, both from this build's own
+fallbacks:
+1. **Step-3 outputs.**
+   - RAF R-HSA-5672980 is one capped copy that writes plain R-HSA-5672701,
+     while R-HSA-5674366 reads its variant keys, which nothing feeds. NRAS
+     reaches the reaction and stops there.
+   - WNT R-HSA-3965447 writes plain Gβγ (R-HSA-167434), and the 180 copies
+     of R-HSA-398040 read Gβγ variants that nothing feeds.
+   - **Fix:** a capped plain output feeds each existing node of its variant
+     keys (`variant_split`, OR), which is what the expanded copies would
+     have produced.
+2. **Pools of bare sets** (the ROBO coverage loss).
+   - A bare set's variant key is its member's own id, not
+     `<set>::variant::…`. The pool looked variants up by prefix, found none,
+     and the RPL members got no node at all.
+   - **Fix:** a pool enumerates the entity's keys. Each key takes its
+     produced node, else an existing node, else a new root, as expansion
+     would.
+
+Both fixes are in generator commit `feat/variant-nodes` after 5514785. Next
+arm: vn6.
