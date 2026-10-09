@@ -94,3 +94,122 @@ Per the pre-registration, the scores are not read. Two causes:
    **Fix:** build copies from the full reaction list the canonical pipeline
    decomposes, i.e. the reactome_ids in `decomposed_uid_mapping`. Then rebuild,
    and re-run the arm with a larger `--max-edges`.
+
+## Coverage fixed (arm vn4, 2026-10-09)
+
+Three generator fixes, each traced to a gene that stopped resolving:
+1. The emitter is given the pathway's full reaction list
+   (`pathway_reaction_ids`), not the reduced connectivity table.
+2. Set structure is read straight from Neo4j. The primed connector caches
+   answered "no members" for entities outside a pathway's prefetch, so a set
+   looked empty and its reaction got zero copies (PIP3: 8 of 89 reactions).
+   Zero copies is now an error.
+3. The boundary layer reads structure through `variant_keys` as well. The
+   primed `get_labels` treated the KIT complex R-HSA-205310 as a leaf, which
+   lost KIT and PDGFRB in PIP3.
+
+Build `20261009-1531_19f8ad8_vn` (generator 19f8ad8): 92/92 pathways, 226,730
+nodes, 458,355 edges. Required inputs beyond the curated ones 0; 37,942 of
+37,942 variant inputs fed; 0 missed joins.
+
+| | Canonical | vn4 |
+|---|---|---|
+| Curator cases / valid | 24,100 / 23,511 | 24,100 / 23,511 |
+| Experimental cases / valid | 849 / 845 | 849 / 845 |
+| Perturbations (curator / experimental) | 864 / 122 | 864 / 122 |
+| Converged (curator) | 1,664 / 1,725 | 1,642 / 1,725 |
+| Converged (experimental) | 218 / 244 | 211 / 244 |
+
+**Correction to check 2.** It listed the `Pinned:` count among the
+quantities that must stay within 1%. That was wrong. Expansion is meant to
+raise it, since a gene now has a root form in every variant: 1,266 → 1,945
+(curator) and 198 → 452 (experimental). The check applies to valid cases and
+perturbations, which are identical.
+
+## vn4 scores: NOT adopted, loss far beyond the floor
+
+Solver 0525296, code defaults, against canonical (`results/5979e48`):
+
+| | Canonical | vn4 | Net (fixed / broken) | McNemar p |
+|---|---|---|---|---|
+| Curator held-out | 88.29% / 0.8485 | 87.47% / 0.8345 | −152 (207 / 359) | 1.7e-10 |
+| Curator tuning | 76.50% / 0.7567 | 73.24% / 0.7166 | −164 (148 / 312) | 1.6e-14 |
+| Experimental | 70.30% / 0.6036 | 63.67% / 0.5540 | −56 (13 / 69) | 2.3e-10 |
+
+Worst pathways (curator): IFN α/β −129, Transcriptional regulation by TP53
+−108, RAF −33, PIP3 −28. Best: Intrinsic apoptosis +28.
+
+Under the decision rule the loss is traced before anything else.
+
+### Where the loss is: disconnection, not the representation
+
+Split by whether the readout stays reachable from the perturbed gene:
+
+| | Curator | Experimental |
+|---|---|---|
+| Reachability unchanged | **+7** | −11 (−9 is PTEN, below) |
+| Newly unreachable (`no_path`) | **−361** | −45 |
+| Newly reachable | +38 | 0 |
+
+Where the network stays connected, variant nodes are neutral on the curator
+axis. Nearly all of the loss is a cut the build introduces. Two mechanisms
+are traced to a line.
+
+### Mechanism 1: the cap fallback is a seam (IFN α/β −202 of the no-path loss)
+
+Example traced: JAK1 knockout → readout R-HSA-1015695, "IRF 1-9 [cytosol]",
+a DefinedSet of 9.
+- **Canonical:** the readout resolves to 504 set-member nodes, and the
+  prediction is correct.
+- **vn4:** the readout is one plain node, `no_path`.
+
+"Expression of IFN-induced genes" (R-HSA-1015702) is a black box. Its output
+sets and its regulator "ISGF3 bound to ISRE" (R-HSA-1015697, two set slots)
+put it over the variant cap. So it took the single-copy plain-id fallback
+this build implements (D6's last step only).
+- **vn4:** the reaction reads the plain node R-HSA-1015697, which nothing
+  produces. Upstream produces only variant keys `R-HSA-1015697::variant::…`.
+  Each of those has a producer and **0 out-edges**.
+- **Canonical:** the one ISGF3:ISRE node has 90 producers and 504 out-edges.
+
+Every readout of that reaction is cut from every gene upstream of it. That is
+8 perturbations (JAK1, PTPN11, SOCS1, IFNAR2; knockout and overexpression)
+each losing 25 cases.
+
+Catalog-wide there are 72 such plain nodes, which are consumed, never
+produced, and have a produced variant twin: PIP3 17, WNT 8, RAF 3, IFN α/β 1,
+and others. D6 already prescribed the fix, and this build skipped it:
+1. Pool participants whose choice reaches no output. The ISGF3:ISRE
+   regulator is one.
+2. Make one copy per output variant.
+3. Only then fall back to a single copy, reading one pool per varying
+   participant.
+
+### Mechanism 2: a regulator takes the first registry node of its entity (PTEN −9 experimental)
+
+Example traced: PTEN knockout in PIP3. Nine readouts go from correct UP
+(100×) to 0.
+
+`append_regulators` gives a catalyst or regulator the uuid of the **first**
+`entity_uuid_registry` entry with that stable id (`stid_to_existing_uuid`,
+first wins). That is registration order, which is arbitrary.
+- **Canonical:** first is the PTEN copy produced by R-HSA-8944497, which the
+  knockout zeroes.
+- **vn4:** the emitter registers reactions in sorted stable-id order, so first
+  is an **unfed** PTEN copy, the input of R-HSA-6807106. Its depleters
+  collapse under the knockout, so it reads 10× (the de-repression ceiling).
+  Through the catalyst/depletion edges, PI(4,5)P2 reads 0.1, and the readout
+  reads 4.5e-7.
+
+The defect predates this feature. Canonical has 97 regulator edges on an
+unfed copy that has a fed twin; vn4 has 238 (by stable id). The fix is to
+prefer a produced node, and among those the one a preceding reaction
+produces.
+
+### Not yet traced
+
+- Transcriptional regulation by TP53, −108. AKT1/AKT2 knockout −49 each and
+  MDM4 knockout −43 flip correct UP to DOWN. Reachability is unchanged, so
+  this is neither mechanism above.
+- WNT −58 and RAF −35 of new `no_path`, presumably mechanism 1 (WNT has 8
+  seam nodes, RAF 3), but not traced case by case.
