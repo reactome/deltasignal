@@ -213,3 +213,49 @@ produces.
   this is neither mechanism above.
 - WNT −58 and RAF −35 of new `no_path`, presumably mechanism 1 (WNT has 8
   seam nodes, RAF 3), but not traced case by case.
+
+### Fixes (generator `feat/variant-nodes` 01c6add + 5514785), before arm vn5
+
+All three are fixes under `LNG_VARIANT_NODES` only; canonical builds are
+byte-unchanged.
+1. **Cap fallback per D6.** Over the cap:
+   - (1) a participant none of whose slots reaches an output is read as
+     `<stId>::pool`;
+   - (2) otherwise every input-side participant with a slot outside the
+     output variants is pooled, giving one copy per output variant;
+   - (3) otherwise a single copy reading pools, outputs by plain id (counted).
+
+   A pool is fed by `variant_pool` OR edges from each variant key's produced
+   nodes, or its root node if none is produced. That is D5: the mean, the
+   same as expanding.
+2. **Variant depleters pooled.** Depletion edges reaching one target from
+   several variants of one entity become a single edge from a pool of them.
+3. **Regulators read the produced copy.** A catalyst or regulator takes:
+   - the copy produced by a curated preceding reaction of the regulated
+     reaction;
+   - else any produced copy;
+   - else the old first-registry node.
+
+   For PTEN on R-HSA-199456, Neo4j's precedingEvent includes R-HSA-8944497,
+   PTEN translation, which is the copy canonical used.
+
+Pool ids are never looked up in Neo4j. Their `node_resolution` relation is
+`variant_pool`, which no readout or gene resolution reads. The solver needs
+no change: `variant_pool` is an OR input, `mean`, under every
+`DS_SET_POOL_MODE` (test_set_pool, +36 assertions).
+
+**Probe** (IFN α/β, PIP3, TP53; builds complete):
+
+| | vn4 | probe |
+|---|---|---|
+| Cap seams | 1 / 17 / 0 | 0 / 0 / 0 |
+| Duplicated depleter groups | — / — / >0 | 0 |
+| Regulators on an unfed copy with a fed twin | 0 / 1 / 0 | 0 / 0 / 0 |
+| JAK1 → IRF 1-9 readout nodes reachable | 0 | 9 of 10 |
+| PTEN KO → R-HSA-111910 | 4.5e-7 | 100× (canonical 100×; correct UP) |
+| TP53 AKT1 KO → R-HSA-5628829 | 0.59× | 1.02× (canonical 1.69×; expected UP) |
+
+The TP53 sign inversion is gone, but the case reads near baseline. The
+producer of TP53 (R-HSA-69488) reads 0.97 where vn4 read 2.05, so the
+equilibrium of the TP53 loop has moved, not only the depletion term. Left for
+the arm, then traced if it still loses.
