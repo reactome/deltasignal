@@ -266,7 +266,9 @@ Structural checks pass catalog-wide:
 - cap seams 0; duplicated depleters 0; regulators on an unfed copy 0;
 - required inputs beyond curated 0; missed joins 0 in all 92 pathways.
 
-D6 resolved 19 capped reactions at step 1 and 8 at step 3.
+D6 resolved 42 capped reaction-builds at step 1 (19 pathways) and 16 at step 3
+(9 pathways), summed over the per-pathway log, so a reaction shared by
+pathways counts once per pathway.
 
 Coverage is within the 1% check, but not equal. Curator valid cases are
 23,367 against 23,511 (−144); experimental is identical. All 144 are in ROBO:
