@@ -249,7 +249,7 @@ no change: `variant_pool` is an OR input, `mean`, under every
 | | vn4 | probe |
 |---|---|---|
 | Cap seams | 1 / 17 / 0 | 0 / 0 / 0 |
-| Duplicated depleter groups | — / — / >0 | 0 |
+| Duplicated depleter groups | 270 catalog-wide (per-pathway not measured) | 0 in all three |
 | Regulators on an unfed copy with a fed twin | 0 / 1 / 0 | 0 / 0 / 0 |
 | JAK1 → IRF 1-9 readout nodes reachable | 0 | 9 of 10 |
 | PTEN KO → R-HSA-111910 | 4.5e-7 | 100× (canonical 100×; correct UP) |
