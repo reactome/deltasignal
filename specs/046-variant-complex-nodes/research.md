@@ -61,3 +61,36 @@ Tests: 366 pass, flag off.
 - a loss beyond the floor on either axis is traced before anything else;
 - report both axes, held-out and tuning, the pathways and genes moved,
   McNemar p, and convergence.
+
+## First catalog arm (2026-10-09): structural checks 1 and 3 pass, check 2 fails; scores not read
+
+Build `20261009-1058_9408b90_vn`: complete (92/92), 193,724 nodes and
+365,241 edges.
+
+**Check 1 passes catalog-wide:**
+- required inputs beyond the curated ones: 0 (canonical 13,048);
+- cut hand-offs: 0 (canonical 2,504);
+- 34,378 of 34,378 variant input edges are fed;
+- 0 missed joins.
+
+**Check 2 (coverage) fails.** Arm `vn` against canonical:
+
+| | Canonical | Variant |
+|---|---|---|
+| Curator cases / valid | 24,100 / 23,511 | 22,264 / 19,847 |
+| Experimental cases / valid | 849 / 845 | 592 / 385 |
+
+Per the pre-registration, the scores are not read. Two causes:
+1. **TP53 skipped.** It has 43,036 edges, over the bench's `--max-edges 40000`.
+   Raise the limit for this arm.
+2. **Reactions missing from the network.** In PIP3 the emitter, run on the
+   pathway's 89 reactions, gives 1,176 copies over all 89. Inside the build it
+   gave 551 copies over 66 reactions. `create_pathway_logic_network` passes the
+   emitter a reduced `reaction_connections` (reactions with no preceding or
+   following event are apparently dropped by then). The ~23 missing reactions
+   take their catalysts with them, for example the RTK set R-HSA-2316432 on
+   R-HSA-2316434, which is why ERBB2/ERBB3/EGFR/KIT/PDGFRB resolve to nothing.
+
+   **Fix:** build copies from the full reaction list the canonical pipeline
+   decomposes, i.e. the reactome_ids in `decomposed_uid_mapping`. Then rebuild,
+   and re-run the arm with a larger `--max-edges`.
