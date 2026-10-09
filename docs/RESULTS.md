@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-03. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-05. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,37 @@ commit.
 
 ---
 
+
+> **2026-10-05: canonical numbers on generator main with F7 set nodes and cap
+> pools (specs/044, 045).** Build `20261004-1959_6990015` (generator 6990015:
+> boundary layer split, F7 set nodes, `LNG_CAP_POOLS=1`), solver `5979e48`
+> (`DS_SCC_ORDER=flow`), `results/5979e48`.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **87.93%** | **0.8443** |
+> | curator held-out, every case (71 pathways) | 19,000 | 87.34% | 0.8361 |
+> | curator, all pathways, in release (81) | 23,625 | 85.50% | 0.8239 |
+> | curator, all pathways, every case | 24,100 | 84.95% | 0.8168 |
+> | experimental, every case (10 pathways) | 849 | **69.96%** | **0.6007** |
+>
+> **What moved since the previous box:**
+> - **Cap pools: experimental +14, curator tuning +21, held-out 0, nothing
+>   broken.** All of it is in RAF: past the variant cap, a set is one OR pool
+>   instead of one all-required bundle.
+> - **F7 set nodes:** experimental −5 and curator −11, all in Mitotic G1, as the
+>   F7 arm predicted. The cause is one faithful new join into the CDK2 loop.
+>
+> Converged: 1,664 / 1,725 curator and 218 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 84.95% / 0.8168 against 83.34% / 0.8063, **+1.61pp**.
+> - Experimental: 69.96% (594/849) against 75.74% (643/849), **−5.8pp**.
+>
+> Next on the network side is specs/046 (variant nodes end to end). Today 2,504
+> required inputs read a root subunit of a complex the pathway produces.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-03: canonical numbers, now reproducible across rebuilds (specs/013
 > amendment 3).** The model is unchanged except the order cyclic components
