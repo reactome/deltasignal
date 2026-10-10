@@ -246,3 +246,42 @@ species bound by one reaction and released unchanged by a later reaction in
 the same chain), solved by the existing balance rule. Narrower than
 specs/035, and consistent with D1 identity. Measured with experimental as
 the primary axis.
+
+## Trace 4: Mitotic G1, released E2F copies are not the ones that drive expression (no-path class)
+
+In Mitotic G1, 20 cases are right on MP-BioPath's network and wrong on ours
+(9 the reverse). Most are no-path in ours: CCND1 UP (5), RB1 KO (3+),
+SRC UP (3), CDK4, CDKN1B, CDKN2A, PPP2R1A.
+
+**CCND1 UP → CDT1 (R-HSA-68536):**
+- Forward reach from the CCND1 root is 459 nodes. Backward reach from the
+  readout is 97 nodes. They share **no node**.
+- They do share 7 **entities** as different, unjoined copies: E2F1, E2F4,
+  E2F5, TFDP1, TFDP2, RBL1, RBL2.
+- CDK4/6:CCND phosphorylates RB/RBL and releases E2F:DP. The released copies
+  are not the copies that "CDT1 gene expression is stimulated by E2F1"
+  reads.
+
+This is the dissociation-sink silo of specs/015 and 031: a released subunit
+beside an unfed twin. Blanket bridging of it was measured harmful four times
+on the curator axis (fan-out median 139). MP-BioPath's hand-built network
+connects it.
+
+`route_diff.py` (analysis dir) can't match MP-BioPath's set nodes (Cyclin D,
+CDK4/CDK6, sets of complexes) to our member-decomposed nodes, so its ABSENT
+marks there are artefacts. The reach comparison above is the reliable test.
+
+## Mechanism classes so far
+
+| Class | Example | Cases (approx.) | Prior measurements |
+|---|---|---|---|
+| Copy silo hides a self-inhibitor | PTEN UP | 9 | specs/022 rule needs node reachability |
+| Pathogen-derived regulator, added after 2019 | PDPK1 KO | 7 | specs/032 drug rule is the analogue |
+| Multi-step carrier cycle amplifies itself | RAF NRAS/NF1 KO | ~10 | specs/035 and 040 blanket rules refuted |
+| Released transcription factor in a silo | G1 CCND1/RB1/SRC/CDK4 | ~16 | specs/015/031 bridging refuted on curator |
+| Over-coupling (false change) | TP53 DAXX | 12 | — |
+
+Every class is a network-construction issue. Each was seen before on the
+curator axis, where blanket versions failed. What has never been done is to
+target them with experimental as the primary axis and a rule narrow enough
+to match MP-BioPath's hand edits.
