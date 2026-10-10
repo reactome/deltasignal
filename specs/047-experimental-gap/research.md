@@ -117,6 +117,34 @@ the specs/012/022 double count, unmasked by copy siloing.
 Either is a pre-registered arm, measured with experimental as the primary
 axis.
 
+## Trace 2: PDPK1 knockout inverts through a SARS-CoV-2 inhibitor (7 cases)
+
+PDPK1 knockout should lower phospho-AKT; truth is DOWN, and we read 100×.
+
+1. "PDPK1 phosphorylates AKT at T308" (R-HSA-198270) has a negative
+   regulator, `N:M:PDPK1` (R-HSA-9755778): the SARS-CoV-2 N dimer and M
+   protein bound to PDPK1. Reactome added it after 2019, so MP-BioPath's
+   networks lack it.
+2. Knocking out PDPK1 zeroes that complex, the reaction is de-repressed to the
+   ceiling, and the AKT positive loop
+   (R-HSA-198270 ↔ R-HSA-2317313 ↔ R-HSA-2317314) rails to 100×.
+3. In a human cell without the virus the inhibitor does not exist. Holding it
+   at baseline makes it a constant factor, which cancels in fold-change. That
+   is the specs/032 drug rule's mechanism applied to pathogen-derived nodes.
+
+Across the ten experimental pathways, the containment tables name only three
+non-human entities, all SARS-CoV-2: N dimer, a modified N, and M. A pathogen
+rule would be narrow.
+
+Separately, the catalyst `p-S-AKT:PDPK1:PIP3` (R-HSA-2317313) reads 100× under
+a PDPK1 knockout. Its PDPK1 comes in through the loop, not from the pinned
+copy. That is the same copy-silo pattern as trace 1, not yet traced to a
+line.
+
+**Candidate lever:** `DS_PATHOGEN_MODE=inert`, or the generator listing
+non-human-derived nodes the way `drugs.csv` lists drugs. Pre-registered and
+measured with experimental as the primary axis.
+
 ## Controls running
 
 DeltaSignal's propagator on MP-BioPath's own 2019 networks (build
