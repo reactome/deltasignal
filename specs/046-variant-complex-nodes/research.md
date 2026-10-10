@@ -305,3 +305,50 @@ fallbacks:
 
 Both fixes are in generator commit `feat/variant-nodes` after 5514785. Next
 arm: vn6.
+
+## Arm vn6 (build `20261009-1944_715dff6_vn6`, solver 0525296): meets the decision rule
+
+**Structural checks pass.** Cap seams 0, duplicated depleters 0, regulators on
+an unfed copy 0, required inputs beyond curated 0, and 0 missed joins in all
+92 pathways.
+
+**Coverage is identical to canonical:**
+
+| | Canonical | vn6 |
+|---|---|---|
+| Valid cases (curator / experimental) | 23,511 / 845 | 23,511 / 845 |
+| Perturbations | 864 / 122 | 864 / 122 |
+| Converged (curator) | 1,664 / 1,725 | 1,654 / 1,725 |
+| Converged (experimental) | 218 / 244 | 215 / 244 |
+
+| | Accuracy / macro-F1 (canonical → vn6) | Net (fixed / broken) | McNemar p |
+|---|---|---|---|
+| Curator held-out | 88.29% / 0.8485 → 88.96% / 0.8557 | **+124** (233 / 109) | 1.8e-11 |
+| Curator tuning | 76.50% / 0.7567 → 76.14% / 0.7486 | −18 (219 / 237) | 0.43 |
+| Experimental | 70.30% / 0.6036 → 69.11% / 0.6127 | **−10** (22 / 32) | 0.22 |
+
+The decision rule (held-out ≥ −15, experimental ≥ −15, checks 1–3 hold) is
+met.
+
+**Concentration.**
+
+| Pathway | Net | Readouts | Perturbations |
+|---|---|---|---|
+| DSB repair | +79 | 16 | 36 |
+| Intrinsic apoptosis | +28 | 8 | 12 |
+| IFN α/β | +25 | 27 | **1** |
+| WNT | +24 | 35 | 12 |
+| RAF | −17 | 6 | 11 |
+| PIP3 | −14 | 14 | **1** |
+
+- Held-out without DSB repair is +45.
+- IFN α/β and PIP3 each move through a single perturbation, so their cases
+  are correlated and carry no independent weight.
+- On the experimental axis, RAF is −11 and TP53 +9.
+
+**Residual cuts**, small but not zero: curator −11 newly unreachable
+against +51 newly reachable; experimental −4 newly unreachable. Not traced
+yet.
+
+**Size.** Cellular Senescence (R-HSA-2559583, not scored) creates 1,704 root
+nodes for 7 pools, which is what expansion would have created.
