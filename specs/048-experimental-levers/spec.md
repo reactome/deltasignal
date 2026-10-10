@@ -151,3 +151,71 @@ These specs/047 classes are left for later specs:
 - the Mitotic G1 E2F release silo (trace 4);
 - TP53 DAXX over-coupling;
 - THEM4, 7 PIP3 failures, not yet traced.
+
+## Amendment 1 (2026-10-10, before any arm ran): lever B re-scoped
+
+I implemented B1 and B2 and generated RAF alone with them
+(`~/deltasignal-catalogs/analysis/048/raf_probe`). It found two more breaks
+in the MAPK cycle.
+
+**B1 needs a second hop.** "Dissociation of RAS:RAF complex" (R-HSA-5672980)
+writes the plain node R-HSA-169289 (p-T,Y MAPKs). That node reaches p-MAPK1
+and p-MAPK3 by `variant_split` edges, not by a reaction. With that hop
+added, the release step ends at p-MAPK1.
+
+**B3: a binding bug in the generator, not a pool question.**
+- "Cytosolic DUSPs dephosphorylate MAPKs" (R-HSA-5675376) is curated as
+  monomers → monomers and dimers → dimers. Our copies bind them crosswise:
+  - p-MAPK1 (R-HSA-109853) → MAPK1 dimer (R-HSA-5675354), a dead end;
+  - p-MAPK1 dimer (R-HSA-109855) → MAPK1 (R-HSA-59282).
+- **Cause.** `_reference_signature` says "a member complex keeps its leaf
+  multiset". But it builds the signature from `get_terminal_components`,
+  which returns a set, so a homodimer gets its monomer's signature. The tie is
+  then broken by sorted id, and here that crosses the pairs.
+- This is a specs/046 defect, and it applies wherever a set holds both a
+  protein and its homodimer.
+- **Fix:** `LNG_BIND_STOICH=1`, which multiplies leaves by component
+  stoichiometry. Test: `test_homodimer_binds_to_homodimer_not_monomer`. With
+  the fix, the DUSP step returns p-MAPK1 to MAPK1, and pool detection finds
+  MAPK1 ⇄ p-MAPK1 and MAPK3 ⇄ p-MAPK3.
+
+**What still blocks lever B: pools that share intermediates.**
+- The two MAPK pools share 246 nodes. The RAF:scaffold:MAP2K:MAPK complexes
+  are far over the variant cap, so MAPK1 and MAPK3 pass through the same
+  plain complex nodes.
+- `find_pools` removes a node claimed by two pools, so both pools are dropped.
+- Solving pools that share intermediates is a design question the spec did
+  not register: it needs a solver change, and it may warrant blind
+  derivations.
+- B1 and B2 are kept on the generator branch `wip/048-mapk-pools`. **The
+  `mpool` arm does not run.**
+
+**Arms now registered:**
+1. **`path`** (lever A), unchanged.
+   - Build: `--variant path` from the generator branch, with flags at their
+     defaults. Its networks are the canonical networks plus `pathogens.csv`.
+   - Two arms on that build: `pathctl` (`DS_PATHOGEN_MODE=propagate`) and
+     `path` (`inert`).
+   - `pathctl` must reproduce the canonical predictions exactly. If it does
+     not, the build differs, and the difference is traced before `path` is
+     read.
+2. **`bind`** (B3 alone, a faithfulness fix).
+   - Build: `--variant bind --env LNG_BIND_STOICH=1`, against the canonical
+     build.
+   - **Structural checks:**
+     1. The build is complete.
+     2. Coverage is within 1% on both axes.
+     3. On RAF, R-HSA-5675376 binds p-MAPK1 to MAPK1 and the p-MAPK1 dimer to
+        the MAPK1 dimer.
+     4. The number of reactions whose bindings change is counted catalog-wide
+        before scoring.
+   - **Predictions:**
+     - **bind-P1.** No direction is predicted for either axis. The fix closes
+       curated cycles (MAPK ⇄ p-MAPK) that the solver will iterate, because
+       no pool covers them. The 046 record shows that closing cycles without
+       a pool has gone both ways.
+     - **bind-P2.** RAF moves. Its 12 knockout→UP cases are the readouts of
+       this cycle; the direction is not predicted.
+   - **Decision rule:** adopt on faithfulness if held-out ≥ −15 and
+     experimental ≥ −15 (the specs/046 rule for a representation fix). A
+     loss beyond either floor is traced first.
