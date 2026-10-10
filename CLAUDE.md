@@ -498,6 +498,20 @@ for the last feature that touched it rather than re-deriving from the code.
   rules `DS_SELF_FED_MODE` and `DS_SELF_INHIBITOR_LEAVES` above are
   pre-registered there. **Rule B adopted** (held-out +48, experimental +20,
   worst pathway −3); rule A refuted (TP53 −190, PIP3 −126).
+- `specs/046-variant-complex-nodes/` — a complex holding sets becomes one node
+  per member combination, and each reaction one copy per consistent choice
+  across all participants, catalysts and regulators included (generator
+  `LNG_VARIANT_NODES`, default on from LNG #109; `0` restores the old
+  networks). Arm vn7: held-out **+130** (p 1e-12), tuning −18, experimental
+  −10 (ns), coverage identical, cut hand-offs 2,504 → 0. Two failed arms
+  (vn4, vn5) are recorded with every mechanism traced. The solver reads the
+  new `variant_pool` / `variant_split` edges as OR inputs (mean);
+  `test_set_pool.jl` pins that.
+- `specs/047-experimental-gap/` — the experimental gap to MP-BioPath, case by
+  case. Our propagator on MP-BioPath's own networks scores 610/849 and
+  matches or beats it in 8 of 10 pathways: **the gap is network
+  construction** (RAF, Mitotic G1, Cell Cycle Checkpoints, TP53), traced to
+  five mechanism classes. `bench/analysis/experimental_gap.py` reproduces it.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -525,7 +539,7 @@ other seven execute code and print output.
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
 | `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
-| `test/test_set_pool.jl` | 43 | specs/033, added 2026-09-26 |
+| `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 236 | specs/039, added 2026-09-27 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |

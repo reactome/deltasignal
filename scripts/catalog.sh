@@ -373,7 +373,7 @@ cmd_bench() {
   echo "catalog: benchmarking build $build with solver $ds -> $out"
   for gt in curator experimental; do
     env DELTASIGNAL_BASE="$API" DS_CATALOG_ROOT="$target" \
-      "$py" "$DS_REPO/bench/benchmark_vs_mpbiopath.py" --max-edges 40000 \
+      "$py" "$DS_REPO/bench/benchmark_vs_mpbiopath.py" --max-edges 100000 \
         --ground-truth "$gt" --report "$out/${gt}_report.tsv" --dump-cases "$out/${gt}_cases.tsv" \
         > "$out/${gt}.log" 2>&1 || die "$gt benchmark failed; see $out/${gt}.log"
     # The container re-resolves `current` on any restart, so a crash mid-run

@@ -4,8 +4,9 @@
 #   scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--limit N]
 #
 #   --limit N      benchmark only the first N pathways (a smoke test, not an arm)
-#   --max-edges N  skip pathways larger than N edges (default 40000; variant-node
-#                  catalogs need more: TP53 exceeds it, specs/046)
+#   --max-edges N  skip pathways larger than N edges (default 100000: under
+#                  variant nodes the largest pathway, R-HSA-194315, is 46,710
+#                  edges, which 40000 would skip silently; specs/046)
 #   --catalog ID   run against builds/ID instead of `current` (a variant build)
 #
 #   --server K=V   a DS_* override for the SOLVER (set in the API container)
@@ -45,7 +46,7 @@ NAME=$1; shift
 # A leading '-' is refused: `run_arm.sh --help` used to start a real arm named
 # "--help" on the current catalog (2026-10-09).
 [[ "$NAME" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || die "NAME must be [A-Za-z0-9._-]+ and not start with '-' (usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--catalog ID] [--max-edges N])"
-SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=40000
+SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=100000
 while [ $# -gt 0 ]; do
   case "$1" in
     --server) [[ "${2:-}" == DS_*=* ]] || die "--server needs DS_NAME=value"; SERVER+=("$2"); shift 2 ;;
