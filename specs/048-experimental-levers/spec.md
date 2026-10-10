@@ -219,3 +219,65 @@ added, the release step ends at p-MAPK1.
    - **Decision rule:** adopt on faithfulness if held-out ≥ −15 and
      experimental ≥ −15 (the specs/046 rule for a representation fix). A
      loss beyond either floor is traced first.
+
+## Amendment 2 (2026-10-10, after arm `path`, before arm `pathp`): pathogen proteins only
+
+**This is post hoc.** Arm `path` failed the pathway floor by one case, and
+I traced the loss before writing this rule (`research.md`). The rule's
+definition comes from Reactome's molecule classes, not from the cases. Its
+predictions, though, are written knowing what `path` did, so they test
+whether the trace is right, not whether the idea is.
+
+**What `path` showed.** Two curations of a pathogen point in opposite
+directions:
+- an **antagonist**: a viral protein bound to a host protein, such as
+  SARS-CoV-2 N:M:PDPK1 in PIP3;
+- a **sensed ligand**: viral RNA that RIG-I/MDA5 exist to detect. Every
+  signalling complex in DDX58/IFIH1 carries it, and the curator ground truth
+  assumes it is present.
+
+**Neo4j census** (`analysis/048/pathogen_leaf_kinds.py`, release 97) of the
+20 pathogen leaves in the catalog:
+- 15 are proteins: `EntityWithAccessionedSequence` on a
+  `ReferenceGeneProduct`, one of them on a `ReferenceIsoform`.
+- 5 are viral RNAs: `GenomeEncodedEntity` with no reference entity, from
+  Influenza A, HCV, Measles, Rotavirus and RSV A.
+- The RNAs appear only in DDX58/IFIH1 (R-HSA-168928).
+
+**Rule** (generator `LNG_PATHOGEN_PROTEIN=1`, default 0). This is the
+specs/048 pathogen rule with one change:
+- A leaf counts only when it is non-human **and** is a protein, meaning an
+  EWAS whose reference entity is a `ReferenceGeneProduct`, including
+  `ReferenceIsoform`.
+- Complexes count when any component counts; sets count when every member
+  does.
+- The solver is unchanged: `DS_PATHOGEN_MODE=inert` holds whatever
+  `pathogens.csv` lists.
+
+**Known weakness.** The rule cannot tell an antagonist from a sensed
+protein ligand. NK-cell receptors bound to haemagglutinin (198933) are held
+under both rules. They moved no case under `path`.
+
+**Arms.** One build, `--variant pathp --env LNG_PATHOGEN_PROTEIN=1`. Its
+networks must match the `_path` build in node and edge counts per pathway,
+and only DDX58/IFIH1's `pathogens.csv` may differ. Two arms run on it:
+- `pathpctl` (`propagate`) must reproduce `pathctl`'s predictions exactly;
+- `pathp` (`inert`).
+
+**Predictions** (`pathp` against `pathpctl`):
+- **P2-1.** Experimental is the same as `path`: +7 (7/0), all PDPK1
+  knockout in PIP3.
+- **P2-2.** In DDX58/IFIH1, the 12 cases `path` broke (CYLD, IKBKB, MAP3K1
+  and CASP8) keep their `pathctl` predictions.
+  - The CREBBP knockout fix at 877351 stays, because `CREBBP:NS1` is a
+    protein complex and is still held.
+  - DDX58/IFIH1 net is +1.
+- **P2-3.** Curator held-out net is +1 and tuning is +14 (PIP3). No other
+  pathway moves.
+
+**Decision rule:** as for lever A. Adopt if:
+- experimental net > 0;
+- held-out ≥ −15;
+- no pathway loses more than 10 on either axis.
+
+Any miss is traced to a case.
