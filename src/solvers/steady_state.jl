@@ -118,6 +118,11 @@ function solve_steady_state(
     drugs = dmode == "inert" ? drug_uuids(network) : Set{String}()
     drug_rule = dmode == "propagate" ? "propagate" :
                 network.drug_stids === nothing ? "inert: no drug table" : "inert"
+    # specs/048: pathogen-derived nodes, the same hold for an uninfected cell.
+    pmode = pathogen_mode()
+    pathogens = pmode == "inert" ? pathogen_uuids(network) : Set{String}()
+    pathogen_rule = pmode == "propagate" ? "propagate" :
+                    network.pathogen_stids === nothing ? "inert: no pathogen table" : "inert"
     # specs/035: loop participants released unchanged by their loop, held at
     # baseline like cofactors. Resolved on the network as given (before bridges).
     cmode = conserved_mode()
@@ -133,7 +138,8 @@ function solve_steady_state(
         @info "Adding $(length(bridges)) silo bridge edge(s)" max_reach=silo_bridge_max_reach()
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
                                   network.set_mappings, network.cofactor_stids,
-                                  network.containment, network.drug_stids, network.pools)
+                                  network.containment, network.drug_stids, network.pools,
+                                  network.pathogen_stids)
     end
 
     # Convert network to reactions
@@ -183,6 +189,16 @@ function solve_steady_state(
             if !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
         drugs_held = length(dpins)
         observations = merge(observations, dpins)
+    end
+    pathogens_held = 0
+    if !isempty(pathogens)
+        # The drug rule's pin precedence: an observation that pins wins.
+        ppins = Dict{String, Tuple{Float64, Float64}}(
+            u => (network.nodes[u].baseline * 100.0, 1.0)
+            for u in pathogens
+            if !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
+        pathogens_held = length(ppins)
+        observations = merge(observations, ppins)
     end
     conserved_held = 0
     if !isempty(conserved)
@@ -254,6 +270,8 @@ function solve_steady_state(
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["drug_rule"] = drug_rule
     result.diagnostics["drugs_held"] = drugs_held
+    result.diagnostics["pathogen_rule"] = pathogen_rule
+    result.diagnostics["pathogens_held"] = pathogens_held
     result.diagnostics["conserved_rule"] = cmode
     result.diagnostics["conserved_held"] = conserved_held
     # specs/040: which self-feedback rules ran. The counts come from the solve.

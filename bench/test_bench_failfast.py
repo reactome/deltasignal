@@ -50,3 +50,29 @@ def test_a_pathway_without_data_is_still_a_plain_skip(tmp_path, monkeypatch):
     outcomes = {"PathA": ok_result,
                 "PathB": lambda n: {"status": "no_network", "name": n}}
     run_main(tmp_path, monkeypatch, outcomes)    # returns normally: not a failure
+
+
+def _pathogen_outcome(listed, held):
+    def outcome(name):
+        bench.SOLVE_TALLY["pathogen_rule=inert"] += 1
+        bench.SOLVE_TALLY["pathogens_listed"] += listed
+        bench.SOLVE_TALLY["pathogens_held"] += held
+        return ok_result(name)
+    return outcome
+
+
+def test_default_inert_on_pathways_listing_no_pathogen_is_not_refused(tmp_path, monkeypatch, capsys):
+    # specs/048: inert is the default and 83 of 92 pathways list no pathogen, so a
+    # subset run that holds nothing is the expected case, not "the arm is the control".
+    run_main(tmp_path, monkeypatch, {"PathA": _pathogen_outcome(0, 0)})
+    assert "no pathway in this run lists a pathogen" in capsys.readouterr().out
+
+
+def test_inert_refused_when_listed_pathogens_match_no_node(tmp_path, monkeypatch):
+    with pytest.raises(SystemExit) as e:
+        run_main(tmp_path, monkeypatch, {"PathA": _pathogen_outcome(5, 0)})
+    assert "matched no node" in str(e.value.code)
+
+
+def test_inert_holding_listed_pathogens_runs(tmp_path, monkeypatch):
+    run_main(tmp_path, monkeypatch, {"PathA": _pathogen_outcome(5, 3)})

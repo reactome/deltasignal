@@ -348,6 +348,23 @@ env vars only override for benchmark sweeps:
   nodes (a Reactome `Drug`, a complex containing one, a set that is all drugs),
   listed by the generator's `drugs.csv`, held at baseline like cofactors, for a
   cell without the drug. The solve reports `drug_rule` and `drugs_held`.
+- `DS_PATHOGEN_MODE=inert` (**default since 2026-10-10**, specs/048 amendment
+  2) | `propagate`: nodes listed in the generator's `pathogens.csv` are held
+  at baseline, as drugs are, for a cell without the pathogen. An observation
+  still wins.
+  - Under the generator's `LNG_PATHOGEN_PROTEIN` (default on), the list holds
+    only entities that carry a pathogen PROTEIN (an EWAS on a
+    `ReferenceGeneProduct`): a protein leaf, a complex with such a component,
+    or a set whose members all are, e.g. SARS-CoV-2 N:M:PDPK1.
+  - Viral RNAs are not listed. They are the ligand DDX58/IFIH1 senses, and
+    holding them broke 12 curator cases, net −11 (arm `path`).
+  - Builds from before 2026-10-10 have no `pathogens.csv`, so the bench refuses
+    them under the default; re-run one with `--server DS_PATHOGEN_MODE=propagate`
+    (the specs/047 MP-BioPath-network run included).
+  - Against `propagate`: experimental +7 (all PDPK1 knockout), held-out +1,
+    nothing broken.
+  - The solve reports `pathogen_rule` and `pathogens_held`. A bundle without
+    the table reports `inert: no pathogen table`, and the bench refuses it.
 - `DS_SET_POOL_MODE=product` (default) | `extreme` | `geomean` | `mean` | `max`
   (specs/033): how a set POOL node (the generator's `LNG_SET_POOL`: one node
   per set-valued catalyst or regulator, fed by `set_member` edges) combines its
@@ -512,6 +529,14 @@ for the last feature that touched it rather than re-deriving from the code.
   matches or beats it in 8 of 10 pathways: **the gap is network
   construction** (RAF, Mitotic G1, Cell Cycle Checkpoints, TP53), traced to
   five mechanism classes. `bench/analysis/experimental_gap.py` reproduces it.
+- `specs/048-experimental-levers/` — two levers from 047.
+  - **Pathogen-derived nodes held at baseline: adopted**, as the protein-only
+    rule of amendment 2. The first rule also held viral RNA and broke 12
+    cases in DDX58/IFIH1 (net −11).
+  - **Homodimer binding fix (`LNG_BIND_STOICH`): adopted** on faithfulness;
+    it moves no prediction.
+  - Pools that share intermediates (the RAF knockout→UP class) are
+    unresolved; that work is on `wip/048-mapk-pools`.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -530,7 +555,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 212 | |
+| `test/test_config_validation.jl` | 215 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
@@ -538,7 +563,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
-| `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
+| `test/test_drugs.jl` | 125 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 236 | specs/039, added 2026-09-27 |

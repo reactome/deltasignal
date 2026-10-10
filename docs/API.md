@@ -108,6 +108,9 @@ are what the solver needs to run the default model; send them back with an
 inline network. `drug_stids` (specs/032, additive) lists the bundle's
 drug-derived stable ids, or is `null` when the bundle has no `drugs.csv`; send
 it back too, or `DS_DRUG_MODE=inert` reports `"inert: no drug table"`.
+`pathogen_stids` (specs/048, additive) is the same for the bundle's
+`pathogens.csv`. Without it, the default `DS_PATHOGEN_MODE=inert` reports
+`"inert: no pathogen table"` and holds nothing.
 `pools` (specs/039, additive) is the interconversion-pool table, or `null`
 when the bundle has no `pools.csv`. Send it back with an inline network, or the
 default `DS_CYCLE_MODE=balance` reports `"balance: no pool table"` and loops
@@ -166,6 +169,13 @@ Response:
   (default), `"inert"`, or `"inert: no drug table"`, and how many drug-derived
   nodes this solve held at baseline. Under `inert` a drug participates at fold
   1.0 and never carries a perturbation; an explicit observation still wins.
+- **`pathogen_rule`** / **`pathogens_held`** (additive, specs/048): `"inert"`
+  (default since 2026-10-10), `"propagate"`, or `"inert: no pathogen table"`,
+  and how many pathogen-derived nodes this solve held at baseline. A node is
+  held as a drug is under `inert`.
+  The built-in sample network has no pathogen table, so a bodyless
+  `/api/parse` → `/api/solve` reports `"inert: no pathogen table"`; nothing
+  is wrong with that solve.
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
