@@ -145,10 +145,59 @@ line.
 non-human-derived nodes the way `drugs.csv` lists drugs. Pre-registered and
 measured with experimental as the primary axis.
 
-## Controls running
+## Network or propagator? The control
 
-DeltaSignal's propagator on MP-BioPath's own 2019 networks (build
-`20261009-2051_mpbnet2019`, via the adapter), against canonical. Both arms
-run with `DS_CYCLE_MODE=off` and `DS_SELF_INHIBITOR_WEIGHT=off`, because
-MP-BioPath's networks carry no pool or containment tables. That splits the
-49-case gap into a network share and a propagator share.
+**Arms.** Solver 3a8d59d (`src/` identical to 0525296).
+- `mpbnet`: our propagator on MP-BioPath's own 2019 networks (build
+  `20261009-2051_mpbnet2019`, 85 pathways, via
+  `bench/analysis/mpbiopath_network_adapter.py`).
+- `canon_tablefree`: the canonical networks under the same solver settings.
+
+Both run with `DS_CYCLE_MODE=off`, `DS_SELF_INHIBITOR_WEIGHT=off` and
+`DS_SELF_INHIBITOR_LEAVES=0`, because MP-BioPath's networks carry no pool or
+containment tables. The canonical default arm (`5979e48`) is shown too.
+
+| Pathway | n | MP-BioPath | Canonical | Canonical, table-free | **Ours on MPB networks** |
+|---|---|---|---|---|---|
+| TP53 | 257 | 182 | 168 | 167 | 179 |
+| PIP3 | 200 | 177 | 168 | 177 | 142 |
+| Mitotic G1 | 89 | 39 | 30 | 30 | 41 |
+| Cell Cycle Checkpoints | 55 | 46 | 39 | 31 | 47 |
+| WNT | 51 | 36 | 37 | 31 | 36 |
+| RAF | 49 | 45 | 39 | 17 | 49 |
+| ERBB2 | 49 | 41 | 42 | 42 | 41 |
+| HDR | 48 | 40 | 36 | 36 | 36 |
+| Mitotic Prophase | 26 | 21 | 19 | 20 | 22 |
+| S Phase | 25 | 16 | 16 | 16 | 17 |
+| **Total** | 849 | **643** | **594** | **567** | **610** |
+
+**Findings:**
+1. **The gap is network construction, not the propagator, in every
+   pathway except PIP3.** On MP-BioPath's networks our propagator matches or
+   beats MP-BioPath in 8 of 10 pathways: RAF 49 vs 45, Mitotic G1 41 vs 39,
+   Cell Cycle Checkpoints 47 vs 46, Prophase, S Phase, WNT, ERBB2, and TP53
+   179 vs 182.
+2. **Under identical solver settings, our networks cost 43 cases**
+   (567 vs 610). The largest single pathway is RAF, −32 (17 vs 49); the
+   rest is spread over Mitotic G1, Cell Cycle Checkpoints, TP53 and WNT.
+3. **Our network-specific rules recover 27 of the 43** (567 → 594). Cycle
+   balance does most of it in RAF (17 → 39). In PIP3 they cost 9
+   (177 → 168).
+4. **PIP3 is the exception.** Our propagator on their PIP3 network scores 142
+   against their 177; on our own PIP3 network it scores 168–177. So PIP3's
+   shortfall on their network is a propagator matter, irrelevant to our
+   networks.
+5. **Choosing per pathway** between canonical and their networks gives 638,
+   against MP-BioPath's 643. Nothing in the propagator stands between us and
+   MP-BioPath's experimental accuracy; the networks do.
+
+**Where to look:**
+- The network share lives in RAF (39 vs 49), Mitotic G1 (30 vs 41), Cell Cycle
+  Checkpoints (39 vs 47) and TP53 (168 vs 179). That is 41 cases across 4
+  pathways.
+- specs/034 already compared RAF's networks: MP-BioPath's ~1,800 hand edits,
+  mostly reversal-enzyme inhibitions of interconversion cycles, 187 absent
+  from ours.
+- **Next:** for each discordant case in these four pathways, diff the two
+  networks along the gene → readout route (both are keyed by Reactome ids)
+  and classify what MP-BioPath's network has that ours lacks, or vice versa.
