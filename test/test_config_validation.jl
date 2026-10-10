@@ -675,6 +675,14 @@ end
     net2 = DeltaSignal.reaction_network_from_json(JSON3.read(with_cof))
     @test net2.cofactor_stids == Set(["R-ALL-29372", "R-ALL-113582"])
     @test length(net2.nodes) == 2
+
+    # specs/048: the pathogen list must survive too, or the default
+    # DS_PATHOGEN_MODE=inert silently reports "inert: no pathogen table".
+    with_path = replace(payload, "\"edges\":" => "\"pathogen_stids\": [\"R-HSA-2\"], \"edges\":")
+    net3 = DeltaSignal.reaction_network_from_json(JSON3.read(with_path))
+    @test net3.pathogen_stids == Set(["R-HSA-2"])
+    @test net.pathogen_stids === nothing
+    @test DeltaSignal.pathogen_uuids(net3) == Set(["B"])
 end
 
 @testset "edge sign and logic values fail loudly" begin

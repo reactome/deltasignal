@@ -251,7 +251,7 @@ perturbation.
 | curator | all | 86.24% → 86.31% | +15 (15/0) | 6.1e-05 |
 
 - **What changed:** exactly the 22 predicted cases, on two perturbations:
-  - PDPK1 knockout: 15 curator cases and 7 experimental;
+  - PDPK1 knockout: 14 curator cases and 7 experimental;
   - CREBBP knockout: 1 curator case.
 - **Unchanged:** coverage and convergence (1,654 of 1,725 and 215 of 244
   solves).
@@ -260,3 +260,23 @@ perturbation.
 **Next.** The combination becomes canonical once LNG #110 is merged and
 `current` is rebuilt from generator main. RESULTS.md is updated from that
 build.
+
+## Adversarial review (2026-10-10)
+
+Two independent reviewers looked at the diffs: DS #101 at `9b59fa2` and LNG
+#110. Neither found a defect in propagation or in the measured networks.
+
+| finding | disposition |
+|---|---|
+| DS: the default `inert` refuses benchmarks on builds without `pathogens.csv`, which includes `current` | Documented in CLAUDE.md. **Merge order:** LNG #110, then a canonical rebuild, then DS #101. Old arms re-run with `DS_PATHOGEN_MODE=propagate`. |
+| DS: a subset run under the default was refused ("the arm is the control") when its pathways list no pathogen | Fixed. The bench refuses only if the networks list pathogens and none is held. 3 bench tests added. |
+| DS: research said PDPK1 changed 15 curator cases | Fixed: it is 14. |
+| DS: the RNA cost was worded three ways | Now "broke 12, net −11" everywhere. |
+| DS: nothing tested the API round trip of `pathogen_stids` | Added to `test_config_validation.jl` (+3). |
+| DS: the silo-bridge test cannot fail if the rebuild drops the field | **Not fixed.** The code is correct today. Making the test fail would need a fixture whose pins are resolved after the rebuild. |
+| DS: the sample network reports `inert: no pathogen table` | Documented in API.md. |
+| LNG: a viral Polymer (HIV-1 Rev-multimer) was not a pathogen under the protein rule | Fixed. `repeatedUnit` is read as a component. Recomputed on the combo build, it lists no new entity in any of the 92 pathways (`analysis/048/polymer_check.py`), so the measured arms stand. |
+| LNG: the signature cache was not keyed on `LNG_BIND_STOICH` | Fixed, with a test. |
+| LNG: the docstring said viral RNAs have no reference entity | Fixed: most are EWAS on a `ReferenceRNASequence`, and the class allow-list excludes them. |
+| LNG: `_leaf_multiset` was tested at one level only | Nested-stoichiometry test added. |
+| LNG: the pathogen cache depends on call order beyond depth 10; catalysts outside prefetch get no multiset | **Not fixed.** Real nesting tops out around 5, and the catalyst case is not a regression. |

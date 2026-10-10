@@ -173,6 +173,9 @@ Response:
   (default since 2026-10-10), `"propagate"`, or `"inert: no pathogen table"`,
   and how many pathogen-derived nodes this solve held at baseline. A node is
   held as a drug is under `inert`.
+  The built-in sample network has no pathogen table, so a bodyless
+  `/api/parse` → `/api/solve` reports `"inert: no pathogen table"`; nothing
+  is wrong with that solve.
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):

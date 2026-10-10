@@ -357,7 +357,10 @@ env vars only override for benchmark sweeps:
     `ReferenceGeneProduct`): a protein leaf, a complex with such a component,
     or a set whose members all are, e.g. SARS-CoV-2 N:M:PDPK1.
   - Viral RNAs are not listed. They are the ligand DDX58/IFIH1 senses, and
-    holding them cost 12 curator cases (arm `path`).
+    holding them broke 12 curator cases, net −11 (arm `path`).
+  - Builds from before 2026-10-10 have no `pathogens.csv`, so the bench refuses
+    them under the default; re-run one with `--server DS_PATHOGEN_MODE=propagate`
+    (the specs/047 MP-BioPath-network run included).
   - Against `propagate`: experimental +7 (all PDPK1 knockout), held-out +1,
     nothing broken.
   - The solve reports `pathogen_rule` and `pathogens_held`. A bundle without
@@ -528,8 +531,8 @@ for the last feature that touched it rather than re-deriving from the code.
   five mechanism classes. `bench/analysis/experimental_gap.py` reproduces it.
 - `specs/048-experimental-levers/` — two levers from 047.
   - **Pathogen-derived nodes held at baseline: adopted**, as the protein-only
-    rule of amendment 2. The first rule also held viral RNA and lost 11 in
-    DDX58/IFIH1.
+    rule of amendment 2. The first rule also held viral RNA and broke 12
+    cases in DDX58/IFIH1 (net −11).
   - **Homodimer binding fix (`LNG_BIND_STOICH`): adopted** on faithfulness;
     it moves no prediction.
   - Pools that share intermediates (the RAF knockout→UP class) are
@@ -552,7 +555,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 212 | |
+| `test/test_config_validation.jl` | 215 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |

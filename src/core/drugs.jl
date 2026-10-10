@@ -68,7 +68,7 @@ member is one).
 
 What the bundle lists is the generator's call. Since LNG_PATHOGEN_PROTEIN
 (default on) only entities carrying a pathogen PROTEIN are listed: viral RNA
-is the ligand DDX58/IFIH1 senses, and holding it cut 12 curator cases.
+is the ligand DDX58/IFIH1 senses, and holding it broke 12 curator cases (net −11).
 """
 const DS_VALID_PATHOGEN_MODES = Set(["propagate", "inert"])
 
