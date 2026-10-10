@@ -201,3 +201,48 @@ containment tables. The canonical default arm (`5979e48`) is shown too.
 - **Next:** for each discordant case in these four pathways, diff the two
   networks along the gene → readout route (both are keyed by Reactome ids)
   and classify what MP-BioPath's network has that ours lacks, or vice versa.
+
+## Trace 3: RAF, a recycled scaffold amplifies itself (NRAS KO, and likely NF1 KO)
+
+These are the 10 RAF cases our propagator gets right on MP-BioPath's network
+and wrong on ours:
+
+| Perturbation | Cases | Truth → ours |
+|---|---|---|
+| NRAS KO | 3 | DOWN → UP |
+| NF1 KO | 4 | UP → DOWN or no change |
+| ARAF / BRAF / RAF1 KO → R-HSA-5674341 | 3 | DOWN → no change |
+
+**NRAS KO → p-T,Y MAPK dimers (R-HSA-1268261) reads 63×.** The trace:
+1. "RAF/MAPK scaffolds" (R-HSA-5672717, a CandidateSet of ARRB1, ARRB2,
+   focal-adhesion and others) is an input to "MAP2Ks and MAPKs bind to the
+   activated RAF complex" (R-HSA-5672972).
+2. RAF phosphorylates MAP2K (R-HSA-5672978), MAP2Ks phosphorylate MAPKs
+   (R-HSA-5672973), and "Dissociation of RAS:RAF complex" (R-HSA-5672980)
+   **releases the scaffold**. Reactome curates that: it is an output of
+   R-HSA-5672980 in Neo4j.
+3. The released scaffold re-enters step 1 at the complex's own fold. This
+   positive loop rails the cascade to 63–100× whatever RAS does, so NRAS KO
+   reads UP.
+4. MP-BioPath's RAF network has the same scaffold-member → R-HSA-5672972
+   edges, but its R-HSA-5672980 outputs only R-HSA-5672712, 169289 and
+   5672721. **No scaffold release**, so no recycling loop, and RAS
+   perturbations reach the readouts. Whether 2019 Reactome lacked the
+   release or it was a hand cut, their network is acyclic here.
+
+**The class: a conserved carrier.** The scaffold is bound at one step,
+carried unchanged through two modification steps, and released at a
+fourth. Its total is conserved, so it cannot amplify itself.
+- specs/039 balance pools model exactly that conservation, but the
+  generator's pool detection finds interconversion cycles of a modified
+  species. It does not find a carrier bound and released across a
+  multi-step chain: RAF has one pool of 3 rows, none touching the scaffold.
+- The blanket alternatives were refuted: specs/035 (all conserved loop
+  inputs held at baseline, experimental −122, it held PIP3) and specs/040
+  rule A.
+
+**Candidate lever:** extend pool detection to multi-step carrier cycles (a
+species bound by one reaction and released unchanged by a later reaction in
+the same chain), solved by the existing balance rule. Narrower than
+specs/035, and consistent with D1 identity. Measured with experimental as
+the primary axis.
