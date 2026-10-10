@@ -89,13 +89,17 @@ struct ReactionNetwork
     # `nothing` = the bundle has no such file (DS_CYCLE_MODE=balance then reports
     # "balance: no pool table"); an empty vector = the file lists none.
     pools::Union{Nothing, Vector{CyclePool}}
+    # Pathogen-derived stable ids from the generator's `pathogens.csv`
+    # (specs/048), with the same `nothing` / empty distinction as drug_stids.
+    pathogen_stids::Union{Nothing, Set{String}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
                     containment = Dict{String, Set{String}}(),
                     drug_stids = nothing,
-                    pools = nothing) =
-        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools)
+                    pools = nothing,
+                    pathogen_stids = nothing) =
+        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools, pathogen_stids)
 end
 
 """
@@ -391,6 +395,7 @@ function parse_complete_network(
     stids = parse_cofactor_list(resolved; required = cofactor_path !== nothing)
     containment = parse_containment(logic_network_path)
     drugs = parse_drug_list(logic_network_path)
+    pathogens = parse_pathogen_list(logic_network_path)
     # A malformed pool table is an error when the solve would use it (the
     # default, DS_CYCLE_MODE=balance). Under DS_CYCLE_MODE=off it must not take
     # a pathway out of service, so it is reported and dropped.
@@ -421,7 +426,7 @@ function parse_complete_network(
             end
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
-                               Set{String}(), containment, drugs, pools)
+                               Set{String}(), containment, drugs, pools, pathogens)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -450,7 +455,7 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs, pools)
+                           containment, drugs, pools, pathogens)
 end
 
 """
@@ -458,12 +463,21 @@ Read the generator's `drugs.csv` beside a logic network (specs/032): the
 drug-derived stable ids present in this pathway. `nothing` when there is no
 such file (a bundle that predates it), an empty set when the file lists none.
 """
-function parse_drug_list(logic_network_path::String)::Union{Nothing, Set{String}}
-    path = joinpath(dirname(logic_network_path), "drugs.csv")
+parse_drug_list(logic_network_path::String) = _parse_stid_list(logic_network_path, "drugs.csv", "drug")
+
+"""
+Read the generator's `pathogens.csv` (specs/048): the pathogen-derived stable ids
+present in this pathway, with `parse_drug_list`'s `nothing` / empty distinction.
+"""
+parse_pathogen_list(logic_network_path::String) =
+    _parse_stid_list(logic_network_path, "pathogens.csv", "pathogen")
+
+function _parse_stid_list(logic_network_path::String, file::String, what::String)::Union{Nothing, Set{String}}
+    path = joinpath(dirname(logic_network_path), file)
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame; types = String)
     "stable_id" in names(df) ||
-        throw(ArgumentError("$(path) has no `stable_id` column; it is not a generator drug list"))
+        throw(ArgumentError("$(path) has no `stable_id` column; it is not a generator $(what) list"))
     return Set(String(x) for x in df.stable_id if !ismissing(x) && !isempty(strip(x)))
 end
 
@@ -603,9 +617,18 @@ function _pools_from_json(raw)::Vector{CyclePool}
 end
 
 """Inverse of `drug_stids_json`."""
-function drug_stids_from_json(raw)::Union{Nothing, Set{String}}
+drug_stids_from_json(raw) = _stids_from_json(raw, "drug_stids")
+
+"""JSON form of `pathogen_stids` (specs/048), as `drug_stids_json`."""
+pathogen_stids_json(network::ReactionNetwork) =
+    network.pathogen_stids === nothing ? nothing : sort(collect(network.pathogen_stids))
+
+"""Inverse of `pathogen_stids_json`."""
+pathogen_stids_from_json(raw) = _stids_from_json(raw, "pathogen_stids")
+
+function _stids_from_json(raw, field::String)::Union{Nothing, Set{String}}
     raw === nothing && return nothing
-    raw isa AbstractVector || throw(ArgumentError("drug_stids must be a list of stable ids or null"))
+    raw isa AbstractVector || throw(ArgumentError("$(field) must be a list of stable ids or null"))
     return Set(String.(collect(raw)))
 end
 

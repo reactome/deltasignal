@@ -1023,7 +1023,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                        "cofactor_stids": parsed.get("cofactor_stids"),
                        # specs/032: without it an edge-drop arm under DS_DRUG_MODE=inert
                        # reached the solver with no drug table (review of the branch).
-                       "drug_stids": parsed.get("drug_stids")}
+                       "drug_stids": parsed.get("drug_stids"),
+                       "pathogen_stids": parsed.get("pathogen_stids")}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
@@ -1065,11 +1066,16 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         if ds_result and ds_result.get("drug_rule") == "inert: no drug table":
             raise SystemExit(f"{pathway_name}: DS_DRUG_MODE=inert but the network has no drugs.csv "
                              "(a build that predates it), so no drug is held (specs/032).")
+        if ds_result and ds_result.get("pathogen_rule") == "inert: no pathogen table":
+            raise SystemExit(f"{pathway_name}: DS_PATHOGEN_MODE=inert but the network has no pathogens.csv "
+                             "(a build that predates it), so nothing is held (specs/048).")
         if ds_result:
             SOLVE_TALLY["solves"] += 1
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
             SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
+            SOLVE_TALLY[f"pathogen_rule={ds_result.get('pathogen_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["pathogens_held"] += int(ds_result.get("pathogens_held") or 0)
             SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
             if ds_result.get("cycle_rule") == "balance: no pool table":
                 raise SystemExit(f"{pathway_name}: DS_CYCLE_MODE=balance but the network has no pools.csv "
@@ -1383,6 +1389,10 @@ def main():
     if "inert" in rules and SOLVE_TALLY["drugs_held"] == 0:
         # An inert arm that held nothing measured the default model.
         raise SystemExit("DS_DRUG_MODE=inert but no solve held a drug node; the arm is the control.")
+    prules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("pathogen_rule="))
+    print(f"\nPathogens: rule {'/'.join(prules) or 'unknown'}, {SOLVE_TALLY['pathogens_held']} node-solves held (specs/048)")
+    if "inert" in prules and SOLVE_TALLY["pathogens_held"] == 0:
+        raise SystemExit("DS_PATHOGEN_MODE=inert but no solve held a pathogen node; the arm is the control.")
     yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
     yc = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carriers="))
     print(f"\nCycles: rule {'/'.join(yrules) or 'unknown'}, {SOLVE_TALLY['cycle_pools_solved']} pool-solves, "

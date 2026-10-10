@@ -538,7 +538,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
-| `test/test_drugs.jl` | 59 | specs/032, added 2026-09-26 |
+| `test/test_drugs.jl` | 121 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 236 | specs/039, added 2026-09-27 |

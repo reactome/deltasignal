@@ -207,6 +207,8 @@ function execute_parse_command(args)
             "containment" => network_containment_json(network),
             # And for DS_DRUG_MODE (specs/032); null when the bundle has no list.
             "drug_stids" => drug_stids_json(network),
+            # And for DS_PATHOGEN_MODE (specs/048).
+            "pathogen_stids" => pathogen_stids_json(network),
             "pools" => pools_json(network),
             "set_mappings" => Dict(set_id => Dict(
                 "original_set_id" => mapping.original_set_id,
@@ -394,7 +396,9 @@ function execute_solve_command(args)
         containment = containment_from_json(get(network_json, "containment", nothing))
         drug_stids = drug_stids_from_json(get(network_json, "drug_stids", nothing))
         pools = pools_from_json(get(network_json, "pools", nothing))
-        network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools)
+        pathogen_stids = pathogen_stids_from_json(get(network_json, "pathogen_stids", nothing))
+        network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools,
+                                  pathogen_stids)
         println("✓ Network loaded: $(length(nodes)) nodes, $(length(edges)) edges")
 
         # Load observations CSV

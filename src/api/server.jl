@@ -334,8 +334,13 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     catch
         throw(ArgumentError("`pools` must be null or the list /api/parse returns."))
     end
+    pathogen_stids = try
+        DeltaSignal.pathogen_stids_from_json(get(data, :pathogen_stids, nothing))
+    catch
+        throw(ArgumentError("`pathogen_stids` must be a list of stable ids or null."))
+    end
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment,
-                                       drug_stids, pools)
+                                       drug_stids, pools, pathogen_stids)
 end
 
 """
@@ -722,6 +727,8 @@ function parse_handler(req)
             # specs/032: the bundle's drug list (null when it has none), so a
             # parse -> POSTed solve runs the same model as a solve by network_id.
             "drug_stids" => DeltaSignal.drug_stids_json(network),
+            # specs/048: the same for the bundle's pathogen list.
+            "pathogen_stids" => DeltaSignal.pathogen_stids_json(network),
             # specs/039: the interconversion pool table (null when none), so a
             # parse -> POSTed solve runs the same cycle model as a solve by id.
             "pools" => DeltaSignal.pools_json(network),
@@ -870,6 +877,9 @@ function solve_handler(req)
             # specs/032 (additive): "propagate", "inert", or "inert: no drug table".
             "drug_rule" => get(solver_result.diagnostics, "drug_rule", "unknown"),
             "drugs_held" => get(solver_result.diagnostics, "drugs_held", 0),
+            # specs/048 (additive): "propagate", "inert", or "inert: no pathogen table".
+            "pathogen_rule" => get(solver_result.diagnostics, "pathogen_rule", "unknown"),
+            "pathogens_held" => get(solver_result.diagnostics, "pathogens_held", 0),
             # specs/035 (additive): "off" or "inert", and how many nodes were held.
             "conserved_rule" => get(solver_result.diagnostics, "conserved_rule", "unknown"),
             "conserved_held" => get(solver_result.diagnostics, "conserved_held", 0),
