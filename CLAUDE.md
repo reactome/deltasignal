@@ -535,6 +535,8 @@ for the last feature that touched it rather than re-deriving from the code.
     cases in DDX58/IFIH1 (net −11).
   - **Homodimer binding fix (`LNG_BIND_STOICH`): adopted** on faithfulness;
     it moves no prediction.
+  - Canonical build `20261010-1415_c0e1b2a` (LNG #110, DS #101): experimental
+    591/849 (+7), held-out +1.
   - Pools that share intermediates (the RAF knockout→UP class) are
     unresolved; that work is on `wip/048-mapk-pools`.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
