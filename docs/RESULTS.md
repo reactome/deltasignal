@@ -19,6 +19,48 @@ commit.
 ---
 
 
+> **2026-10-10 (later): canonical numbers with pathogen proteins held and
+> homodimer-aware binding (specs/048).**
+> - Build `20261010-1415_c0e1b2a`: generator c0e1b2a, LNG #110, with
+>   `LNG_PATHOGEN_PROTEIN` and `LNG_BIND_STOICH` on by default.
+> - Solver `575c817`: `DS_PATHOGEN_MODE=inert` by default, DS #101.
+> - Results: `results/575c817`.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **88.63%** | **0.8525** |
+> | curator held-out, every case (71 pathways) | 19,000 | 88.03% | 0.8441 |
+> | curator, all pathways, in release (81) | 23,625 | 86.04% | 0.8286 |
+> | curator, all pathways, every case | 24,100 | 85.48% | 0.8213 |
+> | experimental, every case (10 pathways) | 849 | **69.61%** | **0.6164** |
+>
+> **What moved since the previous box.** Only the 22 cases the arms
+> predicted moved, and nothing broke:
+> - **Pathogen-derived nodes are held at baseline** for a cell without the
+>   pathogen. The generator lists only entities carrying a pathogen protein.
+>   - SARS-CoV-2 N:M:PDPK1 had de-repressed AKT on every PDPK1 knockout.
+>     Experimental is now +7 (584 → 591, 7 fixed / 0 broken, p 0.016).
+>   - Curator held-out is +1 (CREBBP knockout), tuning +14 (PIP3).
+>   - The first rule also held viral RNA, the ligand DDX58/IFIH1 senses. It
+>     broke 12 cases and was not adopted.
+> - **Homodimers bind to homodimers** when a reaction is split into variant
+>   copies. This moves no prediction.
+> - The rebuild reproduces the measured arm (`combo`) exactly.
+>
+> Converged: 1,654 / 1,725 curator and 215 / 244 experimental solves
+> (unchanged).
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 85.48% / 0.8213 against 83.34% / 0.8063, **+2.14pp**.
+> - Experimental: 69.61% (591/849) against 75.74% (643/849), **−6.13pp**.
+>
+> The rest of the experimental gap is network construction (specs/047).
+> The largest remaining class is the RAF knockout→UP cycle (12 of 21 RAF
+> failures), which needs pools that share intermediates (specs/048
+> amendment 1).
+>
+> **Previous box**, kept below for the record.
+
 > **2026-10-10: canonical numbers with variant complex nodes (specs/046).**
 > Build `20261009-2307_132d4b8` (generator 132d4b8: `LNG_VARIANT_NODES` on by
 > default, LNG #109), solver `0f0a11e` (`src/` unchanged since 5979e48),
