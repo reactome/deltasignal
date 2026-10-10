@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from mpbiopath_network_adapter import (  # noqa: E402
-    CONJUNCTION, POLARITY, UUID_PREFIX, case_pathway_names, parse_network,
+    CONJUNCTION, POLARITY, UUID_PREFIX, case_pathway_names, catalog_ids, parse_network,
     write_catalog_dir,
 )
 
@@ -89,9 +89,22 @@ with tempfile.TemporaryDirectory() as tmp:
     check("case name bridge", case_pathway_names(cases),
           {"R-HSA-453279": "Mitotic_G1-G1_S_phases"})
 
+    # Current generator naming (bare stable-id directories) and the versioned
+    # pathway list as the name bridge; both were unreadable until 2026-10-09,
+    # so the adapter silently adapted nothing.
+    cat = tmp / "catalog"
+    (cat / "R-HSA-453279").mkdir(parents=True)
+    (cat / "Old_Name_R-HSA-69620").mkdir()
+    check("bare and legacy catalog dirs", catalog_ids(cat),
+          {"R-HSA-453279": "R-HSA-453279", "Old_Name": "R-HSA-69620"})
+    plist = tmp / "catalog_pathways.tsv"
+    plist.write_text("# comment\nid\tpathway_name\nR-HSA-453279\tMitotic_G1-G1_S_phases\n")
+    check("pathway list as name bridge", case_pathway_names(plist),
+          {"R-HSA-453279": "Mitotic_G1-G1_S_phases"})
+
 if failures:
     print("FAILED:")
     for f in failures:
         print("  -", f)
     sys.exit(1)
-print(f"all adapter assertions passed ({12} checks)")
+print(f"all adapter assertions passed ({14} checks)")
