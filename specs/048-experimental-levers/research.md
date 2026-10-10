@@ -77,6 +77,30 @@ in the solver at `propagate` (the default), as a measured record, like
     were correct before.
   - The one fix is a CREBBP knockout at 877351. It goes from 3.5× to 0.5×,
     because the `CREBBP:NS1` antagonist complex is now held.
+- **Case by case**
+  (`~/deltasignal-catalogs/analysis/048/ddx58_trace.py`, routes in the
+  `_path` network). All 12 broken cases fail in one of two ways:
+  - **The readout itself is held (4 cases).** IKBKB and CASP8, up and down,
+    at readout 933478. That readout is
+    `dsRNA:RIG-I/MDA5:...:IKK complex`, which contains the viral ligand, so it
+    is pinned at 1.0 whatever the perturbation does.
+  - **Every route passes a held node (8 cases).** CYLD up and down at
+    909690, 177673 and 877351, and MAP3K1 up and down at 177673.
+    - Shortest routes before the pin: 19–31 nodes for CYLD, 9 for MAP3K1.
+    - Routes that avoid held nodes: none.
+    - On the CYLD routes, the first held node is `2x DDX58 ligand:2x
+      DDX58:2xATP` (R-HSA-168906), RIG-I bound to viral RNA. On the MAP3K1
+      route it is `dsRNA:DDX58/IFIH1:MAVS:TRAF2/TRAF6:MEKK1` (R-HSA-933482).
+  - **The one fix.** CREBBP knockout at 877351 has a 7-node route with no
+    held node. It moves from 3.5× to 0.5× because the `CREBBP:NS1`
+    antagonist is held rather than knocked out with CREBBP.
+- **Neo4j confirms the curation** (`ddx58_neo4j.py`, release 97):
+  - "DDX58 ligand" (R-NUL-9013905) holds only viral RNAs: Rotavirus RNA, HCV
+    5'-ppp poly-U/UC RNA, and the Influenza A dsRNA intermediate.
+  - "IFIH1 ligand" (R-NUL-9038422) holds Measles, RSV A and Influenza A
+    dsRNA.
+  - Neither set has a host member. Reactome curates no form of the RIG-I/MDA5
+    platform without the virus, so this is not a generator artefact.
 - **The two curations differ.**
   - In PIP3, the pathogen is an antagonist: SARS-CoV-2 N:M sequesters a host
     kinase. A cell without the virus has no such complex, and holding it is
@@ -123,8 +147,8 @@ in the solver at `propagate` (the default), as a measured record, like
   near zero that change in the sixth decimal.
 
 **Decision rule** (held-out ≥ −15 and experimental ≥ −15): met at 0 and 0.
-B3 is adopted as a faithfulness fix. That means `LNG_BIND_STOICH` defaults
-on in the generator (an LNG PR, which Adam merges). Canonical numbers do not
+B3 is adopted as a faithfulness fix. `LNG_BIND_STOICH` now defaults on in
+generator PR #110 (commit 0123fbb), which Adam merges. Canonical numbers do not
 change.
 
 ## What this leaves
