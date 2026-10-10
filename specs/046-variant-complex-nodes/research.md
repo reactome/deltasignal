@@ -352,3 +352,50 @@ yet.
 
 **Size.** Cellular Senescence (R-HSA-2559583, not scored) creates 1,704 root
 nodes for 7 pools, which is what expansion would have created.
+
+## Adversarial review of vn6, and arm vn7
+
+A review of the generator diff (origin/main...feat/variant-nodes) confirmed
+that flag-off output is byte-identical to main on four regenerated pathways.
+It found four real defects, all fixed in 1daf333, each with a test that fails
+without the fix:
+1. **Bare-set catalysts still depleted n times.** Six DUSP members of
+   "cytosolic MAPK DUSPs" each depleted the RAF MAPK3 dimer. Depleters are
+   now grouped by the curated catalyst they came from.
+2. **Over-cap pools of bare sets had no input.** RAS GEFs (645 variants) was
+   an empty root catalysing 4 edges. Such a pool now reads its members'
+   nodes, else one root per member.
+3. **D6 step 1 could pool a participant sharing a slot with a kept one**,
+   breaking D2. It is now a fixed point that pools only slot-disjoint
+   participants.
+4. **`variant_split` fed already-produced nodes and unrelated occurrences.**
+   It now feeds only unproduced variant nodes consumed by a curated following
+   reaction (D1).
+
+**Recorded as a design caveat, not changed:** a pool equals expanding only
+when one participant varies under a pure product. It differs for pooled
+inhibitors under `divide` (the mean of 1/v is not 1/mean(v)) and when several
+participants are pooled together.
+
+**Build `20261009-2042_1daf333_vn7`.**
+- Structural checks: seams 0, duplicated depleters 0, empty pools 0,
+  required inputs beyond curated 0, missed joins 0 in all 92 pathways.
+- The DUSP set is now one pool depleter; RAS GEFs' pool has 37 inputs.
+
+**Arm vn7** (solver 3a8d59d, `src/` identical to 0525296). Coverage is
+identical to canonical (23,511 / 845 valid; 864 / 122 perturbations).
+
+| | Accuracy / macro-F1 (canonical → vn7) | Net (fixed / broken) | McNemar p |
+|---|---|---|---|
+| Curator held-out | 88.29% / 0.8485 → 88.99% / 0.8567 | **+130** (233 / 103) | 1e-12 |
+| Curator tuning | 76.50% / 0.7567 → 76.14% / 0.7486 | −18 (219 / 237) | 0.43 |
+| Experimental | 70.30% / 0.6036 → 69.11% / 0.6127 | **−10** (22 / 32) | 0.22 |
+
+The decision rule is met. Concentration is as in vn6: DSB repair +79 across
+36 perturbations, and held-out is +51 without it. IFN α/β (+25) and PIP3
+(−14) each move through one perturbation.
+
+**On the experimental axis vn7 is 584/849 against MP-BioPath's 643.**
+specs/047 shows that axis's gap is network construction elsewhere (RAF,
+Mitotic G1, Cell Cycle Checkpoints, TP53). Variant nodes neither cause nor
+close it.
