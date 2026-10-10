@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sys
 from pathlib import Path
 
@@ -80,6 +81,10 @@ def catalog_ids(catalog: Path) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for directory in sorted(p for p in catalog.iterdir() if p.is_dir()):
         name = directory.name
+        if re.fullmatch(r"R-HSA-\d+", name):
+            # Current generator naming: the directory IS the stable id.
+            mapping[name] = name
+            continue
         if "_R-HSA-" not in name:
             continue
         prefix, _, numeric = name.rpartition("_R-HSA-")
@@ -100,8 +105,11 @@ def case_pathway_names(cases_tsv: Path) -> dict[str, str]:
     """
     mapping: dict[str, str] = {}
     with cases_tsv.open(newline="") as handle:
-        for row in csv.DictReader(handle, delimiter="\t"):
-            pid = (row.get("pathway_id") or "").strip()
+        lines = (ln for ln in handle if not ln.startswith("#"))
+        for row in csv.DictReader(lines, delimiter="\t"):
+            # A cases dump (pathway_id, pathway_name) or the versioned
+            # pathway list bench/catalog_pathways.tsv (id, pathway_name).
+            pid = (row.get("pathway_id") or row.get("id") or "").strip()
             name = (row.get("pathway_name") or "").strip()
             if pid and name:
                 mapping[pid] = name
@@ -165,7 +173,7 @@ def main() -> int:
             missing_mpb.append(f"{prefix} ({stable})")
             continue
         edges = parse_network(source)
-        target = args.out / f"{prefix}_{stable}"
+        target = args.out / (stable if prefix == stable else f"{prefix}_{stable}")
         write_catalog_dir(target, edges)
         written.append((target.name, len(edges)))
 
