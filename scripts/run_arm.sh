@@ -42,7 +42,9 @@ die() { echo "run_arm: $*" >&2; exit 1; }
 
 [ $# -ge 1 ] || die "usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N]"
 NAME=$1; shift
-[[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]] || die "NAME must be [A-Za-z0-9._-]+"
+# A leading '-' is refused: `run_arm.sh --help` used to start a real arm named
+# "--help" on the current catalog (2026-10-09).
+[[ "$NAME" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || die "NAME must be [A-Za-z0-9._-]+ and not start with '-' (usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--catalog ID] [--max-edges N])"
 SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=40000
 while [ $# -gt 0 ]; do
   case "$1" in
