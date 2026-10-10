@@ -501,8 +501,8 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/046-variant-complex-nodes/` — a complex holding sets becomes one node
   per member combination, and each reaction one copy per consistent choice
   across all participants, catalysts and regulators included (generator
-  `LNG_VARIANT_NODES`, default on from LNG #109; `0` restores the old
-  networks). Arm vn7: held-out **+130** (p 1e-12), tuning −18, experimental
+  `LNG_VARIANT_NODES`, default on since LNG #109, canonical build
+  `20261009-2307_132d4b8`; `0` restores the old networks). Arm vn7: held-out **+130** (p 1e-12), tuning −18, experimental
   −10 (ns), coverage identical, cut hand-offs 2,504 → 0. Two failed arms
   (vn4, vn5) are recorded with every mechanism traced. The solver reads the
   new `variant_pool` / `variant_split` edges as OR inputs (mean);
