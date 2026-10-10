@@ -192,12 +192,18 @@ function psolve(net; mode, drug = nothing, x = 2.0, extra = Dict{String, Tuple{F
 end
 
 @testset "pathogens (specs/048)" begin
-    @testset "default is propagate, byte-identical to a network with no pathogen list" begin
+    @testset "default is inert; propagate is byte-identical to a network with no pathogen list" begin
         with_env("DS_PATHOGEN_MODE" => nothing) do
-            @test DS.pathogen_mode() == "propagate"
+            @test DS.pathogen_mode() == "inert"
         end
-        a = psolve(pfixture(Set(["R-C", "R-D"])); mode = nothing)
-        b = psolve(pfixture(nothing); mode = nothing)
+        d = psolve(pfixture(Set(["R-C", "R-D"])); mode = nothing)
+        @test d.node_activities == psolve(pfixture(Set(["R-C", "R-D"])); mode = "inert").node_activities
+        @test d.diagnostics["pathogen_rule"] == "inert"
+        n = psolve(pfixture(nothing); mode = nothing)
+        @test n.diagnostics["pathogen_rule"] == "inert: no pathogen table"
+        @test n.diagnostics["pathogens_held"] == 0
+        a = psolve(pfixture(Set(["R-C", "R-D"])); mode = "propagate")
+        b = psolve(pfixture(nothing); mode = "propagate")
         @test a.node_activities == b.node_activities
         @test a.diagnostics["pathogen_rule"] == "propagate"
         @test a.diagnostics["pathogens_held"] == 0
@@ -221,7 +227,7 @@ end
         r = psolve(pfixture(nothing; drug_stids = Set(["R-C"])); mode = "inert")
         @test r.diagnostics["pathogen_rule"] == "inert: no pathogen table"
         @test fold(r, "C") ≈ 2.0 rtol = 1e-6
-        r = psolve(pfixture(Set(["R-C"]); drug_stids = nothing); mode = nothing, drug = "inert")
+        r = psolve(pfixture(Set(["R-C"]); drug_stids = nothing); mode = "propagate", drug = "inert")
         @test r.diagnostics["drug_rule"] == "inert: no drug table"
         @test r.diagnostics["pathogens_held"] == 0
         @test fold(r, "C") ≈ 2.0 rtol = 1e-6

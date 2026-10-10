@@ -216,3 +216,19 @@ CREBBP knockout in DDX58/IFIH1. Nothing breaks on either axis.
 confirm the trace rather than test the idea blind. The gain rests on one
 curated SARS-CoV-2 complex in PIP3, and the experimental +7 is one
 perturbation.
+
+## Combination arm `combo` (registered before it runs)
+
+- **Build:** generator defaults at LNG `b85d5dc`, with `LNG_BIND_STOICH=1`
+  and `LNG_PATHOGEN_PROTEIN=1`.
+- **Solver:** defaults at the commit that makes `DS_PATHOGEN_MODE=inert` the
+  default.
+- **Compared with:** canonical (`20261009-2307_132d4b8`, `results/0f0a11e`).
+- **Prediction:** the `pathp` effect alone, because `bind` moved no
+  prediction:
+  - experimental +7 (7/0, PDPK1 knockout);
+  - curator held-out +1 (CREBBP knockout in DDX58/IFIH1);
+  - tuning +14 (PIP3);
+  - no other prediction changes.
+- **Any other change** is traced to a case before the build becomes
+  canonical.

@@ -60,15 +60,20 @@ fold-change. The generator lists the nodes in `pathogens.csv` (a leaf with a
 species, none human; a complex with any such component; a set whose every
 member is one).
 
-  DS_PATHOGEN_MODE=propagate  (default) — previous behaviour.
-  DS_PATHOGEN_MODE=inert      — pathogen-derived nodes pinned at baseline, as
+  DS_PATHOGEN_MODE=inert      (default since specs/048 amendment 2) —
+                                pathogen-derived nodes pinned at baseline, as
                                 DS_DRUG_MODE=inert pins drugs. An explicit
                                 observation still wins.
+  DS_PATHOGEN_MODE=propagate  — the previous behaviour.
+
+What the bundle lists is the generator's call. Since LNG_PATHOGEN_PROTEIN
+(default on) only entities carrying a pathogen PROTEIN are listed: viral RNA
+is the ligand DDX58/IFIH1 senses, and holding it cut 12 curator cases.
 """
 const DS_VALID_PATHOGEN_MODES = Set(["propagate", "inert"])
 
 function pathogen_mode()::String
-    value = get(ENV, "DS_PATHOGEN_MODE", "propagate")
+    value = get(ENV, "DS_PATHOGEN_MODE", "inert")
     if !(value in DS_VALID_PATHOGEN_MODES)
         throw(ArgumentError(
             "DS_PATHOGEN_MODE must be one of $(join(sort(collect(DS_VALID_PATHOGEN_MODES)), ", ")); got $(repr(value))"))
