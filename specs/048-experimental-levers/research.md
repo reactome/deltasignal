@@ -232,3 +232,31 @@ perturbation.
   - no other prediction changes.
 - **Any other change** is traced to a case before the build becomes
   canonical.
+
+### Result: prediction met exactly
+
+- **Build:** `20261010-1247_b85d5dc_combo`.
+  - It is complete, with 213,171 nodes and 516,528 edges.
+  - Per pathway, its networks match `bind` and its pathogen lists match
+    `pathp`.
+- **Solver:** `2a3db74`, at code defaults.
+- **Results:** `results/2a3db74/combo`.
+- **Held:** 1,754 curator node-solves and 128 experimental.
+
+| axis | split | canonical → `combo` | net (fixed/broke) | McNemar p |
+|---|---|---|---|---|
+| experimental | all | 69.11% → 69.94% | **+7** (7/0) | 0.016 |
+| curator | held-out | 88.99% → 89.00% | **+1** (1/0) | 1 |
+| curator | tuning | 76.14% → 76.42% | +14 (14/0) | 0.00012 |
+| curator | all | 86.24% → 86.31% | +15 (15/0) | 6.1e-05 |
+
+- **What changed:** exactly the 22 predicted cases, on two perturbations:
+  - PDPK1 knockout: 15 curator cases and 7 experimental;
+  - CREBBP knockout: 1 curator case.
+- **Unchanged:** coverage and convergence (1,654 of 1,725 and 215 of 244
+  solves).
+- **Interaction:** the two changes do not interact.
+
+**Next.** The combination becomes canonical once LNG #110 is merged and
+`current` is rebuilt from generator main. RESULTS.md is updated from that
+build.
