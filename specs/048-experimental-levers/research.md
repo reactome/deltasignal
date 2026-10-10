@@ -158,3 +158,61 @@ change.
   B2 are on `wip/048-mapk-pools`.
 - PDPK1 (+7 experimental) is recoverable only by a pathogen rule that spares
   sensor ligands. That rule would need a new registration.
+
+## Amendment 2, arm `pathp` (pathogen proteins only): ADOPT
+
+- **Build:** `20261010-1155_f58ea98_pathp`, with `LNG_PATHOGEN_PROTEIN=1`
+  and `LNG_BIND_STOICH=0`.
+  - It is complete, with 213,061 nodes and 516,244 edges, the same as
+    `_path`. Node and edge counts match in every pathway, and `drugs.csv` is
+    identical.
+  - Only DDX58/IFIH1's `pathogens.csv` changes: 633 rows → 13, none of them
+    new. What remains is SARS-CoV-2 M, N, 9b and nsp13 and their host
+    complexes, and RSV NS1 with IRF3:NS1 and CREBBP:NS1.
+- **Solver:** commit `e2daa7e`; `src/` is unchanged since `4cb152d`.
+- **Results:** `results/e2daa7e/{pathpctl,pathp}`.
+- **Held:** 1,754 curator node-solves (14,642 under `path`) and 128
+  experimental, the same as `path`.
+
+**Control.** `pathpctl` reproduces `pathctl` on every prediction, validity
+and category. 10 curator values shift by more than 1e-6:
+- the same DSB Repair readout, 5693527, by up to 0.026 (RNF168, 71.34 →
+  71.32);
+- the same EGFR value at 0.2965.
+
+These are the shifts that canonical → `pathctl` showed. Each rebuild of
+identical networks moves them, so something in that DSB component still
+depends on labels, contrary to specs/013. It is small and far from any
+threshold, but not traced; it is an open item.
+
+| axis | split | `pathpctl` → `pathp` | net (fixed/broke) | McNemar p |
+|---|---|---|---|---|
+| experimental | all (tuning) | 69.11% → 69.94% | **+7** (7/0) | 0.016 |
+| curator | held-out | 88.99% → 89.00% | **+1** (1/0) | 1 |
+| curator | tuning | 76.14% → 76.42% | +14 (14/0) | 0.00012 |
+| curator | all | 86.24% → 86.31% | +15 (15/0) | 6.1e-05 |
+
+Two pathways moved, on two perturbations: PDPK1 knockout in PIP3, and
+CREBBP knockout in DDX58/IFIH1. Nothing breaks on either axis.
+
+**Predictions:**
+- **P2-1 met.** Experimental net is +7 (7/0), the same 7 PDPK1-knockout
+  DOWN readouts as `path`.
+- **P2-2 met.** None of the 12 DDX58/IFIH1 cases that `path` broke changes.
+  The CREBBP fix at 877351 stays (3.5× → 0.5×), and DDX58/IFIH1 net is +1.
+- **P2-3 met.** Held-out net is +1, tuning +14, and no other pathway moves.
+
+**Decision rule:**
+- experimental > 0: yes;
+- held-out ≥ −15: yes;
+- no pathway loses more than 10: yes, nothing loses.
+
+**Adopted.** This means:
+- `LNG_PATHOGEN_PROTEIN=1` and `DS_PATHOGEN_MODE=inert` become the defaults;
+- `bind` (B3) is adopted too, so by the decision rule the combination is
+  measured once before it becomes canonical.
+
+**Caveat.** The rule was written after `path`'s trace, so its predictions
+confirm the trace rather than test the idea blind. The gain rests on one
+curated SARS-CoV-2 complex in PIP3, and the experimental +7 is one
+perturbation.
