@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-05. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-10. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,45 @@ commit.
 
 ---
 
+
+> **2026-10-10: canonical numbers with variant complex nodes (specs/046).**
+> Build `20261009-2307_132d4b8` (generator 132d4b8: `LNG_VARIANT_NODES` on by
+> default, LNG #109), solver `0f0a11e` (`src/` unchanged since 5979e48),
+> `results/0f0a11e`.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **88.63%** | **0.8524** |
+> | curator held-out, every case (71 pathways) | 19,000 | 88.03% | 0.8440 |
+> | curator, all pathways, in release (81) | 23,625 | 85.97% | 0.8274 |
+> | curator, all pathways, every case | 24,100 | 85.42% | 0.8202 |
+> | experimental, every case (10 pathways) | 849 | **68.79%** | **0.6097** |
+>
+> **What moved since the previous box:**
+> - **Variant complex nodes.** A complex holding sets is one node per member
+>   combination, and a reaction is one copy per consistent choice across all its
+>   participants, catalysts and regulators included.
+>   - Cut hand-offs 2,504 → 0.
+>   - Against the previous box: held-out in release +0.70pp (macro-F1 +0.008),
+>     tuning −0.35pp, experimental −10 cases (594 → 584, p 0.22; macro-F1
+>     +0.009).
+>   - DSB repair carries +79 of the held-out gain; without it held-out is +51.
+> - The rebuild reproduces the measured arm (vn7) exactly: experimental
+>   584/849, the same convergence, the same pinned counts.
+>
+> Converged: 1,654 / 1,725 curator and 215 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 85.42% / 0.8202 against 83.34% / 0.8063, **+2.08pp**.
+> - Experimental: 68.79% (584/849) against 75.74% (643/849), **−6.95pp**.
+>
+> **The experimental gap is network construction, not the propagator**
+> (specs/047). Our propagator on MP-BioPath's own 2019 networks scores
+> 610/849 and matches or beats MP-BioPath in 8 of 10 pathways. The shortfall
+> is RAF, Mitotic G1, Cell Cycle Checkpoints and TP53, traced to five
+> mechanism classes. That is the next work.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-05: canonical numbers on generator main with F7 set nodes and cap
 > pools (specs/044, 045).** Build `20261004-1959_6990015` (generator 6990015:
