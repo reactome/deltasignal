@@ -256,3 +256,83 @@ to the readout.
 - Held-out says the conserved reading is better overall (+81, 102 fixed
   against 21 broken). Experimental is balanced (3 fixed against 4 broken).
 - `kall` and the S arms are still running.
+
+## P7. Arms `kall`, `sctl` and `sclosed`; decision
+
+Every arm is scored against `kctl`.
+- `kall` used solver `3c64f21`.
+- `sctl` and `sclosed` used `4b1ecf7`. That commit adds only research.md to
+  `3c64f21`, so the solver code is identical.
+- Build S is `20261011-1639_8116f24_sharedS`.
+
+| arm | curator held-out | curator tuning | experimental | worst pathway |
+|---|---|---|---|---|
+| `kclosed` | +81 (102/21), p 6e-14 | +88 | −1 (3/4) | TGF-β −9 |
+| `kall` | **−55** (180/235), p 0.008 | +101 | −7 (8/15) | **IFN α/β −168** |
+| `sctl` | −15 (13/28), p 0.03 | −49 | −6 (9/15) | **HDR −49** |
+| `sclosed` | +61 (110/49), p 1.5e-6 | +44 | −1 (2/3) | TGF-β −9, Class I MHC −9 |
+
+RAF experimental reads 28/49 under `kctl`, `sctl` and `sclosed` alike.
+
+**Predictions:**
+- **K-P4 met:** more pathways move under `kall`: 28, against 14 under
+  `kclosed`.
+- **S-P1 met:** under `sctl` the 9 ARAF/BRAF/RAF1 knockout cases are fixed.
+- **S-P2 met:** under `sctl` the 9 overexpression cases break. RAF net is 0.
+- **S-P3 missed:** under `sclosed` all 9 knockout cases are wrong again.
+- **S-P4 met only trivially:** the 9 overexpression cases are right because
+  nothing in RAF changed against `kctl`.
+- **S-P5 missed:** RAF stays at 28/49, and experimental net is −1.
+- **S-P6 met:** the NRAS knockout cases stay wrong.
+
+**Decision: no arm is adopted.**
+- `kclosed` and `sclosed` fail on experimental, −1 each.
+- `kall` and `sctl` fail on every gate.
+
+### Why lever B failed: the knockout fix was also a carrier drain
+
+Traced ARAF knockout to readout 1268261 on build S (`diff_walk.jl`,
+`node_in2.jl`).
+
+**Under `sctl`, the readout reads 0.009×, correct, but for the wrong reason.**
+- ARAF knockout drains the 14-3-3 carrier loop (P3).
+- With it go every RAS:RAF complex and every step copy of the MAPK pool's
+  phosphorylation path: R-HSA-5672978 copies read 0.009×.
+- So the specs/049 P2 "knockouts fixed" was the same drain, not the removal
+  of ARAF from the path.
+
+**Under `sclosed`, 14-3-3 holds at baseline, and the readout reads 2.1×,
+wrong.**
+- The MAPK pool's path now runs through the BRAF/RAF1 complexes, which is
+  biologically fair: they are redundant.
+- But 20 of the 30 step copies of R-HSA-5672978 read **4.6×**.
+- Each copy has a negative regulator, R-HSA-9653109: a drug (R-ALL-9657579)
+  bound to a RAF complex variant that contains ARAF.
+- ARAF knockout zeroes that drug complex. Under `divide`, a zero inhibitor
+  de-represses the step about 10-fold: 0.46 × 10 = 4.6.
+
+This is the RAF drug-complex class (specs/032, `DS_DRUG_MODE=inert`, not
+adopted on its own: experimental −5).
+
+**Reading:**
+- The RAF knockout→UP class has two layers.
+  1. Carrier drain, which `closed` removes.
+  2. Drug-complex de-repression, which specs/032 addresses.
+- Any arm that fixes RAF knockouts without addressing both is fixing them
+  through 14-3-3 drain.
+- Shared-intermediate pools (`sctl`) also break HDR, 6 overexpression cases
+  and 49 tuning cases. That is not traced here.
+
+### What is live
+
+- **`closed` is a curator gain on both canonical and shared builds**
+  (held-out +81 and +61, p ≤ 1.5e-6, with 12 or 11 pathways gaining).
+- Its experimental cost is exactly the drain-dependent cases (ERCC1, ERCC4,
+  CCND1), one fix short of the gate.
+- **A candidate next registration:** `closed` together with
+  `DS_DRUG_MODE=inert`, on build S.
+  - The traces predict the RAF knockouts would then read DOWN through the
+    real path.
+  - specs/032's drug rule lost RAF cases on its own. That was before carrier
+    loops were conserved, so it is a new arm, not a re-run.
+  - It must be registered before it runs.
