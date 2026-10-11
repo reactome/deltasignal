@@ -111,9 +111,69 @@ without shared pool nodes. Results are in
 - So the iteration cap is not a lever on canonical. It becomes one only when
   something removes a rail, as the MAPK pools do.
 
+## P5. Carrier-loop census, and which loops the iteration cap decides
+
+Canonical build, generator `049-shared-intermediate-pools` with every flag at
+its default. Scripts are in `~/deltasignal-catalogs/analysis/049/`:
+- `carrier_census.py` captures each set `find_pools` rejects as a carrier loop
+  on its first pass.
+- `drift.jl` solves every valid benchmark perturbation at `max_iters` 500 and
+  2000. It pins the benchmark's own `gene_uuids` at 0 or 0.8, and lists nodes
+  that differ by more than 2× between the two caps.
+
+**Census.**
+- The 17,515 `carrier_loops` in the stats count one per protein R. They are
+  **885 distinct loops in 54 pathways**.
+- Most are small: the median loop has 3 forms and the largest has 81.
+- **279 are closed**: no form of the loop has an in-edge from outside the
+  loop's own step reactions. The other 606 are fed.
+- Per experimental pathway (loops / closed):
+
+  | pathway | loops | closed |
+  |---|---|---|
+  | RAF | 17 | 17 |
+  | ERBB2 | 53 | 2 |
+  | PIP3 | 4 | 3 |
+  | HDR | 30 | 14 |
+  | Cell Cycle Checkpoints | 190 | 28 |
+  | Mitotic G1, S Phase, Prophase | 6, 4, 1 | 1, 1, 1 |
+  | WNT, TP53 | 0 | 0 |
+
+**Drift.**
+- **Experimental:** 5 of 193 solves have any node that moves between the caps.
+  - The three RAF overexpressions (1,634 nodes each). Of these, 9 are the forms
+    of the closed YWHAB loop (R 48889) and the rest are downstream of it. Every
+    node falls (median 0.049× → 0.008×), and the solves converge only at 2000.
+  - PIP3, TP53 knockout and overexpression: the same 32 nodes in both, so the
+    drift does not depend on the perturbation. 3 of them are forms of a fed
+    loop (R 61460).
+- **Curator:** 18 of 1,699 solves.
+  - The 5 above.
+  - Fanconi: FANCA and FANCC overexpression, 13 nodes, a closed 2-form loop
+    (R 144344).
+  - Ten more drifts involve no closed carrier loop:
+    - DSB Repair and DSB Response: MDC1, RNF8 and RNF168 overexpression, 281
+      to 4,159 nodes. Fed loops at most.
+    - EGFR: PLCG1, SH3GL1, ARHGEF7 and EPS15, 21 to 1,738 nodes. Fed loops at
+      most.
+- None of these changes a prediction (P4).
+
+**Reading.**
+- Closed carrier loops are common (279), but almost all are decided: at
+  steady state their gain stays at 1 under every benchmarked perturbation.
+- Only two are undecided under any benchmarked perturbation:
+  - 14-3-3 in RAF, which blocks lever B;
+  - one 2-form loop in Fanconi.
+- The large undecided sets in DSB and EGFR are other cycles, not carrier loops.
+- **So a conservation rule for closed carrier loops would cover 279 loops by
+  construction, but it is measurable on one experimental class (RAF
+  overexpression under shared pools).** A pre-registration must therefore
+  state its effect on canonical predictions in advance. Expected: none.
+
 ## Next
 
 1. Design for conserved carrier cycles (14-3-3, scaffolds), which
    specs/035 refuted as a blanket "hold at baseline". The question is
    whether a carrier cycle can be solved by conservation, as a modification
-   pool is, without holding signal carriers.
+   pool is, without holding signal carriers. P5 scopes it to closed loops
+   (279), of which only 14-3-3 is known to matter.
