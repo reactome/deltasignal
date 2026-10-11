@@ -262,3 +262,48 @@ mean of each pool's estimate (Σnum/Σden).
 - **This is a property of the registered design, not a fix.** If a shared
   complex decides an `sctl`/`sclosed` case, the case is traced before the
   result is read.
+
+## Amendment 3 (2026-10-11, registered before these arms ran): carrier loops with drugs held
+
+**Why.** P7 traced ARAF knockout on build S. With 14-3-3 held by `closed`,
+the knockout zeroes a drug-bound RAF complex (R-HSA-9653109) that inhibits
+R-HSA-5672978, and the step de-represses to 4.6×. `DS_DRUG_MODE=inert`
+(specs/032) holds that complex at baseline. specs/032 measured it without
+conserved carriers, where the RAF loop collapsed (experimental −5), so this
+is a new arm, not a re-run.
+
+**No code change.** Both flags exist. Solver commit: HEAD at registration.
+
+| arm | build | solver | compared against | question |
+|---|---|---|---|---|
+| `kdrug` | K | `DS_DRUG_MODE=inert` | `kctl` | specs/032 on today's canonical networks (attribution) |
+| `kcd` | K | `closed` + `inert` | `kctl` | the two solver rules without shared pools |
+| `scd` | S | `closed` + `inert` | `kctl` | the lever: both rules with shared pools |
+
+**Predictions.**
+- **D-P1.** `scd`: at least 7 of the 9 ARAF/BRAF/RAF1 knockout cases are
+  correct (p-MAPK readouts DOWN), through the BRAF/RAF1 path, not 14-3-3
+  drain. One fixed case is traced to confirm that 14-3-3 reads baseline.
+- **D-P2.** `scd`: at least 7 of the 9 ARAF/BRAF/RAF1 overexpression cases
+  stay correct.
+- **D-P3.** `scd`: RAF experimental ≥ 35/49, and experimental net ≥ +5
+  (the −1 of `sclosed` plus the knockouts).
+- **D-P4.** `kcd`: RAF knockouts stay wrong. On K, P6 traced the ARAF
+  knockout readout to the MAPK rail, which shared pools address and the
+  drug rule does not. RAF within ±2 of `kctl`.
+- **D-P5.** `kdrug`: experimental ≤ 0 and RAF not improved, as in specs/032.
+- **D-P6.** Curator held-out: `kcd` and `scd` within 30 of `kclosed` (+81)
+  and `sclosed` (+61) respectively. No direction is predicted for `kdrug`.
+- **D-P7.** The ERCC1, ERCC4 and CCND1 drain losses of `kclosed` persist in
+  `kcd` and `scd`; drugs are not on those paths.
+
+**Decision rule.** The same gates as before, each arm against `kctl`:
+experimental net > 0, curator held-out net ≥ −15, no pathway losing more
+than 10 cases on either axis, structural checks holding (coverage within 1%,
+`Drugs: rule inert` with node-solves held > 0, the carrier line as in P6/P7).
+- `scd` passing makes three rules a candidate together: `LNG_POOL_SHARED`
+  (with its two companion flags), `closed` and `inert`. Each is recorded as
+  adopted only in combination unless it passes alone; none has.
+- A canonical change from `scd` needs the generator flags too, which is
+  Adam's merge (LNG #111).
+- Any loss beyond a floor is traced to a case first.
