@@ -1273,6 +1273,10 @@ function solve_scc_ordered!(
             n_pool_unmanaged += 1
         end
     end
+    # specs/049: nodes two pools of one component both write are written once,
+    # from both
+    comp_shared = Dict(c => shared_pool_nodes(ps) for (c, ps) in comp_pools)
+    pool_stats["cycle_shared_nodes"] = sum(length(v) for v in values(comp_shared); init = 0)
     pool_stats["cycle_pools_solved"] = sum(length(v) for v in values(comp_pools); init = 0)
     pool_stats["cycle_pools_unmanaged"] = n_pool_unmanaged
     pool_stats["cycle_pools_multistep"] = n_multistep
@@ -1419,8 +1423,9 @@ function solve_scc_ordered!(
                         x[stage_idx[s]] = stage_val[s]
                     end
                 end
-                for p in get(comp_pools, c, IndexedPool[])
-                    ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = pool_carriers)
+                if haskey(comp_pools, c)
+                    ch = update_pools!(x, comp_pools[c], comp_shared[c], rxns_idx, baseline_vec, obs_set, config;
+                                       carriers = pool_carriers)
                     ch > maxch && (maxch = ch)
                 end
                 comp_residual = maxch
@@ -1743,11 +1748,10 @@ function solve_steady_state_penalty(
         @inbounds for (i, uuid) in enumerate(all_nodes)
             bvec[i] = get(baseline_activities, uuid, 0.01)
         end
-        for p in solved_final
-            d = update_pool!(xp, p, rxns_idx, bvec, obs_set, eval_config; carriers = cycle_carriers)
-            isfinite(d) || (saw_nonfinite = true)
-            isfinite(d) && d > free_residual && (free_residual = d)
-        end
+        d = update_pools!(xp, solved_final, shared_pool_nodes(solved_final), rxns_idx, bvec, obs_set,
+                          eval_config; carriers = cycle_carriers)
+        isfinite(d) || (saw_nonfinite = true)
+        isfinite(d) && d > free_residual && (free_residual = d)
     end
     @inbounds for i in 1:n
         i in obs_set && continue
@@ -1809,6 +1813,8 @@ function solve_steady_state_penalty(
             "cycle_pools_unmanaged" => get(index_stats, "cycle_pools_unmanaged", 0),
             "cycle_pools_skipped" => get(index_stats, "cycle_pools_skipped", 0),
             "cycle_pools_multistep" => get(index_stats, "cycle_pools_multistep", 0),
+            # specs/049: intermediates and step copies written from several pools
+            "cycle_shared_nodes" => get(index_stats, "cycle_shared_nodes", 0),
             "cycle_carriers_held" => get(index_stats, "cycle_carriers_held", 0),
             "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
