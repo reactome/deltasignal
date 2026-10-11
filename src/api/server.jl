@@ -339,8 +339,13 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     catch
         throw(ArgumentError("`pathogen_stids` must be a list of stable ids or null."))
     end
+    carrier_loops = try
+        DeltaSignal.carrier_loops_from_json(get(data, :carrier_loops, nothing))
+    catch
+        throw(ArgumentError("`carrier_loops` must be null or the list /api/parse returns."))
+    end
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment,
-                                       drug_stids, pools, pathogen_stids)
+                                       drug_stids, pools, pathogen_stids, carrier_loops)
 end
 
 """
@@ -732,6 +737,8 @@ function parse_handler(req)
             # specs/039: the interconversion pool table (null when none), so a
             # parse -> POSTed solve runs the same cycle model as a solve by id.
             "pools" => DeltaSignal.pools_json(network),
+            # specs/049: the carrier-loop table (null when none), for the same reason.
+            "carrier_loops" => DeltaSignal.carrier_loops_json(network),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
@@ -880,6 +887,11 @@ function solve_handler(req)
             # specs/048 (additive): "propagate", "inert", or "inert: no pathogen table".
             "pathogen_rule" => get(solver_result.diagnostics, "pathogen_rule", "unknown"),
             "pathogens_held" => get(solver_result.diagnostics, "pathogens_held", 0),
+            # specs/049 (additive): "off", "closed", "all", or "<mode>: no carrier
+            # table"; the free forms that lost loop in-edges, and how many edges.
+            "carrier_loop_rule" => get(solver_result.diagnostics, "carrier_loop_rule", "unknown"),
+            "carrier_loop_forms" => get(solver_result.diagnostics, "carrier_loop_forms", 0),
+            "carrier_loop_edges_dropped" => get(solver_result.diagnostics, "carrier_loop_edges_dropped", 0),
             # specs/035 (additive): "off" or "inert", and how many nodes were held.
             "conserved_rule" => get(solver_result.diagnostics, "conserved_rule", "unknown"),
             "conserved_held" => get(solver_result.diagnostics, "conserved_held", 0),
@@ -892,6 +904,9 @@ function solve_handler(req)
             "cycle_pools_multistep" => get(solver_result.diagnostics, "cycle_pools_multistep", 0),
             "cycle_carriers" => get(solver_result.diagnostics, "cycle_carriers", "off"),
             "cycle_carriers_held" => get(solver_result.diagnostics, "cycle_carriers_held", 0),
+            # specs/049 (additive): intermediates and step copies two pools share,
+            # written once from every pool through them.
+            "cycle_shared_nodes" => get(solver_result.diagnostics, "cycle_shared_nodes", 0),
             # specs/013 amendment 3: the sweep order in cyclic components, and
             # how many adjacent reactions it could not tell apart.
             "scc_order" => get(solver_result.diagnostics, "scc_order", "label"),

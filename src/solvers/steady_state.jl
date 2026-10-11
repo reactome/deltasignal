@@ -139,8 +139,11 @@ function solve_steady_state(
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
                                   network.set_mappings, network.cofactor_stids,
                                   network.containment, network.drug_stids, network.pools,
-                                  network.pathogen_stids)
+                                  network.pathogen_stids, network.carrier_loops)
     end
+    # specs/049: a carrier loop's free form reads its supply, not its own release.
+    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges =
+        apply_carrier_loops(network, carrier_loop_mode())
 
     # Convert network to reactions
     reactions = convert_to_reaction_network(network)
@@ -272,6 +275,9 @@ function solve_steady_state(
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["pathogen_rule"] = pathogen_rule
     result.diagnostics["pathogens_held"] = pathogens_held
+    result.diagnostics["carrier_loop_rule"] = carrier_loop_rule
+    result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
+    result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges
     result.diagnostics["conserved_rule"] = cmode
     result.diagnostics["conserved_held"] = conserved_held
     # specs/040: which self-feedback rules ran. The counts come from the solve.

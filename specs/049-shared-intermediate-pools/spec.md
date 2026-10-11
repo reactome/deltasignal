@@ -186,3 +186,29 @@ its own.
   RNF8, RNF168) and EGFR (PLCG1, SH3GL1, ARHGEF7, EPS15).
 - The leftover specs/047 classes (PTEN mRNA, the Mitotic G1 E2F silo, TP53
   DAXX, PIP3 THEM4) and NRAS knockout.
+
+## Amendment 1 (2026-10-11, before any arm ran): what was built
+
+Two details of the design changed in implementation. Neither touches a
+prediction or the decision rule.
+
+- **The table lists in-edges, not release reactions.**
+  - Column `loop_source_uuid` replaces `release_uuid`. It holds every node
+    inside the loop with an entity-level in-edge into the free form.
+  - Usually that is a loop step reaction node. Under a variant cap it can be
+    a plain node that hands the free form on by `variant_split`, which is
+    what the solver must drop.
+  - In a closed loop that is every in-edge of the free form.
+  - Generator `465de02`: `find_pools(carrier_loops=…)`.
+- **Free forms that pool carriers also hold are excluded.** As in the design,
+  a free form that a pool manages is excluded. Pool carriers count as managed
+  too, so the RAS GAPs in RAF stay with the RAS pools.
+  - On the canonical RAF networks this excludes 12 of the 17 loops.
+  - 5 free forms are listed, the YWHAB dimer (R-HSA-2028645) among them.
+- **The solver drops the listed edges** before the solve
+  (`src/core/carrier_loops.jl`, `apply_carrier_loops`).
+  - Tests: `test/test_carrier_loops.jl` (106 assertions), and the
+    shared-pool fixture in `test/test_cycles.jl` (24).
+  - The bench sends the table with a POSTed network. It refuses a
+    `closed`/`all` arm whose build has no table, and an arm in which no solve
+    changed a free form.

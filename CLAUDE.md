@@ -407,6 +407,17 @@ env vars only override for benchmark sweeps:
   leaf with the input when a carrier of that leaf reaches both (built from
   the same species). Same weight, weaken-only. Reports
   `self_inhibitor_leaves` and `self_inhibitor_leaf_pairs`.
+- `DS_CARRIER_LOOP_MODE=off` (default) | `closed` | `all` (specs/049, measured
+  per its pre-registration, not adopted yet): a carrier loop is a protein bound
+  and released unchanged (E → E:X → E), which the generator's `find_pools`
+  rejects as a pool and lists in `carrier_loops.csv`. Under `closed`, the free
+  form of a loop that nothing outside it produces loses its in-edges from the
+  loop and reads baseline: total carrier is conserved, and bound forms hold a
+  negligible share. Under `all`, every listed free form reads only its
+  producers outside the loop. Bound forms are not touched. The solve reports
+  `carrier_loop_rule`, `carrier_loop_forms` and `carrier_loop_edges_dropped`.
+  A bundle without the table reports `<mode>: no carrier table`, and the bench
+  refuses it.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -537,8 +548,14 @@ for the last feature that touched it rather than re-deriving from the code.
     it moves no prediction.
   - Canonical build `20261010-1415_c0e1b2a` (LNG #110, DS #101): experimental
     591/849 (+7), held-out +1.
-  - Pools that share intermediates (the RAF knockout→UP class) are
-    unresolved; that work is on `wip/048-mapk-pools`.
+  - Pools that share intermediates (the RAF knockout→UP class) continue in
+    specs/049.
+- `specs/049-shared-intermediate-pools/` — pools that share intermediates
+  (generator `LNG_POOL_SHARED`, solver `update_pools!`) and carrier loops
+  (`DS_CARRIER_LOOP_MODE`). Probes show the shared pools fix the RAF
+  knockouts and expose the undecided 14-3-3 carrier loop. The iteration cap
+  decides no canonical prediction. There are 885 carrier loops, 279 of them
+  closed. Five arms are pre-registered.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -552,7 +569,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Eighteen files contain assertions; the
+**Most of the test suite cannot fail.** Nineteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -568,8 +585,9 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 125 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 236 | specs/039, added 2026-09-27 |
+| `test/test_cycles.jl` | 260 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
+| `test/test_carrier_loops.jl` | 106 | specs/049, added 2026-10-11 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 54 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

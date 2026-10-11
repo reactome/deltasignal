@@ -116,6 +116,10 @@ when the bundle has no `pools.csv`. Send it back with an inline network, or the
 default `DS_CYCLE_MODE=balance` reports `"balance: no pool table"` and loops
 iterate instead (until 2026-10-02 it was not returned at all, so every inline
 solve silently ran without it).
+`carrier_loops` (specs/049, additive) is the carrier-loop table, a list of
+`{free_uuid, loop_source_uuid, closed}`, or `null` when the bundle has no
+`carrier_loops.csv`. Send it back with an inline network, or
+`DS_CARRIER_LOOP_MODE=closed`/`all` reports `"<mode>: no carrier table"`.
 
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is
@@ -186,6 +190,17 @@ Response:
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores
   iterated loops.
+- **`cycle_shared_nodes`** (additive, specs/049): intermediates and step
+  reaction nodes that more than one pool passes through. Each is written once,
+  from the flux of every pool through it. It is 0 unless the bundle was built
+  with `LNG_POOL_SHARED=1`.
+- **`carrier_loop_rule`**, **`carrier_loop_forms`**,
+  **`carrier_loop_edges_dropped`** (additive, specs/049): `"off"` (default),
+  `"closed"`, `"all"`, or `"<mode>: no carrier table"`; how many carrier-loop
+  free forms lost the in-edges from their own loop, and how many edges that
+  was. Under `closed`, the free form of a loop that nothing outside it
+  produces then reads baseline. Under `all`, every listed free form reads only
+  its producers outside the loop. An observation still wins.
 - **`scc_order`**, **`scc_order_ties`** (additive, specs/013): the Gauss-Seidel
   sweep order inside cyclic components (`flow` by default; `structure`, or
   `label` for the old uuid order), and how many adjacent reactions it could not

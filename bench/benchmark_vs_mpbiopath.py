@@ -1024,7 +1024,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                        # specs/032: without it an edge-drop arm under DS_DRUG_MODE=inert
                        # reached the solver with no drug table (review of the branch).
                        "drug_stids": parsed.get("drug_stids"),
-                       "pathogen_stids": parsed.get("pathogen_stids")}
+                       "pathogen_stids": parsed.get("pathogen_stids"),
+                       "carrier_loops": parsed.get("carrier_loops")}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
@@ -1069,8 +1070,14 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         if ds_result and ds_result.get("pathogen_rule") == "inert: no pathogen table":
             raise SystemExit(f"{pathway_name}: DS_PATHOGEN_MODE=inert but the network has no pathogens.csv "
                              "(a build that predates it), so nothing is held (specs/048).")
+        if ds_result and str(ds_result.get("carrier_loop_rule", "")).endswith(": no carrier table"):
+            raise SystemExit(f"{pathway_name}: {ds_result['carrier_loop_rule']} -- the network has no "
+                             "carrier_loops.csv (a build that predates it), so no loop is changed (specs/049).")
         if ds_result:
             SOLVE_TALLY["solves"] += 1
+            SOLVE_TALLY[f"carrier_loop_rule={ds_result.get('carrier_loop_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["carrier_loop_forms"] += int(ds_result.get("carrier_loop_forms") or 0)
+            SOLVE_TALLY["cycle_shared_nodes"] += int(ds_result.get("cycle_shared_nodes") or 0)
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
             SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
@@ -1402,6 +1409,11 @@ def main():
             raise SystemExit("DS_PATHOGEN_MODE=inert and the networks list pathogens, but no solve held one; "
                              "the listing matched no node.")
         print("  (no pathway in this run lists a pathogen, so inert holds nothing: identical to propagate here)")
+    lrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_loop_rule="))
+    print(f"\nCarrier loops: rule {'/'.join(lrules) or 'unknown'}, {SOLVE_TALLY['carrier_loop_forms']} "
+          f"free-form-solves changed; shared pool nodes {SOLVE_TALLY['cycle_shared_nodes']} (specs/049)")
+    if any(r in ("closed", "all") for r in lrules) and SOLVE_TALLY["carrier_loop_forms"] == 0:
+        raise SystemExit("DS_CARRIER_LOOP_MODE is on but no solve changed a free form; the arm is the control.")
     yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
     yc = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carriers="))
     print(f"\nCycles: rule {'/'.join(yrules) or 'unknown'}, {SOLVE_TALLY['cycle_pools_solved']} pool-solves, "
