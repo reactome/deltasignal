@@ -94,12 +94,26 @@ Scripts: `trace_dir.jl`, `node_inedges.jl`, `leak_scan.jl`; a temporary
   rejects it by design: its core-only forms carry one signature, a
   "carrier loop" (specs/039 amendment 3).
 
+## P4. How many canonical predictions the iteration cap decides: none
+
+Arm `iters2000` (`--server DS_MAX_ITERS=2000`) on the canonical build,
+solver `a2413d2`. That commit is this branch, which is byte-identical to main
+without shared pool nodes. Results are in
+`builds/20261010-1415_c0e1b2a/results/a2413d2/iters2000`.
+
+- **No prediction changes on either axis.**
+  - Curator: 0 of 23,511 valid cases; macro-F1 moves in the fourth decimal.
+  - Experimental: 0 of 845.
+- More solves converge: curator 1,658 of 1,725 and experimental 219 of 244,
+  against 215 of 244 at the default.
+- **Reading:** cycles like 14-3-3 are undecided in value but not in any
+  current call. The rails they feed saturate first.
+- So the iteration cap is not a lever on canonical. It becomes one only when
+  something removes a rail, as the MAPK pools do.
+
 ## Next
 
-1. **Count the cases set by the iteration cap,** on canonical:
-   `DS_MAX_ITERS=2000` against 500, on both axes. A case is cap-dependent if
-   its prediction differs. This sizes the class before any design.
-2. Then design for conserved carrier cycles (14-3-3, scaffolds), which
+1. Design for conserved carrier cycles (14-3-3, scaffolds), which
    specs/035 refuted as a blanket "hold at baseline". The question is
    whether a carrier cycle can be solved by conservation, as a modification
    pool is, without holding signal carriers.
