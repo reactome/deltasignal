@@ -588,7 +588,8 @@ function parse_carrier_loops(logic_network_path::String)::Union{Nothing, Vector{
     end
     out = CarrierLoopEdge[]
     for r in eachrow(df)
-        any(ismissing, (r.free_uuid, r.loop_source_uuid, r.closed)) && continue
+        any(ismissing, (r.free_uuid, r.loop_source_uuid, r.closed)) &&
+            throw(ArgumentError("$path: a row is missing free_uuid, loop_source_uuid or closed"))
         c = lowercase(strip(r.closed))
         c in ("true", "false", "1", "0") || throw(ArgumentError("$path: closed must be true or false, got $(repr(r.closed))"))
         push!(out, (String(r.free_uuid), String(r.loop_source_uuid), c in ("true", "1")))
@@ -606,9 +607,11 @@ function carrier_loops_from_json(raw)::Union{Nothing, Vector{CarrierLoopEdge}}
     raw === nothing && return nothing
     raw isa AbstractVector || throw(ArgumentError("carrier_loops must be a list or null"))
     out = CarrierLoopEdge[]
+    bad() = throw(ArgumentError("carrier_loops: each row needs string free_uuid and loop_source_uuid and a boolean closed"))
     for r in raw
-        (haskey(r, :free_uuid) && haskey(r, :loop_source_uuid) && haskey(r, :closed) && r[:closed] isa Bool) ||
-            throw(ArgumentError("carrier_loops: each row needs free_uuid, loop_source_uuid and a boolean closed"))
+        r isa AbstractDict || bad()
+        (haskey(r, :free_uuid) && haskey(r, :loop_source_uuid) && haskey(r, :closed)) || bad()
+        (r[:free_uuid] isa AbstractString && r[:loop_source_uuid] isa AbstractString && r[:closed] isa Bool) || bad()
         push!(out, (String(r[:free_uuid]), String(r[:loop_source_uuid]), r[:closed]))
     end
     return sort!(unique!(out))

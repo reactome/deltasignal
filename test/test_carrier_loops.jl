@@ -121,6 +121,20 @@ end
     @test fold(r, "EP") ≈ 6.0 rtol = 1e-6
 end
 
+@testset "only the listed activating edge is dropped; a negative edge between the pair stays" begin
+    f = fixture(closed_table())
+    neg = DS.LogicNetworkEdge("EP", "E", false, false, 1.0, "depletion")
+    net = DS.ReactionNetwork(f.nodes, vcat(f.edges, [neg]), f.set_mappings, f.cofactor_stids, f.containment,
+                             nothing, nothing, nothing, closed_table())
+    out, rule, forms, n = DS.apply_carrier_loops(net, "closed")
+    @test rule == "closed" && forms == 1 && n == 1
+    @test any(e -> e.parent_uuid == "EP" && e.child_uuid == "E" && !e.is_positive, out.edges)
+    @test !any(e -> e.parent_uuid == "EP" && e.child_uuid == "E" && e.is_positive, out.edges)
+    # a listed pair with no such edge drops nothing and says so
+    out, rule, forms, n = DS.apply_carrier_loops(fixture(DS.CarrierLoopEdge[("E", "T", true)]), "closed")
+    @test (forms, n) == (0, 0)
+end
+
 @testset "a typo in the mode is an error" begin
     for bad in ("Closed", "closed ", "on", "inert", "")
         with_env("DS_CARRIER_LOOP_MODE" => bad) do
@@ -152,6 +166,9 @@ end
         net = DS.parse_complete_network(ln, um)
         @test net.carrier_loops == tab
         @test DS.carrier_loops_from_json(DS.JSON3.read(DS.JSON3.write(DS.carrier_loops_json(net)))) == tab
+        write(joinpath(dir, "carrier_loops.csv"),
+              "loop_id,r,closed,free_uuid,free_stid,loop_source_uuid\nloop1,1,True,u-e,R-HSA-1,\n")
+        @test_throws ArgumentError DS.parse_carrier_loops(ln)       # a missing value is an error, not a skip
         write(joinpath(dir, "carrier_loops.csv"), "loop_id,closed,free_uuid\nloop1,True,u-e\n")
         @test_throws ArgumentError DS.parse_carrier_loops(ln)
         write(joinpath(dir, "carrier_loops.csv"),
@@ -161,6 +178,9 @@ end
     @test DS.carrier_loops_json(fixture(nothing)) === nothing
     @test DS.carrier_loops_from_json(nothing) === nothing
     @test_throws ArgumentError DS.carrier_loops_from_json("E")
+    @test_throws ArgumentError DS.carrier_loops_from_json(DS.JSON3.read("[1]"))
+    @test_throws ArgumentError DS.carrier_loops_from_json(
+        DS.JSON3.read("[{\"free_uuid\": 1, \"loop_source_uuid\": \"EP\", \"closed\": true}]"))
     @test_throws ArgumentError DS.carrier_loops_from_json(DS.JSON3.read("[{\"free_uuid\": \"E\"}]"))
     @test_throws ArgumentError DS.carrier_loops_from_json(
         DS.JSON3.read("[{\"free_uuid\": \"E\", \"loop_source_uuid\": \"EP\", \"closed\": \"yes\"}]"))

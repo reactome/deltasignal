@@ -212,3 +212,53 @@ prediction or the decision rule.
   - The bench sends the table with a POSTed network. It refuses a
     `closed`/`all` arm whose build has no table, and an arm in which no solve
     changed a free form.
+
+## Amendment 2 (2026-10-11, before any arm ran): adversarial review of both branches
+
+Two review agents read the diffs. Fixed before any build was kept (the first
+K build was stopped and discarded):
+
+**Generator** (`937191d`, `8116f24`):
+1. **Under `LNG_POOL_JOIN_MEMBERS`, a loop released through `variant_split`
+   read as fed, and its free form was not listed.** The plain node a step
+   writes was outside `inside`. This is the RAF shape, and build S needs it.
+   The plain node now counts as inside, with tests for both shapes.
+2. **The B1 regeneration exemption** (a pool node an input feeds) applied at
+   the defaults. It is now gated on `LNG_POOL_JOIN_MEMBERS`, so the defaults
+   are main's. Tested.
+3. **One row per (free form, source),** closed if any of its loops is. Free
+   forms and conflicts are counted once.
+4. **Every positive entity in-edge counts as supply** for "closed", not only
+   output and the variant/set edges.
+
+**Solver:**
+1. **`update_pools!` swallowed a NaN** from a pool. The final residual check
+   then missed it. It now returns it.
+2. **Order of rules.** The edge drop now runs before the specs/035 conserved
+   set and the silo bridges are resolved, so they all see one network.
+3. **Only the listed activating edge is dropped.** A depletion or inhibition
+   between the same pair stays.
+4. **A carrier-table row with a missing value is an error,** and a malformed
+   JSON row is an ArgumentError.
+5. **A node that is both shared and a pool state** is left to its pool. The
+   generator does not emit that case.
+6. **Docs reworded.** A closed free form reads baseline unless a silo bridge
+   or a boundary edge still feeds it.
+
+Tests: `test_carrier_loops.jl` 113, `test_pools.py` 38.
+
+**Recorded, not changed: what a shared node reads.** It is written as the
+mean of each pool's estimate (Σnum/Σden).
+- **Fixture:** in the review's `twin` fixture with S's supply at 80×, pool 1's
+  estimate of the shared complex is 80× and pool 2's is 8.18×. The complex is
+  written as 44×. The binding reaction alone would give about 16×.
+- **Why:** each pool re-evaluates its pool-fed inputs with the other
+  substrate near baseline (amendment 5).
+- **What main does:** on the same fixture, main does not converge, and gives
+  8.18× or 80× depending on pool order. The branch converges and does not
+  depend on order.
+- **Effect:** the modified forms and the readout are the same as main's. Only
+  the complex moves.
+- **This is a property of the registered design, not a fix.** If a shared
+  complex decides an `sctl`/`sclosed` case, the case is traced before the
+  result is read.

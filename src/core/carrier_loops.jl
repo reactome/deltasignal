@@ -16,8 +16,10 @@ carrier loops outside pools. Bound forms are not touched.
 
   DS_CARRIER_LOOP_MODE=off     (default) the loops iterate as before.
   DS_CARRIER_LOOP_MODE=closed  free forms of CLOSED loops lose their loop
-                               in-edges, which are all their producers: each
-                               becomes a root and reads baseline unless pinned.
+                               in-edges. In the generator's network those are
+                               all their producers, so each reads baseline
+                               unless pinned; a silo bridge (off by default) or
+                               a boundary edge into it would still feed it.
   DS_CARRIER_LOOP_MODE=all     the same for every listed loop; a fed free form
                                reads only its producers outside the loop.
 
@@ -50,7 +52,9 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String)
     kept = LogicNetworkEdge[]
     hit = Set{String}()
     for e in network.edges
-        if (e.parent_uuid, e.child_uuid) in drop
+        # only the activating edge the generator listed; a depletion or an
+        # inhibition between the same pair is not supply and stays
+        if e.is_positive && (e.parent_uuid, e.child_uuid) in drop
             push!(hit, e.child_uuid)
         else
             push!(kept, e)

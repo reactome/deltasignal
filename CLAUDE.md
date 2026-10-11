@@ -411,9 +411,10 @@ env vars only override for benchmark sweeps:
   per its pre-registration, not adopted yet): a carrier loop is a protein bound
   and released unchanged (E → E:X → E), which the generator's `find_pools`
   rejects as a pool and lists in `carrier_loops.csv`. Under `closed`, the free
-  form of a loop that nothing outside it produces loses its in-edges from the
-  loop and reads baseline: total carrier is conserved, and bound forms hold a
-  negligible share. Under `all`, every listed free form reads only its
+  form of a loop that nothing outside it produces loses its activating
+  in-edges from the loop and so reads baseline: total carrier is conserved,
+  and bound forms hold a negligible share. A silo bridge (off by default) or a
+  boundary edge into it would still feed it. Under `all`, every listed free form reads only its
   producers outside the loop. Bound forms are not touched. The solve reports
   `carrier_loop_rule`, `carrier_loop_forms` and `carrier_loop_edges_dropped`.
   A bundle without the table reports `<mode>: no carrier table`, and the bench
@@ -587,7 +588,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 260 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 106 | specs/049, added 2026-10-11 |
+| `test/test_carrier_loops.jl` | 113 | specs/049, added 2026-10-11 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 54 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

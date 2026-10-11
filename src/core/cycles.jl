@@ -432,14 +432,17 @@ end
 
 """
 Intermediates and step copies that more than one of `ps` writes (specs/049: MAPK1
-and MAPK3 pass through one capped RAF:MAP2K:MAPKs complex).
+and MAPK3 pass through one capped RAF:MAP2K:MAPKs complex). A node that is also a
+form (state) of one of `ps` is left out: its pool writes it as a state, as before.
+The generator never emits that case under `LNG_POOL_SHARED`.
 """
 function shared_pool_nodes(ps)
     seen = Dict{Int, Int}()
     for p in ps, v in unique(vcat(p.flux_nodes, p.copy_nodes))
         seen[v] = get(seen, v, 0) + 1
     end
-    return Set(v for (v, c) in seen if c > 1)
+    forms = Set{Int}(v for p in ps for v in p.forms)
+    return Set(v for (v, c) in seen if c > 1 && !(v in forms))
 end
 
 """
@@ -454,6 +457,7 @@ function update_pools!(x::Vector{Float64}, ps, shared::Set{Int}, rxns_idx, basel
     maxch = 0.0
     for p in ps
         ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = carriers, acc = acc)
+        isfinite(ch) || return ch          # a NaN or Inf must reach the residual check
         ch > maxch && (maxch = ch)
     end
     acc === nothing && return maxch

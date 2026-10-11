@@ -123,6 +123,10 @@ function solve_steady_state(
     pathogens = pmode == "inert" ? pathogen_uuids(network) : Set{String}()
     pathogen_rule = pmode == "propagate" ? "propagate" :
                     network.pathogen_stids === nothing ? "inert: no pathogen table" : "inert"
+    # specs/049: a carrier loop's free form reads its supply, not its own release.
+    # First, so every rule resolved on the network below sees the same edges.
+    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges =
+        apply_carrier_loops(network, carrier_loop_mode())
     # specs/035: loop participants released unchanged by their loop, held at
     # baseline like cofactors. Resolved on the network as given (before bridges).
     cmode = conserved_mode()
@@ -141,9 +145,6 @@ function solve_steady_state(
                                   network.containment, network.drug_stids, network.pools,
                                   network.pathogen_stids, network.carrier_loops)
     end
-    # specs/049: a carrier loop's free form reads its supply, not its own release.
-    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges =
-        apply_carrier_loops(network, carrier_loop_mode())
 
     # Convert network to reactions
     reactions = convert_to_reaction_network(network)
