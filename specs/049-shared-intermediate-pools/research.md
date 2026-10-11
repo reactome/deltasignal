@@ -177,3 +177,82 @@ its default. Scripts are in `~/deltasignal-catalogs/analysis/049/`:
    whether a carrier cycle can be solved by conservation, as a modification
    pool is, without holding signal carriers. P5 scopes it to closed loops
    (279), of which only 14-3-3 is known to matter.
+
+## P6. Arms `kctl` and `kclosed` (build K, solver `3c64f21`)
+
+Build K is `20261011-1609_8116f24_carrierK` (generator `8116f24`, flags at
+their defaults). Results are in `builds/<K>/results/3c64f21/{kctl,kclosed}`.
+
+**Structural checks:**
+1. Both builds are complete, 92 of 92 pathways each.
+2. **`kctl` reproduces the canonical predictions exactly:** 0 of 24,101
+   curator rows and 0 of 850 experimental rows differ.
+3. **K census:**
+   - 2,083 rows and 1,087 free forms. 204 free forms are closed, in 36
+     pathways.
+   - K's pool tables match canonical, row for row in every pathway, 122 pools
+     in all.
+   - RAF lists 5 closed free forms, the YWHAB dimer R-HSA-2028645 among them.
+4. **S:** RAF has 6 pools, MAPK3 (pool5: R-HSA-59284 / 109842) and MAPK1
+   (pool6: R-HSA-59282 / 109853) among them, and 0 shared nodes are dropped.
+5. Coverage is identical on both axes.
+
+**`kclosed` against `kctl`:**
+
+| split | net | fixed / broke | p | pathways |
+|---|---|---|---|---|
+| curator held-out | **+81** | 102 / 21 | 5.8e-14 | 10 (+9 / −1) |
+| curator tuning | +88 | 98 / 10 | 2.7e-19 | 4 (+3 / −1) |
+| **experimental** | **−1** | 3 / 4 | 1 | 4 (+1 / −3) |
+
+- Curator, best pathways: HDR +64, ERBB2 +25, NER +18, PDGF +18. Worst:
+  TGF-β −9, RAF −3.
+- Converged: curator 1,646 of 1,725, experimental 214 of 244 (`kctl`: 215).
+- Changed: 3,902 curator and 1,194 experimental free-form solves.
+
+**Predictions:**
+- **K-P1 missed:** RAF experimental lost 1 case (ARAF KO).
+- **K-P2 met:** experimental within ±5.
+- **K-P3 missed:** held-out +81, outside ±20.
+
+**Decision: not adopted on its own.** The rule requires experimental ≥ 0
+together with a positive held-out; experimental is −1.
+
+**Every experimental change traced** (`diff_walk.jl`: the solve under `off`
+and under `closed`, walking back from the readout).
+
+In each case, under `off` a closed carrier drained to about zero when the
+perturbation cut the loop's flow. That drain was the only route from the gene
+to the readout.
+
+- **ERCC1 KO and ERCC4 KO → R-HSA-5686483 (HDR), broke.**
+  - The pin set holds ERCC1:XPF (R-HSA-109943), a closed free form. The pin
+    wins, as designed.
+  - Under `off`, RPA (R-HSA-68462 and phospho-RPA R-HSA-5685169, both closed
+    free forms) drained to 2e-6×, and the readout followed.
+  - Under `closed`, RPA holds at baseline, and nothing else connects ERCC1
+    to the readout, so it reads 1.0.
+- **BRCA2 KO (HDR), fixed** by the same mechanism in reverse: RPA no longer
+  drains.
+- **ARAF KO → R-HSA-5672718 (RAF), broke.**
+  - Under `off`, the 14-3-3 dimer drained to 0.001×, and the readout followed
+    (0.02×, correct).
+  - Under `closed`, 14-3-3 holds at baseline. The readout then reads
+    R-HSA-5672734::pool at 12×, which is the railed MAPK loop, the specs/048
+    knockout→UP class.
+  - This is the class `sctl`/`sclosed` target.
+- **CCND1 overexpression → R-HSA-157443 (Mitotic G1), broke.**
+  - Under `off`, the closed free form R-HSA-8848007 drained to 2e-6×.
+  - Under `closed`, it holds at baseline. The readout nodes it fed move from
+    about 0 to 1.0, and the case aggregate falls from 43× to 1.0.
+- **EGFR KO and PTK6 KO (ERBB2), fixed:** ratios 0.87 → 0.69 and 0.88 → 0.62.
+
+**Reading.**
+- On canonical networks, carrier drain is a route the propagator relies on.
+  A partner's knockout empties the carrier, and every complex downstream of
+  the carrier follows.
+- That is right for the wrong reason where the true route runs through the
+  partner (ERCC1:XPF), and simply wrong where it does not (BRCA2).
+- Held-out says the conserved reading is better overall (+81, 102 fixed
+  against 21 broken). Experimental is balanced (3 fixed against 4 broken).
+- `kall` and the S arms are still running.
