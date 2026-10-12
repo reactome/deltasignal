@@ -114,3 +114,41 @@ Analysis only. It changes no prediction.
 - Rules keyed on pathway or protein names.
 - Re-tuning the rules on each release against the same answers. That repeats
   the forking-paths problem every release, which this plan exists to avoid.
+
+## Release97 freeze (2026-10-12)
+
+The rule set scored prospectively on Release98. It must not change before
+Release98 is built and scored under it.
+
+| | |
+|---|---|
+| solver | deltasignal `main` at **8757909** (DS #103). `src/`, `cli/` and the bench are identical to `1f58a1b`, which produced the results below |
+| generator | logic-network-generator `main` at **01206ca** (LNG #111), default environment |
+| catalog | `20261012-1401_01206ca`, Reactome Release97 (2026-06-17), 92 pathways |
+| results | `builds/20261012-1401_01206ca/results/1f58a1b` |
+| protocol | `DS_PIN_SCOPE=root_cycle`, UP pin 80, knockout pin 0, call thresholds of `bench/benchmark_vs_mpbiopath.py` at 8757909 |
+| scores | curator held-out in release 89.29% / 0.8612; curator all 86.40% / 0.8316; experimental 589/849 (69.38%) / 0.6159 |
+
+**Rules in force** (code defaults at 8757909; the register above has the
+specs):
+- cycle balance (039);
+- self-inhibitor weight 0.1 with leaf pairs (022, 040 B);
+- `closed_twin` carrier loops (049);
+- cofactors inert (007);
+- pathogen proteins inert (048);
+- set pools in product mode (033);
+- variant complex nodes (046, generator);
+- depletion bounds 0.1–10 (011);
+- `hill_sat` AND, `divide` inhibition, OR mean (009, 010).
+
+**Release98 procedure.**
+1. Build Release98 with the generator at 01206ca and the default
+   environment, and benchmark it with the solver at 8757909. Record that
+   as the prospective result, on whatever ground truth exists for
+   Release98 (see "The ground-truth gap").
+2. Run `motif_census.py` on the Release98 build and diff it against R2.
+3. Only then may generator or solver changes made after the freeze be
+   scored on Release98, each as its own arm against step 1.
+
+Rules adopted after this freeze are scored against Release97 as usual. They
+enter the prospective record only at the next freeze.
