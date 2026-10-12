@@ -842,3 +842,54 @@ and is not reproducible as recorded.** See the specs/012 addendum.
   four regulators are OR-flagged, so the output becomes min(1, 1, 1/x, 1/x) · x
   = x: monotone, with no inversion and no cancellation. This is an existing arm
   to A/B, not a new mechanism.
+
+---
+
+## Pilot, 2026-10-12: is a decryptM axis feasible? (specs/050, Adam's OK)
+
+Analysis only. No model change and no score yet.
+
+**decryptM 2.0 is not available.** The Zenodo record
+(`10.5281/zenodo.17533475`) is published with its files **restricted**: the
+record lists no files and the files API returns 403. That is probably an
+embargo until its paper appears. It cannot be used until then.
+
+**decryptM 1 is available:** PRIDE `PXD037285`, CC0, with fitted
+dose-response curves per experiment. Experiments with a kinase or
+phosphatase target in our networks (from `Experiment_summary.xlsx`):
+
+| experiment | drugs (primary targets) | cell lines |
+|---|---|---|
+| OS_6KI_A549 | AZD8055 (MTOR), dactolisib (PI3K, MTOR), dasatinib (ABL, SRC family), nintedanib (KDR, FGFR, PDGFR), pictilisib (PI3K), tideglusib (GSK3B) | A549 |
+| OS_2KI_A549, OS_Replication_A549 | MK2206 (AKT), PD325901 and refametinib (MEK) | A549 |
+| JR_Selumetinib_MK2206_Combi | selumetinib (MEK), MK2206 (AKT), combinations | A549 |
+| FB_EGFR_3Inhibitors | afatinib, gefitinib (EGFR, ERBB2/4), dasatinib | A431 |
+| SW_HER2Drugs | lapatinib, trastuzumab, pertuzumab (ERBB2, EGFR) | BT-474, MDA-MB-175-VII, SK-BR-3 |
+| JR_*_AZD4547_Combi | AZD4547 (FGFR1–3), gefitinib, lapatinib | PC-9 |
+| FH_BCRABL, FB_Dasatinib | imatinib, dasatinib (ABL1, KIT, PDGFR, SRC family) | K562, A431 |
+| JR_SHP099 | SHP099 (**PTPN11**) | KYSE-520 |
+
+Staurosporine is excluded (pan-kinase). The proteasome, KDAC, KAT,
+chemotherapy and rituximab experiments have no kinase target in our
+networks.
+
+**Overlap with the curator target list** (`phosphosite-targets.tsv`, which
+needs a curator answer):
+- 116 of 418 knockdown cases have a perturbed gene that is a primary
+  target of one of these drugs: 23 sites, 10 pathways.
+- Only **37 of those are held-out** (PTK6 21, VEGF 8, five other pathways
+  with 1–2 each). The other 79 are tuning (PIP3 72).
+
+**The axis does not need curator answers.** Any drug-target gene against
+any phosphosite in the same network is a case: our knockdown prediction
+against the measured dose response. On build `20261012-1401_01206ca`
+(sites from Neo4j: human proteins with an O-phospho-Ser/Thr/Tyr residue at
+a known coordinate, present as a node or inside a complex node):
+- **690 distinct phosphosites on 263 proteins** across the catalog;
+- 43 pathways have at least one site and at least one drug-target gene,
+  **34 of them held-out**.
+
+**Still to measure:** how many of those sites decryptM quantifies under
+the right drug, in a cell line where the curve is regulated. Downloading
+the curve archives (~3.5 GB, to `~/deltasignal-catalogs/external/decryptm`,
+with SHA256 sums recorded).
