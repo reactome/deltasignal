@@ -407,8 +407,10 @@ env vars only override for benchmark sweeps:
   leaf with the input when a carrier of that leaf reaches both (built from
   the same species). Same weight, weaken-only. Reports
   `self_inhibitor_leaves` and `self_inhibitor_leaf_pairs`.
-- `DS_CARRIER_LOOP_MODE=off` (default) | `closed` | `closed_supply` | `closed_twin` | `all` (specs/049, measured,
-  not adopted. `closed`: held-out +81, experimental −1. `all`: held-out −55): a carrier loop is a protein bound
+- `DS_CARRIER_LOOP_MODE=closed_twin` (**default since 2026-10-12**, specs/049
+  amendment 6; held-out +122, experimental −2 at p 0.73 against `off`) | `off` |
+  `closed` | `closed_supply` | `all` (`closed`: held-out +81, experimental −1;
+  `all`: held-out −55). A carrier loop is a protein bound
   and released unchanged (E → E:X → E), which the generator's `find_pools`
   rejects as a pool and lists in `carrier_loops.csv`. Under `closed`, the free
   form of a loop that nothing outside it produces loses its activating
@@ -420,8 +422,10 @@ env vars only override for benchmark sweeps:
   entity, so a closed carrier follows its own gene. Under `all`, every listed free form reads only its
   producers outside the loop. Bound forms are not touched. The solve reports
   `carrier_loop_rule`, `carrier_loop_forms` and `carrier_loop_edges_dropped`.
-  A bundle without the table reports `<mode>: no carrier table`, and the bench
-  refuses it.
+  A bundle without the table reports `<mode>: no carrier table` and solves as
+  `off`, and the bench refuses it. The table comes from LNG #111, so builds
+  before it, the current canonical `20261010-1415_c0e1b2a` included, are re-run
+  with `--server DS_CARRIER_LOOP_MODE=off`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -556,7 +560,8 @@ for the last feature that touched it rather than re-deriving from the code.
     specs/049.
 - `specs/049-shared-intermediate-pools/` — pools that share intermediates
   (generator `LNG_POOL_SHARED`, solver `update_pools!`) and carrier loops
-  (`DS_CARRIER_LOOP_MODE`). Five registered arms, **none adopted**.
+  (`DS_CARRIER_LOOP_MODE`). **`closed_twin` adopted as the default**
+  (amendment 6); every earlier arm was not.
   - `closed` gains curator held-out +81, but experimental is −1, losing the
     cases whose signal ran through a carrier drained to zero.
   - `all` is refuted (IFN α/β −168).
@@ -572,8 +577,10 @@ for the last feature that touched it rather than re-deriving from the code.
     closed free forms) fails the old gates. `closed_twin` (also a closed free
     form reads its gene's root copy) gives held-out +122, experimental −2
     (p 0.73), and passes the faithfulness gate registered in amendment 5;
-    **recommended as the default, pending Adam**. Open: an enzyme knockout
-    should raise its substrate (SMAD7, PTPN11).
+    **adopted as the default** (amendment 6, Adam). The canonical numbers
+    move once LNG #111 is merged and a build with `carrier_loops.csv` is
+    benchmarked. Open: an enzyme knockout should raise its substrate (SMAD7,
+    PTPN11).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -605,7 +612,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 260 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 143 | specs/049, added 2026-10-11 |
+| `test/test_carrier_loops.jl` | 151 | specs/049, added 2026-10-11 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 54 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

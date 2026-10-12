@@ -426,3 +426,31 @@ before: vn7 (specs/046, experimental −10, not significant) and cycle balance
 If gate 3 passes, `closed_twin` is recommended for adoption as the default,
 with the losses listed by name; the change of default is Adam's call. If it
 fails, nothing is adopted.
+
+## Amendment 6 (2026-10-12): `closed_twin` is the default
+
+Gate 3 passed (research.md P12): curator held-out +122 (p 2e-23),
+experimental −2 (p 0.73), no pathway losing more than 10, structural checks
+holding, and every experimental loss named. Adam accepted the
+recommendation on 2026-10-12, so `DS_CARRIER_LOOP_MODE` now defaults to
+`closed_twin`. `off` stays available for the A/B and to reproduce earlier
+numbers.
+
+**What the default needs.** `carrier_loops.csv` is written by the generator
+from LNG #111 onwards. A bundle without it reports
+`closed_twin: no carrier table` and solves exactly as `off` (tested). The
+bench refuses it, as it does a build with no `pathogens.csv`. So:
+- builds before LNG #111, the canonical `20261010-1415_c0e1b2a` included,
+  are re-run with `--server DS_CARRIER_LOOP_MODE=off`;
+- the canonical numbers move only when LNG #111 is merged, a catalog is built
+  from generator main, and that build is benchmarked under the default. Until
+  then, `ktwin` on build K is the measurement of record. K was built at
+  8116f24 with the generator defaults, and `kctl` on it reproduced the
+  canonical results exactly.
+
+**Known losses carried into the default** (P12): CALR knockout and
+overexpression → 983416 (2 tuning cases, a recycled route where the expected
+answer is no change); ERCC1/ERCC4 in HDR (the drain recorded in P9); the
+SMAD7 and PTPN11 → SPRY2 cases, where an enzyme knockout should raise its
+substrate and the network has no edge that says so. That is the next lever,
+and it is registered separately before it runs.

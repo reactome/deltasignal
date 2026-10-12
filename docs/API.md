@@ -118,8 +118,9 @@ iterate instead (until 2026-10-02 it was not returned at all, so every inline
 solve silently ran without it).
 `carrier_loops` (specs/049, additive) is the carrier-loop table, a list of
 `{free_uuid, loop_source_uuid, closed}`, or `null` when the bundle has no
-`carrier_loops.csv`. Send it back with an inline network, or
-`DS_CARRIER_LOOP_MODE=closed`/`all` reports `"<mode>: no carrier table"`.
+`carrier_loops.csv`. Send it back with an inline network, or the default
+`DS_CARRIER_LOOP_MODE=closed_twin` (and every other mode except `off`) reports
+`"<mode>: no carrier table"` and solves as `off`.
 
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is

@@ -14,7 +14,8 @@ equal total E, which its supply sets, not the loop's turnover. That is the
 rule `DS_CYCLE_CARRIERS` applies to an enzyme inside a pool; here it applies to
 carrier loops outside pools. Bound forms are not touched.
 
-  DS_CARRIER_LOOP_MODE=off     (default) the loops iterate as before.
+  DS_CARRIER_LOOP_MODE=off     the loops iterate as before (the default until
+                               specs/049 amendment 6).
   DS_CARRIER_LOOP_MODE=closed  free forms of CLOSED loops lose their loop
                                in-edges. In the generator's network those are
                                all their producers, so each reads baseline
@@ -25,7 +26,7 @@ carrier loops outside pools. Bound forms are not touched.
                                with bound forms negligible, binding cannot
                                lower free E any more than release raises it
                                (specs/049 amendment 4, the GRB2 case of P10).
-  DS_CARRIER_LOOP_MODE=closed_twin  as `closed_supply`, and each closed free
+  DS_CARRIER_LOOP_MODE=closed_twin  (default) as `closed_supply`, and each closed free
                                form gains an activating OR in-edge
                                (`carrier_supply`) from every root copy of the
                                same entity (same reactome_id, no in-edge, not
@@ -36,13 +37,14 @@ carrier loops outside pools. Bound forms are not touched.
                                fed free form reads only its producers outside
                                the loop.
 
-An observation still wins: a pinned free form keeps its pin.
+An observation still wins: a pinned free form keeps its pin. A bundle without
+`carrier_loops.csv` reports "<mode>: no carrier table" and solves as `off`.
 """
 
 const DS_VALID_CARRIER_LOOP_MODES = Set(["off", "closed", "closed_supply", "closed_twin", "all"])
 
 function carrier_loop_mode()::String
-    value = get(ENV, "DS_CARRIER_LOOP_MODE", "off")
+    value = get(ENV, "DS_CARRIER_LOOP_MODE", "closed_twin")
     value in DS_VALID_CARRIER_LOOP_MODES || throw(ArgumentError(
         "DS_CARRIER_LOOP_MODE must be one of $(join(sort(collect(DS_VALID_CARRIER_LOOP_MODES)), ", ")); got $(repr(value))"))
     return value

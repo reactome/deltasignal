@@ -46,17 +46,26 @@ fold(r, u) = r.node_activities[u] / BL
 
 @testset "carrier loops (specs/049)" begin
 
-@testset "default is off, byte-identical to a network with no carrier table" begin
+@testset "default is closed_twin; off is byte-identical to a network with no carrier table" begin
     with_env("DS_CARRIER_LOOP_MODE" => nothing) do
-        @test DS.carrier_loop_mode() == "off"
+        @test DS.carrier_loop_mode() == "closed_twin"
     end
     for p in (2.0, 0.5)
-        a = solve(fixture(closed_table()); mode = nothing, p = p)
-        b = solve(fixture(nothing); mode = nothing, p = p)
+        a = solve(fixture(closed_table()); mode = "off", p = p)
+        b = solve(fixture(nothing); mode = "off", p = p)
         @test a.node_activities == b.node_activities
         @test a.diagnostics["carrier_loop_rule"] == "off"
         @test a.diagnostics["carrier_loop_forms"] == 0
         @test a.diagnostics["carrier_loop_edges_dropped"] == 0
+        # the default with no table solves as off and says so
+        c = solve(fixture(nothing); mode = nothing, p = p)
+        @test c.node_activities == b.node_activities
+        @test c.diagnostics["carrier_loop_rule"] == "closed_twin: no carrier table"
+        # the default with a table is closed_twin
+        d = solve(fixture(closed_table()); mode = nothing, p = p)
+        e = solve(fixture(closed_table()); mode = "closed_twin", p = p)
+        @test d.node_activities == e.node_activities
+        @test d.diagnostics["carrier_loop_rule"] == "closed_twin"
     end
     # the pre-existing 8-argument constructor leaves the table absent
     @test DS.ReactionNetwork(Dict(node.(["A"])), DS.LogicNetworkEdge[], Dict{String, DS.SetExpansionMapping}(),
