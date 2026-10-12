@@ -909,3 +909,67 @@ tested):
 the right drug, in a cell line where the curve is regulated. Downloading
 the curve archives (~3.5 GB, to `~/deltasignal-catalogs/external/decryptm`,
 with SHA256 sums recorded).
+
+**Full coverage: all 18 single-target drugs** (PRIDE curve archives with
+SHA256 sums recorded, 28 phosphoproteome curve tables, 854,781
+phosphopeptides placed on reviewed sequences and 24,621 skipped).
+
+One `10_Kinase_Inhibitors` member, a PDF plot, failed its CRC. Every curve
+table passed its own CRC check on extraction.
+
+The case unit is **(drug, pathway, site)**. A multi-target drug is one
+perturbation of all its targets present in the network, not one case per
+target. Counting per gene would score dasatinib's single measurement five
+times (SRC, FYN, LCK, LYN, YES1).
+
+| | held-out | tuning |
+|---|---|---|
+| cases | **839** | 1,023 |
+| regulated (down / up) | **241** (192 / 49) | 332 (306 / 26) |
+| measured, unchanged | 590 | 677 |
+| conflicting across cell lines | 8 | 14 |
+| pathways (with a regulated case) | **42** (34) | 9 (5) |
+| distinct sites (regulated) | 167 (48) | 161 (52) |
+| ERK1/2 activation loop, of regulated | 91 / 241 | 68 / 332 |
+
+Regulated held-out cases by drug:
+- dasatinib 95, SHP099 23, afatinib 18, gefitinib 15, imatinib 14,
+  lapatinib 12;
+- dactolisib 12, pictilisib 12, PD325901 9, refametinib 9;
+- the other six drugs ≤ 5 each.
+
+### Verdict: GO, with these limits stated before any scoring
+
+1. **This is the first held-out experimental axis.** It has 241 regulated
+   cases in 34 held-out pathways. Today's experimental axis has 849 cases,
+   all in the ten tuning pathways.
+2. **Concentration.**
+   - 48 distinct regulated sites.
+   - ERK1/2's activation loop is 38% of the regulated cases.
+   - Dasatinib is 39% of the regulated cases.
+
+   Report results per site and per drug, and with ERK and dasatinib left
+   out. ERK going down under an upstream kinase inhibitor is close to a
+   trivial unit (see `feedback_exclude_trivial_units`), so it is reported
+   separately, not hidden.
+3. **"Unchanged" is weaker evidence than "regulated".** A site measured
+   flat may be correct no-change, or the pathway may be inactive in that
+   cell line (A549, A431, K562, PC-9, KYSE-520, breast lines). Score
+   regulated cases as the primary metric, and unchanged ones as secondary.
+4. **An inhibitor is not a knockout.** That is already stated above.
+   Off-targets are excluded only through the primary-target table, which
+   is in `decryptm_coverage.py` and is a judgement call recorded there.
+5. **Knockdown direction only.** Over-expression predictions stay untested
+   by this axis.
+6. **No tuning against it.** Its first use is to score the frozen
+   Release97 rule set (specs/050) as a held-out witness. After that it is a
+   reported axis, never an objective.
+
+**Next, to pre-register before any score is read:**
+- a bench mode that pins every network root form of a drug's targets to 0
+  (the root protocol, several genes at once);
+- the case table above as ground truth;
+- direction accuracy on regulated cases as the primary metric, and the
+  same with ERK and dasatinib excluded;
+- unchanged cases secondary;
+- the frozen 8757909 solver.
