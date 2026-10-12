@@ -20,13 +20,19 @@ carrier loops outside pools. Bound forms are not touched.
                                all their producers, so each reads baseline
                                unless pinned; a silo bridge (off by default) or
                                a boundary edge into it would still feed it.
-  DS_CARRIER_LOOP_MODE=all     the same for every listed loop; a fed free form
-                               reads only its producers outside the loop.
+  DS_CARRIER_LOOP_MODE=closed_supply  as `closed`, and every depletion
+                               in-edge into a closed free form is dropped too:
+                               with bound forms negligible, binding cannot
+                               lower free E any more than release raises it
+                               (specs/049 amendment 4, the GRB2 case of P10).
+  DS_CARRIER_LOOP_MODE=all     the same as `closed` for every listed loop; a
+                               fed free form reads only its producers outside
+                               the loop.
 
 An observation still wins: a pinned free form keeps its pin.
 """
 
-const DS_VALID_CARRIER_LOOP_MODES = Set(["off", "closed", "all"])
+const DS_VALID_CARRIER_LOOP_MODES = Set(["off", "closed", "closed_supply", "all"])
 
 function carrier_loop_mode()::String
     value = get(ENV, "DS_CARRIER_LOOP_MODE", "off")
@@ -45,16 +51,20 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String)
     mode == "off" && return network, "off", 0, 0
     network.carrier_loops === nothing && return network, "$mode: no carrier table", 0, 0
     drop = Set{Tuple{String, String}}()
+    undrained = Set{String}()   # closed_supply: closed free forms that lose their depletion in-edges
     for (free, src, closed) in network.carrier_loops
         (mode == "all" || closed) && push!(drop, (src, free))
+        mode == "closed_supply" && closed && push!(undrained, free)
     end
-    isempty(drop) && return network, mode, 0, 0
+    isempty(drop) && isempty(undrained) && return network, mode, 0, 0
     kept = LogicNetworkEdge[]
     hit = Set{String}()
     for e in network.edges
         # only the activating edge the generator listed; a depletion or an
-        # inhibition between the same pair is not supply and stays
-        if e.is_positive && (e.parent_uuid, e.child_uuid) in drop
+        # inhibition between the same pair is not supply and stays, except that
+        # closed_supply drops every depletion into a closed free form
+        if (e.is_positive && (e.parent_uuid, e.child_uuid) in drop) ||
+           (!e.is_positive && e.edge_type == "depletion" && e.child_uuid in undrained)
             push!(hit, e.child_uuid)
         else
             push!(kept, e)

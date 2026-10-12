@@ -196,9 +196,10 @@ Response:
   with `LNG_POOL_SHARED=1`.
 - **`carrier_loop_rule`**, **`carrier_loop_forms`**,
   **`carrier_loop_edges_dropped`** (additive, specs/049): `"off"` (default),
-  `"closed"`, `"all"`, or `"<mode>: no carrier table"`; how many carrier-loop
-  free forms lost the in-edges from their own loop, and how many edges that
-  was. Under `closed`, the free form of a loop that nothing outside it
+  `"closed"`, `"closed_supply"`, `"all"`, or `"<mode>: no carrier table"`;
+  how many carrier-loop free forms lost the in-edges from their own loop, and
+  how many edges that was. `closed_supply` also drops depletion in-edges into
+  closed free forms, and counts them. Under `closed`, the free form of a loop that nothing outside it
   produces then reads baseline (unless a silo bridge or boundary edge still
   feeds it). Under `all`, every listed free form reads only
   its producers outside the loop. An observation still wins.

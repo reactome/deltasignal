@@ -106,7 +106,7 @@ end
 end
 
 @testset "a missing carrier table is reported, not pretended" begin
-    for mode in ("closed", "all")
+    for mode in ("closed", "closed_supply", "all")
         r = solve(fixture(nothing); mode = mode)
         @test r.diagnostics["carrier_loop_rule"] == "$mode: no carrier table"
         @test r.diagnostics["carrier_loop_forms"] == 0
@@ -133,6 +133,33 @@ end
     # a listed pair with no such edge drops nothing and says so
     out, rule, forms, n = DS.apply_carrier_loops(fixture(DS.CarrierLoopEdge[("E", "T", true)]), "closed")
     @test (forms, n) == (0, 0)
+end
+
+@testset "closed_supply: a depletion into a closed free form is dropped too (amendment 4)" begin
+    # D, a complex holding E elsewhere, depletes E; D's knockout would de-repress
+    # E under closed (the GRB2 / PTPN11 case of P10)
+    f = fixture(closed_table())
+    dep = DS.LogicNetworkEdge("D", "E", false, false, 1.0, "depletion")
+    inh = DS.LogicNetworkEdge("I", "E", false, false, 1.0, "regulator")
+    mk(table) = DS.ReactionNetwork(merge(f.nodes, Dict(node.(["D", "I"]))), vcat(f.edges, [dep, inh]),
+                                   f.set_mappings, f.cofactor_stids, f.containment, nothing, nothing, nothing, table)
+    out, rule, forms, n = DS.apply_carrier_loops(mk(closed_table()), "closed_supply")
+    @test rule == "closed_supply" && forms == 1 && n == 2
+    @test !any(e -> e.parent_uuid == "D", out.edges)
+    @test any(e -> e.parent_uuid == "I", out.edges)          # an inhibition is not binding; it stays
+    # closed keeps the depletion; a fed loop keeps it under closed_supply
+    out, _, _, n = DS.apply_carrier_loops(mk(closed_table()), "closed")
+    @test n == 1 && any(e -> e.parent_uuid == "D", out.edges)
+    out, _, forms, n = DS.apply_carrier_loops(mk(fed_table()), "closed_supply")
+    @test (forms, n) == (0, 0) && any(e -> e.parent_uuid == "D", out.edges)
+    # solved: D knocked out leaves E at baseline under closed_supply, de-represses it under closed
+    for (mode, expect_base) in (("closed_supply", true), ("closed", false))
+        r = solve(mk(closed_table()); mode = mode, p = 2.0,
+                  extra = Dict("D" => (0.0, 1.0), "I" => (1.0, 1.0)))
+        @test (fold(r, "E") ≈ 1.0) == expect_base
+        expect_base && @test fold(r, "EP") ≈ 2.0 rtol = 1e-6
+        @test r.diagnostics["carrier_loop_rule"] == mode
+    end
 end
 
 @testset "a typo in the mode is an error" begin

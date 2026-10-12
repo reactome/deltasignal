@@ -887,7 +887,7 @@ function solve_handler(req)
             # specs/048 (additive): "propagate", "inert", or "inert: no pathogen table".
             "pathogen_rule" => get(solver_result.diagnostics, "pathogen_rule", "unknown"),
             "pathogens_held" => get(solver_result.diagnostics, "pathogens_held", 0),
-            # specs/049 (additive): "off", "closed", "all", or "<mode>: no carrier
+            # specs/049 (additive): "off", "closed", "closed_supply", "all", or "<mode>: no carrier
             # table"; the free forms that lost loop in-edges, and how many edges.
             "carrier_loop_rule" => get(solver_result.diagnostics, "carrier_loop_rule", "unknown"),
             "carrier_loop_forms" => get(solver_result.diagnostics, "carrier_loop_forms", 0),

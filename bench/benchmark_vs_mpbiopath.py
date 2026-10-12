@@ -1412,7 +1412,7 @@ def main():
     lrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_loop_rule="))
     print(f"\nCarrier loops: rule {'/'.join(lrules) or 'unknown'}, {SOLVE_TALLY['carrier_loop_forms']} "
           f"free-form-solves changed; shared pool nodes {SOLVE_TALLY['cycle_shared_nodes']} (specs/049)")
-    if any(r in ("closed", "all") for r in lrules) and SOLVE_TALLY["carrier_loop_forms"] == 0:
+    if any(r in ("closed", "closed_supply", "all") for r in lrules) and SOLVE_TALLY["carrier_loop_forms"] == 0:
         raise SystemExit("DS_CARRIER_LOOP_MODE is on but no solve changed a free form; the arm is the control.")
     yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
     yc = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carriers="))
