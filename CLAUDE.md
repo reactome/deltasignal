@@ -560,6 +560,11 @@ for the last feature that touched it rather than re-deriving from the code.
   - The shared pools' RAF knockout fix was itself a 14-3-3 drain. With the
     drain removed, a drug-complex de-repression (specs/032) reads RAF UP.
   - The iteration cap decides no canonical prediction.
+  - Amendment 3 (P8): `closed` + `DS_DRUG_MODE=inert` on K (`kcd`) passes the
+    registered gate (held-out +89, experimental +1 at p 1), but its RAF moves
+    are a loop collapse; adoption is held for a decision. On S (`scd`) the
+    ARAF/BRAF knockouts read DOWN through the real path, and RAS
+    overexpression is lost (experimental −6).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
