@@ -1077,6 +1077,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["solves"] += 1
             SOLVE_TALLY[f"carrier_loop_rule={ds_result.get('carrier_loop_rule', 'unknown')}"] += 1
             SOLVE_TALLY["carrier_loop_forms"] += int(ds_result.get("carrier_loop_forms") or 0)
+            SOLVE_TALLY["carrier_loop_twin_edges"] += int(ds_result.get("carrier_loop_twin_edges") or 0)
             SOLVE_TALLY["cycle_shared_nodes"] += int(ds_result.get("cycle_shared_nodes") or 0)
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
@@ -1411,9 +1412,12 @@ def main():
         print("  (no pathway in this run lists a pathogen, so inert holds nothing: identical to propagate here)")
     lrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_loop_rule="))
     print(f"\nCarrier loops: rule {'/'.join(lrules) or 'unknown'}, {SOLVE_TALLY['carrier_loop_forms']} "
-          f"free-form-solves changed; shared pool nodes {SOLVE_TALLY['cycle_shared_nodes']} (specs/049)")
-    if any(r in ("closed", "closed_supply", "all") for r in lrules) and SOLVE_TALLY["carrier_loop_forms"] == 0:
+          f"free-form-solves changed, {SOLVE_TALLY['carrier_loop_twin_edges']} root-twin edges; "
+          f"shared pool nodes {SOLVE_TALLY['cycle_shared_nodes']} (specs/049)")
+    if any(r in ("closed", "closed_supply", "closed_twin", "all") for r in lrules) and SOLVE_TALLY["carrier_loop_forms"] == 0:
         raise SystemExit("DS_CARRIER_LOOP_MODE is on but no solve changed a free form; the arm is the control.")
+    if "closed_twin" in lrules and SOLVE_TALLY["carrier_loop_twin_edges"] == 0:
+        raise SystemExit("DS_CARRIER_LOOP_MODE=closed_twin but no solve added a root-twin edge; the arm is closed_supply.")
     yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
     yc = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carriers="))
     print(f"\nCycles: rule {'/'.join(yrules) or 'unknown'}, {SOLVE_TALLY['cycle_pools_solved']} pool-solves, "

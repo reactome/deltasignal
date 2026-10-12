@@ -106,7 +106,7 @@ end
 end
 
 @testset "a missing carrier table is reported, not pretended" begin
-    for mode in ("closed", "closed_supply", "all")
+    for mode in ("closed", "closed_supply", "closed_twin", "all")
         r = solve(fixture(nothing); mode = mode)
         @test r.diagnostics["carrier_loop_rule"] == "$mode: no carrier table"
         @test r.diagnostics["carrier_loop_forms"] == 0
@@ -160,6 +160,38 @@ end
         expect_base && @test fold(r, "EP") ≈ 2.0 rtol = 1e-6
         @test r.diagnostics["carrier_loop_rule"] == mode
     end
+end
+
+@testset "closed_twin: a closed free form follows its gene's root copy (amendment 5)" begin
+    # G is the gene's root copy of E (same reactome_id, no in-edge); G -> X elsewhere.
+    # H is a copy with an in-edge (not a root), so it is not a supply.
+    f = fixture(closed_table())
+    twin(u) = u => DS.NetworkNode(u, "R-E", "protein", nothing, u, BL)
+    mk(table) = DS.ReactionNetwork(merge(f.nodes, Dict(twin("G"), twin("H"), node("X"))),
+                                   vcat(f.edges, [edge("G", "X"), edge("X", "H")]),
+                                   f.set_mappings, f.cofactor_stids, f.containment, nothing, nothing, nothing, table)
+    out, rule, forms, n, twins = DS.apply_carrier_loops(mk(closed_table()), "closed_twin")
+    @test rule == "closed_twin" && forms == 1 && n == 1 && twins == 1
+    @test count(e -> e.child_uuid == "E" && e.edge_type == "carrier_supply" && e.parent_uuid == "G" &&
+                     e.is_positive && !e.is_and, out.edges) == 1
+    @test !any(e -> e.parent_uuid == "H" && e.child_uuid == "E", out.edges)
+    for (g, e_fold) in ((0.0, 0.0), (3.0, 3.0))
+        r = solve(mk(closed_table()); mode = "closed_twin", p = 2.0, extra = Dict("G" => (g, 1.0)))
+        @test fold(r, "E") ≈ e_fold atol = 1e-9
+        @test fold(r, "EP") ≈ 2.0 * e_fold atol = 1e-6
+        @test r.diagnostics["carrier_loop_twin_edges"] == 1
+        # closed_supply ignores the gene: E stays at baseline
+        r = solve(mk(closed_table()); mode = "closed_supply", p = 2.0, extra = Dict("G" => (g, 1.0)))
+        @test fold(r, "E") ≈ 1.0 rtol = 1e-9
+        @test r.diagnostics["carrier_loop_twin_edges"] == 0
+    end
+    # unperturbed, the twin is baseline and E reads baseline as under closed_supply
+    r = solve(mk(closed_table()); mode = "closed_twin", p = 2.0)
+    @test fold(r, "E") ≈ 1.0 rtol = 1e-9
+    # a fed loop gets no twin edge; a listed free form is never a twin
+    @test DS.apply_carrier_loops(mk(fed_table()), "closed_twin")[5] == 0
+    both = DS.CarrierLoopEdge[("E", "EP", true), ("G", "X", true)]
+    @test DS.apply_carrier_loops(mk(both), "closed_twin")[5] == 0
 end
 
 @testset "a typo in the mode is an error" begin

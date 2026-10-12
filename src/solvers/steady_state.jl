@@ -125,7 +125,7 @@ function solve_steady_state(
                     network.pathogen_stids === nothing ? "inert: no pathogen table" : "inert"
     # specs/049: a carrier loop's free form reads its supply, not its own release.
     # First, so every rule resolved on the network below sees the same edges.
-    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges =
+    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges, carrier_loop_twins =
         apply_carrier_loops(network, carrier_loop_mode())
     # specs/035: loop participants released unchanged by their loop, held at
     # baseline like cofactors. Resolved on the network as given (before bridges).
@@ -279,6 +279,7 @@ function solve_steady_state(
     result.diagnostics["carrier_loop_rule"] = carrier_loop_rule
     result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
     result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges
+    result.diagnostics["carrier_loop_twin_edges"] = carrier_loop_twins
     result.diagnostics["conserved_rule"] = cmode
     result.diagnostics["conserved_held"] = conserved_held
     # specs/040: which self-feedback rules ran. The counts come from the solve.
