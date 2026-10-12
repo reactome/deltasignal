@@ -449,3 +449,90 @@ complex and the MAPK pools handled (P8, `scd`).
 - This argues for `closed` on faithfulness, the ground on which specs/048
   adopted the bind fix. It is post hoc, so it is recorded as an argument for
   Adam's decision, not as a re-scoring.
+
+## P10. Every case `kclosed` changes, classified by its curated route
+
+Adam (2026-10-11): before counting a gain, check that getting the case right
+is a good idea. The curators' answers may come from reasoning the pathway does
+not contain, and experimental answers may need other pathways.
+
+`~/deltasignal-catalogs/analysis/049/route_class.py` (Neo4j, Release 97)
+classifies each case `kclosed` fixes or breaks against `kctl`:
+- **causal:** a curated route in which no hop is a part released unchanged,
+  and only the gene's own forms climb into complexes;
+- **recycled:** a route only if released-unchanged parts (RPA, RAD51, MRN)
+  may hop;
+- **lenient:** a route only if any entity may climb into a complex that
+  contains it;
+- **none:** no route in the pathway.
+
+It reproduces the P9 hand traces (ERCC1/ERCC4 recycled, CCND1 lenient, ARAF
+causal). `ROUTE_UNION=1` searches the union of the 92 catalog pathways.
+
+**Curator held-out (102 fixed, 21 broken):**
+
+| expected | route | fixed | broken |
+|---|---|---|---|
+| no change | causal | 2 | 0 |
+| no change | recycled / lenient / none | **77** | 0 |
+| up or down | causal | 14 | 4 |
+| up or down | recycled / lenient / none | 9 | 17 |
+
+- **77 of the 102 fixes are "no change" where Reactome has no causal
+  route.** Under `off`, a drained carrier moved these readouts; under
+  `closed`, the network says what the curation says.
+- **Where a causal route exists, `closed` is +14 / −4,** and every fixed case's
+  route sign agrees with the expected direction.
+- **Where the curator expects a move without a causal route, `closed` is
+  +9 / −17.** Those answers come from reasoning beyond the pathway, and
+  `off` matched them through drain.
+- So the +81 is +77 faithful no-change, +12 on causal routes (with the 2
+  causal no-change fixes) and −8 on curator calls the pathway does not
+  support.
+
+Tuning (99 fixed, 10 broken) has the same shape: 89 no-change fixes without
+a causal route, causal +9 / −3 (the 3 are the RAF knockouts).
+
+**The 4 causal held-out breaks are one mechanism: PTPN11 knockout in FGFR1–4,**
+whose RAS:GTP readout (R-HSA-109783) goes from about 0 to 6.67×. Traced in
+FGFR1:
+- the free GRB2 (R-HSA-74686, a closed free form) keeps a **depletion**
+  in-edge from the CBL feedback complex "Activated FGFR1:p-FRS2:p-PTPN11:
+  p-CBL:GRB2" (R-HSA-5654267);
+- PTPN11 knockout zeroes that complex, so GRB2 is de-repressed to the 10×
+  depletion cap;
+- GRB2:SOS1 → "Activated FGFR1:p-FRS:GRB2:SOS1" → RAS nucleotide exchange
+  (R-HSA-5654392) then read 10×.
+- Under `off` the same GRB2 drained to 3e-6×, so the readout read DOWN.
+
+`closed` drops only the activating loop edge (amendment 2, fix 3). A
+depletion into a closed free form by a complex that binds it is the
+consumption that conservation says is negligible, so it is a candidate for
+the same rule. That is a new rule and needs its own registration.
+
+**Experimental (3 fixed, 4 broken), within the pathway and across all 92:**
+
+| case | change | own pathway | all 92 pathways |
+|---|---|---|---|
+| EGFR KO (ERBB2) | fixed | causal, sign agrees | causal |
+| ARAF KO (RAF) | broken | causal, sign agrees | causal |
+| BRCA2 KO (HDR), expected no change | fixed | recycled | causal, either sign |
+| PTK6 KO (ERBB2) | fixed | recycled | causal, either sign |
+| ERCC1, ERCC4 KO (HDR) | broken | recycled | causal, either sign |
+| CCND1 up (Mitotic G1) | broken | lenient | lenient |
+
+- Across the catalog, ERCC1/ERCC4 do reach the readout through other
+  pathways, but through cycles with an inhibition, so the route gives either
+  sign and says nothing about direction.
+- CCND1 → CCNE1 has no causal route anywhere in the catalog (P9: R-HSA-69227
+  releases no E2F1).
+
+**Reading.**
+- `closed`'s curator gain is mostly the network ceasing to move readouts
+  that Reactome does not connect to the gene. Its losses are mostly cases
+  `off` got right only through drain.
+- On cases with a causal route, `closed` is +15 / −5 on both axes together,
+  and the losses are two mechanisms: RAF (drug complex and MAPK rail, P7/P8)
+  and the GRB2 depletion above.
+- This is recorded as evidence for a faithfulness decision on `closed`, not
+  as a re-scoring. The registered numbers stand.
