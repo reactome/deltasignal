@@ -425,8 +425,8 @@ env vars only override for benchmark sweeps:
   `carrier_loop_twin_edges`.
   A bundle without the table reports `<mode>: no carrier table` and solves as
   `off`, and the bench refuses it. The table comes from LNG #111, so builds
-  before it, the current canonical `20261010-1415_c0e1b2a` included, are re-run
-  with `--server DS_CARRIER_LOOP_MODE=off`.
+  before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261012-1401_01206ca`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -578,9 +578,9 @@ for the last feature that touched it rather than re-deriving from the code.
     closed free forms) fails the old gates. `closed_twin` (also a closed free
     form reads its gene's root copy) gives held-out +122, experimental −2
     (p 0.73), and passes the faithfulness gate registered in amendment 5;
-    **adopted as the default** (amendment 6, Adam). The canonical numbers
-    move once LNG #111 is merged and a build with `carrier_loops.csv` is
-    benchmarked. Open: an enzyme knockout should raise its substrate (SMAD7,
+    **adopted as the default** (amendment 6, Adam). Canonical build
+    `20261012-1401_01206ca` (LNG #111): curator held-out in release 89.29%,
+    experimental 589/849, reproducing `ktwin` on every prediction. Open: an enzyme knockout should raise its substrate (SMAD7,
     PTPN11).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).

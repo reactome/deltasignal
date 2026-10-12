@@ -481,3 +481,13 @@ such a node.
 One accepted limit: with several twins, the OR mean sums in uuid-sorted
 order. That moves values only at ulp level, inside the specs/013 `pred_ui`
 tolerance.
+
+**Canonical rebuild (2026-10-12).** LNG #111 was merged as 01206ca, a tree
+identical to 8116f24, which built K. Build `20261012-1401_01206ca`, solver
+1f58a1b, default config:
+- every curator and experimental prediction equals `ktwin`'s; `pred_ui`
+  differs by at most 0.01, which is relabelling;
+- curator held-out in release 89.29% / 0.8612;
+- experimental 589/849.
+
+docs/RESULTS.md carries the box.

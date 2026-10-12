@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-10. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-12. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,48 @@ commit.
 
 ---
 
+
+> **2026-10-12: canonical numbers with closed carrier loops reading their
+> own gene (specs/049).**
+> - Build `20261012-1401_01206ca`: generator 01206ca, LNG #111, which writes
+>   `carrier_loops.csv`. Its node and edge counts are identical to the
+>   previous build.
+> - Solver `1f58a1b`: `DS_CARRIER_LOOP_MODE=closed_twin` by default, DS #103.
+> - Results: `results/1f58a1b`.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **89.29%** | **0.8612** |
+> | curator held-out, every case (71 pathways) | 19,000 | 88.67% | 0.8526 |
+> | curator, all pathways, in release (81) | 23,625 | 86.97% | 0.8391 |
+> | curator, all pathways, every case | 24,100 | 86.40% | 0.8316 |
+> | experimental, every case (10 pathways) | 849 | **69.38%** | **0.6159** |
+>
+> **What moved since the previous box.** One rule changed. A carrier bound
+> and released unchanged (E → E:X → E) that nothing outside its loop
+> produces now reads its own gene's level, not the loop's turnover. Its free
+> form loses the loop's release and depletion in-edges and reads every root
+> copy of the same entity.
+> - Against the same build with the rule off (arm `kctl`): curator held-out
+>   **+122** (143 fixed / 21 broken, p 1.7e-23), tuning +99, experimental
+>   −2 (3 / 5, p 0.73).
+>   - Held-out gains are concentrated in HDR (+64), ERBB2 (+28), FGFR4 (+19)
+>     and PDGF (+18).
+>   - The worst pathway is TGF-β receptor (−9).
+> - The experimental losses are traced in specs/049 P12:
+>   - CALR → 983416 on a recycled route;
+>   - ERCC1/ERCC4 in HDR, the carrier drain recorded in P9.
+> - Open: an enzyme knockout should raise its substrate (SMAD7, PTPN11 →
+>   SPRY2). The network has no edge for it.
+> - The rebuild reproduces the measured arm (`ktwin`) on every prediction.
+>
+> Converged: 1,652 / 1,725 curator and 215 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 86.40% / 0.8316 against 83.34% / 0.8063, **+3.06pp**.
+> - Experimental: 69.38% (589/849) against 75.74% (643/849), **−6.36pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-10 (later): canonical numbers with pathogen proteins held and
 > homodimer-aware binding (specs/048).**
