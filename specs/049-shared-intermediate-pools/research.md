@@ -404,3 +404,48 @@ the readout reads ~1× on S and 0 on K. That is the specs/032 mechanism,
 traced there (the RAF phosphorylation step's catalyst is made downstream of
 it). Holding drugs fixes the knockouts and removes the overexpression route,
 so `inert` cannot pass on RAF without that loop fixed first.
+
+## P9. Do the cases `closed` loses have a curated route? (Neo4j, Release 97)
+
+`closed` loses ERCC1 and ERCC4 knockouts in HDR, CCND1 overexpression in
+Mitotic G1 and ARAF knockout in RAF; each was right under `off` only through
+a carrier drained to zero. Before treating them as losses, each was checked
+against the pathway as curated (`~/deltasignal-catalogs/analysis/049/
+curated_route.py`: reaction → reaction through an output used as an input,
+catalyst or regulator; `ROUTE_STRICT=1` lets only the gene's own forms climb
+into complexes, so a released subunit cannot jump into any later complex that
+contains it).
+
+**ERCC1, ERCC4 knockout → R-HSA-5686483 (Holliday junction resolution).**
+- ERCC1:XPF is used only in the SSA branch (R-HSA-9980006, 5686657,
+  9980021, 5686663). The readout is in the HRR branch.
+- The only curated link is machinery released by "Completion of SSA"
+  (R-HSA-5686663) and used again in HRR: free RAD51 (strict), or MRN, ATM,
+  BRCA1, EXO1/DNA2/BLM, KAT5, BRIP1 (lenient, via the D-loop complex).
+- That is a recycled-component hop, the same class as the RPA drain the
+  network used under `off`, not a causal route. SSA and HRR are
+  alternative branches.
+
+**CCND1 overexpression → R-HSA-157443 (CCNE1, made by R-HSA-8961846).**
+- Strict: **no curated route.**
+- "Cyclin D:CDK4/6 phosphorylates RB1 and prevents RB1 binding to E2F1"
+  (R-HSA-69227) outputs only monophosphorylated RB1; no free E2F1. The
+  release is in the reaction's name, not its outputs.
+- The lenient route runs through p-RBL2 into the DREAM complex, which
+  inhibits E2F1 transcription: the opposite sign.
+- Under `off` the case was right through the drained PTK6 product
+  R-HSA-8848007, which is not on any curated route to CCNE1.
+
+**ARAF knockout:** traced in P7; the curated route exists, and needs the drug
+complex and the MAPK pools handled (P8, `scd`).
+
+**Reading.**
+- Three of `closed`'s four experimental losses were right under `off` for
+  a reason Reactome does not contain. Under `closed` the network says what
+  the curation says: no route, so no change.
+- The experimental answer for those cases comes from outside the pathway's
+  mechanism (cross-pathway effects, or biology not curated here). Getting
+  them right from this pathway alone would be an artefact.
+- This argues for `closed` on faithfulness, the ground on which specs/048
+  adopted the bind fix. It is post hoc, so it is recorded as an argument for
+  Adam's decision, not as a re-scoring.
