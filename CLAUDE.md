@@ -568,6 +568,12 @@ for the last feature that touched it rather than re-deriving from the code.
     are a loop collapse; **not adopted** (Adam, an override of the rule). On S (`scd`) the
     ARAF/BRAF knockouts read DOWN through the real path, and RAS
     overexpression is lost (experimental −6).
+  - Amendments 4–5 (P11–P12): `closed_supply` (also drop depletion into
+    closed free forms) fails the old gates. `closed_twin` (also a closed free
+    form reads its gene's root copy) gives held-out +122, experimental −2
+    (p 0.73), and passes the faithfulness gate registered in amendment 5;
+    **recommended as the default, pending Adam**. Open: an enzyme knockout
+    should raise its substrate (SMAD7, PTPN11).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
