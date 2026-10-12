@@ -562,7 +562,7 @@ for the last feature that touched it rather than re-deriving from the code.
   - The iteration cap decides no canonical prediction.
   - Amendment 3 (P8): `closed` + `DS_DRUG_MODE=inert` on K (`kcd`) passes the
     registered gate (held-out +89, experimental +1 at p 1), but its RAF moves
-    are a loop collapse; adoption is held for a decision. On S (`scd`) the
+    are a loop collapse; **not adopted** (Adam, an override of the rule). On S (`scd`) the
     ARAF/BRAF knockouts read DOWN through the real path, and RAS
     overexpression is lost (experimental −6).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement

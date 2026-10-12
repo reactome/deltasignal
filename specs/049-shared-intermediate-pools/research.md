@@ -388,11 +388,15 @@ ERCC4, CCND1 broken.
   collapse, wrong-for-the-wrong-reason in both directions (net −1). The gain
   does not depend on it: outside RAF the net is +2.
 
-**Decision: held for Adam.** The registered rule says adopt `kcd`
-(`DS_CARRIER_LOOP_MODE=closed` with `DS_DRUG_MODE=inert` as defaults). It
-would change two defaults on an experimental margin of one case, and make
-RAF's predictions come from a collapsed loop. That is a call on the rule,
-not a re-reading of the numbers, so it is recorded here and not acted on.
+**Decision (Adam, 2026-10-11): `kcd` is not adopted,** although it passes
+the registered gate. This overrides the registered rule, and is recorded as
+an override:
+- the experimental margin is one case at p = 1;
+- RAF's predictions would come from a collapsed loop, wrong-for-the-wrong-
+  reason in both directions;
+- the curator gain is almost all `closed`'s (+81 alone), so the open
+  question is its drain-dependent experimental losses, not the drug rule.
+No default changes.
 
 **What the drug rule does to RAS overexpression** (both builds): with the
 drug complexes held at baseline, a RAS-up signal no longer reaches p-MAPK;
