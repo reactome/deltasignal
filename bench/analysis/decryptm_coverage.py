@@ -1,0 +1,126 @@
+"""specs/021 pilot: how much of a held-out phospho axis decryptM can supply.
+
+A case is (drug-target gene knocked down, phosphosite readout) within one
+pathway network. It is scorable when decryptM measured that site under a drug
+whose primary target is the gene. The measured direction is the curve's
+regulation call: down, up, or not (measured and unchanged).
+
+Inputs:
+  BUILD        catalog build dir (stid_to_uuid_mapping.csv, containment.csv per pathway)
+  PHOSPHO_CSV  Neo4j export: EWAS stId, UniProt, gene, coordinate, PSI-MOD name
+  TARGET_CSV   Neo4j export: EWAS stId, gene, for the drug-target genes
+  SITES_TSV    decryptm_sites.py output (any number)
+
+Prints coverage per split and writes one row per scorable case to OUT_TSV.
+
+Usage: decryptm_coverage.py BUILD PHOSPHO_CSV TARGET_CSV OUT_TSV SITES_TSV [SITES_TSV ...]
+"""
+import collections
+import csv
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from holdout_report import TUNING_PATHWAYS  # noqa: E402
+
+RESIDUE = {"O-phospho-L-serine": "S", "O-phospho-L-threonine": "T", "O4'-phospho-L-tyrosine": "Y"}
+
+# Primary targets only. Staurosporine (pan-kinase) and non-kinase drugs are excluded.
+DRUG_TARGETS = {
+    "MK2206": ["AKT1", "AKT2", "AKT3"],
+    "Pictilisib": ["PIK3CA", "PIK3CB", "PIK3CD", "PIK3CG"],
+    "Dactolisib": ["PIK3CA", "PIK3CB", "PIK3CD", "PIK3CG", "MTOR"],
+    "AZD8055": ["MTOR"],
+    "Selumetinib": ["MAP2K1", "MAP2K2"], "PD325901": ["MAP2K1", "MAP2K2"],
+    "Refametinib": ["MAP2K1", "MAP2K2"],
+    "Gefitinib": ["EGFR"], "Afatinib": ["EGFR", "ERBB2", "ERBB4"], "Lapatinib": ["EGFR", "ERBB2"],
+    "Trastuzumab": ["ERBB2"], "Pertuzumab": ["ERBB2"],
+    "AZD4547": ["FGFR1", "FGFR2", "FGFR3"],
+    "Imatinib": ["ABL1", "KIT", "PDGFRA", "PDGFRB"],
+    "Dasatinib": ["ABL1", "SRC", "LCK", "LYN", "FYN", "YES1", "KIT"],
+    "SHP099": ["PTPN11"],
+    "Nintedanib": ["KDR", "FLT1", "FLT4", "FGFR1", "FGFR2", "FGFR3", "PDGFRA", "PDGFRB"],
+    "Tideglusib": ["GSK3B"],
+}
+
+
+def neo4j_rows(path):
+    for line in open(path):
+        if line.startswith('"'):
+            yield [x.strip().strip('"') for x in line.split(",")]
+
+
+def drug_of(experiment):
+    """ddPTM_<cell line>_<drug>_<time>_<rep>; combinations (drug+drug) are not single-target."""
+    parts = experiment.split("_")
+    if len(parts) < 4:
+        return None, None
+    drug = parts[2]
+    return (drug if "+" not in drug else None), parts[1]
+
+
+def network_sites(pdir, phospho, targets):
+    nodes = {r["stable_id"].split("::")[0] for r in csv.DictReader(open(pdir / "stid_to_uuid_mapping.csv"))}
+    cont = collections.defaultdict(set)
+    for r in csv.DictReader(open(pdir / "containment.csv")):
+        cont[r["stable_id"]].add(r["contains_stable_id"])
+    inside = set()
+    for n in nodes:
+        inside |= cont.get(n, set()) | {n}
+    sites = {s for e in inside for s in phospho.get(e, ())}
+    genes = {targets[e] for e in inside if e in targets}
+    return sites, genes
+
+
+def main():
+    build, phospho_csv, target_csv, out, *site_files = sys.argv[1:]
+    build = Path(build)
+    phospho = collections.defaultdict(set)
+    for st, acc, gene, coord, mod in neo4j_rows(phospho_csv):
+        if mod in RESIDUE:
+            phospho[st].add((acc, int(coord), gene))
+    targets = {st: g for st, g in neo4j_rows(target_csv)}
+    # measured[(uniprot, position)][gene] -> list of (regulation, drug, cell line)
+    measured = collections.defaultdict(lambda: collections.defaultdict(list))
+    for f in site_files:
+        for r in csv.DictReader(open(f), delimiter="\t"):
+            drug, cell = drug_of(r["experiment"])
+            for g in DRUG_TARGETS.get(drug, ()):
+                measured[(r["uniprot"], int(r["position"]))][g].append((r["regulation"], drug, cell))
+    names = {}
+    for r in csv.DictReader(open(build / "pathways.tsv"), delimiter="\t"):
+        v = list(r.values())
+        names[v[0]] = v[1]
+    tally = collections.Counter()
+    with open(out, "w", newline="") as fo:
+        w = csv.writer(fo, delimiter="\t")
+        w.writerow(["pathway", "split", "gene", "uniprot", "position", "site_gene", "measured", "drugs"])
+        for pid in sorted(names):
+            pdir = build / pid
+            if not pdir.is_dir():
+                continue
+            split = "tuning" if names[pid] in TUNING_PATHWAYS else "held-out"
+            sites, genes = network_sites(pdir, phospho, targets)
+            for gene in sorted(genes):
+                tally[split, "possible"] += len(sites)
+                for acc, pos, site_gene in sorted(sites):
+                    calls = measured.get((acc, pos), {}).get(gene)
+                    if not calls:
+                        continue
+                    regs = {c[0] for c in calls}
+                    # several drugs/lines: a regulated call wins only if all regulated calls agree
+                    called = regs - {"not"}
+                    m = "conflict" if len(called) > 1 else (called.pop() if called else "not")
+                    tally[split, m] += 1
+                    w.writerow([names[pid], split, gene, acc, pos, site_gene, m,
+                                ";".join(sorted({f"{d}@{c}" for _, d, c in calls}))])
+    for split in ("held-out", "tuning"):
+        n = {k: tally[split, k] for k in ("possible", "down", "up", "not", "conflict")}
+        scorable = n["down"] + n["up"] + n["not"]
+        print(f"{split}: (gene, site) pairs possible {n['possible']}, measured {scorable + n['conflict']} "
+              f"(down {n['down']}, up {n['up']}, unchanged {n['not']}, conflicting {n['conflict']})")
+
+
+if __name__ == "__main__":
+    main()

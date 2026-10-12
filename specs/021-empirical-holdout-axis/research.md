@@ -885,9 +885,25 @@ any phosphosite in the same network is a case: our knockdown prediction
 against the measured dose response. On build `20261012-1401_01206ca`
 (sites from Neo4j: human proteins with an O-phospho-Ser/Thr/Tyr residue at
 a known coordinate, present as a node or inside a complex node):
-- **690 distinct phosphosites on 263 proteins** across the catalog;
-- 43 pathways have at least one site and at least one drug-target gene,
-  **34 of them held-out**.
+- **1,121 distinct phosphosites on 368 proteins** across the catalog
+  (S 466, T 224, Y 431);
+- 54 pathways have at least one site and at least one drug-target gene,
+  **45 of them held-out**.
+- *Correction:* a first count gave 690 sites and 34 pathways. It dropped
+  every phosphotyrosine, because PSI-MOD names it "O4'-phospho-L-tyrosine"
+  and the filter matched only "O-phospho-L-".
+
+**First coverage: SHP099 (PTPN11) in KYSE-520**
+(`bench/analysis/decryptm_sites.py` and `decryptm_coverage.py`, both
+tested):
+- Of 5,593 possible held-out (PTPN11, site) pairs, **61 are measured**: 23
+  down, 0 up, 38 unchanged. Tuning: 19 measured (5 down, 14 unchanged).
+- The regulated sites are ERK1/2's activation loop (MAPK3 T202/Y204, MAPK1
+  T185/Y187) in 7 pathways, and GAB1 Y659 in 3. ERK going down under SHP2
+  inhibition is the textbook result.
+- Peptides are placed on reviewed (Swiss-Prot) sequences. decryptM's
+  leading protein is often a TrEMBL fragment; MAPK3's loop would otherwise
+  land at 88/90.
 
 **Still to measure:** how many of those sites decryptM quantifies under
 the right drug, in a cell line where the curve is regulated. Downloading
