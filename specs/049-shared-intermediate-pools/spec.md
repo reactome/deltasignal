@@ -372,3 +372,57 @@ If gate 1 passes, `closed_supply` is recommended for adoption. If only gate
 2 passes, it is recommended with the excluded cases listed by name, and
 the decision is Adam's. If neither passes, it is not adopted. Any loss
 beyond a floor is traced to a case first.
+
+## Amendment 5 (2026-10-12, registered before this arm ran): a closed carrier reads its own gene
+
+**Why.** P11 traced the AURKA losses, and the ten SMAD7 losses `kclosed`
+already had, to one gap. "A closed free form reads its supply" must mean
+that when the carrier's own gene is perturbed, the free form follows it. But
+the rule holds the free form at baseline unless it is itself pinned, and the
+bench pins the gene's root copy, a different node of the same entity. On
+build K, 11 of 204 closed free forms have such a root copy (GRB2 in
+FGFR1–4, SMAD7 and SMURF2 in TGF-β, AURKA, ubiquitin in ERBB2, ANK1 in L1CAM,
+CALR and TAPBP in MHC class I).
+
+**The rule.** `DS_CARRIER_LOOP_MODE=closed_twin` does what `closed_supply`
+does, and gives each closed free form an activating OR in-edge from every
+root copy of the same entity: a node with the same `reactome_id` and no
+in-edge in the network, that is not itself a listed free form. The free
+form then reads its root copy (the mean, if several), which is baseline
+unless the gene is perturbed. The solve reports the edges added in a new
+diagnostic, `carrier_loop_twin_edges`.
+
+| arm | build | solver | compared against | question |
+|---|---|---|---|---|
+| `ktwin` | K | `closed_twin` | `kctl` (gate), `ksup` (attribution) | does the gene reach its own closed carrier? |
+
+**Predictions.**
+- **T-P1.** Structural: against `ksup`, no prediction changes outside the
+  seven pathways with a root twin (FGFR1–4, TGF-β receptor, Mitotic
+  G2-G2/M, ERBB2, L1CAM, MHC class I). `carrier_loop_twin_edges` > 0 in
+  those pathways' solves and 0 elsewhere.
+- **T-P2.** The two AURKA tuning cases (p-S95-PHLDA1) are correct again,
+  with free AURKA reading the pinned value.
+- **T-P3.** At least 6 of the 10 SMAD7 held-out cases that `kclosed`
+  broke are correct again.
+- **T-P4.** Curator held-out ≥ `ksup` (+124 against `kctl`).
+- **T-P5.** Experimental within 1 of `ksup` (−2); none of its changed cases
+  has a twin carrier on its path except possibly ubiquitin in ERBB2.
+
+**Decision rule.** Gates 1 and 2 of amendment 4 are computed and reported.
+Neither can pass if T-P5 holds, so a third gate is registered, and it is the
+one the decision uses. It is the standard the project has adopted under
+before: vn7 (specs/046, experimental −10, not significant) and cycle balance
+(specs/039 amendment 5, experimental −2, not significant).
+3. **Faithfulness gate.**
+   - Curator held-out net > 0 at McNemar p < 0.01.
+   - Experimental net loss not significant (p ≥ 0.05).
+   - No pathway losing more than 10 cases on either axis.
+   - Structural checks holding.
+   - Every experimental loss traced to a named mechanism: either the case has
+     no curated route (class `none` or `lenient` in its pathway and in the union),
+     or it is a mechanism already recorded in this spec (RAF: P7/P8).
+
+If gate 3 passes, `closed_twin` is recommended for adoption as the default,
+with the losses listed by name; the change of default is Adam's call. If it
+fails, nothing is adopted.
