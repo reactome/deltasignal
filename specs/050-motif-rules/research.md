@@ -64,3 +64,51 @@ pathways with experimental data.
 **PTPN11 → SPRY2** is the other shape: the substrate's only consumer is the
 knocked-out enzyme's reaction (n = 1). That is the accumulation regime
 refuted above, so it stays open.
+
+## R2. Motif census and the first motif-level hold-out (2026-10-12)
+
+`bench/analysis/motif_census.py`: one unperturbed solve per pathway
+through the API. The motif counts are what the default model applied
+there. Build `20261012-1401_01206ca`, results `1f58a1b`. Output:
+`~/deltasignal-catalogs/analysis/050/motif_census.tsv`.
+
+| motif | pathways | instances | in pathways no spec names | of those, with scored cases |
+|---|---|---|---|---|
+| interconversion pools (039) | 17 | 122 | 3 | 3 |
+| closed carrier free forms (049) | 36 | 204 | 15 | 11 |
+| root twins (049) | 9 | 16 | 2 | 1 |
+| self-containing inhibitor slots (022/040) | 57 | 6,322 | 23 | 20 |
+| drug nodes (032) | 24 | 759 | 11 | 10 |
+| pathogen nodes held (048) | 9 | 77 | 4 | 4 |
+| set / variant pool edges (033/046) | 52 | 11,648 | 19 | 15 |
+| GO-annotated competition sites (R1) | 15 | 175 | 4 | 4 |
+
+- 46 of 92 pathways are named in no spec.
+- 18 pathways have a strongly connected component above 100 nodes. The
+  largest are anterior HOX genes (1,263), MHC class I (911), RAF (685) and
+  the DSB-repair family (454).
+- "Named in a spec" is a weak proxy for "inspected": specs use
+  abbreviations (HDR, RAF, FGFR1–4) and also name pathways only in
+  aggregate tables. For the hold-out below, the traced set is taken from
+  the case traces instead.
+
+**Motif-level hold-out of `closed_twin`.** These are the pathways whose cases
+were traced while the rule was written (specs/049 P7–P12): RAF, HDR (both
+entries), Mitotic G1, FGFR1–4, Mitotic G2, TGF-β, ERBB2 and MHC class I.
+All other pathways are the hold-out. `kctl` against canonical (= `ktwin`):
+
+| | curator fixed / broken | net | experimental |
+|---|---|---|---|
+| traced pathways (12 with carrier loops) | 176 / 21 | **+155** (p ≈ 2e-28) | −2 (3 / 5) |
+| **not traced (24 with carrier loops)** | **76 / 10** | **+66** (p ≈ 1e-12) | 0 / 0 |
+
+- The untraced gain comes from 5 pathways: PDGF +18, NER +18, RHO GTPases
+  activate PKNs +16, DNA damage bypass +9 and EGFR +5. The other 19 untraced
+  pathways with closed loops did not move.
+- The rule generalises on the curator axis to pathways nobody looked at.
+- The experimental axis has no untraced pathway with a moved case, so it
+  gives no hold-out evidence either way.
+- **Caveat:** several traced pathways (HDR, ERBB2, MHC class I) were traced
+  for their LOSSES after the rule existed, not used to shape its gains. The
+  traced/untraced split is therefore conservative for the rule, not
+  generous.
