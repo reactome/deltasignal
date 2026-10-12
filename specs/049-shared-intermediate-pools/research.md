@@ -536,3 +536,70 @@ the same rule. That is a new rule and needs its own registration.
   and the GRB2 depletion above.
 - This is recorded as evidence for a faithfulness decision on `closed`, not
   as a re-scoring. The registered numbers stand.
+
+## P11. Arm `ksup` (amendment 4; solver `dfa8a04`, build K)
+
+`DS_CARRIER_LOOP_MODE=closed_supply`. Structural lines: `Carrier loops: rule
+closed_supply`, 3,902 / 1,194 free-form-solves changed (curator /
+experimental), as `kclosed`; coverage identical (18,481 held-out, 845
+experimental).
+
+| comparison | curator held-out | tuning | experimental |
+|---|---|---|---|
+| `ksup` vs `kctl` | **+124** (143/19, p 1e-24) | +97 | **−2** (3/5, p 0.73) |
+| `ksup` vs `kclosed` | +43 (49/6, p 2e-9) | +9 | −1 (0/1) |
+
+Worst pathway against `kctl`: TGF-β receptor −9 (the SMAD7 cases `kclosed`
+already lost); RAF −3. Against `kclosed` every pathway is ≥ 0 net.
+
+**Predictions.**
+- **S-P1 met.** Against `kclosed`, every changed case is in the 11 listed
+  pathways (FGFR1–4, ERBB2, DNA Damage Bypass, Mitotic G2-G2/M on both axes).
+- **S-P2 met.** The four PTPN11 KO → RAS:GTP cases are fixed (6.67× → 0.667×),
+  as are the eight PTPN11 KO/UP no-change cases on the FGFR complex
+  readouts (10× / 0.1× → 1.0×).
+- **S-P3 met, by more than predicted** (+124 against ≥ +85). The extra +39 is
+  no-change cases in FGFR1–4, ERBB2 and Mitotic G2-G2/M that the depletion
+  had been moving.
+- **S-P4 missed.** Experimental −2, one worse than `kclosed`: PTPN12 UP in
+  ERBB2 (readout p-6Y-ERBB2 heterodimers, expected DOWN, 0.668× → 1.0×).
+  Reactome has no route from PTPN12 to that readout in the pathway or in the
+  union of the 92 (class `none`); the old DOWN came through the RNF41
+  depletion now dropped.
+
+**Gates (amendment 4).**
+1. Registered gate: experimental −2. **Fails.**
+2. Route-qualified gate: PTPN12 UP is excluded (no route anywhere), leaving
+   experimental 3 fixed / 4 broken = −1. CCND1 is `lenient`, not `none`, so it
+   counts. **Fails.**
+
+**Decision: `closed_supply` not adopted**, under both registered gates.
+
+**The six new curator losses, traced.**
+- **PTPN11 KO → PP2A:p-SPRY2:GRB2 (FGFR1–4, expected UP, 5× → 0.5×).**
+  `kclosed` was right for a wrong reason: the complex read 5× because free
+  GRB2 sat at the 10× de-repression cap. With GRB2 at 1.0×, the complex
+  follows PP2A:p-SPRY2, whose two producers are SRC phosphorylation
+  (R-HSA-1295609, 1.0×) and "PTPN11 dephosphorylates SPRY2"
+  (R-HSA-1549564, 0 under the knockout), averaged to 0.5×. The expected UP is
+  substrate accumulation: the readout is the input that PTPN11's reaction
+  consumes, and the network has no depletion edge for that consumption.
+- **AURKA KO/UP → p-S95-PHLDA1 (Mitotic G2-G2/M, tuning).** AURKA has two
+  nodes: the pinned root (`a290ed4c`) and the carrier loop's free form
+  (`233bb72f`, closed). Under `closed` the only edge left into the free form
+  was a depletion from SCF-FBXL7:AURKA, which carried the knockout through two
+  sign inversions. Under `closed_supply` the free form reads baseline: **the
+  gene's own free form is cut off from its perturbation.**
+- **BTC KO (ERBB2, 3 tuning cases)**: small magnitude moves (0.82× → 0.90×)
+  across the DOWN threshold; not traced further.
+- RCHY1 KO/UP in DNA Damage Bypass: `lenient` routes only.
+
+**The rule's own gap.** The second AURKA point is general. "A closed free
+form reads its supply" must mean the gene's level when the carrier's gene is
+perturbed, but the rule holds the free form at baseline unless it is pinned,
+and the bench pins the root copy, a different node. On build K, 11 of 204
+closed free forms have a root copy of the same entity: GRB2 in FGFR1–4,
+SMAD7 and SMURF2 in TGF-β, AURKA, ubiquitin in ERBB2, ANK1 in L1CAM, CALR
+and TAPBP in MHC class I. The ten TGF-β SMAD7 losses that `kclosed` already
+had (SMAD7 KO/UP reading 1.0×) are this mechanism. It is the subject of
+amendment 5.
