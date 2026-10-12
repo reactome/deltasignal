@@ -307,3 +307,68 @@ than 10 cases on either axis, structural checks holding (coverage within 1%,
 - A canonical change from `scd` needs the generator flags too, which is
   Adam's merge (LNG #111).
 - Any loss beyond a floor is traced to a case first.
+
+## Amendment 4 (2026-10-12, registered before this arm ran): a closed carrier is not drained by binding either
+
+**Why.** P10 classified every case `closed` changes against Reactome. Its
+four held-out losses that have a causal curated route are one mechanism:
+PTPN11 knockout in Signaling by FGFR1–4. Under `closed`, free GRB2
+(R-HSA-74686) keeps a depletion in-edge from the CBL feedback complex
+R-HSA-5654267 (Activated FGFR:p-FRS2:p-PTPN11:p-CBL:GRB2). The knockout
+zeroes that complex, GRB2 de-represses to the 10× cap, and RAS:GTP reads UP.
+
+The `closed` rule rests on bound forms holding a negligible share of a
+conserved carrier: free E equals total E, and only the supply sets it. On
+the same assumption, binding into a complex cannot lower free E, so a
+depletion edge into a closed free form is the same error as the release
+edge `closed` already drops. Keeping one and dropping the other was an
+oversight in the original rule, not a measured choice.
+
+**The rule.** `DS_CARRIER_LOOP_MODE=closed_supply` does what `closed`
+does, and also drops every depletion in-edge (negative, `edge_type`
+`depletion`) into a free form of a closed loop, from any source. Inhibitions
+are not touched; there are none into closed free forms on build K.
+`closed` and `all` are unchanged. The solve reports the dropped depletion
+edges in `carrier_loop_edges_dropped`, as it does the release edges.
+
+**Size, counted on build K before the arm:** 204 closed free forms; 1,024
+listed release edges; 24 depletion edges into 18 closed free forms in 11
+pathways (MHC class I antigen presentation 5, TGF-β receptor 4, FGFR1–4
+2 each (GRB2 and SOS1, R-HSA-112199), ERBB2 2, DNA Damage Bypass 2, L1CAM 1,
+Mitotic G2-G2/M 1, DSB Response 1).
+
+| arm | build | solver | compared against | question |
+|---|---|---|---|---|
+| `ksup` | K | `closed_supply` | `kctl` (gate), `kclosed` (attribution) | does the depletion drop remove the PTPN11 losses without new ones? |
+
+**Predictions.**
+- **S-P1.** Structural: against `kclosed`, no prediction changes outside
+  the 11 pathways listed above. `carrier_loop_edges_dropped` exceeds
+  `kclosed`'s by exactly the depletion edges present in each solved network.
+- **S-P2.** The four PTPN11 knockout cases in FGFR1–4 that `kclosed`
+  broke are correct under `ksup`, and free GRB2 reads 1.0× in the traced
+  FGFR1 case.
+- **S-P3.** Curator held-out against `kctl` ≥ +85 (`kclosed` +81 plus the
+  four). No direction is predicted for MHC class I, TGF-β or ERBB2.
+- **S-P4.** Experimental equals `kclosed` (−1). None of the 11 pathways is
+  one of the ten experimental pathways except as listed by the bench; any
+  experimental change is traced.
+
+**Decision rule.** Two gates, both registered now and both reported.
+1. **The registered gate as before**, against `kctl`: experimental net > 0,
+   curator held-out net ≥ −15, no pathway losing more than 10 cases on
+   either axis, the structural checks above.
+2. **A route-qualified gate** (new; P9, P10 and Adam's 2026-10-11 point that
+   the ground truth itself must be questioned). Every changed case is
+   classified with `route_class.py` against its own pathway and against the
+   union of the 92. A case whose expected answer is UP or DOWN and which has
+   **no route at all** (class `none`, even leniently) in both its own
+   pathway and the union is reported separately and not counted: the
+   network cannot be blamed for not moving a readout Reactome does not
+   connect. Every other case counts, including `recycled` and `lenient`
+   routes. The gate is then the same thresholds on the counted cases.
+
+If gate 1 passes, `closed_supply` is recommended for adoption. If only gate
+2 passes, it is recommended with the excluded cases listed by name, and
+the decision is Adam's. If neither passes, it is not adopted. Any loss
+beyond a floor is traced to a case first.
