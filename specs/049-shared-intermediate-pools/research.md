@@ -600,6 +600,68 @@ perturbed, but the rule holds the free form at baseline unless it is pinned,
 and the bench pins the root copy, a different node. On build K, 11 of 204
 closed free forms have a root copy of the same entity: GRB2 in FGFR1–4,
 SMAD7 and SMURF2 in TGF-β, AURKA, ubiquitin in ERBB2, ANK1 in L1CAM, CALR
-and TAPBP in MHC class I. The ten TGF-β SMAD7 losses that `kclosed` already
-had (SMAD7 KO/UP reading 1.0×) are this mechanism. It is the subject of
-amendment 5.
+and TAPBP in MHC class I. It is the subject of amendment 5. (This paragraph
+first said the ten TGF-β SMAD7 losses that `kclosed` already had were this
+mechanism too; P12 traced them, and they are not.)
+
+## P12. Arm `ktwin` (amendment 5; solver `8d9435a`, build K)
+
+`DS_CARRIER_LOOP_MODE=closed_twin`. Structural lines: `Carrier loops: rule
+closed_twin, 3902 free-form-solves changed, 254 root-twin edges` (curator) and
+1,194 / 80 (experimental); coverage identical.
+
+| comparison | curator held-out | tuning | experimental |
+|---|---|---|---|
+| `ktwin` vs `kctl` | **+122** (143/21, p 2e-23) | +99 | **−2** (3/5, p 0.73) |
+| `ktwin` vs `ksup` | −2 (0/2) | +2 (2/0) | 0 |
+
+Worst pathways against `kctl`: TGF-β receptor −9, RAF −3, MHC class I −2.
+
+**Predictions.**
+- **T-P1 met.** Against `ksup`, only Mitotic G2-G2/M and MHC class I change.
+- **T-P2 met.** AURKA KO/UP → p-S95-PHLDA1 correct (0× / 100×), through the
+  free AURKA form now reading the pinned root (route `causal`, sign agrees).
+- **T-P3 missed: 0 of 10 SMAD7 cases restored.** The twin edge works (the
+  knockout zeroes "PP1 dephosphorylates TGFBR1", R-HSA-178178, which SMAD7
+  scaffolds), but nothing downstream of that reaction moves the SMAD2/3
+  readouts. The expected UP is the substrate, phospho-TGFBR1, accumulating
+  when its dephosphorylation stops; the network has no depletion edge for
+  that consumption. Under `off` these cases read 100× through a loop at its
+  cap, not through that route. This is the PTPN11 → SPRY2 class of P11:
+  **an enzyme's knockout should raise its substrate, and where the enzyme
+  is (part of) a carrier the network does not represent it.**
+- **T-P4 missed by 2** (+122 against ≥ +124). The two losses are CALR KO/UP
+  → antigen-loaded MHC class I (expected no change, now 2e-5× / 100×). The
+  route is `recycled`: CALR is released unchanged from the peptide-loading
+  complex. Now that CALR follows its gene, the readout follows the curated
+  loading path; the curated "no change" is the doubtful side.
+- **T-P5 met.** Experimental identical to `ksup`.
+
+**Gates.** Gates 1 and 2 fail (experimental −2; −1 once PTPN12 is excluded).
+Gate 3, the faithfulness gate:
+- held-out +122 at p 2e-23: passes;
+- experimental −2 at p 0.73: not significant, passes;
+- worst pathway −9: passes;
+- structural checks: pass;
+- every experimental loss traced to a named mechanism:
+  - PTPN12 UP: no route anywhere.
+  - CCND1 UP: `lenient` in its pathway and in the union (P9).
+  - ARAF KO: RAF (P7/P8).
+  - ERCC1 and ERCC4 KO: reach the readout only through SSA machinery released
+    unchanged (`recycled`), the drain recorded in P9. Across the 92 their route
+    has either sign.
+
+  ERCC1 and ERCC4 meet the clause as "a mechanism already recorded in this
+  spec", not as "no curated route", so this is a reading of the gate, stated
+  here rather than assumed. Passes on that reading.
+
+**Gate 3 passes. `closed_twin` is recommended as the default**; the change is
+Adam's call.
+
+Against `kctl`, the cases with a causal curated route are +33 / −3 (held-out
++27 / 0; tuning +6 / −3, the three RAF knockouts of P7). Most of the held-out
+gain is no-change cases with no causal route (`none` 51, `lenient` 30,
+`recycled` 35), the same reading as P10.
+
+**Open, and the next lever:** substrate accumulation when an enzyme is
+knocked out (SMAD7 → TGFBR1, PTPN11 → SPRY2). Not attempted here.
