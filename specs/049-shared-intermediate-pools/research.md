@@ -336,3 +336,67 @@ adopted on its own: experimental −5).
   - specs/032's drug rule lost RAF cases on its own. That was before carrier
     loops were conserved, so it is a new arm, not a re-run.
   - It must be registered before it runs.
+
+## P8. Arms `kdrug`, `kcd` and `scd` (amendment 3; solver `cf31ed5`)
+
+`cf31ed5` adds only the amendment to `eea8f8c`; the solver is that of
+`3c64f21`. Every arm is scored against `kctl`
+(`bench/analysis/arm_compare.py`; case diffs by
+`~/deltasignal-catalogs/analysis/049/exp_diff.py`).
+
+**Structural checks hold.** Coverage is identical on both axes (18,481 /
+5,030 curator, 845 experimental). `Drugs: rule inert` holds 15,086 curator
+and 6,648 experimental node-solves. The carrier line reads `closed` on `kcd`
+and `scd`, with 3,444 shared pool nodes on `scd`.
+
+| arm | curator held-out | curator tuning | experimental | RAF exp | worst pathway |
+|---|---|---|---|---|---|
+| `kdrug` | +8 (8/0), p 0.008 | +3 | −5 (5/10) | 21/49 | RAF −7 (exp) |
+| `kcd` | **+89** (110/21), p 9e-16 | +101 | **+1** (14/13), p 1 | 27/49 | TGF-β −9 (cur) |
+| `scd` | +69 (118/49), p 1e-7 | +42 | −6 (10/16) | 21/49 | RAF −7 (exp) |
+
+**Predictions:**
+- **D-P1 partly met.** `scd` fixes 6 of the 9 knockouts (ARAF, BRAF at
+  three readouts each), short of 7. They are real paths: converged, the
+  14-3-3 dimer (R-HSA-2028645) reads 1.0×, and p-MAPK reads 0.47–0.63×.
+  RAF1 knockout still reads 3.45× UP.
+- **D-P2 missed.** `scd` breaks 13 RAS overexpression cases (HRAS, NRAS,
+  KRAS): the readouts fall from 13–100× to 0.97–1.14×.
+- **D-P3 missed.** RAF 21/49; experimental −6.
+- **D-P4 missed.** `kcd` fixes 9 RAF knockouts (ARAF, BRAF, NRAS), but by
+  collapse: they read 1e-6 to 4e-7, and HRAS/NRAS up read 0 in the same
+  arm (10 broken). The RAF loop sits at baseline unperturbed and falls to
+  zero under any perturbation; HRAS up does not converge. RAF net −1.
+- **D-P5 met.** `kdrug` is −5 experimental, RAF 28 → 21: the specs/032
+  overexpression collapse replicated on today's networks.
+- **D-P6 met.** `kcd` +89 against `kclosed` +81; `scd` +69 against
+  `sclosed` +61.
+- **D-P7 met.** ERCC1, ERCC4 (HDR) and CCND1 (Mitotic G1) are broken in
+  `kcd` and `scd` as in `kclosed`.
+
+**Outside RAF, `kcd` gains +2 experimental:** EGFR and PTK6 knockouts in
+ERBB2 (0.87 → 0.69, 0.88 → 0.62, the carrier rule) and two CDK4 knockouts in
+Mitotic G1 (19.7 → 0.84, the drug rule), against BRCA2 fixed and ERCC1,
+ERCC4, CCND1 broken.
+
+**Against the registered rule:**
+- `kdrug` and `scd` fail (experimental −5, −6).
+- **`kcd` passes every registered gate:** experimental +1 > 0, held-out +89,
+  no pathway losing more than 9, structural checks hold. It passes as a
+  combination; neither rule passes alone (`kclosed` −1, `kdrug` −5).
+- **The margin is one case at p = 1,** and its RAF component is a loop
+  collapse, wrong-for-the-wrong-reason in both directions (net −1). The gain
+  does not depend on it: outside RAF the net is +2.
+
+**Decision: held for Adam.** The registered rule says adopt `kcd`
+(`DS_CARRIER_LOOP_MODE=closed` with `DS_DRUG_MODE=inert` as defaults). It
+would change two defaults on an experimental margin of one case, and make
+RAF's predictions come from a collapsed loop. That is a call on the rule,
+not a re-reading of the numbers, so it is recorded here and not acted on.
+
+**What the drug rule does to RAS overexpression** (both builds): with the
+drug complexes held at baseline, a RAS-up signal no longer reaches p-MAPK;
+the readout reads ~1× on S and 0 on K. That is the specs/032 mechanism,
+traced there (the RAF phosphorylation step's catalyst is made downstream of
+it). Holding drugs fixes the knockouts and removes the overexpression route,
+so `inert` cannot pass on RAF without that loop fixed first.
