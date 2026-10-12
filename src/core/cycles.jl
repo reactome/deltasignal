@@ -344,7 +344,7 @@ than the release steps (1 if none), times its modifier. Returns the largest
 absolute change written.
 """
 function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, obs_set, config;
-                      carriers::Bool = true)
+                      carriers::Bool = true, acc::Union{Nothing, Dict{Int, Tuple{Float64, Float64}}} = nothing)
     pi, u, cu = pool_stationary(x, p, rxns_idx, baseline_vec, config)
     s = NaN
     for (k, f) in enumerate(p.forms)
@@ -388,6 +388,9 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
             end
             num += p.path_j0[q] * m; den += p.path_j0[q]
         end
+        if acc !== nothing && haskey(acc, v)
+            a = acc[v]; acc[v] = (a[1] + num, a[2] + den); continue
+        end
         val = clamp(baseline_vec[v] * (den > 0 ? num / den : 1.0), 0.0, 1.0)
         maxch = max(maxch, abs(val - x[v])); x[v] = val
     end
@@ -401,6 +404,9 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
             m = sum(cs) / length(cs)
             share = m > 0 ? cs[c] / m : 1.0
             num += p.path_j0[q] * flux[q] * share; den += p.path_j0[q]
+        end
+        if acc !== nothing && haskey(acc, v)
+            a = acc[v]; acc[v] = (a[1] + num, a[2] + den); continue
         end
         val = clamp(baseline_vec[v] * (den > 0 ? num / den : 1.0), 0.0, 1.0)
         maxch = max(maxch, abs(val - x[v])); x[v] = val
@@ -420,6 +426,46 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
             val = clamp(baseline_vec[c] * sc * m, 0.0, 1.0)
             maxch = max(maxch, abs(val - x[c])); x[c] = val
         end
+    end
+    return maxch
+end
+
+"""
+Intermediates and step copies that more than one of `ps` writes (specs/049: MAPK1
+and MAPK3 pass through one capped RAF:MAP2K:MAPKs complex). A node that is also a
+form (state) of one of `ps` is left out: its pool writes it as a state, as before.
+The generator never emits that case under `LNG_POOL_SHARED`.
+"""
+function shared_pool_nodes(ps)
+    seen = Dict{Int, Int}()
+    for p in ps, v in unique(vcat(p.flux_nodes, p.copy_nodes))
+        seen[v] = get(seen, v, 0) + 1
+    end
+    forms = Set{Int}(v for p in ps for v in p.forms)
+    return Set(v for (v, c) in seen if c > 1 && !(v in forms))
+end
+
+"""
+Update the pools `ps` in order. A node in `shared` is written once, after all of
+them, as the baseline-flow-weighted mean over every path of every pool through
+it (the single-pool rule, across pools), so no pool overwrites another's flux.
+Returns the largest absolute change written.
+"""
+function update_pools!(x::Vector{Float64}, ps, shared::Set{Int}, rxns_idx, baseline_vec, obs_set, config;
+                       carriers::Bool = true)
+    acc = isempty(shared) ? nothing : Dict(v => (0.0, 0.0) for v in shared)
+    maxch = 0.0
+    for p in ps
+        ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = carriers, acc = acc)
+        isfinite(ch) || return ch          # a NaN or Inf must reach the residual check
+        ch > maxch && (maxch = ch)
+    end
+    acc === nothing && return maxch
+    for v in sort!(collect(shared))
+        v in obs_set && continue
+        num, den = acc[v]
+        val = clamp(baseline_vec[v] * (den > 0 ? num / den : 1.0), 0.0, 1.0)
+        maxch = max(maxch, abs(val - x[v])); x[v] = val
     end
     return maxch
 end

@@ -116,6 +116,11 @@ when the bundle has no `pools.csv`. Send it back with an inline network, or the
 default `DS_CYCLE_MODE=balance` reports `"balance: no pool table"` and loops
 iterate instead (until 2026-10-02 it was not returned at all, so every inline
 solve silently ran without it).
+`carrier_loops` (specs/049, additive) is the carrier-loop table, a list of
+`{free_uuid, loop_source_uuid, closed}`, or `null` when the bundle has no
+`carrier_loops.csv`. Send it back with an inline network, or the default
+`DS_CARRIER_LOOP_MODE=closed_twin` (and every other mode except `off`) reports
+`"<mode>: no carrier table"` and solves as `off`.
 
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is
@@ -186,6 +191,25 @@ Response:
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores
   iterated loops.
+- **`cycle_shared_nodes`** (additive, specs/049): intermediates and step
+  reaction nodes that more than one pool passes through. Each is written once,
+  from the flux of every pool through it. It is 0 unless the bundle was built
+  with `LNG_POOL_SHARED=1`.
+- **`carrier_loop_rule`**, **`carrier_loop_forms`**,
+  **`carrier_loop_edges_dropped`**, **`carrier_loop_twin_edges`** (additive,
+  specs/049): `"closed_twin"` (default since amendment 6), `"off"`,
+  `"closed"`, `"closed_supply"`, `"all"`, or `"<mode>: no carrier table"`
+  (which solves as `"off"`); how many carrier-loop free forms lost an in-edge
+  (from their own loop, or under `closed_supply`/`closed_twin` a depletion
+  edge), and how many edges that was. Influence scores are computed on the
+  network the solve ran, with these edges dropped and the twin edges added. `closed_supply` also drops depletion in-edges into
+  closed free forms, and counts them. `closed_twin` also gives each closed
+  free form an in-edge from every root copy of the same entity, so it
+  follows its own gene when that gene is perturbed; `carrier_loop_twin_edges`
+  counts them. Under `closed`, the free form of a loop that nothing outside it
+  produces then reads baseline (unless a silo bridge or boundary edge still
+  feeds it). Under `all`, every listed free form reads only
+  its producers outside the loop. An observation still wins.
 - **`scc_order`**, **`scc_order_ties`** (additive, specs/013): the Gauss-Seidel
   sweep order inside cyclic components (`flow` by default; `structure`, or
   `label` for the old uuid order), and how many adjacent reactions it could not

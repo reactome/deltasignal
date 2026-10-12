@@ -123,6 +123,10 @@ function solve_steady_state(
     pathogens = pmode == "inert" ? pathogen_uuids(network) : Set{String}()
     pathogen_rule = pmode == "propagate" ? "propagate" :
                     network.pathogen_stids === nothing ? "inert: no pathogen table" : "inert"
+    # specs/049: a carrier loop's free form reads its supply, not its own release.
+    # First, so every rule resolved on the network below sees the same edges.
+    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges, carrier_loop_twins =
+        apply_carrier_loops(network, carrier_loop_mode())
     # specs/035: loop participants released unchanged by their loop, held at
     # baseline like cofactors. Resolved on the network as given (before bridges).
     cmode = conserved_mode()
@@ -139,7 +143,7 @@ function solve_steady_state(
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
                                   network.set_mappings, network.cofactor_stids,
                                   network.containment, network.drug_stids, network.pools,
-                                  network.pathogen_stids)
+                                  network.pathogen_stids, network.carrier_loops)
     end
 
     # Convert network to reactions
@@ -272,6 +276,10 @@ function solve_steady_state(
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["pathogen_rule"] = pathogen_rule
     result.diagnostics["pathogens_held"] = pathogens_held
+    result.diagnostics["carrier_loop_rule"] = carrier_loop_rule
+    result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
+    result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges
+    result.diagnostics["carrier_loop_twin_edges"] = carrier_loop_twins
     result.diagnostics["conserved_rule"] = cmode
     result.diagnostics["conserved_held"] = conserved_held
     # specs/040: which self-feedback rules ran. The counts come from the solve.
@@ -1273,6 +1281,10 @@ function solve_scc_ordered!(
             n_pool_unmanaged += 1
         end
     end
+    # specs/049: nodes two pools of one component both write are written once,
+    # from both
+    comp_shared = Dict(c => shared_pool_nodes(ps) for (c, ps) in comp_pools)
+    pool_stats["cycle_shared_nodes"] = sum(length(v) for v in values(comp_shared); init = 0)
     pool_stats["cycle_pools_solved"] = sum(length(v) for v in values(comp_pools); init = 0)
     pool_stats["cycle_pools_unmanaged"] = n_pool_unmanaged
     pool_stats["cycle_pools_multistep"] = n_multistep
@@ -1419,8 +1431,9 @@ function solve_scc_ordered!(
                         x[stage_idx[s]] = stage_val[s]
                     end
                 end
-                for p in get(comp_pools, c, IndexedPool[])
-                    ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = pool_carriers)
+                if haskey(comp_pools, c)
+                    ch = update_pools!(x, comp_pools[c], comp_shared[c], rxns_idx, baseline_vec, obs_set, config;
+                                       carriers = pool_carriers)
                     ch > maxch && (maxch = ch)
                 end
                 comp_residual = maxch
@@ -1743,11 +1756,10 @@ function solve_steady_state_penalty(
         @inbounds for (i, uuid) in enumerate(all_nodes)
             bvec[i] = get(baseline_activities, uuid, 0.01)
         end
-        for p in solved_final
-            d = update_pool!(xp, p, rxns_idx, bvec, obs_set, eval_config; carriers = cycle_carriers)
-            isfinite(d) || (saw_nonfinite = true)
-            isfinite(d) && d > free_residual && (free_residual = d)
-        end
+        d = update_pools!(xp, solved_final, shared_pool_nodes(solved_final), rxns_idx, bvec, obs_set,
+                          eval_config; carriers = cycle_carriers)
+        isfinite(d) || (saw_nonfinite = true)
+        isfinite(d) && d > free_residual && (free_residual = d)
     end
     @inbounds for i in 1:n
         i in obs_set && continue
@@ -1809,6 +1821,8 @@ function solve_steady_state_penalty(
             "cycle_pools_unmanaged" => get(index_stats, "cycle_pools_unmanaged", 0),
             "cycle_pools_skipped" => get(index_stats, "cycle_pools_skipped", 0),
             "cycle_pools_multistep" => get(index_stats, "cycle_pools_multistep", 0),
+            # specs/049: intermediates and step copies written from several pools
+            "cycle_shared_nodes" => get(index_stats, "cycle_shared_nodes", 0),
             "cycle_carriers_held" => get(index_stats, "cycle_carriers_held", 0),
             "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
@@ -1855,7 +1869,8 @@ function compute_influence_scores(
     #
     # Known limit: a node set by the specs/039 pool solve, or a supply edge the
     # cyclic-component solve held, is differentiated through its reaction's
-    # forward model here, which is not how the solve set it.
+    # forward model here, which is not how the solve set it. Carrier loops
+    # (specs/049) are not a limit: callers pass `solved_carrier_network`.
     self_shared = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
                   first(self_inhibitor_setup(network))
     baselines = Dict{String, Float64}()

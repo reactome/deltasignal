@@ -407,6 +407,26 @@ env vars only override for benchmark sweeps:
   leaf with the input when a carrier of that leaf reaches both (built from
   the same species). Same weight, weaken-only. Reports
   `self_inhibitor_leaves` and `self_inhibitor_leaf_pairs`.
+- `DS_CARRIER_LOOP_MODE=closed_twin` (**default since 2026-10-12**, specs/049
+  amendment 6; held-out +122, experimental −2 at p 0.73 against `off`) | `off` |
+  `closed` | `closed_supply` | `all` (`closed`: held-out +81, experimental −1;
+  `all`: held-out −55). A carrier loop is a protein bound
+  and released unchanged (E → E:X → E), which the generator's `find_pools`
+  rejects as a pool and lists in `carrier_loops.csv`. Under `closed`, the free
+  form of a loop that nothing outside it produces loses its activating
+  in-edges from the loop and so reads baseline: total carrier is conserved,
+  and bound forms hold a negligible share. A silo bridge (off by default) or a
+  boundary edge into it would still feed it. `closed_supply` (amendment 4)
+  also drops depletion in-edges into closed free forms; `closed_twin`
+  (amendment 5) adds to that an in-edge from each root copy of the same
+  entity, so a closed carrier follows its own gene. Under `all`, every listed free form reads only its
+  producers outside the loop. Bound forms are not touched. The solve reports
+  `carrier_loop_rule`, `carrier_loop_forms`, `carrier_loop_edges_dropped` and
+  `carrier_loop_twin_edges`.
+  A bundle without the table reports `<mode>: no carrier table` and solves as
+  `off`, and the bench refuses it. The table comes from LNG #111, so builds
+  before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261012-1401_01206ca`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -537,8 +557,31 @@ for the last feature that touched it rather than re-deriving from the code.
     it moves no prediction.
   - Canonical build `20261010-1415_c0e1b2a` (LNG #110, DS #101): experimental
     591/849 (+7), held-out +1.
-  - Pools that share intermediates (the RAF knockout→UP class) are
-    unresolved; that work is on `wip/048-mapk-pools`.
+  - Pools that share intermediates (the RAF knockout→UP class) continue in
+    specs/049.
+- `specs/049-shared-intermediate-pools/` — pools that share intermediates
+  (generator `LNG_POOL_SHARED`, solver `update_pools!`) and carrier loops
+  (`DS_CARRIER_LOOP_MODE`). **`closed_twin` adopted as the default**
+  (amendment 6); every earlier arm was not.
+  - `closed` gains curator held-out +81, but experimental is −1, losing the
+    cases whose signal ran through a carrier drained to zero.
+  - `all` is refuted (IFN α/β −168).
+  - The shared pools' RAF knockout fix was itself a 14-3-3 drain. With the
+    drain removed, a drug-complex de-repression (specs/032) reads RAF UP.
+  - The iteration cap decides no canonical prediction.
+  - Amendment 3 (P8): `closed` + `DS_DRUG_MODE=inert` on K (`kcd`) passes the
+    registered gate (held-out +89, experimental +1 at p 1), but its RAF moves
+    are a loop collapse; **not adopted** (Adam, an override of the rule). On S (`scd`) the
+    ARAF/BRAF knockouts read DOWN through the real path, and RAS
+    overexpression is lost (experimental −6).
+  - Amendments 4–5 (P11–P12): `closed_supply` (also drop depletion into
+    closed free forms) fails the old gates. `closed_twin` (also a closed free
+    form reads its gene's root copy) gives held-out +122, experimental −2
+    (p 0.73), and passes the faithfulness gate registered in amendment 5;
+    **adopted as the default** (amendment 6, Adam). Canonical build
+    `20261012-1401_01206ca` (LNG #111): curator held-out in release 89.29%,
+    experimental 589/849, reproducing `ktwin` on every prediction. Open: an enzyme knockout should raise its substrate (SMAD7,
+    PTPN11).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -552,7 +595,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Eighteen files contain assertions; the
+**Most of the test suite cannot fail.** Nineteen files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -568,8 +611,9 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 125 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 236 | specs/039, added 2026-09-27 |
+| `test/test_cycles.jl` | 260 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
+| `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 54 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

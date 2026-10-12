@@ -333,6 +333,60 @@ end
     end
 end
 
+# specs/049: two pools that pass through one complex (MAPK1 and MAPK3 through a
+# capped RAF:MAP2K:MAPKs node). S + T + K -> X (b), X -> Ss + Ts + K (r);
+# Ss -> S (d1), Ts -> T (d2). X, b and r belong to both pools.
+function twin(; rl = identity)
+    ids = ["GS", "PS", "GT", "PT", "S", "T", "Ss", "Ts", "X", "K", "b", "r", "d1", "d2", "W", "D"]
+    nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
+    E = [("GS", "PS", "input"), ("PS", "S", "output"), ("GT", "PT", "input"), ("PT", "T", "output"),
+         ("S", "b", "input"), ("T", "b", "input"), ("K", "b", "input"), ("b", "X", "output"),
+         ("X", "r", "input"), ("r", "Ss", "output"), ("r", "Ts", "output"), ("r", "K", "output"),
+         ("Ss", "d1", "input"), ("d1", "S", "output"), ("Ts", "d2", "input"), ("d2", "T", "output"),
+         ("Ss", "W", "input"), ("Ts", "W", "input"), ("W", "D", "output")]
+    edges = [edge(rl(s), rl(t), et; and = et == "input") for (s, t, et) in E]
+    st(a, b, rs...) = (rl(a), rl(b), sort([rl(x) for x in rs]))
+    pool(id, s, ss, d) = DS.CyclePool(id, sort([rl(s), rl(ss)]), rl(s),
+        [DS.PoolPath(rl(s), rl(ss), [st(s, "X", "b"), st("X", ss, "r")], true),
+         DS.PoolPath(rl(ss), rl(s), [st(ss, s, d)], false)], [rl("X")], Tuple{String, String}[])
+    DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                       Dict{String, Set{String}}(), nothing, [pool("pool1", "S", "Ss", "d1"), pool("pool2", "T", "Ts", "d2")])
+end
+
+@testset "pools that share an intermediate write it once (specs/049)" begin
+    pinned = ("GS", "GT", "K")
+    r = solve_ring(twin(); pinned = pinned)
+    @test r.converged
+    @test r.diagnostics["cycle_pools_solved"] == 2
+    @test r.diagnostics["cycle_shared_nodes"] == 3          # X, b and r
+    for u in ("S", "T", "Ss", "Ts", "X", "b", "r", "D")
+        @test fold(r, u) ≈ 1.0 atol = 1e-9                  # exactly baseline at rest
+    end
+    # the kinase knocked out: both modified forms and the shared complex go to zero
+    r = solve_ring(twin(); obs = Dict("K" => 0.0), pinned = pinned)
+    @test r.converged
+    for u in ("Ss", "Ts", "X", "D")
+        @test fold(r, u) ≈ 0.0 atol = 1e-6
+    end
+    # the kinase up: both rise, symmetrically, and the readout with them
+    r = solve_ring(twin(); obs = Dict("K" => 80.0), pinned = pinned)
+    @test r.converged
+    @test fold(r, "Ss") > 2.0
+    @test fold(r, "Ss") ≈ fold(r, "Ts") rtol = 1e-9
+    @test fold(r, "D") > 2.0
+    # one substrate's supply up: its own pool grows; the other pool's modified form
+    # rises only through the shared binding step (T reads its partner S there)
+    r = solve_ring(twin(); obs = Dict("GS" => 80.0), pinned = pinned)
+    @test r.converged
+    @test fold(r, "S") > 2.0 && fold(r, "Ss") > 2.0
+    @test fold(r, "Ss") > fold(r, "Ts")
+    # label-independent
+    rl = u -> "q" * reverse(u)
+    a = solve_ring(twin(); obs = Dict("K" => 80.0), pinned = pinned)
+    b = solve_ring(twin(; rl = rl); obs = Dict("K" => 80.0), pinned = pinned, rl = rl)
+    @test all(isapprox(a.node_activities[u], b.node_activities[rl(u)]; atol = 1e-12) for u in keys(a.node_activities))
+end
+
 @testset "an irreversible three-state ring is exactly baseline at rest" begin
     # A -> B -> C -> A, one step each, no reverse: sqrt(pi0_j/pi0_i) rates would
     # not make pi0 stationary; the baseline flow does

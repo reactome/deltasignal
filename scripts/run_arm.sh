@@ -166,6 +166,7 @@ for gt in ("curator", "experimental"):
         m = re.search(r"^Pathogens: .*$", text, re.M); rec[f"{gt}_pathogens"] = m.group(0) if m else None
         m = re.search(r"^Conserved: .*$", text, re.M); rec[f"{gt}_conserved"] = m.group(0) if m else None
         m = re.search(r"^Cycles: .*$", text, re.M); rec[f"{gt}_cycles"] = m.group(0) if m else None
+        m = re.search(r"^Carrier loops: .*$", text, re.M); rec[f"{gt}_carrier_loops"] = m.group(0) if m else None
 json.dump(rec, open(os.path.join(out, "ARM.json"), "w"), indent=2)
 print(json.dumps(rec, indent=2))
 PY

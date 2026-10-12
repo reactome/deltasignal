@@ -64,6 +64,10 @@ function CyclePool(id, forms, base, transitions::AbstractVector{<:Tuple}, uncata
     return CyclePool(id, forms, base, paths, String[], Tuple{String, String}[])
 end
 
+# A carrier loop's free form, an in-edge source inside its loop, and whether the
+# loop is closed (specs/049, the generator's `carrier_loops.csv`).
+const CarrierLoopEdge = Tuple{String, String, Bool}
+
 struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
     edges::Vector{LogicNetworkEdge}
@@ -92,14 +96,19 @@ struct ReactionNetwork
     # Pathogen-derived stable ids from the generator's `pathogens.csv`
     # (specs/048), with the same `nothing` / empty distinction as drug_stids.
     pathogen_stids::Union{Nothing, Set{String}}
+    # Carrier loops from the generator's `carrier_loops.csv` (specs/049), with the
+    # same `nothing` (no table) / empty (lists none) distinction.
+    carrier_loops::Union{Nothing, Vector{CarrierLoopEdge}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
                     containment = Dict{String, Set{String}}(),
                     drug_stids = nothing,
                     pools = nothing,
-                    pathogen_stids = nothing) =
-        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools, pathogen_stids)
+                    pathogen_stids = nothing,
+                    carrier_loops = nothing) =
+        new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools, pathogen_stids,
+            carrier_loops)
 end
 
 """
@@ -396,6 +405,7 @@ function parse_complete_network(
     containment = parse_containment(logic_network_path)
     drugs = parse_drug_list(logic_network_path)
     pathogens = parse_pathogen_list(logic_network_path)
+    carrier_loops = parse_carrier_loops(logic_network_path)
     # A malformed pool table is an error when the solve would use it (the
     # default, DS_CYCLE_MODE=balance). Under DS_CYCLE_MODE=off it must not take
     # a pathway out of service, so it is reported and dropped.
@@ -426,7 +436,7 @@ function parse_complete_network(
             end
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
-                               Set{String}(), containment, drugs, pools, pathogens)
+                               Set{String}(), containment, drugs, pools, pathogens, carrier_loops)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -455,7 +465,7 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs, pools, pathogens)
+                           containment, drugs, pools, pathogens, carrier_loops)
 end
 
 """
@@ -562,6 +572,49 @@ function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePoo
                              sort!(get(carriers, id, Tuple{String, String}[]))))
     end
     return out
+end
+
+"""
+Read `carrier_loops.csv` beside a logic network (specs/049): one
+`(free_uuid, loop_source_uuid, closed)` per row, sorted. `nothing` when the
+file is absent (a bundle that predates it).
+"""
+function parse_carrier_loops(logic_network_path::String)::Union{Nothing, Vector{CarrierLoopEdge}}
+    path = joinpath(dirname(logic_network_path), "carrier_loops.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; types = String)
+    for c in ("free_uuid", "loop_source_uuid", "closed")
+        c in names(df) || throw(ArgumentError("$path has no `$c` column; it is not a generator carrier-loop table"))
+    end
+    out = CarrierLoopEdge[]
+    for r in eachrow(df)
+        any(ismissing, (r.free_uuid, r.loop_source_uuid, r.closed)) &&
+            throw(ArgumentError("$path: a row is missing free_uuid, loop_source_uuid or closed"))
+        c = lowercase(strip(r.closed))
+        c in ("true", "false", "1", "0") || throw(ArgumentError("$path: closed must be true or false, got $(repr(r.closed))"))
+        push!(out, (String(r.free_uuid), String(r.loop_source_uuid), c in ("true", "1")))
+    end
+    return sort!(unique!(out))
+end
+
+"""JSON form of `carrier_loops` (specs/049): `nothing` stays null so "no table"
+survives a parse -> POSTed (or CLI) solve."""
+carrier_loops_json(network::ReactionNetwork) = network.carrier_loops === nothing ? nothing :
+    [Dict("free_uuid" => f, "loop_source_uuid" => s, "closed" => c) for (f, s, c) in network.carrier_loops]
+
+"""Inverse of `carrier_loops_json`. Malformed input is an ArgumentError."""
+function carrier_loops_from_json(raw)::Union{Nothing, Vector{CarrierLoopEdge}}
+    raw === nothing && return nothing
+    raw isa AbstractVector || throw(ArgumentError("carrier_loops must be a list or null"))
+    out = CarrierLoopEdge[]
+    bad() = throw(ArgumentError("carrier_loops: each row needs string free_uuid and loop_source_uuid and a boolean closed"))
+    for r in raw
+        r isa AbstractDict || bad()
+        (haskey(r, :free_uuid) && haskey(r, :loop_source_uuid) && haskey(r, :closed)) || bad()
+        (r[:free_uuid] isa AbstractString && r[:loop_source_uuid] isa AbstractString && r[:closed] isa Bool) || bad()
+        push!(out, (String(r[:free_uuid]), String(r[:loop_source_uuid]), r[:closed]))
+    end
+    return sort!(unique!(out))
 end
 
 """JSON form of `drug_stids`: `nothing` stays null so "no table" survives a round trip."""

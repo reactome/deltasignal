@@ -827,6 +827,24 @@ def solve_via_ds_api(network_json: dict, observations: dict, network_id=None):
         return json.loads(r.read())
 
 
+def carrier_loop_capacity(network: dict) -> tuple[int, int]:
+    """(closed free forms listed, root-twin edges closed_twin should add) for one
+    posted network, by the rule of specs/049 amendment 5: a twin is a node with the
+    free form's reactome_id (non-empty), no in-edge, and not itself a listed free form."""
+    table = network.get("carrier_loops") or []
+    listed = {str(r["free_uuid"]) for r in table}
+    closed = {str(r["free_uuid"]) for r in table if r.get("closed")}
+    if not closed:
+        return 0, 0
+    has_in = {str(e["child_uuid"]) for e in network["edges"]}
+    rid = {str(n["uuid"]): n.get("reactome_id") or None for n in network["nodes"]}
+    roots: dict[str, int] = {}
+    for u, r in rid.items():
+        if r and u not in has_in and u not in listed:
+            roots[r] = roots.get(r, 0) + 1
+    return len(closed), sum(roots.get(rid.get(f) or "", 0) for f in closed if rid.get(f))
+
+
 def parse_pathway_via_ds_api(pathway_dir_name: str) -> dict:
     body = json.dumps({"pathway_id": pathway_dir_name}).encode()
     req = Request(f"{DS_BASE}/api/parse",
@@ -1024,13 +1042,15 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                        # specs/032: without it an edge-drop arm under DS_DRUG_MODE=inert
                        # reached the solver with no drug table (review of the branch).
                        "drug_stids": parsed.get("drug_stids"),
-                       "pathogen_stids": parsed.get("pathogen_stids")}
+                       "pathogen_stids": parsed.get("pathogen_stids"),
+                       "carrier_loops": parsed.get("carrier_loops")}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.
     modified = (bool(SKIP_EDGE_TYPES) or SKIP_SELF_CONTAINED_INHIBITORS or DEDUP_ACTIVATORS
                 or SIBLING_REGULATORS != "off" or COMPOSITION_FILTER != "off")
     solve_network_id = parsed.get("network_id") if not modified else None
+    closed_listed, twins_possible = carrier_loop_capacity(network_payload)   # per solve, below
 
     total = 0
     correct = 0
@@ -1069,8 +1089,15 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         if ds_result and ds_result.get("pathogen_rule") == "inert: no pathogen table":
             raise SystemExit(f"{pathway_name}: DS_PATHOGEN_MODE=inert but the network has no pathogens.csv "
                              "(a build that predates it), so nothing is held (specs/048).")
+        if ds_result and str(ds_result.get("carrier_loop_rule", "")).endswith(": no carrier table"):
+            raise SystemExit(f"{pathway_name}: {ds_result['carrier_loop_rule']} -- the network has no "
+                             "carrier_loops.csv (a build that predates it), so no loop is changed (specs/049).")
         if ds_result:
             SOLVE_TALLY["solves"] += 1
+            SOLVE_TALLY[f"carrier_loop_rule={ds_result.get('carrier_loop_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["carrier_loop_forms"] += int(ds_result.get("carrier_loop_forms") or 0)
+            SOLVE_TALLY["carrier_loop_twin_edges"] += int(ds_result.get("carrier_loop_twin_edges") or 0)
+            SOLVE_TALLY["cycle_shared_nodes"] += int(ds_result.get("cycle_shared_nodes") or 0)
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
             SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
@@ -1079,6 +1106,11 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             # how many listed stable ids this solve's network carried: a run whose
             # pathways list none (most do) holds nothing under the default by design
             SOLVE_TALLY["pathogens_listed"] += len(parsed.get("pathogen_stids") or [])
+            # specs/049: what this network's carrier table makes possible, counted here
+            # independently of the solver: closed free forms, and root copies of their
+            # entity. A subset of pathways with none of either legitimately changes nothing.
+            SOLVE_TALLY["carrier_closed_listed"] += closed_listed
+            SOLVE_TALLY["carrier_twins_possible"] += twins_possible
             SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
             if ds_result.get("cycle_rule") == "balance: no pool table":
                 raise SystemExit(f"{pathway_name}: DS_CYCLE_MODE=balance but the network has no pools.csv "
@@ -1402,6 +1434,25 @@ def main():
             raise SystemExit("DS_PATHOGEN_MODE=inert and the networks list pathogens, but no solve held one; "
                              "the listing matched no node.")
         print("  (no pathway in this run lists a pathogen, so inert holds nothing: identical to propagate here)")
+    lrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_loop_rule="))
+    print(f"\nCarrier loops: rule {'/'.join(lrules) or 'unknown'}, {SOLVE_TALLY['carrier_loop_forms']} "
+          f"free-form-solves changed, {SOLVE_TALLY['carrier_loop_twin_edges']} root-twin edges; "
+          f"shared pool nodes {SOLVE_TALLY['cycle_shared_nodes']} (specs/049)")
+    # closed_twin is the default since specs/049 amendment 6, and most pathways have
+    # no closed loop and no root twin, so refuse only when the networks made a
+    # change possible and the solver made none (as for pathogens above).
+    if (any(r in ("closed", "closed_supply", "closed_twin") for r in lrules)
+            and SOLVE_TALLY["carrier_closed_listed"] and SOLVE_TALLY["carrier_loop_forms"] == 0):
+        raise SystemExit("DS_CARRIER_LOOP_MODE is on and the networks list closed carrier loops, "
+                         "but no solve changed a free form; the arm is the control.")
+    if "all" in lrules and SOLVE_TALLY["carrier_loop_forms"] == 0:
+        raise SystemExit("DS_CARRIER_LOOP_MODE=all but no solve changed a free form; the arm is the control.")
+    if "closed_twin" in lrules and SOLVE_TALLY["carrier_twins_possible"] != SOLVE_TALLY["carrier_loop_twin_edges"]:
+        raise SystemExit(f"DS_CARRIER_LOOP_MODE=closed_twin: the networks have "
+                         f"{SOLVE_TALLY['carrier_twins_possible']} root twins of closed free forms, but the "
+                         f"solves added {SOLVE_TALLY['carrier_loop_twin_edges']} twin edges.")
+    if lrules and not SOLVE_TALLY["carrier_closed_listed"]:
+        print("  (no pathway in this run lists a closed carrier loop)")
     yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
     yc = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carriers="))
     print(f"\nCycles: rule {'/'.join(yrules) or 'unknown'}, {SOLVE_TALLY['cycle_pools_solved']} pool-solves, "

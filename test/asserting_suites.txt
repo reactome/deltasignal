@@ -26,3 +26,4 @@ test_set_pool
 test_conserved
 test_cycles
 test_self_fed
+test_carrier_loops
