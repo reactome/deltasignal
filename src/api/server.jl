@@ -862,8 +862,10 @@ function solve_handler(req)
         end
         
         # Create influence scores (simplified - could be enhanced)
-        reactions = DeltaSignal.convert_to_reaction_network(network)
-        influence_scores = DeltaSignal.compute_influence_scores(solver_result, reactions; network = network)
+        # on the network the solve ran: carrier loops rewire it (specs/049)
+        solved_net = DeltaSignal.solved_carrier_network(network)
+        reactions = DeltaSignal.convert_to_reaction_network(solved_net)
+        influence_scores = DeltaSignal.compute_influence_scores(solver_result, reactions; network = solved_net)
         
         result = Dict(
             "status" => "success",

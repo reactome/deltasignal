@@ -197,10 +197,12 @@ Response:
   with `LNG_POOL_SHARED=1`.
 - **`carrier_loop_rule`**, **`carrier_loop_forms`**,
   **`carrier_loop_edges_dropped`**, **`carrier_loop_twin_edges`** (additive,
-  specs/049): `"off"` (default), `"closed"`, `"closed_supply"`,
-  `"closed_twin"`, `"all"`, or `"<mode>: no carrier table"`;
-  how many carrier-loop free forms lost the in-edges from their own loop, and
-  how many edges that was. `closed_supply` also drops depletion in-edges into
+  specs/049): `"closed_twin"` (default since amendment 6), `"off"`,
+  `"closed"`, `"closed_supply"`, `"all"`, or `"<mode>: no carrier table"`
+  (which solves as `"off"`); how many carrier-loop free forms lost an in-edge
+  (from their own loop, or under `closed_supply`/`closed_twin` a depletion
+  edge), and how many edges that was. Influence scores are computed on the
+  network the solve ran, with these edges dropped and the twin edges added. `closed_supply` also drops depletion in-edges into
   closed free forms, and counts them. `closed_twin` also gives each closed
   free form an in-edge from every root copy of the same entity, so it
   follows its own gene when that gene is perturbed; `carrier_loop_twin_edges`

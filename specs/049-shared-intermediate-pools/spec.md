@@ -454,3 +454,30 @@ answer is no change); ERCC1/ERCC4 in HDR (the drain recorded in P9); the
 SMAD7 and PTPN11 → SPRY2 cases, where an enzyme knockout should raise its
 substrate and the network has no edge that says so. That is the next lever,
 and it is registered separately before it runs.
+
+**Adversarial review of amendments 4–6 (2026-10-12)**, before merge. Three
+confirmed defects, all fixed:
+1. Influence scores (API and CLI) were computed on the network as given, so
+   a closed free form was credited through the loop and depletion edges the
+   solve had dropped, and its root twin got nothing for the edge it solved
+   through. Both now score `solved_carrier_network(network)`. On a fixture,
+   the twin's influence rises by exactly 1 and the release complex's falls by 1.
+2. The bench refused any run where no free form changed, or no twin edge was
+   added. Under the default, that refused valid subset runs: 56 of 92 pathways
+   on K have no closed loop, and only 9 have a root twin. The bench now
+   counts what each network makes possible, by the amendment 5 rule and
+   independently of the solver. It refuses only when closed loops are listed
+   and nothing changed, or when the twin edges added differ from the twins
+   available. Checked on all 92 pathways of K: 204 closed free forms, 16 twins
+   by the bench's count and 16 by the solver's, with no pathway differing.
+3. `docs/API.md` still gave `off` as the default, and CLAUDE.md omitted
+   `carrier_loop_twin_edges`.
+
+One plausible defect, also fixed: an inline network can send
+`reactome_id: ""`, which made every id-less root a twin of every id-less
+closed free form. An empty id now names no entity. No shipped build has
+such a node.
+
+One accepted limit: with several twins, the OR mean sums in uuid-sorted
+order. That moves values only at ulp level, inside the specs/013 `pred_ui`
+tolerance.

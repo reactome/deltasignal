@@ -421,7 +421,8 @@ env vars only override for benchmark sweeps:
   (amendment 5) adds to that an in-edge from each root copy of the same
   entity, so a closed carrier follows its own gene. Under `all`, every listed free form reads only its
   producers outside the loop. Bound forms are not touched. The solve reports
-  `carrier_loop_rule`, `carrier_loop_forms` and `carrier_loop_edges_dropped`.
+  `carrier_loop_rule`, `carrier_loop_forms`, `carrier_loop_edges_dropped` and
+  `carrier_loop_twin_edges`.
   A bundle without the table reports `<mode>: no carrier table` and solves as
   `off`, and the bench refuses it. The table comes from LNG #111, so builds
   before it, the current canonical `20261010-1415_c0e1b2a` included, are re-run
@@ -612,7 +613,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 260 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 151 | specs/049, added 2026-10-11 |
+| `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 54 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

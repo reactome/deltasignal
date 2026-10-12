@@ -1869,7 +1869,8 @@ function compute_influence_scores(
     #
     # Known limit: a node set by the specs/039 pool solve, or a supply edge the
     # cyclic-component solve held, is differentiated through its reaction's
-    # forward model here, which is not how the solve set it.
+    # forward model here, which is not how the solve set it. Carrier loops
+    # (specs/049) are not a limit: callers pass `solved_carrier_network`.
     self_shared = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
                   first(self_inhibitor_setup(network))
     baselines = Dict{String, Float64}()

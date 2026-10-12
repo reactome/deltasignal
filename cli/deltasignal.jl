@@ -454,8 +454,10 @@ function execute_solve_command(args)
         println("   - Solve time: $(round(result.solve_time, digits=3))s")
 
         # Compute influence scores
-        reactions = convert_to_reaction_network(network)
-        influence_scores = compute_influence_scores(result, reactions; network = network)
+        # on the network the solve ran: carrier loops rewire it (specs/049)
+        solved_net = solved_carrier_network(network)
+        reactions = convert_to_reaction_network(solved_net)
+        influence_scores = compute_influence_scores(result, reactions; network = solved_net)
 
         # Convert activities back to 0-100 UI scale for output
         activities_ui = Dict(uuid => activity * 100.0 for (uuid, activity) in result.node_activities)

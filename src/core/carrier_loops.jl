@@ -87,13 +87,16 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String)
         listed = Set(f for (f, _, _) in network.carrier_loops)
         hasin = Set(e.child_uuid for e in network.edges)
         roots = Dict{String, Vector{String}}()
+        # an empty id (an inline network can send "") names no entity, so it
+        # must not make every id-less root a twin of every id-less free form
+        entity(nd) = (nd === nothing || nd.reactome_id === nothing || isempty(nd.reactome_id)) ?
+                     nothing : nd.reactome_id
         for (u, nd) in network.nodes
-            (nd.reactome_id === nothing || u in hasin || u in listed) && continue
-            push!(get!(roots, nd.reactome_id, String[]), u)
+            (entity(nd) === nothing || u in hasin || u in listed) && continue
+            push!(get!(roots, entity(nd), String[]), u)
         end
         for free in sort!(collect(undrained))
-            nd = get(network.nodes, free, nothing)
-            rid = nd === nothing ? nothing : nd.reactome_id
+            rid = entity(get(network.nodes, free, nothing))
             rid === nothing && continue
             for r in sort(get(roots, rid, String[]))
                 push!(kept, LogicNetworkEdge(r, free, false, true, 1.0, "carrier_supply"))
@@ -107,3 +110,10 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String)
                           network.pathogen_stids, network.carrier_loops)
     return out, mode, length(hit), n, twins
 end
+
+"""
+The network the solve actually runs under the active `DS_CARRIER_LOOP_MODE`:
+for influence scores, which must differentiate the edges the solve used (the
+twin's `carrier_supply` edge), not the loop edges it dropped.
+"""
+solved_carrier_network(network::ReactionNetwork) = first(apply_carrier_loops(network, carrier_loop_mode()))

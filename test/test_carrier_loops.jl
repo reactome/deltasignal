@@ -203,6 +203,36 @@ end
     @test DS.apply_carrier_loops(mk(both), "closed_twin")[5] == 0
 end
 
+@testset "influence scores use the network the solve ran (review of amendment 6)" begin
+    f = fixture(closed_table())
+    twin(u) = u => DS.NetworkNode(u, "R-E", "protein", nothing, u, BL)
+    net = DS.ReactionNetwork(merge(f.nodes, Dict(twin("G"), node("X"))), vcat(f.edges, [edge("G", "X")]),
+                             f.set_mappings, f.cofactor_stids, f.containment, nothing, nothing, nothing,
+                             closed_table())
+    with_env("DS_CARRIER_LOOP_MODE" => nothing) do
+        r = solve(net; mode = nothing, p = 2.0, extra = Dict("G" => (5.0, 1.0)))
+        @test r.diagnostics["carrier_loop_twin_edges"] == 1
+        score(n) = DS.compute_influence_scores(r, DS.convert_to_reaction_network(n); network = n)
+        raw, solved = score(net), score(DS.solved_carrier_network(net))
+        # G drives E through the twin edge, and EP no longer feeds E
+        @test solved["G"] ≈ raw["G"] + 1.0 atol = 1e-6
+        @test solved["EP"] ≈ raw["EP"] - 1.0 atol = 1e-6
+        # off: the solved network is the network as given
+        with_env("DS_CARRIER_LOOP_MODE" => "off") do
+            @test DS.solved_carrier_network(net) === net
+        end
+    end
+end
+
+@testset "an empty reactome_id names no entity, so it makes no twin" begin
+    blank(u) = u => DS.NetworkNode(u, "", "protein", nothing, u, BL)
+    f = fixture(closed_table())
+    nodes = merge(f.nodes, Dict(blank("E"), blank("Z")))
+    net = DS.ReactionNetwork(nodes, vcat(f.edges, [edge("Z", "T")]), f.set_mappings, f.cofactor_stids,
+                             f.containment, nothing, nothing, nothing, closed_table())
+    @test DS.apply_carrier_loops(net, "closed_twin")[5] == 0
+end
+
 @testset "a typo in the mode is an error" begin
     for bad in ("Closed", "closed ", "on", "inert", "")
         with_env("DS_CARRIER_LOOP_MODE" => bad) do
