@@ -1269,3 +1269,47 @@ Under the specs/051 protocol (point 6), McNemar and perturbation-clustered
 intervals are both reported. Where they disagree, as here, the clustered
 interval decides, because McNemar assumes independent cases. The bench
 now also reports a unit-level McNemar, counting each (drug, site) once.
+
+### Is the reachability gap the pathway boundary? (2026-10-13, graph only)
+
+Adam's question was whether this should be run on all pathways together.
+Before building a stitched catalog and solving it, I measured what
+stitching does to reachability.
+
+**Method.**
+- `bench/analysis/decryptm_stitched_reach.py` asks, for every scored case
+  of the kinobeads-map run (`results/decryptm_kinobeads_6c5b6a9`): is the
+  measured site reachable from any node built from one of the drug's
+  targets?
+- It asks this twice: inside the case's pathway, and in all 92 pathways of
+  build `20261012-1401_01206ca` merged by node identity (the 2026-07-16
+  key).
+- Both use the same generous definition, so the difference is the
+  boundary.
+
+| held-out | n | reachable in pathway | reachable stitched |
+|---|---|---|---|
+| regulated | 278 | 124 (45%) | 272 (98%) |
+| unchanged | 855 | 267 (31%) | 821 (96%) |
+
+Tuning is the same shape: regulated 142 → 240 of 240, unchanged 332 → 948
+of 961.
+
+**Reading.**
+- The unreachable regulated cases are boundary cases in the graph sense.
+  148 of 154 become reachable once pathways are joined.
+- But stitched, reachability stops discriminating: 98% of regulated and
+  96% of unchanged sites are reachable. Inside one pathway it separates
+  them (45% against 31%).
+- That is the over-coupling the 2026-07-16 stitch measured on the
+  experimental axis (macro-F1 0.663 → 0.479, every scoped variant also a
+  loss). Shared hubs (ERK, RAS, PI3K) connect every target to almost every
+  site.
+- A stitched *solve* could only gain if the solver attenuated the signal
+  correctly along those routes. The July result says it does not.
+- **Not run:** the solved stitched decryptM arm. The graph result and
+  the July measurement together make a gain unlikely, and decryptM is FIT
+  data, so it would not be evidence either way.
+- What would change this: a solver that bounds how far a single
+  perturbation spreads (a rule, registered and scored on the curator and
+  experimental axes first).
