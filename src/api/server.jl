@@ -344,8 +344,13 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     catch
         throw(ArgumentError("`carrier_loops` must be null or the list /api/parse returns."))
     end
+    node_leaves = try
+        DeltaSignal.node_leaves_from_json(get(data, :node_leaves, nothing))
+    catch
+        throw(ArgumentError("`node_leaves` must be null or the map /api/parse returns."))
+    end
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment,
-                                       drug_stids, pools, pathogen_stids, carrier_loops)
+                                       drug_stids, pools, pathogen_stids, carrier_loops, node_leaves)
 end
 
 """
@@ -739,6 +744,8 @@ function parse_handler(req)
             "pools" => DeltaSignal.pools_json(network),
             # specs/049: the carrier-loop table (null when none), for the same reason.
             "carrier_loops" => DeltaSignal.carrier_loops_json(network),
+            # specs/052: node kinds and member leaves (null when none), for the same reason.
+            "node_leaves" => DeltaSignal.node_leaves_json(network),
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))

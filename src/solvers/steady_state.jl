@@ -143,8 +143,15 @@ function solve_steady_state(
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
                                   network.set_mappings, network.cofactor_stids,
                                   network.containment, network.drug_stids, network.pools,
-                                  network.pathogen_stids, network.carrier_loops)
+                                  network.pathogen_stids, network.carrier_loops, network.node_leaves)
     end
+
+    # specs/052: under a pin to 0, nodes built from a protein no unpinned source
+    # can supply are held at 0. Resolved on the network as solved (after carrier
+    # loops and bridges), from the pins the caller gave.
+    zmode = zero_supply_mode()
+    zpinned = Dict{String, Float64}(u => v for (u, (v, c)) in observations if c > OBS_CONFIDENCE_TOL)
+    zheld, zero_supply_rule, zero_supply_leaves = zero_supply_uuids(network, zpinned, zmode)
 
     # Convert network to reactions
     reactions = convert_to_reaction_network(network)
@@ -203,6 +210,17 @@ function solve_steady_state(
             if !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
         pathogens_held = length(ppins)
         observations = merge(observations, ppins)
+    end
+    zero_supply_held = 0
+    if !isempty(zheld)
+        # Held at 0, not baseline: the protein is absent. Only unpinned nodes are
+        # in `zheld`, so an observation always wins.
+        zpins = Dict{String, Tuple{Float64, Float64}}(
+            u => (0.0, 1.0) for u in zheld
+            if haskey(network.nodes, u) &&
+               !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
+        zero_supply_held = length(zpins)
+        observations = merge(observations, zpins)
     end
     conserved_held = 0
     if !isempty(conserved)
@@ -280,6 +298,9 @@ function solve_steady_state(
     result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
     result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges
     result.diagnostics["carrier_loop_twin_edges"] = carrier_loop_twins
+    result.diagnostics["zero_supply_rule"] = zero_supply_rule
+    result.diagnostics["zero_supply_leaves"] = zero_supply_leaves
+    result.diagnostics["zero_supply_held"] = zero_supply_held
     result.diagnostics["conserved_rule"] = cmode
     result.diagnostics["conserved_held"] = conserved_held
     # specs/040: which self-feedback rules ran. The counts come from the solve.

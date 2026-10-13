@@ -1159,6 +1159,9 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             # entity. A subset of pathways with none of either legitimately changes nothing.
             SOLVE_TALLY["carrier_closed_listed"] += closed_listed
             SOLVE_TALLY["carrier_twins_possible"] += twins_possible
+            SOLVE_TALLY[f"zero_supply_rule={ds_result.get('zero_supply_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["zero_supply_held"] += int(ds_result.get("zero_supply_held") or 0)
+            SOLVE_TALLY["zero_supply_leaves"] += int(ds_result.get("zero_supply_leaves") or 0)
             SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
             SOLVE_TALLY[f"cycle_rule={ds_result.get('cycle_rule', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_pools_solved"] += int(ds_result.get("cycle_pools_solved") or 0)
@@ -1506,6 +1509,13 @@ def main():
           f"({SOLVE_TALLY['cycle_carriers_held']} held) (specs/039)")
     if "balance" in yrules and SOLVE_TALLY["cycle_pools_solved"] == 0:
         raise SystemExit("DS_CYCLE_MODE=balance but no solve used a pool; the arm is the control.")
+    zrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("zero_supply_rule="))
+    print(f"\nZero supply: rule {'/'.join(zrules) or 'unknown'}, {SOLVE_TALLY['zero_supply_held']} node-solves held, "
+          f"{SOLVE_TALLY['zero_supply_leaves']} leaf-solves without supply (specs/052)")
+    if any(r.startswith("hold: ") for r in zrules):
+        raise SystemExit("DS_ZERO_SUPPLY_MODE=hold but a network has no node table; the arm is not the rule.")
+    if "hold" in zrules and SOLVE_TALLY["zero_supply_held"] == 0:
+        raise SystemExit("DS_ZERO_SUPPLY_MODE=hold but no solve held a node; the arm is the control.")
     crules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("conserved_rule="))
     print(f"\nConserved: rule {'/'.join(crules) or 'unknown'}, {SOLVE_TALLY['conserved_held']} node-solves held (specs/035)")
     if "inert" in crules and SOLVE_TALLY["conserved_held"] == 0:
