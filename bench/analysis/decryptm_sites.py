@@ -79,6 +79,10 @@ def sites(rows, seqs, stats):
         for o in offs:
             yield {"uniprot": acc, "position": start + o + 1, "residue": plain[o],
                    "gene": r.get("Gene names", ""), "experiment": exp,
+                   # decryptM leaves `Regulation` blank for every curve it did
+                   # not call regulated, poorly fitted or low-signal ones
+                   # included, so "not" means "not called", which is weaker
+                   # than "measured unchanged" (code review 2026-10-13).
                    "regulation": r.get("Regulation", "") or "not",
                    "effect_size": r.get("Curve effect size", ""), "pEC50": r.get("pEC50", ""),
                    "n_sites_on_peptide": len(offs)}

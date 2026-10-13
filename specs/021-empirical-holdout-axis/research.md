@@ -944,6 +944,10 @@ Regulated held-out cases by drug:
 
 ### Verdict: GO, with these limits stated before any scoring
 
+*Superseded counts:* the corrected table (below) has 202 regulated cases,
+with ERK 42% and dasatinib 49% of them. The 241 / 38% / 39% in this pilot
+verdict came from the mixed-drug pilot table.
+
 1. **This is the first held-out experimental axis.** It has 241 regulated
    cases in 34 held-out pathways. Today's experimental axis has 849 cases,
    all in the ten tuning pathways.
@@ -1141,9 +1145,21 @@ Macro-F1 over the scored cases:
 **Verdict, under the registered rule:**
 - **No information beyond the graph is shown.**
 - On regulated held-out cases DeltaSignal loses to reachability, 45 against
-  70 of 190 (p 6e-8). The loss holds with ERK, dasatinib, or both excluded.
+  70 of 190 (case-level p 6e-8).
+  - **Corrected 2026-10-13 (code review):** the original line said the loss
+    "holds with ERK, dasatinib, or both excluded".
+  - Under drug-clustered intervals (Amendment below), it holds without
+    ERK. Without dasatinib, or without both, the direction is the same but
+    the intervals reach 0.
+  - Counting each (drug, site) once, the 190 cases are 89 units: DS is
+    better on 0 units, reachability on 22 (exact p 4.8e-7).
 - DeltaSignal never calls a regulated case right that reachability calls
   wrong (DS-only = 0).
+- *Caveat (code review 2026-10-13):* "unchanged" means decryptM did not call
+  the curve regulated. That includes poorly fitted and low-signal curves, so
+  the unchanged slice and macro-F1 are softer than the regulated slice.
+- *Also:* the gene-level table and its "(gene, site) pairs" line pool drugs
+  that share a target. Only the per-drug case table is scored.
 - It calls none of the 30 UP cases.
 - Its one advantage is the secondary metric: it keeps 31 more unchanged
   cases at NORMAL. Under the registration that is weak evidence.
@@ -1225,3 +1241,31 @@ so the solver had something to propagate.
 - Measured down: 111 of 136 called DOWN (82%).
 - Measured unchanged: 161 of 311 called DOWN (52%).
 - So some discrimination there, in the pathways the rules were tuned on.
+
+### Amendment: intervals by drug (specs/051 protocol, 2026-10-12)
+
+The protocol requires intervals from a bootstrap over perturbation groups:
+here, drugs, since one drug is one solve that many sites read. They were
+recomputed from the run's own case log with
+`decryptm_bench.py --summarize`, without solving again.
+
+| held-out | n | drugs | DS − reach | 95% CI by drug | case-level McNemar p |
+|---|---|---|---|---|---|
+| regulated | 190 | 13 | −0.132 | [−0.194, −0.053] | 6e-8 |
+| no ERK loop | 105 | 10 | −0.200 | [−0.394, −0.100] | 1e-6 |
+| no dasatinib | 97 | 12 | −0.134 | [−0.216, 0.000] | 2e-4 |
+| neither | 32 | 9 | −0.281 | [−0.444, 0.000] | 0.004 |
+| unchanged (secondary) | 621 | 18 | +0.050 | [+0.016, +0.071] | 9e-10 |
+
+**The headline stands:** DeltaSignal loses to reachability on regulated
+held-out cases, and the drug-clustered interval excludes 0.
+
+**Without dasatinib, or without both ERK and dasatinib, the intervals
+reach 0.** The case-level McNemar p-values overstated those two, because
+they treated sites read from one solve as independent. The direction is
+the same, but they are not significant once clustered.
+
+Under the specs/051 protocol (point 6), McNemar and perturbation-clustered
+intervals are both reported. Where they disagree, as here, the clustered
+interval decides, because McNemar assumes independent cases. The bench
+now also reports a unit-level McNemar, counting each (drug, site) once.

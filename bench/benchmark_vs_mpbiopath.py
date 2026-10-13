@@ -877,11 +877,39 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
                          "(a build that predates it), so no pool is solved (specs/039).")
 
 
+PIN_NETWORK_ROOT = os.environ.get("DS_PIN_NETWORK_ROOT", "")   # specs/051; empty = the served catalog
+
+
+def pin_network_dir(pathway_dir: Path) -> Path:
+    if not PIN_NETWORK_ROOT:
+        return pathway_dir
+    d = Path(PIN_NETWORK_ROOT) / Path(pathway_dir).name
+    if not (d / "logic_network.csv").exists():
+        raise SystemExit(f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT}: no {Path(pathway_dir).name}/logic_network.csv")
+    # Another build re-mints every uuid. The served uuids would then all have
+    # in-degree 0 in the pin network, every occurrence would count as a root,
+    # and the run would be DS_PIN_SCOPE=all without saying so (review 2026-10-13).
+    if _node_uuids(d) != _node_uuids(Path(pathway_dir)):
+        raise SystemExit(f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT}: {d.name}/nodes.csv does not list the served "
+                         "network's nodes; the pin network must be the same build's nodes, rewired or not")
+    return d
+
+
+def _node_uuids(pathway_dir: Path) -> set:
+    with open(pathway_dir / "nodes.csv", newline="") as f:
+        return {r["uuid"] for r in csv.DictReader(f)}
+
+
 def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict):
     """The nodes to pin for each gene under DS_PIN_SCOPE, and the network's
     in-degrees. `gene_to_uuids` is every node that is or contains the gene.
     Shared by the curator bench and the specs/021 drug bench, so both pin by
-    one rule."""
+    one rule.
+
+    Under DS_PIN_NETWORK_ROOT (specs/051 rewired null) the pins are read from
+    that catalog's copy of the pathway instead, so a rewired network is
+    perturbed at exactly the real network's nodes."""
+    pathway_dir = pin_network_dir(pathway_dir)
     indeg = Counter()
     with open_network(pathway_dir) as f:
         for row in csv.DictReader(f):
@@ -1349,7 +1377,8 @@ def main():
     print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
           f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG} "
           f"DS_SKIP_EDGE_TYPES={','.join(sorted(SKIP_EDGE_TYPES)) or '-'} "
-          f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER}", flush=True)
+          f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER} "
+          f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT or '-'}", flush=True)
     cache = {}
     results = []
     grand_total = 0

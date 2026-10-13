@@ -111,3 +111,37 @@ def test_catalog_list_overrides_the_mpbiopath_id(tmp_path):
                              ("69620", "Cell_Cycle_Checkpoints"), ("1", "Not_listed")], cat)
     assert got == [("451927", "Interleukin-2_family_signaling"),
                    ("69620", "Cell_Cycle_Checkpoints"), ("1", "Not_listed")]
+
+
+def test_pin_network_root_reads_pins_from_the_other_catalog(tmp_path, monkeypatch):
+    import benchmark_vs_mpbiopath as bm
+    real, served = tmp_path / "real" / "R-HSA-1", tmp_path / "served" / "R-HSA-1"
+    for d, edges in ((real, "a,x\n"), (served, "x,a\n")):
+        d.mkdir(parents=True)
+        (d / "nodes.csv").write_text("uuid,node_kind\na,simple_entity\nx,simple_entity\n")
+        (d / "logic_network.csv").write_text(
+            "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n"
+            + edges.replace("\n", ",pos,and,input,1,\n"))
+    monkeypatch.setattr(bm, "PIN_SCOPE", "root")
+    g2u = {"G": ["a", "x"]}
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", "")
+    assert bm.pin_occurrences(served, g2u, {})[0] == {"G": ["x"]}
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", str(tmp_path / "real"))
+    assert bm.pin_occurrences(served, g2u, {})[0] == {"G": ["a"]}
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", str(tmp_path / "nowhere"))
+    import pytest
+    with pytest.raises(SystemExit):
+        bm.pin_occurrences(served, g2u, {})
+
+
+def test_pin_network_root_refuses_another_builds_nodes(tmp_path, monkeypatch):
+    import pytest
+    import benchmark_vs_mpbiopath as bm
+    for name, ids in (("real", "a\nb\n"), ("served", "a\nc\n")):
+        d = tmp_path / name / "R-HSA-1"
+        d.mkdir(parents=True)
+        (d / "logic_network.csv").write_text("source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n")
+        (d / "nodes.csv").write_text("uuid\n" + ids)
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", str(tmp_path / "real"))
+    with pytest.raises(SystemExit, match="does not list the served"):
+        bm.pin_network_dir(tmp_path / "served" / "R-HSA-1")

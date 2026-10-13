@@ -17,6 +17,7 @@ The protocol is pre-registered in specs/021-empirical-holdout-axis/research.md
   any readout node is reachable from a pin, else NORMAL).
 
 Usage: DS_CATALOG_ROOT=<build> decryptm_bench.py CASES_TSV PHOSPHO_CSV OUT_DIR
+       decryptm_bench.py --summarize OUT_DIR   (recompute summary.json from the case log)
 
 PHOSPHO_CSV is the Neo4j export the case table was built from. OUT_DIR gets
 decryptm_cases.tsv (one row per case, every status) and summary.json.
@@ -34,6 +35,8 @@ from urllib.request import urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "analysis"))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
+import dataset_roles  # noqa: E402
+import protocol_stats  # noqa: E402
 from decryptm_coverage import RESIDUE, neo4j_rows  # noqa: E402
 
 # ERK1/2 activation loop: MAPK3 T202/Y204, MAPK1 T185/Y187 (registered control)
@@ -70,16 +73,42 @@ def mcnemar_p(b, c):
     return min(1.0, 2 * tail)
 
 
+def _acc(key):
+    return lambda rs: sum(r[key] == r["measured"] for r in rs) / len(rs) if rs else 0.0
+
+
+def _diff(rs):
+    return _acc("predicted")(rs) - _acc("reach_predicted")(rs)
+
+
 def compare(rows):
-    """DeltaSignal, reachability and always-DOWN on the same scored cases."""
+    """DeltaSignal, reachability and always-DOWN on the same scored cases, with
+    95% intervals from a bootstrap over drugs (specs/051: cases sharing a drug
+    are one solve, so they are resampled together)."""
     n = len(rows)
     ds = [r["predicted"] == r["measured"] for r in rows]
     rc = [r["reach_predicted"] == r["measured"] for r in rows]
     b = sum(x and not y for x, y in zip(ds, rc))
     c = sum(y and not x for x, y in zip(ds, rc))
-    return {"n": n, "deltasignal": sum(ds), "reachability": sum(rc),
+    # One (drug, site) is measured once but can be a case in several pathways
+    # (the ERK loop sites), so cases are not independent. The unit-level McNemar
+    # counts each (drug, site) once, by which method is right on more of its cases.
+    units = collections.defaultdict(lambda: [0, 0])
+    for r, x, y in zip(rows, ds, rc):
+        u = units[(r["drug"], r["uniprot"], r["position"])]
+        u[0] += x
+        u[1] += y
+    ub = sum(x > y for x, y in units.values())
+    uc = sum(y > x for x, y in units.values())
+    return {"n": n, "units": len(units), "unit_ds_better": ub, "unit_reach_better": uc,
+            "unit_mcnemar_p": mcnemar_p(ub, uc), "deltasignal": sum(ds), "reachability": sum(rc),
             "always_down": sum(r["measured"] == "down" for r in rows),
-            "ds_only": b, "reach_only": c, "mcnemar_p": mcnemar_p(b, c)}
+            "ds_only": b, "reach_only": c, "mcnemar_p": mcnemar_p(b, c),
+            "drugs": len({r["drug"] for r in rows}),
+            "ci95_by_drug": {name: protocol_stats.cluster_bootstrap_ci(rows, f, lambda r: r["drug"])[1:]
+                             for name, f in (("deltasignal", _acc("predicted")),
+                                             ("reachability", _acc("reach_predicted")),
+                                             ("ds_minus_reach", _diff))} if rows else {}}
 
 
 def macro_f1(rows, key):
@@ -123,8 +152,46 @@ def git_state(repo):
     return sha, dirty
 
 
+def report(summary):
+    for split in ("held-out", "tuning"):
+        s = summary[split]
+        print(f"{split}: status {s['status']}")
+        for k in ("regulated", "regulated_no_erk", "regulated_no_dasatinib", "regulated_neither",
+                  "down", "up", "unchanged"):
+            m = s[k]
+            ci = m.get("ci95_by_drug", {}).get("ds_minus_reach")
+            ci = (f", DS-reach 95% CI by drug [{ci[0]:+.3f}, {ci[1]:+.3f}] over {m['drugs']} drugs"
+                  if ci and ci[0] is not None else "")
+            if "units" in m:
+                ci += (f"; {m['units']} (drug, site) units, DS better on {m['unit_ds_better']}, "
+                       f"reach on {m['unit_reach_better']}, p {m['unit_mcnemar_p']:.3g}")
+            print(f"  {k:24s} n={m['n']:4d}  DS {m['deltasignal']:4d}  reach {m['reachability']:4d}  "
+                  f"always-down {m['always_down']:4d}  (DS-only {m['ds_only']}, reach-only "
+                  f"{m['reach_only']}, McNemar p {m['mcnemar_p']:.3g}{ci})")
+        print(f"  macro-F1 {s['macro_f1']}")
+
+
+def resummarize(out_dir):
+    """Recompute summary.json from a run's own case log, without solving."""
+    out = Path(out_dir)
+    old = json.loads((out / "summary.json").read_text())
+    rows = list(csv.DictReader(open(out / "decryptm_cases.tsv"), delimiter="\t"))
+    backup = out / "summary.orig.json"
+    if not backup.exists():           # the run's own summary is never lost
+        backup.write_text(json.dumps(old, indent=1))
+    summary = {k: old[k] for k in ("build", "code", "dataset", "role", "solves", "rules") if k in old}
+    summary["summarized_by"] = git_state(Path(__file__).resolve().parents[1])[0]
+    summary["held-out"] = summarize(rows, "held-out")
+    summary["tuning"] = summarize(rows, "tuning")
+    (out / "summary.json").write_text(json.dumps(summary, indent=1))
+    report(summary)
+
+
 def main():
+    if sys.argv[1:2] == ["--summarize"]:
+        return resummarize(sys.argv[2])
     cases_tsv, phospho_csv, out_dir = sys.argv[1:4]
+    role = dataset_roles.require_role("decryptm1", "score")   # specs/051
     repo = Path(__file__).resolve().parents[1]
     sha, dirty = git_state(repo)
     if dirty and not os.environ.get("DS_ALLOW_DIRTY"):
@@ -145,8 +212,10 @@ def main():
         by_pathway[c["pathway_id"]][(c["drug"], c["targets"])].append(c)
     print(f"Protocol: decryptM drug bench, DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} DS_KO_AGG=mean(unpinned) "
-          f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}", flush=True)
+          f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
+          f"dataset decryptm1 registered {role}", flush=True)
     rows, solves = [], 0
+    rules = collections.Counter()     # which model each solve ran (code review 2026-10-13)
     for pid in sorted(by_pathway):
         pdir = build / pid
         stid_to_uuids = bm.load_stid_to_uuids(pdir)
@@ -171,6 +240,9 @@ def main():
                     raise SystemExit(f"{pid} {drug}: solve failed: {res.get('message')}")
                 bm.refuse_unless_default_model(res, pid)
                 solves += 1
+                rules.update(f"{k}={v}" for k, v in res.items()
+                             if k.endswith("_rule") or k in ("self_inhibitor_leaves", "cycle_carriers",
+                                                             "scc_order"))
                 activities = res.get("node_activities", {})
                 reach = bm.reachable_from(adj, pinned)
             for c in group:
@@ -179,10 +251,17 @@ def main():
                     status, ui, pred, rp = "conflict", None, None, None
                 else:
                     status, ui, pred, rp = score_case(ro, pinned, activities, reach)
-                rows.append({**c, "status": status, "pinned": len(pinned), "readout_nodes": len(ro),
+                rows.append({**c, "status": status, "pinned": len(pinned),
+                             # a multi-target drug may have targets with no root form in this pathway
+                             "targets_pinned": ";".join(sorted(g for g, us in pins.items() if us)),
+                             "readout_nodes": len(ro),
                              "pred_ui": "" if ui is None else f"{ui:.6g}",
                              "predicted": NAMES.get(pred, ""), "reach_predicted": NAMES.get(rp, "")})
-        print(f"  {pid} {group[0]['pathway']}: {len(by_pathway[pid])} drugs", flush=True)
+        name = next(iter(by_pathway[pid].values()))[0]["pathway"]
+        print(f"  {pid} {name}: {len(by_pathway[pid])} drugs", flush=True)
+    after = (json.loads(urlopen(f"{bm.DS_BASE}/api/health", timeout=30).read()).get("catalog") or {})
+    if after.get("build_id") != build.name:
+        raise SystemExit(f"the API switched to {after.get('build_id')!r} during the run; nothing recorded")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     cols = list(rows[0].keys())
@@ -190,19 +269,11 @@ def main():
         w = csv.DictWriter(f, fieldnames=cols, delimiter="\t")
         w.writeheader()
         w.writerows(rows)
-    summary = {"build": build.name, "code": sha, "solves": solves,
+    summary = {"build": build.name, "code": sha, "dataset": "decryptm1", "role": role, "solves": solves,
+               "rules": dict(sorted(rules.items())),
                "held-out": summarize(rows, "held-out"), "tuning": summarize(rows, "tuning")}
     (out / "summary.json").write_text(json.dumps(summary, indent=1))
-    for split in ("held-out", "tuning"):
-        s = summary[split]
-        print(f"{split}: status {s['status']}")
-        for k in ("regulated", "regulated_no_erk", "regulated_no_dasatinib", "regulated_neither",
-                  "down", "up", "unchanged"):
-            m = s[k]
-            print(f"  {k:24s} n={m['n']:4d}  DS {m['deltasignal']:4d}  reach {m['reachability']:4d}  "
-                  f"always-down {m['always_down']:4d}  (DS-only {m['ds_only']}, reach-only "
-                  f"{m['reach_only']}, McNemar p {m['mcnemar_p']:.3g})")
-        print(f"  macro-F1 {s['macro_f1']}")
+    report(summary)
 
 
 if __name__ == "__main__":

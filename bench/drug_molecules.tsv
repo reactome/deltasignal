@@ -1,0 +1,19 @@
+drug	chembl_molecule	chembl_name	note
+Afatinib	CHEMBL1173655	AFATINIB	
+AZD4547	CHEMBL3184679	AZD-4547	
+AZD8055	CHEMBL1801204	AZD-8055	
+Dactolisib	CHEMBL1879463	DACTOLISIB	
+Dasatinib	CHEMBL5416410	DASATINIB	
+Gefitinib	CHEMBL939	GEFITINIB	
+Imatinib	CHEMBL941	IMATINIB	
+Lapatinib	CHEMBL554	LAPATINIB	
+MK2206	CHEMBL1079175	MK-2206	
+Nintedanib	CHEMBL502835	NINTEDANIB	
+PD325901	CHEMBL507361	MIRDAMETINIB	PD-0325901 is mirdametinib; matched by hand, the synonym search missed the zero
+Pictilisib	CHEMBL521851	PICTILISIB	
+Refametinib	CHEMBL1236682	REFAMETINIB	
+Selumetinib	CHEMBL1614701	SELUMETINIB	
+Tideglusib	CHEMBL3545157	TIDEGLUSIB	
+Pertuzumab			antibody: not in the kinobeads deposit
+SHP099			allosteric phosphatase inhibitor: not in the kinobeads deposit
+Trastuzumab			antibody: not in the kinobeads deposit

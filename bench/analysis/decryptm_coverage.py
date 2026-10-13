@@ -30,7 +30,7 @@ from holdout_report import TUNING_PATHWAYS  # noqa: E402
 RESIDUE = {"O-phospho-L-serine": "S", "O-phospho-L-threonine": "T", "O4'-phospho-L-tyrosine": "Y"}
 
 # Primary targets only. Staurosporine (pan-kinase) and non-kinase drugs are excluded.
-DRUG_TARGETS = {
+HAND_DRUG_TARGETS = {
     "MK2206": ["AKT1", "AKT2", "AKT3"],
     "Pictilisib": ["PIK3CA", "PIK3CB", "PIK3CD", "PIK3CG"],
     "Dactolisib": ["PIK3CA", "PIK3CB", "PIK3CD", "PIK3CG", "MTOR"],
@@ -48,6 +48,33 @@ DRUG_TARGETS = {
 }
 
 
+def load_drug_targets(path):
+    """{drug: [genes]} from a bench/drug_targets.py table (specs/051 R4)."""
+    out = collections.defaultdict(list)
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f, delimiter="\t"):
+            out[r["drug"]].append(r["gene"])
+    return dict(out)
+
+
+# specs/051 R4: measured affinity (Kd_app <= 1 uM, kinobeads) replaces the hand
+# table, which a drug the assay cannot see still falls back to. The map is built
+# by bench/drug_targets.py from CC BY-SA data and kept beside that data, outside
+# this repository (Adam, 2026-10-13). DRUG_TARGETS=hand reproduces specs/021; any
+# other value is a path to a drug_targets.py table.
+DEFAULT_DRUG_TARGETS = Path.home() / "deltasignal-catalogs/external/klaeger2017_chembl37/drug_targets_1uM.tsv"
+
+
+def resolve_drug_targets():
+    dt = os.environ.get("DRUG_TARGETS", str(DEFAULT_DRUG_TARGETS))
+    if dt == "hand":
+        return HAND_DRUG_TARGETS
+    if not Path(dt).exists():
+        raise SystemExit(f"no drug->target map at {dt}: build it with bench/drug_targets.py "
+                         "(specs/051 R4), or set DRUG_TARGETS=hand for the specs/021 table")
+    return load_drug_targets(dt)
+
+
 def neo4j_rows(path):
     for line in open(path):
         if line.startswith('"'):
@@ -55,7 +82,10 @@ def neo4j_rows(path):
 
 
 def drug_of(experiment):
-    """ddPTM_<cell line>_<drug>_<time>_<rep>; combinations (drug+drug) are not single-target."""
+    """ddPTM_<cell line>_<drug>_<time>_<rep>. A name with "+" is rejected here, but
+    decryptM's combinations are mostly written without it (`GeftinibAZD4547-1to80`,
+    `SelumetinibMK2206-1to2`); those drop out only because they are not keys of
+    the drug->target map (code review 2026-10-13)."""
     parts = experiment.split("_")
     if len(parts) < 4:
         return None, None
@@ -84,6 +114,7 @@ def network_sites(pdir, phospho, targets):
 
 
 def main():
+    DRUG_TARGETS = resolve_drug_targets()
     build, phospho_csv, target_csv, out, *site_files = sys.argv[1:]
     build = Path(build)
     phospho = collections.defaultdict(set)
