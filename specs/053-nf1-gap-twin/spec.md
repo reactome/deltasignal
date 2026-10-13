@@ -30,9 +30,8 @@ After the logic network is built and before any table is written:
    `chosen_members`), that is not itself closed and has an in-edge.
 3. **Join.** X is merged into W: every edge to or from X is re-pointed to
    W, exact duplicate edges are dropped, and X disappears from every
-   output table. With several fed twins, X joins the one with the smallest
-   uuid after sorting by entity key, so the build does not depend on
-   iteration order; the others are left as they are.
+   output table. **Only when X has exactly one fed twin** (amendment 1);
+   otherwise X is left as it is and counted.
 4. All side tables (`nodes.csv`, `pools.csv`, `pool_carriers.csv`,
    `carrier_loops.csv`, `containment.csv`, mappings) are computed on the
    joined network. A joined copy has an outside producer, so it is no
@@ -93,3 +92,28 @@ Held-out is SELECT (specs/051), so passing chooses the rule; it is not a
 test result. If the gate passes, `LNG_CLOSED_TWIN_JOIN=1` is recommended as
 the generator default, and the change is Adam's call. If it fails, nothing
 is adopted and the NF1 cases stay wrong, recorded as such.
+
+## Amendment 1 (2026-10-13, before any generator code ran): one fed twin only
+
+The registered tie-break ("the smallest uuid") picks by uuid4, which is random
+per build, so it would make the build depend on the run. Measured
+(`bench/analysis/closed_twin_census.py`): 229 of the 690 closed copies have
+2 to 140 fed twins. Joining X to all of them would merge fed copies with each
+other, which is the silo bridge closed at 1:3.9 against. So X is joined only
+when it has exactly one fed twin.
+
+Revised scope (same build and results):
+- 1,752 closed copies; 690 with fed twins; **461 joined**. By pathway:
+  R-HSA-983169 95, R-HSA-73894 76, R-HSA-5693532 66, R-HSA-195721 47,
+  R-HSA-194315 37, R-HSA-388841 36, R-HSA-5693567 29, R-HSA-446728 10,
+  R-HSA-3700989 9, R-HSA-69242 6, R-HSA-451927 5, R-HSA-5358351 5, and
+  fewer elsewhere.
+- Touched cases: **382 curator** (310 correct today: cell junction 124,
+  S phase 72, TGF-β 70, IL-2 family 52, cell cycle checkpoints 52, RAF 12)
+  and **36 experimental** (20 correct: checkpoints 19, S phase 12, RAF 5).
+  TP53 and DSB repair are no longer touched.
+- All 5 RAF joins (the SPRED dimer:NF1 GAPs among them) have one fed twin.
+
+J-P1 now reads: the build joins within 10% of 461, and every pathway's join
+count is within 10% (or 2) of the census. J-P5's named risk pathways are
+replaced by the touched list above. Everything else stands.
