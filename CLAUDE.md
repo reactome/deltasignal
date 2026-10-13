@@ -608,8 +608,10 @@ for the last feature that touched it rather than re-deriving from the code.
   there is in no complex. From the decryptM EGFR trace (the curated CBL
   cycle rails at 100× under an EGFR knockout). **Not adopted**: curator
   held-out −20 (p 1e-5), experimental +4 n.s. Traced: the HDR loss is root
-  pinning zeroing partner proteins, the PTK6 loss an exact-zero solver
-  sensitivity, the RAF gain NF1 (enzyme knockout raising its substrate).
+  pinning zeroing partner proteins, the PTK6 loss a pin cutting a cycle
+  pool's recycling path (the specs/039 supply rule treats every pin as a
+  reach barrier; not exact-zero numerics), the RAF gain NF1 (enzyme
+  knockout raising its substrate).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
