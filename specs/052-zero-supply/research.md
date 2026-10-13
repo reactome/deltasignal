@@ -87,8 +87,25 @@ record of what was believed.)
   interaction between any pin and the pool supply rule. It concerns the
   benchmark's own perturbation pins as much as the hold. Root pins have no
   in-edges, so they never sit on a recycling path, but `root_cycle` pins
-  regenerated cycle forms, which do. How often that happens in the
-  canonical benchmark is **not measured**.
+  regenerated cycle forms, which do.
+- **Census of the canonical benchmark** (`bench/analysis/pool_pin_census.py`,
+  build `20261012-1401_01206ca`, results `1f58a1b`; structural, nothing
+  solved). Of 23,511 valid curator and 845 experimental cases (4,612 and 187
+  in pathways with a solved pool):
+  - **Trap B, a pin cutting a recycling path: 0 cases on either axis.** The
+    detector does find the PTK6 cut when DOK1:PTK6 is pinned (positive
+    control), so the zero is not a blind script. Only the hold reaches it.
+  - **Trap A, a pin on a pool intermediate or step copy: 124 curator cases,
+    114 correct; 0 experimental.** Signaling by PTK6 90 (the ERBB2/3/4
+    knockouts: `root_cycle` pins the receptor:PTK6 intermediates of pool1),
+    intrinsic apoptosis 24, insulin receptor 10. Solved directly, the ERBB3
+    knockout reports `cycle_pools_pinned_fallback=1`, `cycle_pools_solved=0`.
+    This is the fallback specs/039 registered and counts (finding 5), so it
+    is reported, not hidden; at most 10 of the 124 are wrong.
+  - Pins on a pool state (handled by the rule, it sets the supply): 144
+    curator, 2 experimental.
+- So fixing the reach barrier has no canonical upside; it matters only to
+  a rule that holds nodes through observations, like this one.
 
 **RAF, the largest gainer: +5 tuning, +4 experimental, all NF1.**
 - NF1 is a RAS GAP. Knocked out, the control reads exactly 1.0. Under the
@@ -145,9 +162,10 @@ is affected the same way as the HDR partners.
    that holds nodes through observations inherits it. The candidate fix is
    in specs/039's supply rule, not here: stop at a pin only where the pin
    is an inert hold at baseline (cofactor, drug, pathogen, conserved), not
-   at a perturbation or a hold at 0. That changes the default solver, so it
-   needs its own registration and arm. First, a census: how many
-   `root_cycle` pins in the canonical benchmark cut a pool's recycling path.
+   at a perturbation or a hold at 0. The census (R2) found no canonical
+   case it would change, so it is worth registering only together with a
+   rule that holds nodes at 0 (a revived zero supply). The pool-intermediate
+   fallback (trap A) touches 124 cases, 114 already correct: not a lever.
 3. **NF1 is the real signal.** A GAP or phosphatase knockout raising its
    substrate is the specs/049 open item. A rule aimed at it directly
    (enzymes that convert an active form back) would be narrower than
