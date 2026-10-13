@@ -1,6 +1,6 @@
 # specs/053 research: why an NF1 knockout cannot reach RAS
 
-**Status:** trace only (2026-10-13). No rule is registered. This was meant to
+**Status:** trace (2026-10-13). The rule it led to is registered in spec.md (generator join, Adam's choice). This was meant to
 register "an enzyme knockout raises its substrate" (specs/049 open item,
 specs/052 R4); the trace shows the solver already does that once the enzyme
 moves, and that the NF1 enzyme never moves.
