@@ -288,6 +288,7 @@ recounted.
 | date | spec | arm | purpose |
 |---|---|---|---|
 | 2026-10-12 | 051 | `wire0`, `rw1`–`rw5` | rewired-network baseline; nothing selected |
+| 2026-10-13 | 052 | `zs0`, `zs` (f65618a; a void pair at 6273941) | zero-supply rule; not adopted |
 
 ## Non-goals
 
