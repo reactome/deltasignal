@@ -1100,3 +1100,98 @@ imatinib (4) and three other drugs.
 - If the ERK-and-dasatinib-excluded comparison is not significant, it is
   reported as underpowered, not as a failure. The decision rule above is
   otherwise unchanged.
+
+## Result, 2026-10-12: the frozen Release97 rules on decryptM (registered scoring)
+
+Code `5343fea` (solver source identical to `8757909`), build
+`20261012-1401_01206ca`. The output is in
+`builds/20261012-1401_01206ca/results/decryptm_5343fea/`
+(`decryptm_cases.tsv`, `summary.json`, plus the `.log` beside it).
+
+**Status**
+- Held-out: 811 scored, 28 trivial (every readout node pinned).
+- Tuning: 991 scored, 31 trivial, 1 conflict.
+- No case was left without a pin or without a readout.
+
+**Held-out**
+
+| cases | n | DeltaSignal | reachability | always DOWN | McNemar (DS-only / reach-only) |
+|---|---|---|---|---|---|
+| regulated | 190 | **45** | **70** | 160 | 0 / 25, p 6e-8 |
+| no ERK loop | 105 | 36 | 57 | 93 | 0 / 21, p 1e-6 |
+| no dasatinib | 97 | 15 | 28 | 73 | 0 / 13, p 2e-4 |
+| neither | 32 | 7 | 16 | 26 | 0 / 9, p 0.004 |
+| UP | 30 | 0 | 0 | 0 | |
+| unchanged | 621 | 485 | 454 | 0 | 31 / 0, p 9e-10 |
+
+Macro-F1 over the scored cases:
+
+| | DeltaSignal | reachability | always DOWN |
+|---|---|---|---|
+| held-out | 0.352 | 0.371 | 0.110 |
+| tuning | 0.422 | 0.368 | 0.117 |
+
+**Tuning, for reference only**
+
+| cases | n | DeltaSignal | reachability | always DOWN |
+|---|---|---|---|---|
+| regulated | 228 | 111 | 136 | 211 |
+| unchanged | 763 | 595 | 452 | |
+
+**Verdict, under the registered rule:**
+- **No information beyond the graph is shown.**
+- On regulated held-out cases DeltaSignal loses to reachability, 45 against
+  70 of 190 (p 6e-8). The loss holds with ERK, dasatinib, or both excluded.
+- DeltaSignal never calls a regulated case right that reachability calls
+  wrong (DS-only = 0).
+- It calls none of the 30 UP cases.
+- Its one advantage is the secondary metric: it keeps 31 more unchanged
+  cases at NORMAL. Under the registration that is weak evidence.
+
+### What the losses are (traced after scoring; analysis only, nothing changed)
+
+1. **The readout cannot be reached: 116 of 190 regulated held-out cases.**
+   - No path runs inside the pathway's network from the drug's pinned
+     targets to the site. Both methods say NORMAL, and both are wrong.
+   - By drug: dasatinib 47, SHP099 16, dactolisib 12, gefitinib 9.
+   - 26 of the 30 UP cases are among them.
+   - These responses run through other pathways, or through biology
+     Reactome does not curate. A single-pathway network cannot represent
+     them. This is the largest class and is outside the solver.
+2. **Reachable, but DeltaSignal does not call DOWN: 25 cases.**
+   - **17 read UP, in Signaling by EGFR (14) and Interferon gamma (4,
+     SHP099 → ERK).**
+     - The EGFR case, traced (gefitinib, EGFR Y1092): the 2 EGFR root forms
+       are pinned to 0. Most of the 718 readout nodes fall to 0, but 413 of
+       the network's 3,083 nodes rail to 100×, which makes the mean 22×.
+     - The railed component is the curated CBL endocytosis cycle: EGF-like
+       ligands:p-6Y-EGFR:CBL:GRB2, Beta-Pix:CDC42:GTP binding and release
+       (R-HSA-183002, 8951490, 183084, 183058), then CIN85 / endophilin /
+       EPS15 / EPN1 assembly (182994, 8867044).
+     - What drives it: with EGFR gone, the complexes that consume free CBL,
+       EPS15L1, EPN1 and p-SPRY2 fall to 0. Their only in-edge is that
+       depletion, so each de-represses to the 10× ceiling. They enter the
+       cycle as AND inputs. The cycle regenerates its own EGFR-carrying
+       complexes, so it no longer needs the pinned root, and it rails to
+       the cap.
+     - This is the specs/014 positive-cycle knife-edge, set off by
+       depletion de-repression. It is the mirror of the open specs/049
+       item (an enzyme knockout should raise its substrate): here a binding
+       partner's rise is carried back into the receptor's own complex.
+   - **8 read NORMAL near baseline.**
+     - SHC1 under dasatinib in IL-2 signalling: 0.91×.
+     - PTPN11 Y580 under dasatinib in FGFR1–4: exactly 1.0×.
+     - GAB1 Y659 under SHP099 in RET: 0.90×.
+     - In each the path exists, but the knockdown is diluted by OR
+       alternatives.
+
+**What this means for specs/050.**
+- On this axis the Release97 rules are not better than a reachability
+  baseline.
+- Most of the axis tests what a single-pathway network can reach at all,
+  not the solver.
+- The solver-side defect it found (class 2, the railing cycle) is real and
+  traced.
+- A rule written from this trace has *used* the axis. It would have to be
+  registered and judged on the curator and experimental axes, and its
+  decryptM numbers reported as no longer held-out for that mechanism.
