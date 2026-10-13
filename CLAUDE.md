@@ -495,7 +495,10 @@ for the last feature that touched it rather than re-deriving from the code.
   edges −21.5%, no pathway gains cyclic nodes, held-out net zero on both axes.
   Also the flag-expiry policy: a flag is removed once its question is answered.
 - `specs/021-empirical-holdout-axis/` — the phospho-site validation design,
-  the target list, and what a magnitude claim can and cannot be. Open.
+  the target list, and what a magnitude claim can and cannot be. The decryptM
+  drug axis (`bench/decryptm_bench.py`): the frozen Release97 rules **lose to
+  reachability** on held-out regulated cases (45 vs 70 of 190, p 6e-8); 116 of
+  190 readouts are unreachable inside the pathway.
 - `specs/022-self-contained-inhibition/` — inhibitors built from their own
   reaction's input; the `DS_SELF_INHIBITOR_WEIGHT` rule and its A/B.
 - `specs/030-boundary-hierarchy/` — the generator decomposes a root complex
@@ -582,6 +585,10 @@ for the last feature that touched it rather than re-deriving from the code.
     `20261012-1401_01206ca` (LNG #111): curator held-out in release 89.29%,
     experimental 589/849, reproducing `ktwin` on every prediction. Open: an enzyme knockout should raise its substrate (SMAD7,
     PTPN11).
+- `specs/051-dataset-roles/` — every dataset is FIT, SELECT or TEST
+  (`bench/datasets.tsv`; `bench/dataset_roles.py` refuses fitting on a non-FIT
+  set). **The curator held-out split is SELECT**, not a test set: it has chosen
+  rules since 2026-09. decryptM 1 is FIT after its one scoring.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

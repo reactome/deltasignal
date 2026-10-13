@@ -1,0 +1,5 @@
+id	slice	role	since	licence	source	note
+mpbiopath_curator_tuning	10 tuning pathways	FIT	2026-05-26	see mp-biopath-pathways	reactome_curator_predictions	the paper's ten
+mpbiopath_experimental	849 cases, tuning pathways	FIT	2026-05-26	see mp-biopath-pathways	experimental_results	read on every arm
+mpbiopath_curator_heldout	70 held-out pathways	SELECT	2026-10-12	see mp-biopath-pathways	reactome_curator_predictions	relabelled: used for adoption decisions since 2026-09 (specs/051)
+decryptm1	all	FIT	2026-10-12	CC0	PRIDE PXD037285	scored once as TEST (specs/021, 9cb8983), then traced (specs/051)

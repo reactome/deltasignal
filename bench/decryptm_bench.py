@@ -34,6 +34,7 @@ from urllib.request import urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "analysis"))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
+import dataset_roles  # noqa: E402
 from decryptm_coverage import RESIDUE, neo4j_rows  # noqa: E402
 
 # ERK1/2 activation loop: MAPK3 T202/Y204, MAPK1 T185/Y187 (registered control)
@@ -125,6 +126,7 @@ def git_state(repo):
 
 def main():
     cases_tsv, phospho_csv, out_dir = sys.argv[1:4]
+    role = dataset_roles.require_role("decryptm1", "score")   # specs/051
     repo = Path(__file__).resolve().parents[1]
     sha, dirty = git_state(repo)
     if dirty and not os.environ.get("DS_ALLOW_DIRTY"):
@@ -145,7 +147,8 @@ def main():
         by_pathway[c["pathway_id"]][(c["drug"], c["targets"])].append(c)
     print(f"Protocol: decryptM drug bench, DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} DS_KO_AGG=mean(unpinned) "
-          f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}", flush=True)
+          f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
+          f"dataset decryptm1 registered {role}", flush=True)
     rows, solves = [], 0
     for pid in sorted(by_pathway):
         pdir = build / pid
@@ -190,7 +193,7 @@ def main():
         w = csv.DictWriter(f, fieldnames=cols, delimiter="\t")
         w.writeheader()
         w.writerows(rows)
-    summary = {"build": build.name, "code": sha, "solves": solves,
+    summary = {"build": build.name, "code": sha, "dataset": "decryptm1", "role": role, "solves": solves,
                "held-out": summarize(rows, "held-out"), "tuning": summarize(rows, "tuning")}
     (out / "summary.json").write_text(json.dumps(summary, indent=1))
     for split in ("held-out", "tuning"):

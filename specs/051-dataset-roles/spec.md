@@ -1,0 +1,130 @@
+# specs/051: dataset roles — what fits the model, what judges it
+
+**Status:** plan, 2026-10-12. Nothing is fitted here.
+
+**Origin:** Adam, 2026-10-12: "At some point we want to use datasets to
+learn parameters in the pathways to improve the inference. Other datasets
+we want to use to show how accurate the pathways are."
+
+## Why this has to be written down first
+
+The project already learns parameters. It does it by hand, one `DS_*`
+default at a time, and specs/009–049 are the record. What it has not done
+is keep the data that *chooses* a parameter apart from the data that
+*reports* accuracy. Three things from the last weeks show the cost.
+
+1. **The curator "held-out" split is no longer a test set.**
+   - It is held out of the *tuning pathways*. But since 2026-09 every
+     adopted rule has been chosen partly on its held-out number:
+     specs/023, 039, 040, 046, 049 and others.
+   - A number used to pick among arms is a *selection* number. Reported as
+     a test result, it would be optimistic, by an amount we cannot state.
+2. **decryptM was clean for exactly one scoring.**
+   - Specs/021 scored the frozen Release97 rules on it once.
+   - The trace that followed (the EGFR CBL-cycle rail) makes any rule
+     written from that trace a rule informed by decryptM.
+3. **Cases are not independent.**
+   - The ERK1/2 activation loop appears in dozens of pathways. The 1,862
+     per-pathway decryptM cases are 1,165 distinct (drug, site)
+     measurements.
+   - A random split over cases would put the same measurement on both
+     sides.
+
+## Roles
+
+Each dataset (or a declared slice of one) has exactly one role at a time.
+The register below records the role, and every change of role with its
+date and reason.
+
+| role | may be used to | may not |
+|---|---|---|
+| **FIT** | fit any parameter, trace any case, motivate any rule | be reported as accuracy |
+| **SELECT** | choose between registered arms or fitted candidates; trace cases | have parameters fitted to it directly; be reported as an unbiased test |
+| **TEST** | be scored once per frozen release, under a protocol committed before the score | be read case by case before the score is committed; be used to choose anything |
+
+**Demotion is one-way.** After a TEST score is committed, cases may be
+traced (a negative result has to be explained). But the first rule or
+parameter change motivated by that dataset demotes it to SELECT for the
+next release. A TEST set is a consumable, so the register keeps a reserve
+of sets that have never been read.
+
+**Split units, against leakage.**
+- A TEST case must not share its *(perturbation, readout)* pair with any
+  FIT or SELECT case. A perturbation is a gene, or a drug's target set; a
+  readout is an entity or phosphosite.
+- Overlap in cell line and lab is recorded and reported, not forbidden.
+- Counts are given in distinct (perturbation, readout) units as well as
+  per-pathway cases.
+
+**Data that can be used at all.**
+- Cell lines and other non-human-subject sources only.
+- No patient-derived, personal or health data. That excludes tumour
+  cohorts such as CPTAC and TCGA.
+- Openly downloadable, with the licence recorded.
+- SHA256 of every downloaded file in the register's data directory.
+
+## Register (current)
+
+| dataset | slice | role | since | note |
+|---|---|---|---|---|
+| MP-BioPath curator | 10 tuning pathways | FIT | 2026-05 | the paper's ten |
+| MP-BioPath experimental | 849 cases, tuning pathways | FIT | 2026-05 | read on every arm |
+| MP-BioPath curator | 70 held-out pathways | **SELECT** | 2026-10-12 (relabel) | used for adoption decisions since 2026-09; still reported, but as selection accuracy |
+| decryptM 1 (PXD037285) | all | **FIT** | 2026-10-12 | scored once as TEST (specs/021, 9cb8983), then traced; dose response makes it the richest fitting signal we have |
+| *TEST reserve* | — | TEST | — | to be filled from the survey in research.md. Nothing is read before it is registered |
+
+Releases change content, so a dataset scored against Release 98 is scored
+on the frozen Release 98 model under the specs/050 procedure.
+
+## Stages of learning
+
+Each stage is registered before it runs. It is fitted on FIT, chosen on
+SELECT, and scored once on TEST.
+
+- **L0. Prerequisites.**
+  - Done: label invariance (specs/013), deterministic sweeps, the bench
+    refusals.
+  - Missing: this register, and a guard that refuses to fit on a non-FIT
+    dataset.
+- **L1. Global parameters that already exist as `DS_*`.**
+  - Examples: `DS_DEPLETION_H_MIN`, `DS_SELF_INHIBITOR_WEIGHT`,
+    `DS_CYCLE_PHI`, the loop elasticity ε.
+  - This formalises what specs/009–049 did by hand. Expected gain: small.
+  - Its value is turning the hand search into a reproducible fit.
+- **L2. Per-edge-type parameters.**
+  - Inhibition strength, the depletion ceiling, AND exponent, and loop
+    elasticity, each by edge type and motif (specs/014 §6, specs/050
+    register).
+  - Tens of parameters, fitted with regularisation toward the current
+    defaults.
+- **L3. Cell context.** Which pathways are active in a cell line. Without
+  it a flat phosphosite cannot tell "no effect" from "pathway off"
+  (specs/021, unchanged cases). It needs a context source from FIT data,
+  such as baseline phospho or expression.
+- **L4. Per-edge weights.**
+  - Hundreds to thousands of parameters. They need gradients or a
+    derivative-free search, and much more FIT data.
+  - `DS_SCC_METHOD=minimize` is kept reachable for this (specs/003).
+
+**The fitting objective is macro-F1 on direction**, as now. Where a
+dataset carries magnitudes (decryptM dose response), a magnitude loss is
+added at a weight registered before the fit.
+
+## First steps
+
+1. Survey public perturbation datasets for the TEST reserve and for FIT
+   volume (research.md).
+2. A machine-readable register, `bench/datasets.tsv`, and
+   `bench/dataset_roles.py` with `require_role(dataset, purpose)`.
+   - Any fitting script calls it, and it refuses a dataset whose role does
+     not allow the purpose.
+   - The scoring bench writes the role it scored into its summary.
+3. Pick and register two TEST sets from different labs or technologies.
+   Download them with checksums, without reading their values.
+4. L1 as the first registered fit.
+
+## Non-goals
+
+- No fitting in this spec.
+- No change to what any existing number means. The curator held-out
+  numbers stay as they are, renamed for what they now are.
