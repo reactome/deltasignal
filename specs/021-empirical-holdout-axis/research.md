@@ -1159,7 +1159,7 @@ Macro-F1 over the scored cases:
      Reactome does not curate. A single-pathway network cannot represent
      them. This is the largest class and is outside the solver.
 2. **Reachable, but DeltaSignal does not call DOWN: 25 cases.**
-   - **17 read UP, in Signaling by EGFR (14) and Interferon gamma (4,
+   - **17 read UP, in Signaling by EGFR (13) and Interferon gamma (4,
      SHP099 → ERK).**
      - The EGFR case, traced (gefitinib, EGFR Y1092): the 2 EGFR root forms
        are pinned to 0. Most of the 718 readout nodes fall to 0, but 413 of
