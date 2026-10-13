@@ -49,21 +49,46 @@ significantly negative. `DS_ZERO_SUPPLY_MODE` stays `off`.
 - Restricted to the leaves common to every pin (ERCC1 and ERCC4), it holds
   **0** nodes. The whole HDR loss is the partner-leaf artefact.
 
-**PTK6, −12 (held-out): the hold changes almost-zero to exactly zero.**
+**PTK6, −12 (held-out): the hold is a pin, and a pin cuts a pool's
+recycling path.** (Isolated 2026-10-13. The first reading, "an exact-zero
+solver sensitivity", was wrong; it is kept here struck through as the
+record of what was believed.)
 - DOK1 knockout pins free DOK1 (a `simple_entity`). The rule holds one node,
   DOK1:PTK6 (R-HSA-8848773), made only from DOK1 and a PTK6 form by
   R-HSA-8848774.
-- Solved directly in 052 code:
-  - under `off` the complex is already 3.8e-5 (UI scale), a residual of
-    the damped iteration;
-  - under `hold` it is exactly 0, and the released PTK6 form R-HSA-8848007
-    moves from 1.0 to 0.889. The readouts move with it.
-- So the loss is not the rule's biology. It is a solver sensitivity: some
-  operator, or the pin's effect on how that cyclic component is iterated,
-  answers differently at exactly 0 than at 3.8e-7 internal. **Not yet
-  isolated.** Candidates: the pin removing the node from its strongly
-  connected component (specs/014 knife-edge), or an exact-zero branch in
-  the AND or depletion operators.
+- Under `off` the complex decays to 3.8e-5 (UI scale) and the released
+  PTK6 form R-HSA-8848007 reads 1.0. Under `hold` the complex is exactly 0
+  and the PTK6 form reads 0.889. The readouts move with it.
+- ~~A solver sensitivity at exactly 0.~~ **Refuted:**
+  `bench/analysis/pool_pin_barrier.jl` pins the complex, under `off`, at
+  values from 1e-3 down to 0, and at the unpinned solve's own value. Every
+  one gives 0.889. Pinning R-HSA-8848776 (the step that consumes DOK1:PTK6
+  and releases PTK6) at its own value gives 0.889 too. Tightening the
+  tolerance to 1e-14, or sweeping Jacobi, leaves the unpinned answer at 1.0.
+  The value is irrelevant; the pin is what matters.
+- **Mechanism.** That PTK6 form is a state of an interconversion pool
+  (`pool1`, specs/039), solved by cycle balance. The pool's supply is its
+  states' producers that the pool does not itself reach. That reach search
+  stops at pinned nodes (`steady_state.jl`, "Reachability does not pass
+  through pinned nodes"), a rule written for cofactors and drugs held at
+  baseline (GDP welding a component). PTK6 → DOK1:PTK6 → R-HSA-8848776 →
+  PTK6 is the pool's own recycling. Unpinned, it is reached, so it is not
+  supply: 8 of 15 producers count, all at 1.0. With the complex pinned, the
+  search stops there, and R-HSA-8848776 (≈0 under the knockout) becomes a
+  9th supply producer: 8/9 = 0.889 exactly.
+- Controls: pins in the same component that cut no producer move 0 nodes;
+  a pin that cuts a producer reading 1.0 moves 0 nodes.
+- **A second trap, found on the way.** Pinning a pool *step* node (the
+  R-HSA-8848005 or R-HSA-8847995 copies) sends the pool to the iteration
+  fallback (registered in specs/039, finding 5): the PTK6 form drops to
+  0.018 and 317–319 nodes move. `hold` only holds entity kinds, but pool
+  intermediates are entities, so the hold can trigger this too.
+- So the PTK6 loss is not the rule's biology, and not numerics. It is an
+  interaction between any pin and the pool supply rule. It concerns the
+  benchmark's own perturbation pins as much as the hold. Root pins have no
+  in-edges, so they never sit on a recycling path, but `root_cycle` pins
+  regenerated cycle forms, which do. How often that happens in the
+  canonical benchmark is **not measured**.
 
 **RAF, the largest gainer: +5 tuning, +4 experimental, all NF1.**
 - NF1 is a RAS GAP. Knocked out, the control reads exactly 1.0. Under the
@@ -116,10 +141,13 @@ is affected the same way as the HDR partners.
 1. **Own leaves only.** Candidate leaves are those of zero-pinned *free
    protein* nodes (`simple_entity`), or those common to every zero pin.
    That removes the HDR artefact. It would not touch PTK6.
-2. **Isolate the PTK6 sensitivity first.** An exact-zero discontinuity, or
-   a pin that restructures a cyclic component, would distort any rule that
-   holds nodes at 0. The drug and pathogen rules hold at baseline, so they
-   never meet it. Isolating it belongs with specs/014, not here.
+2. **PTK6 (isolated, see R2): pins are pool-reach barriers.** Any rule
+   that holds nodes through observations inherits it. The candidate fix is
+   in specs/039's supply rule, not here: stop at a pin only where the pin
+   is an inert hold at baseline (cofactor, drug, pathogen, conserved), not
+   at a perturbation or a hold at 0. That changes the default solver, so it
+   needs its own registration and arm. First, a census: how many
+   `root_cycle` pins in the canonical benchmark cut a pool's recycling path.
 3. **NF1 is the real signal.** A GAP or phosphatase knockout raising its
    substrate is the specs/049 open item. A rule aimed at it directly
    (enzymes that convert an active form back) would be narrower than
