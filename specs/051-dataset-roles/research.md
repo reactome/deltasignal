@@ -225,6 +225,17 @@ Sensitivity:
 - Other co-captured non-kinases (SMC1A, SMC2, DDX3X, NQO2) also stay.
   NQO2 is a known imatinib target.
 
+**Where the map lives (Adam, 2026-10-13).**
+- The map is derived from CC BY-SA data, so it is not kept in this
+  Apache-2.0 repository.
+- `bench/drug_targets.py` builds it to
+  `~/deltasignal-catalogs/external/klaeger2017_chembl37/drug_targets_1uM.tsv`,
+  next to the source data and its checksums.
+- `decryptm_coverage.py` reads it from there, and refuses to run if it is
+  missing.
+- The name map `bench/drug_molecules.tsv` (drug name → ChEMBL id) is ours,
+  and it stays.
+
 ### R4 score: decryptM 1 under the kinobeads map (FIT measurement, 2026-10-13)
 
 decryptM 1 is FIT, so this is a measurement, not accuracy.

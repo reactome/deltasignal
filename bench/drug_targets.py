@@ -9,7 +9,11 @@ value was read. Amendment A1 (after the map was seen, before any score): a
 hand target whose gene the deposit never measured is kept beside the
 measured targets, marked `hand_unmeasured`.
 
-Usage: drug_targets.py DATA_DIR [CUTOFF_NM] > drug_targets.tsv
+Usage: drug_targets.py DATA_DIR [CUTOFF_NM] > DATA_DIR/drug_targets_1uM.tsv
+
+The map is derived from CC BY-SA data, so it stays beside that data and is
+not committed here (Adam, 2026-10-13). decryptm_coverage.py reads it from
+there.
 """
 import csv
 import os

@@ -1,4 +1,5 @@
 """specs/021 pilot: decryptm_coverage.py end to end on a one-pathway fixture."""
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -37,7 +38,8 @@ def test_coverage_counts_and_conflicts(tmp_path):
                  "P1\t10\tddPTM_X_Gefitinib_60min_R1\tup\n")      # EGFR not in this network
     out = tmp_path / "out.tsv"
     r = subprocess.run([sys.executable, str(SCRIPT), str(b), str(ph), str(tg), str(out), str(s)],
-                       capture_output=True, text=True, check=True).stdout
+                       capture_output=True, text=True, check=True,
+                       env={**os.environ, "DRUG_TARGETS": "hand"}).stdout
     assert "held-out: (gene, site) pairs possible 2, measured 2 (down 1, up 0, unchanged 0, conflicting 1)" in r
     rows = out.read_text().splitlines()[1:]
     assert sorted(x.split("\t")[6] for x in rows) == ["conflict", "down"]
@@ -64,7 +66,7 @@ def test_case_table_keeps_drugs_apart(tmp_path):
                  "P1\t207\tddPTM_A431_Dasatinib_60min_R1\tup\n")
     out, cases = tmp_path / "out.tsv", tmp_path / "cases.tsv"
     r = subprocess.run([sys.executable, str(SCRIPT), str(b), str(ph), str(tg), str(out), str(s)],
-                       capture_output=True, text=True, check=True, env={"CASES_TSV": str(cases)}).stdout
+                       capture_output=True, text=True, check=True, env={"CASES_TSV": str(cases), "DRUG_TARGETS": "hand"}).stdout
     assert "held-out: (drug, pathway, site) cases 2 (down 1, up 1, unchanged 0, conflicting 0)" in r
     rows = {x.split("\t")[3]: x.split("\t") for x in cases.read_text().splitlines()[1:]}
     assert rows["Imatinib"][8] == "down" and rows["Imatinib"][4] == "ABL1"
@@ -76,3 +78,9 @@ def test_call():
     assert dc.call(["not", "down", "down"]) == "down"
     assert dc.call(["up", "down"]) == "conflict"
     assert dc.call(["not"]) == "not"
+
+
+def test_missing_map_is_an_error_not_a_silent_fallback(tmp_path):
+    r = subprocess.run([sys.executable, str(SCRIPT), "b", "p", "t", "o", "s"], capture_output=True, text=True,
+                       env={**os.environ, "DRUG_TARGETS": str(tmp_path / "absent.tsv")})
+    assert r.returncode != 0 and "no drug->target map" in r.stderr

@@ -58,10 +58,21 @@ def load_drug_targets(path):
 
 
 # specs/051 R4: measured affinity (Kd_app <= 1 uM, kinobeads) replaces the hand
-# table, which a drug the assay cannot see still falls back to. DRUG_TARGETS=hand
-# reproduces specs/021; any other value is a path to a drug_targets.py table.
-_DT = os.environ.get("DRUG_TARGETS", str(Path(__file__).resolve().parent.parent / "drug_targets.tsv"))
-DRUG_TARGETS = HAND_DRUG_TARGETS if _DT == "hand" else load_drug_targets(_DT)
+# table, which a drug the assay cannot see still falls back to. The map is built
+# by bench/drug_targets.py from CC BY-SA data and kept beside that data, outside
+# this repository (Adam, 2026-10-13). DRUG_TARGETS=hand reproduces specs/021; any
+# other value is a path to a drug_targets.py table.
+DEFAULT_DRUG_TARGETS = Path.home() / "deltasignal-catalogs/external/klaeger2017_chembl37/drug_targets_1uM.tsv"
+
+
+def resolve_drug_targets():
+    dt = os.environ.get("DRUG_TARGETS", str(DEFAULT_DRUG_TARGETS))
+    if dt == "hand":
+        return HAND_DRUG_TARGETS
+    if not Path(dt).exists():
+        raise SystemExit(f"no drug->target map at {dt}: build it with bench/drug_targets.py "
+                         "(specs/051 R4), or set DRUG_TARGETS=hand for the specs/021 table")
+    return load_drug_targets(dt)
 
 
 def neo4j_rows(path):
@@ -100,6 +111,7 @@ def network_sites(pdir, phospho, targets):
 
 
 def main():
+    DRUG_TARGETS = resolve_drug_targets()
     build, phospho_csv, target_csv, out, *site_files = sys.argv[1:]
     build = Path(build)
     phospho = collections.defaultdict(set)

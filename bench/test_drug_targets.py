@@ -37,8 +37,13 @@ def test_cutoff_relation_and_fallbacks():
     assert ("DrugC", "EGFR", "P1", 5000.0, "kinobeads") in rows10k
 
 
-def test_committed_map_is_well_formed():
-    rows = dt.read_tsv(Path(__file__).resolve().parent / "drug_targets.tsv")
+def test_built_map_is_well_formed():
+    """The map lives outside the repo (CC BY-SA source); checked where it exists."""
+    import pytest
+    path = Path.home() / "deltasignal-catalogs/external/klaeger2017_chembl37/drug_targets_1uM.tsv"
+    if not path.exists():
+        pytest.skip("drug->target map not built on this machine")
+    rows = dt.read_tsv(path)
     assert {r["source"] for r in rows} <= {"kinobeads", "hand", "hand_unmeasured"}
     assert len({(r["drug"], r["gene"]) for r in rows}) == len(rows)
     assert {r["drug"] for r in rows} == set(dt.load_molecules())
