@@ -37,9 +37,9 @@ def test_pairing_slices_and_rule(tmp_path):
     # gene A diffs (0,1) mean .5, gene B (1,1) mean 1: bootstrap draws lie in [.5, 1]
     assert 0.5 <= h["correct_diff_ci95_by_gene"][1] <= h["correct_diff_ci95_by_gene"][2] <= 1.0
     assert h["carries_signal"] is True
-    # experimental: one gene only -> interval collapses to the point
+    # experimental: one gene only -> no interval, so the rule cannot pass on it
     e = res["experimental"]["all"]
-    assert e["n"] == 2 and e["correct_diff_ci95_by_gene"][1] == e["correct_diff_ci95_by_gene"][0] == 0.5
+    assert e["n"] == 2 and e["correct_diff_ci95_by_gene"] == [0.5, None, None] and e["carries_signal"] is False
 
 
 def test_rule_fails_when_a_seed_matches(tmp_path):
@@ -49,5 +49,5 @@ def test_rule_fails_when_a_seed_matches(tmp_path):
         _write(tmp_path / d, "experimental", rows)
     res = rn.run(tmp_path / "w0", [tmp_path / "s1"], tmp_path / "w0")
     m = res["experimental"]["all"]
-    assert m["carries_signal"] is False and m["correct_diff_ci95_by_gene"] == [0.0, 0.0, 0.0]
+    assert m["carries_signal"] is False and m["correct_diff_ci95_by_gene"][0] == 0.0
     assert m["canonical"]["accuracy"] == 1.0

@@ -164,6 +164,12 @@ def main(argv):
     for p in sorted(src.iterdir()):
         if p.is_dir() and (p / "logic_network.csv").exists():
             per_pathway[p.name] = rewire_pathway(p, dst / p.name, seed)
+        elif p.is_file() and p.name not in ("BUILD.json",):
+            shutil.copy2(p, dst / p.name)    # pathways.tsv etc.: decryptm_coverage reads it
+    # A class that is (nearly) complete bipartite cannot be randomised; the null
+    # then equals the real wiring there, which makes it harder, not easier, to beat.
+    stuck = sorted((pw, cls, st["edges"], st["moved"]) for pw, stats in per_pathway.items()
+                   for cls, st in stats.items() if st["edges"] >= 20 and st["moved"] < st["edges"] / 2)
     totals = Counter()
     for stats in per_pathway.values():
         for s in stats.values():
@@ -183,6 +189,7 @@ def main(argv):
             "tables_deleted": list(DROPPED_TABLES),
             "script_commit": sha + ("-dirty" if dirty else ""),
             "edges": totals["edges"], "swaps": totals["swaps"], "moved": totals["moved"],
+            "classes_mostly_unmoved": [{"pathway": pw, "class": c, "edges": e, "moved": m} for pw, c, e, m in stuck],
             "per_pathway": per_pathway,
             "seconds": round(time.time() - started, 1),
         },

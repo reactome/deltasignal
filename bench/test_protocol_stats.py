@@ -25,7 +25,7 @@ def test_bootstrap_deterministic_and_single_cluster():
     assert a == b                                   # case order does not matter
     assert a[1] <= a[0] <= a[2]
     one = [{"d": "x", "ok": 1}, {"d": "x", "ok": 0}]
-    assert ps.cluster_bootstrap_ci(one, acc, lambda r: r["d"]) == (0.5, 0.5, 0.5)
+    assert ps.cluster_bootstrap_ci(one, acc, lambda r: r["d"]) == (0.5, None, None)   # one cluster: no interval
 
 
 def test_folds_stable_and_grouped():
@@ -37,3 +37,17 @@ def test_folds_stable_and_grouped():
     spread = ps.folds([f"g{i}" for i in range(1000)], 5, seed=51)
     counts = [list(spread.values()).count(i) for i in range(5)]
     assert min(counts) > 150                        # roughly balanced
+
+
+def test_percentiles_are_symmetric_order_statistics():
+    # stat = the drawn cluster's own value: draws are uniform over 0..99, and with
+    # n_boot=1001 the 2.5% and 97.5% order statistics are ranks 25 and 975
+    rows = [{"g": i, "v": i} for i in range(100)]
+    p, lo, hi = ps.cluster_bootstrap_ci(rows, lambda rs: sum(r["v"] for r in rs) / len(rs), lambda r: r["g"],
+                                        n_boot=1001, seed=3)
+    assert lo < p < hi
+    import random
+    rng = random.Random(3)
+    keys = sorted(range(100), key=str)      # the function orders cluster keys as strings
+    draws = sorted(sum(keys[rng.randrange(100)] for _ in range(100)) / 100 for _ in range(1001))
+    assert (lo, hi) == (draws[25], draws[975])

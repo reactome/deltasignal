@@ -497,8 +497,10 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/021-empirical-holdout-axis/` — the phospho-site validation design,
   the target list, and what a magnitude claim can and cannot be. The decryptM
   drug axis (`bench/decryptm_bench.py`): the frozen Release97 rules **lose to
-  reachability** on held-out regulated cases (45 vs 70 of 190, p 6e-8); 116 of
-  190 readouts are unreachable inside the pathway.
+  reachability** on its held-out regulated cases (45 vs 70 of 190; by-drug 95%
+  interval [−0.194, −0.053]); 116 of the 190 cases are unreachable inside the
+  pathway. Under the measured kinobeads target map (specs/051 R4): 86 vs 115
+  of 278. decryptM 1 has been FIT since that first scoring.
 - `specs/022-self-contained-inhibition/` — inhibitors built from their own
   reaction's input; the `DS_SELF_INHIBITOR_WEIGHT` rule and its A/B.
 - `specs/030-boundary-hierarchy/` — the generator decomposes a root complex
@@ -586,8 +588,9 @@ for the last feature that touched it rather than re-deriving from the code.
     experimental 589/849, reproducing `ktwin` on every prediction. Open: an enzyme knockout should raise its substrate (SMAD7,
     PTPN11).
 - `specs/051-dataset-roles/` — every dataset is FIT, SELECT or TEST
-  (`bench/datasets.tsv`; `bench/dataset_roles.py` refuses fitting on a non-FIT
-  set). **The curator held-out split is SELECT**, not a test set: it has chosen
+  (`bench/datasets.tsv`; `bench/dataset_roles.py` `require_role` refuses
+  fitting on a non-FIT set; no fitting script exists yet, and every one must
+  call it). **The curator held-out split is SELECT**, not a test set: it has chosen
   rules since 2026-09. decryptM 1 is FIT after its one scoring.
   The degree-preserving rewired-network null (`bench/rewire_network.py`)
   loses to the real wiring on every axis, experimental included (R3).

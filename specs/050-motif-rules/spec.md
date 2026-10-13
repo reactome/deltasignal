@@ -1,6 +1,8 @@
 # specs/050: topology motifs as versioned rules, re-evaluated each release
 
-**Status:** plan, 2026-10-12. Nothing is registered or measured here yet.
+**Status:** plan, 2026-10-12. The Release97 freeze is below; research.md
+has R1 (competition census) and R2 (motif census). No rule is adopted
+here.
 **Origin:** Adam, 2026-10-12, after specs/049. "After we work through the
 tests, we go through all the pathways and look for unique topology and do
 similar adjustments so it works with other pathways as well. Each release
@@ -127,7 +129,7 @@ Release98 is built and scored under it.
 | catalog | `20261012-1401_01206ca`, Reactome Release97 (2026-06-17), 92 pathways |
 | results | `builds/20261012-1401_01206ca/results/1f58a1b` |
 | protocol | `DS_PIN_SCOPE=root_cycle`, UP pin 80, knockout pin 0, call thresholds of `bench/benchmark_vs_mpbiopath.py` at 8757909 |
-| scores | curator held-out in release 89.29% / 0.8612; curator all 86.40% / 0.8316; experimental 589/849 (69.38%) / 0.6159 |
+| scores | curator held-out in release (SELECT since specs/051) 89.29% / 0.8612; curator all 86.40% / 0.8316; experimental 589/849 (69.38%) / 0.6159 |
 
 **Rules in force** (code defaults at 8757909; the register above has the
 specs):

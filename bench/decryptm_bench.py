@@ -90,7 +90,18 @@ def compare(rows):
     rc = [r["reach_predicted"] == r["measured"] for r in rows]
     b = sum(x and not y for x, y in zip(ds, rc))
     c = sum(y and not x for x, y in zip(ds, rc))
-    return {"n": n, "deltasignal": sum(ds), "reachability": sum(rc),
+    # One (drug, site) is measured once but can be a case in several pathways
+    # (the ERK loop sites), so cases are not independent. The unit-level McNemar
+    # counts each (drug, site) once, by which method is right on more of its cases.
+    units = collections.defaultdict(lambda: [0, 0])
+    for r, x, y in zip(rows, ds, rc):
+        u = units[(r["drug"], r["uniprot"], r["position"])]
+        u[0] += x
+        u[1] += y
+    ub = sum(x > y for x, y in units.values())
+    uc = sum(y > x for x, y in units.values())
+    return {"n": n, "units": len(units), "unit_ds_better": ub, "unit_reach_better": uc,
+            "unit_mcnemar_p": mcnemar_p(ub, uc), "deltasignal": sum(ds), "reachability": sum(rc),
             "always_down": sum(r["measured"] == "down" for r in rows),
             "ds_only": b, "reach_only": c, "mcnemar_p": mcnemar_p(b, c),
             "drugs": len({r["drug"] for r in rows}),
@@ -149,7 +160,11 @@ def report(summary):
                   "down", "up", "unchanged"):
             m = s[k]
             ci = m.get("ci95_by_drug", {}).get("ds_minus_reach")
-            ci = f", DS-reach 95% CI by drug [{ci[0]:+.3f}, {ci[1]:+.3f}] over {m['drugs']} drugs" if ci else ""
+            ci = (f", DS-reach 95% CI by drug [{ci[0]:+.3f}, {ci[1]:+.3f}] over {m['drugs']} drugs"
+                  if ci and ci[0] is not None else "")
+            if "units" in m:
+                ci += (f"; {m['units']} (drug, site) units, DS better on {m['unit_ds_better']}, "
+                       f"reach on {m['unit_reach_better']}, p {m['unit_mcnemar_p']:.3g}")
             print(f"  {k:24s} n={m['n']:4d}  DS {m['deltasignal']:4d}  reach {m['reachability']:4d}  "
                   f"always-down {m['always_down']:4d}  (DS-only {m['ds_only']}, reach-only "
                   f"{m['reach_only']}, McNemar p {m['mcnemar_p']:.3g}{ci})")
@@ -161,7 +176,10 @@ def resummarize(out_dir):
     out = Path(out_dir)
     old = json.loads((out / "summary.json").read_text())
     rows = list(csv.DictReader(open(out / "decryptm_cases.tsv"), delimiter="\t"))
-    summary = {k: old[k] for k in ("build", "code", "dataset", "role", "solves") if k in old}
+    backup = out / "summary.orig.json"
+    if not backup.exists():           # the run's own summary is never lost
+        backup.write_text(json.dumps(old, indent=1))
+    summary = {k: old[k] for k in ("build", "code", "dataset", "role", "solves", "rules") if k in old}
     summary["summarized_by"] = git_state(Path(__file__).resolve().parents[1])[0]
     summary["held-out"] = summarize(rows, "held-out")
     summary["tuning"] = summarize(rows, "tuning")
@@ -197,6 +215,7 @@ def main():
           f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
           f"dataset decryptm1 registered {role}", flush=True)
     rows, solves = [], 0
+    rules = collections.Counter()     # which model each solve ran (code review 2026-10-13)
     for pid in sorted(by_pathway):
         pdir = build / pid
         stid_to_uuids = bm.load_stid_to_uuids(pdir)
@@ -221,6 +240,9 @@ def main():
                     raise SystemExit(f"{pid} {drug}: solve failed: {res.get('message')}")
                 bm.refuse_unless_default_model(res, pid)
                 solves += 1
+                rules.update(f"{k}={v}" for k, v in res.items()
+                             if k.endswith("_rule") or k in ("self_inhibitor_leaves", "cycle_carriers",
+                                                             "scc_order"))
                 activities = res.get("node_activities", {})
                 reach = bm.reachable_from(adj, pinned)
             for c in group:
@@ -229,10 +251,17 @@ def main():
                     status, ui, pred, rp = "conflict", None, None, None
                 else:
                     status, ui, pred, rp = score_case(ro, pinned, activities, reach)
-                rows.append({**c, "status": status, "pinned": len(pinned), "readout_nodes": len(ro),
+                rows.append({**c, "status": status, "pinned": len(pinned),
+                             # a multi-target drug may have targets with no root form in this pathway
+                             "targets_pinned": ";".join(sorted(g for g, us in pins.items() if us)),
+                             "readout_nodes": len(ro),
                              "pred_ui": "" if ui is None else f"{ui:.6g}",
                              "predicted": NAMES.get(pred, ""), "reach_predicted": NAMES.get(rp, "")})
-        print(f"  {pid} {group[0]['pathway']}: {len(by_pathway[pid])} drugs", flush=True)
+        name = next(iter(by_pathway[pid].values()))[0]["pathway"]
+        print(f"  {pid} {name}: {len(by_pathway[pid])} drugs", flush=True)
+    after = (json.loads(urlopen(f"{bm.DS_BASE}/api/health", timeout=30).read()).get("catalog") or {})
+    if after.get("build_id") != build.name:
+        raise SystemExit(f"the API switched to {after.get('build_id')!r} during the run; nothing recorded")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     cols = list(rows[0].keys())
@@ -241,6 +270,7 @@ def main():
         w.writeheader()
         w.writerows(rows)
     summary = {"build": build.name, "code": sha, "dataset": "decryptm1", "role": role, "solves": solves,
+               "rules": dict(sorted(rules.items())),
                "held-out": summarize(rows, "held-out"), "tuning": summarize(rows, "tuning")}
     (out / "summary.json").write_text(json.dumps(summary, indent=1))
     report(summary)

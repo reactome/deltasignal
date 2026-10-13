@@ -944,6 +944,10 @@ Regulated held-out cases by drug:
 
 ### Verdict: GO, with these limits stated before any scoring
 
+*Superseded counts:* the corrected table (below) has 202 regulated cases,
+with ERK 42% and dasatinib 49% of them. The 241 / 38% / 39% in this pilot
+verdict came from the mixed-drug pilot table.
+
 1. **This is the first held-out experimental axis.** It has 241 regulated
    cases in 34 held-out pathways. Today's experimental axis has 849 cases,
    all in the ten tuning pathways.
@@ -1141,9 +1145,21 @@ Macro-F1 over the scored cases:
 **Verdict, under the registered rule:**
 - **No information beyond the graph is shown.**
 - On regulated held-out cases DeltaSignal loses to reachability, 45 against
-  70 of 190 (p 6e-8). The loss holds with ERK, dasatinib, or both excluded.
+  70 of 190 (case-level p 6e-8).
+  - **Corrected 2026-10-13 (code review):** the original line said the loss
+    "holds with ERK, dasatinib, or both excluded".
+  - Under drug-clustered intervals (Amendment below), it holds without
+    ERK. Without dasatinib, or without both, the direction is the same but
+    the intervals reach 0.
+  - Counting each (drug, site) once, the 190 cases are 89 units: DS is
+    better on 0 units, reachability on 22 (exact p 4.8e-7).
 - DeltaSignal never calls a regulated case right that reachability calls
   wrong (DS-only = 0).
+- *Caveat (code review 2026-10-13):* "unchanged" means decryptM did not call
+  the curve regulated. That includes poorly fitted and low-signal curves, so
+  the unchanged slice and macro-F1 are softer than the regulated slice.
+- *Also:* the gene-level table and its "(gene, site) pairs" line pool drugs
+  that share a target. Only the per-drug case table is scored.
 - It calls none of the 30 UP cases.
 - Its one advantage is the secondary metric: it keeps 31 more unchanged
   cases at NORMAL. Under the registration that is weak evidence.
@@ -1249,5 +1265,7 @@ reach 0.** The case-level McNemar p-values overstated those two, because
 they treated sites read from one solve as independent. The direction is
 the same, but they are not significant once clustered.
 
-Under the specs/051 protocol, perturbation-clustered intervals replace
-case-level McNemar as the significance call. McNemar is still reported.
+Under the specs/051 protocol (point 6), McNemar and perturbation-clustered
+intervals are both reported. Where they disagree, as here, the clustered
+interval decides, because McNemar assumes independent cases. The bench
+now also reports a unit-level McNemar, counting each (drug, site) once.

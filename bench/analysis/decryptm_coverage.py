@@ -82,7 +82,10 @@ def neo4j_rows(path):
 
 
 def drug_of(experiment):
-    """ddPTM_<cell line>_<drug>_<time>_<rep>; combinations (drug+drug) are not single-target."""
+    """ddPTM_<cell line>_<drug>_<time>_<rep>. A name with "+" is rejected here, but
+    decryptM's combinations are mostly written without it (`GeftinibAZD4547-1to80`,
+    `SelumetinibMK2206-1to2`); those drop out only because they are not keys of
+    the drug->target map (code review 2026-10-13)."""
     parts = experiment.split("_")
     if len(parts) < 4:
         return None, None

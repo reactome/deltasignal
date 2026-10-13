@@ -62,6 +62,10 @@ def test_summarize_controls_and_baselines():
     u = s["unchanged"]
     assert (u["n"], u["deltasignal"], u["reachability"], u["always_down"]) == (1, 1, 0, 0)
     assert set(s["by_drug"]) == {"Dasatinib", "SHP099", "MK2206"}
+    # one drug: no between-drug interval
+    assert s["by_drug"]["SHP099"]["ci95_by_drug"]["ds_minus_reach"] == (None, None)
+    # units: the two ERK cases are different sites; DS wins Q1 (Dasatinib), reach wins Q2 (MK2206)
+    assert (r["units"], r["unit_ds_better"], r["unit_reach_better"]) == (4, 1, 1)
     # macro-F1 over the 5 scored cases. always-DOWN: F1(down) = 2*.6*1/1.6 = .75, others 0
     assert abs(s["macro_f1"]["always_down"] - 0.25) < 1e-12
 
@@ -88,3 +92,10 @@ def test_resummarize_roundtrip(tmp_path):
     db.resummarize(tmp_path)
     s = json.loads((tmp_path / "summary.json").read_text())
     assert s["build"] == "b" and s["held-out"]["regulated"]["n"] == 2 and "summarized_by" in s
+
+
+def test_units_collapse_a_site_repeated_across_pathways():
+    rows = [dict(_row("D", "P1", 5, "down", "not", "down"), pathway=p) for p in "ABCDE"]
+    m = db.compare(rows)
+    assert (m["n"], m["units"], m["reach_only"], m["unit_reach_better"]) == (5, 1, 5, 1)
+    assert m["mcnemar_p"] < 0.07 and m["unit_mcnemar_p"] == 1.0

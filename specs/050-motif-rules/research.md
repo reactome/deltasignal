@@ -33,14 +33,21 @@ its single partner is knocked out.
 
 | motif restriction | curator: wrong, would fix | curator: right, would break | experimental fix / break |
 |---|---|---|---|
-| any shared species | 186 | 2,275 | 20 / 27 |
-| gene's branch is an inert sink (nothing downstream acts) | 170 | 716 | 5 / 18 |
+| any shared species | 193 | 2,277 | 20 / 27 |
+| gene's branch is an inert sink (nothing downstream acts) | 177 | 718 | 5 / 18 |
 | inert sink, gene has no other route to the readout | 156 | 504 (all expected no change) | — |
 | Ri annotated GO "negative regulation of …" (reaction or parent pathway) | 39 | 30 (26 WNT) | 0 / 0 |
 | GO negative regulation + inert sink | **29** | **4** | 0 / 0 |
 
-The last two rows count a closed carrier free form as its gene, as
-`closed_twin` makes it. Without that, the SMAD7 cases in TGF-β are missed.
+The committed script counts a closed carrier free form as its gene in
+every row, as `closed_twin` makes it. Without that, the SMAD7 cases in
+TGF-β are missed.
+
+*Corrected 2026-10-13 (code review):* rows 1–2 first read 186 / 2,275 and
+170 / 716. Those counts came from an uncommitted variant that did not count
+carrier twins. The values now in the table are what
+`bench/analysis/competition_census.py BUILD CASES` (and `SINK=1`)
+regenerate. Experimental columns not re-run; the conclusion is unchanged.
 
 **Reading.**
 - As a structural rule, competition is refuted by the census. Curators
@@ -92,7 +99,23 @@ there. Build `20261012-1401_01206ca`, results `1f58a1b`. Output:
   aggregate tables. For the hold-out below, the traced set is taken from
   the case traces instead.
 
-**Motif-level hold-out of `closed_twin`.** These are the pathways whose cases
+**Traced vs untraced pathways for `closed_twin` (not a hold-out).**
+
+*Reclassified 2026-10-13 (code review, specs/051):* this section first
+called the untraced pathways a hold-out and said the rule "generalises"
+to them. That is wrong, for three reasons:
+- All 86 untraced changes are in curator held-out pathways.
+- Curator held-out in total is +143 / −21 = +122, the very number
+  `closed_twin` was adopted on (specs/049 amendment 6). So these cases
+  helped *select* the rule; under specs/051 they are SELECT data.
+- The p-values below are uncorrected χ² approximations. Exact McNemar
+  gives 1.1e-31 (176/21) and 1.0e-13 (76/10). Neither is clustered by
+  gene, as the protocol now requires.
+
+What the split does show is narrower: the gain is not confined to the
+pathways that were read case by case.
+
+These are the pathways whose cases
 were traced while the rule was written (specs/049 P7–P12): RAF, HDR (both
 entries), Mitotic G1, FGFR1–4, Mitotic G2, TGF-β, ERBB2 and MHC class I.
 All other pathways are the hold-out. `kctl` against canonical (= `ktwin`):
@@ -105,10 +128,11 @@ All other pathways are the hold-out. `kctl` against canonical (= `ktwin`):
 - The untraced gain comes from 5 pathways: PDGF +18, NER +18, RHO GTPases
   activate PKNs +16, DNA damage bypass +9 and EGFR +5. The other 19 untraced
   pathways with closed loops did not move.
-- The rule generalises on the curator axis to pathways nobody looked at.
+- The gain reaches pathways nobody read case by case. Those cases still
+  chose the rule, so this is spread, not generalisation.
 - The experimental axis has no untraced pathway with a moved case, so it
   gives no hold-out evidence either way.
 - **Caveat:** several traced pathways (HDR, ERBB2, MHC class I) were traced
   for their LOSSES after the rule existed, not used to shape its gains. The
-  traced/untraced split is therefore conservative for the rule, not
-  generous.
+  traced/untraced split is therefore conservative as a test of tracing
+  bias. It is not a test of selection bias, which it cannot measure.

@@ -886,7 +886,18 @@ def pin_network_dir(pathway_dir: Path) -> Path:
     d = Path(PIN_NETWORK_ROOT) / Path(pathway_dir).name
     if not (d / "logic_network.csv").exists():
         raise SystemExit(f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT}: no {Path(pathway_dir).name}/logic_network.csv")
+    # Another build re-mints every uuid. The served uuids would then all have
+    # in-degree 0 in the pin network, every occurrence would count as a root,
+    # and the run would be DS_PIN_SCOPE=all without saying so (review 2026-10-13).
+    if _node_uuids(d) != _node_uuids(Path(pathway_dir)):
+        raise SystemExit(f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT}: {d.name}/nodes.csv does not list the served "
+                         "network's nodes; the pin network must be the same build's nodes, rewired or not")
     return d
+
+
+def _node_uuids(pathway_dir: Path) -> set:
+    with open(pathway_dir / "nodes.csv", newline="") as f:
+        return {r["uuid"] for r in csv.DictReader(f)}
 
 
 def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict):

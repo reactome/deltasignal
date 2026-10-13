@@ -19,15 +19,18 @@ def cluster_bootstrap_ci(rows, stat, cluster, n_boot=2000, seed=51, alpha=0.05):
     keys = sorted(groups, key=str)
     point = stat(rows)
     if len(keys) < 2:
-        return point, point, point
+        # one cluster carries no between-cluster variation: no interval, not a
+        # zero-width one that a "low > 0" test would pass (code review 2026-10-13)
+        return point, None, None
     rng = random.Random(seed)
     draws = []
     for _ in range(n_boot):
         sample = [r for _k in range(len(keys)) for r in groups[keys[rng.randrange(len(keys))]]]
         draws.append(stat(sample))
     draws.sort()
-    lo = draws[int(alpha / 2 * n_boot)]
-    hi = draws[min(n_boot - 1, int((1 - alpha / 2) * n_boot))]
+    # symmetric order statistics: as many draws below `lo` as above `hi`
+    lo = draws[round(alpha / 2 * (n_boot - 1))]
+    hi = draws[round((1 - alpha / 2) * (n_boot - 1))]
     return point, lo, hi
 
 

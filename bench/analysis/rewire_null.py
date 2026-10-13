@@ -82,7 +82,7 @@ def compare(wire0: dict, seeds: list[dict], keys: list, canonical: dict | None =
         out["canonical"] = {"n": len(cr), "accuracy": sum(r["predicted"] == r["expected"] for r in cr) / len(cr),
                             "macro_f1": macro_f1(cr)}
     lo = out["correct_diff_ci95_by_gene"][1]
-    out["carries_signal"] = out["wire0"]["macro_f1"] > max(seed_mf1) and lo > 0
+    out["carries_signal"] = out["wire0"]["macro_f1"] > max(seed_mf1) and lo is not None and lo > 0
     return out
 
 
@@ -107,14 +107,15 @@ def show(res: dict) -> None:
         for sl, m in res[axis].items():
             if sl == "unpaired" or not m.get("n"):
                 continue
-            lo, hi = m["correct_diff_ci95_by_gene"][1:]
-            flo, fhi = m["macro_f1_diff_ci95_by_gene"][1:]
+            f = lambda x: "  n/a  " if x is None else f"{x:+.4f}"  # noqa: E731  (one gene: no interval)
+            lo, hi = map(f, m["correct_diff_ci95_by_gene"][1:])
+            flo, fhi = map(f, m["macro_f1_diff_ci95_by_gene"][1:])
             seeds = " ".join(f"{x:.3f}" for x in m["seeds"]["macro_f1"])
             can = f"  canonical mF1 {m['canonical']['macro_f1']:.4f}" if "canonical" in m else ""
             print(f"  {sl:9s} n={m['n']:6d} genes={m['genes']:4d}  wire0 acc {m['wire0']['accuracy']:.4f} "
                   f"mF1 {m['wire0']['macro_f1']:.4f} | seeds acc {m['seed_mean']['accuracy']:.4f} "
                   f"mF1 [{seeds}]{can}")
-            print(f"            wire0 - seeds: correct [{lo:+.4f}, {hi:+.4f}], mF1 [{flo:+.4f}, {fhi:+.4f}]"
+            print(f"            wire0 - seeds: correct [{lo}, {hi}], mF1 [{flo}, {fhi}]"
                   f"  -> carries signal: {m['carries_signal']}")
 
 

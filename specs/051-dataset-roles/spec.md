@@ -279,6 +279,16 @@ not beat it, the score comes from degrees and pinning, not from Reactome.
 - Nothing is adopted from this. It is a baseline, and it is counted in the
   SELECT arm tally (point 6).
 
+## SELECT arm tally (point 6)
+
+Every arm or fit scored on SELECT data (curator held-out) from 2026-10-12,
+when the role was assigned. Earlier arms are in specs/009–049 and are not
+recounted.
+
+| date | spec | arm | purpose |
+|---|---|---|---|
+| 2026-10-12 | 051 | `wire0`, `rw1`–`rw5` | rewired-network baseline; nothing selected |
+
 ## Non-goals
 
 - No fitting in this spec.

@@ -98,6 +98,24 @@ includes the experimental axis, which was the informative one.
 - Rewired solves converge less often (curator 1,511–1,631 of 1,725 against
   1,646; experimental 175–214 of 244 against 218). The case dump does not
   record convergence per case, so the gap is not split by it.
+- *Added 2026-10-13 (code review).* What the null does not keep:
+  - **Overlap between classes.** Swaps avoid duplicates only within a
+    class. About 9,111 (source, target) pairs per build carry two classes,
+    most of them an enzyme that is also a substrate (8,775 catalyst+input).
+    Rewired, about 208 remain.
+  - **Classes it cannot randomise.** About 2,230 edges in 7 classes moved
+    less than half, which is under 1% of 257,125. For example,
+    R-HSA-5617472 `regulator|neg|or` is complete bipartite (840 edges, 0
+    swaps). There the null equals the real wiring, which makes it harder to
+    beat, not easier. New builds list these classes in `BUILD.json`.
+  - Both are legitimate parts of a degree-preserving null. Both add to the
+    measured gap.
+- **decryptM, registered as secondary, was not run.** The rewired builds
+  lacked `pathways.tsv`, which `decryptm_coverage.py` needs. The builder now
+  copies it. Since the null already failed on the experimental axis, I have
+  not rebuilt the five builds for it.
+- Intervals were recomputed after the bootstrap percentile fix (symmetric
+  order statistics). The table above changed only in the fourth decimal.
 
 **Traced: cases every seed got right and `wire0` missed.**
 - Curator tuning 146, held-out 194, experimental 28. The reverse (`wire0`
@@ -222,8 +240,37 @@ Sensitivity:
   the BCR-ABL fusion in the K562 lysate, captured through its ABL kinase.
   BCR in Reactome is the Rho GEF. Under the registered rule it stays a
   target, and any case it decides is listed when scored.
+- Nintedanib → BCR 301 nM is in the map too. It was missed in the first
+  write-up.
 - Other co-captured non-kinases (SMC1A, SMC2, DDX3X, NQO2) also stay.
   NQO2 is a known imatinib target.
+
+**Disclosed 2026-10-13 (code review), rule unchanged.**
+- The registration described the records as "`=` Active" and "`>`
+  Inactive". The deposit also has **545 `=` Uncertain** records (4,384
+  Active, 65,576 Inactive). The rule says relation `=`, so it admits them.
+- Eight map targets of decryptM drugs rest on an Uncertain record:
+  - afatinib MET 157;
+  - imatinib DDX3X 435;
+  - selumetinib SMC1A 365 and SMC2 209;
+  - dasatinib MINK1 209 and PAK4 746;
+  - nintedanib CDK3 145;
+  - AZD4547 TNK2 148.
+- The rule is not changed after the score. The eight are listed so that a
+  later map can choose.
+
+**The hand fallback is not symmetric (code review).**
+- A drug with a hit keeps only measured targets (A1). Imatinib therefore
+  loses KIT and PDGFRB, measured at > 30 µM.
+- A drug with no hit keeps its whole hand list, even a measured non-binder.
+  Tideglusib keeps GSK3B, measured at > 30 µM.
+- That is the registered wording. Its reason is that a drug with no hit at
+  all is one the assay probably cannot see (tideglusib is not an ATP-site
+  binder).
+- Tideglusib is in 74 scored cases, none of them regulated. The regulated
+  numbers do not move; the unchanged count and macro-F1 include them.
+- Imatinib's KIT loss may be a lysate-abundance effect rather than true
+  non-binding. KIT inhibition is clinical. It is recorded, not corrected.
 
 **Where the map lives (Adam, 2026-10-13).**
 - The map is derived from CC BY-SA data, so it is not kept in this
@@ -251,7 +298,8 @@ decryptM 1 is FIT, so this is a measurement, not accuracy.
 | held-out | hand map (specs/021) | kinobeads map |
 |---|---|---|
 | regulated, DS / reachability | 45 / 70 of 190 | 86 / 115 of 278 |
-| DS − reach, 95% by drug | [−0.194, −0.053] | [−0.139, −0.047] (13 drugs) |
+| DS − reach, 95% by drug | [−0.194, −0.053] | [−0.139, −0.048] (13 drugs) |
+| (drug, site) units: DS better / reach better | 0 / 22 of 89 | 0 / 26 of 120 |
 | unchanged, DS / reachability | 485 / 454 of 621 | 633 / 594 of 855 |
 | macro-F1, DS / reachability | 0.352 / 0.371 | 0.359 / 0.368 |
 
@@ -261,8 +309,13 @@ decryptM 1 is FIT, so this is a measurement, not accuracy.
   held-out regulated sites, DeltaSignal loses to reachability, and DS-only
   wins are still 0.
 - The 30 UP sites are still all missed.
-- BCR (flagged above) is in 78 cases. It is never a case's only target; it
-  always appears with ABL1 or ABL2.
+- BCR (flagged above) is in 79 cases: dasatinib 33, imatinib 23 and
+  nintedanib 23. It is never a case's only target.
+  - In 78 it appears with ABL1 or ABL2.
+  - The exception is nintedanib in the Rho GTPase cycle (SRC S419; targets
+    BCR, LCK, STK10).
+  - *Corrected 2026-10-13 (code review):* this line first read "78 cases,
+    always with ABL1 or ABL2".
 
 ## Open decisions (Adam)
 
