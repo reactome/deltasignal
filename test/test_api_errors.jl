@@ -147,6 +147,27 @@ const SRV = DeltaSignal
         @test SRV.JSON3.read(String(resp.body))[:message] == SRV.OBS_UNKNOWN_ERROR
     end
 
+    # specs/052: the solve response carries the zero-supply report, so an arm
+    # can show which model ran (the first arm recorded "unknown": the field
+    # was computed but never returned).
+    @testset "/api/solve reports zero_supply_rule" begin
+        post(path, b) = SRV.HTTP.Request("POST", path, ["Content-Type" => "application/json"], b)
+        parsed = SRV.JSON3.read(String(SRV.parse_handler(post("/api/parse", "")).body))
+        u = String(parsed[:nodes][1][:uuid])
+        body = """{"network_id": "$(parsed[:network_id])", "observations": {"$u": [0.0, 1.0]}}"""
+        for (mode, want) in ((nothing, "off"), ("hold", "hold: no node table"))
+            old = get(ENV, "DS_ZERO_SUPPLY_MODE", nothing)
+            mode === nothing ? delete!(ENV, "DS_ZERO_SUPPLY_MODE") : (ENV["DS_ZERO_SUPPLY_MODE"] = mode)
+            try
+                r = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", body)).body))
+                @test r[:zero_supply_rule] == want
+                @test r[:zero_supply_held] == 0 && r[:zero_supply_leaves] == 0
+            finally
+                old === nothing ? delete!(ENV, "DS_ZERO_SUPPLY_MODE") : (ENV["DS_ZERO_SUPPLY_MODE"] = old)
+            end
+        end
+    end
+
     # specs/044: an uploaded network is saved under its part name, so the
     # sibling rule cannot find boundary_edges.csv; it is its own part.
     @testset "/api/parse reads an uploaded boundary_edges part" begin

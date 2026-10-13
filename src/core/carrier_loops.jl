@@ -107,7 +107,7 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String)
     n == 0 && twins == 0 && return network, mode, 0, 0, 0
     out = ReactionNetwork(network.nodes, kept, network.set_mappings, network.cofactor_stids,
                           network.containment, network.drug_stids, network.pools,
-                          network.pathogen_stids, network.carrier_loops)
+                          network.pathogen_stids, network.carrier_loops, network.node_leaves)
     return out, mode, length(hit), n, twins
 end
 

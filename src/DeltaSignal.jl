@@ -27,6 +27,7 @@ include("core/conserved.jl")
 include("core/cycles.jl")
 include("core/self_fed.jl")
 include("core/carrier_loops.jl")
+include("core/zero_supply.jl")
 
 # Solvers
 include("solvers/steady_state.jl")
@@ -55,6 +56,7 @@ export parse_pathogen_list, pathogen_stids_json, pathogen_stids_from_json, patho
 export parse_carrier_loops, carrier_loops_json, carrier_loops_from_json, carrier_loop_mode, apply_carrier_loops, solved_carrier_network
 export parse_pools, cycle_mode, cycle_carriers, PoolPath
 export conserved_mode, conserved_uuids
+export parse_node_leaves, node_leaves_json, node_leaves_from_json, zero_supply_mode, zero_supply_uuids
 export convert_to_reaction_network, aggregate_to_pathway_view, validate_network_pathway_mapping
 export compute_influence_scores, SteadyStateParams
 

@@ -212,6 +212,8 @@ function execute_parse_command(args)
             "pools" => pools_json(network),
             # And for DS_CARRIER_LOOP_MODE (specs/049).
             "carrier_loops" => carrier_loops_json(network),
+            # And for DS_ZERO_SUPPLY_MODE (specs/052).
+            "node_leaves" => node_leaves_json(network),
             "set_mappings" => Dict(set_id => Dict(
                 "original_set_id" => mapping.original_set_id,
                 "original_name" => mapping.original_name,
@@ -400,8 +402,9 @@ function execute_solve_command(args)
         pools = pools_from_json(get(network_json, "pools", nothing))
         pathogen_stids = pathogen_stids_from_json(get(network_json, "pathogen_stids", nothing))
         carrier_loops = carrier_loops_from_json(get(network_json, "carrier_loops", nothing))
+        node_leaves = node_leaves_from_json(get(network_json, "node_leaves", nothing))
         network = ReactionNetwork(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools,
-                                  pathogen_stids, carrier_loops)
+                                  pathogen_stids, carrier_loops, node_leaves)
         println("✓ Network loaded: $(length(nodes)) nodes, $(length(edges)) edges")
 
         # Load observations CSV

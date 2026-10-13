@@ -344,8 +344,13 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     catch
         throw(ArgumentError("`carrier_loops` must be null or the list /api/parse returns."))
     end
+    node_leaves = try
+        DeltaSignal.node_leaves_from_json(get(data, :node_leaves, nothing))
+    catch
+        throw(ArgumentError("`node_leaves` must be null or the map /api/parse returns."))
+    end
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment,
-                                       drug_stids, pools, pathogen_stids, carrier_loops)
+                                       drug_stids, pools, pathogen_stids, carrier_loops, node_leaves)
 end
 
 """
@@ -739,6 +744,10 @@ function parse_handler(req)
             "pools" => DeltaSignal.pools_json(network),
             # specs/049: the carrier-loop table (null when none), for the same reason.
             "carrier_loops" => DeltaSignal.carrier_loops_json(network),
+            # specs/052: node kinds and member leaves, for the same reason. Sent
+            # only when this server runs DS_ZERO_SUPPLY_MODE=hold: the rule is
+            # not adopted, and the table adds megabytes to every parse.
+            "node_leaves" => DeltaSignal.zero_supply_mode() == "hold" ? DeltaSignal.node_leaves_json(network) : nothing,
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
@@ -897,6 +906,11 @@ function solve_handler(req)
             "carrier_loop_edges_dropped" => get(solver_result.diagnostics, "carrier_loop_edges_dropped", 0),
             "carrier_loop_twin_edges" => get(solver_result.diagnostics, "carrier_loop_twin_edges", 0),
             # specs/035 (additive): "off" or "inert", and how many nodes were held.
+            # specs/052 (additive): "off", "hold" or "hold: no node table", the
+            # candidate leaves left with no supply, and the nodes held at 0.
+            "zero_supply_rule" => get(solver_result.diagnostics, "zero_supply_rule", "unknown"),
+            "zero_supply_leaves" => get(solver_result.diagnostics, "zero_supply_leaves", 0),
+            "zero_supply_held" => get(solver_result.diagnostics, "zero_supply_held", 0),
             "conserved_rule" => get(solver_result.diagnostics, "conserved_rule", "unknown"),
             "conserved_held" => get(solver_result.diagnostics, "conserved_held", 0),
             # specs/039 (additive): "off", "balance", or "balance: no pool table",

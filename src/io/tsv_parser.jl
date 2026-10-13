@@ -68,6 +68,10 @@ end
 # loop is closed (specs/049, the generator's `carrier_loops.csv`).
 const CarrierLoopEdge = Tuple{String, String, Bool}
 
+# A node's kind and the leaf stable ids it is built from (specs/052, the
+# generator's `nodes.csv`: `node_kind`, `member_leaves`).
+const NodeLeaves = Tuple{String, Vector{String}}
+
 struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
     edges::Vector{LogicNetworkEdge}
@@ -99,6 +103,9 @@ struct ReactionNetwork
     # Carrier loops from the generator's `carrier_loops.csv` (specs/049), with the
     # same `nothing` (no table) / empty (lists none) distinction.
     carrier_loops::Union{Nothing, Vector{CarrierLoopEdge}}
+    # uuid -> (node_kind, member_leaves) from the generator's `nodes.csv`
+    # (specs/052, DS_ZERO_SUPPLY_MODE). `nothing` = no such file.
+    node_leaves::Union{Nothing, Dict{String, NodeLeaves}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
@@ -106,9 +113,10 @@ struct ReactionNetwork
                     drug_stids = nothing,
                     pools = nothing,
                     pathogen_stids = nothing,
-                    carrier_loops = nothing) =
+                    carrier_loops = nothing,
+                    node_leaves = nothing) =
         new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools, pathogen_stids,
-            carrier_loops)
+            carrier_loops, node_leaves)
 end
 
 """
@@ -406,6 +414,16 @@ function parse_complete_network(
     drugs = parse_drug_list(logic_network_path)
     pathogens = parse_pathogen_list(logic_network_path)
     carrier_loops = parse_carrier_loops(logic_network_path)
+    # specs/052: read only by DS_ZERO_SUPPLY_MODE=hold, which is not adopted. A
+    # malformed node table must not take a pathway out of service under `off`
+    # (the pool-table precedent below); it is reported and dropped.
+    node_leaves = try
+        parse_node_leaves(logic_network_path)
+    catch err
+        (err isa ArgumentError && zero_supply_mode() == "off") || rethrow()
+        @warn "Ignoring a malformed node table (DS_ZERO_SUPPLY_MODE=off)" logic_network_path exception = err
+        nothing
+    end
     # A malformed pool table is an error when the solve would use it (the
     # default, DS_CYCLE_MODE=balance). Under DS_CYCLE_MODE=off it must not take
     # a pathway out of service, so it is reported and dropped.
@@ -436,7 +454,8 @@ function parse_complete_network(
             end
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
-                               Set{String}(), containment, drugs, pools, pathogens, carrier_loops)
+                               Set{String}(), containment, drugs, pools, pathogens, carrier_loops,
+                               node_leaves)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -465,7 +484,7 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs, pools, pathogens, carrier_loops)
+                           containment, drugs, pools, pathogens, carrier_loops, node_leaves)
 end
 
 """
@@ -570,6 +589,48 @@ function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePoo
         ps = sort!(get(paths, id, PoolPath[]); by = p -> (p.from, p.to, p.steps))
         push!(out, CyclePool(id, sort!(states[id]), base[id], ps, sort!(get(inter, id, String[])),
                              sort!(get(carriers, id, Tuple{String, String}[]))))
+    end
+    return out
+end
+
+"""
+Read the generator's `nodes.csv` beside a logic network (specs/052): uuid ->
+(`node_kind`, sorted `member_leaves`). `nothing` when the file is absent (a
+bundle that predates it, or a non-generator network).
+"""
+function parse_node_leaves(logic_network_path::String)::Union{Nothing, Dict{String, NodeLeaves}}
+    path = joinpath(dirname(logic_network_path), "nodes.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; types = String)
+    for c in ("uuid", "node_kind", "member_leaves")
+        c in names(df) || throw(ArgumentError("$path has no `$c` column; it is not a generator node table"))
+    end
+    out = Dict{String, NodeLeaves}()
+    for r in eachrow(df)
+        ismissing(r.uuid) && throw(ArgumentError("$path: a row has no uuid"))
+        kind = ismissing(r.node_kind) ? "" : String(r.node_kind)
+        leaves = ismissing(r.member_leaves) ? String[] :
+                 sort!(unique!([String(x) for x in split(r.member_leaves, '|') if !isempty(x)]))
+        haskey(out, r.uuid) && out[r.uuid] != (kind, leaves) &&
+            throw(ArgumentError("$path: uuid $(r.uuid) is listed twice with different contents"))
+        out[String(r.uuid)] = (kind, leaves)
+    end
+    return out
+end
+
+"""JSON form of `node_leaves` (specs/052): `nothing` stays null so "no table"
+survives a parse -> POSTed solve."""
+node_leaves_json(network::ReactionNetwork) = network.node_leaves === nothing ? nothing :
+    Dict(u => Dict("kind" => k, "leaves" => l) for (u, (k, l)) in network.node_leaves)
+
+function node_leaves_from_json(raw)::Union{Nothing, Dict{String, NodeLeaves}}
+    raw === nothing && return nothing
+    raw isa AbstractDict || throw(ArgumentError("node_leaves must map a uuid to {kind, leaves}"))
+    out = Dict{String, NodeLeaves}()
+    for (u, v) in raw
+        (v isa AbstractDict && haskey(v, :kind) && haskey(v, :leaves) && v[:leaves] isa AbstractVector) ||
+            throw(ArgumentError("node_leaves[$u] must be {kind, leaves}"))
+        out[String(u)] = (String(v[:kind]), sort!(unique!(String[String(x) for x in v[:leaves]])))
     end
     return out
 end
