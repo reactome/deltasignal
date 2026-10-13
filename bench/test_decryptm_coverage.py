@@ -41,3 +41,38 @@ def test_coverage_counts_and_conflicts(tmp_path):
     assert "held-out: (gene, site) pairs possible 2, measured 2 (down 1, up 0, unchanged 0, conflicting 1)" in r
     rows = out.read_text().splitlines()[1:]
     assert sorted(x.split("\t")[6] for x in rows) == ["conflict", "down"]
+
+
+def test_case_table_keeps_drugs_apart(tmp_path):
+    """One case per (drug, pathway, site). Imatinib and dasatinib share ABL1; a
+    gene-level pool would hand dasatinib imatinib's call (the pilot's error)."""
+    b = tmp_path / "build"
+    p = b / "R-HSA-9"
+    p.mkdir(parents=True)
+    (b / "pathways.tsv").write_text("id\tpathway_name\nR-HSA-9\tSome_heldout_pathway\n")
+    (p / "stid_to_uuid_mapping.csv").write_text("uuid,stable_id\nu1,R-HSA-C\n")
+    (p / "containment.csv").write_text("stable_id,contains_stable_id,reactome_release\n"
+                                       "R-HSA-C,R-HSA-PE,97\nR-HSA-C,R-HSA-A,97\nR-HSA-C,R-HSA-S,97\n")
+    ph = tmp_path / "ph.csv"
+    ph.write_text('h\n"R-HSA-PE", "P1", "CRKL", 207, "O4\'-phospho-L-tyrosine"\n')
+    tg = tmp_path / "tg.csv"
+    tg.write_text('h\n"R-HSA-A", "ABL1"\n"R-HSA-S", "SRC"\n')
+    s = tmp_path / "s.tsv"
+    s.write_text("uniprot\tposition\texperiment\tregulation\n"
+                 "P1\t207\tddPTM_K562_Imatinib_60min_R1\tdown\n"
+                 "P1\t207\tddPTM_K562_Dasatinib_60min_R1\tnot\n"
+                 "P1\t207\tddPTM_A431_Dasatinib_60min_R1\tup\n")
+    out, cases = tmp_path / "out.tsv", tmp_path / "cases.tsv"
+    r = subprocess.run([sys.executable, str(SCRIPT), str(b), str(ph), str(tg), str(out), str(s)],
+                       capture_output=True, text=True, check=True, env={"CASES_TSV": str(cases)}).stdout
+    assert "held-out: (drug, pathway, site) cases 2 (down 1, up 1, unchanged 0, conflicting 0)" in r
+    rows = {x.split("\t")[3]: x.split("\t") for x in cases.read_text().splitlines()[1:]}
+    assert rows["Imatinib"][8] == "down" and rows["Imatinib"][4] == "ABL1"
+    assert rows["Dasatinib"][8] == "up" and rows["Dasatinib"][4] == "ABL1;SRC"
+    assert rows["Dasatinib"][9] == "A431;K562"
+
+
+def test_call():
+    assert dc.call(["not", "down", "down"]) == "down"
+    assert dc.call(["up", "down"]) == "conflict"
+    assert dc.call(["not"]) == "not"

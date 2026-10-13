@@ -11,9 +11,12 @@ Inputs:
   TARGET_CSV   Neo4j export: EWAS stId, gene, for the drug-target genes
   SITES_TSV    decryptm_sites.py output (any number)
 
-Prints coverage per split and writes one row per scorable case to OUT_TSV.
+Prints coverage per split and writes one row per scorable (gene, site) pair
+to OUT_TSV. With CASES_TSV set, it also writes the scored unit of the
+pre-registration (research.md, 2026-10-12): one row per (drug, pathway, site),
+a multi-target drug being one perturbation of all its targets in the network.
 
-Usage: decryptm_coverage.py BUILD PHOSPHO_CSV TARGET_CSV OUT_TSV SITES_TSV [SITES_TSV ...]
+Usage: [CASES_TSV=cases.tsv] decryptm_coverage.py BUILD PHOSPHO_CSV TARGET_CSV OUT_TSV SITES_TSV [SITES_TSV ...]
 """
 import collections
 import csv
@@ -60,6 +63,13 @@ def drug_of(experiment):
     return (drug if "+" not in drug else None), parts[1]
 
 
+def call(regulations):
+    """Several experiments' calls -> one: regulated calls that all agree give that
+    direction, disagreeing ones `conflict`, none `not`."""
+    called = set(regulations) - {"not"}
+    return "conflict" if len(called) > 1 else (called.pop() if called else "not")
+
+
 def network_sites(pdir, phospho, targets):
     nodes = {r["stable_id"].split("::")[0] for r in csv.DictReader(open(pdir / "stid_to_uuid_mapping.csv"))}
     cont = collections.defaultdict(set)
@@ -83,11 +93,22 @@ def main():
     targets = {st: g for st, g in neo4j_rows(target_csv)}
     # measured[(uniprot, position)][gene] -> list of (regulation, drug, cell line)
     measured = collections.defaultdict(lambda: collections.defaultdict(list))
+    # by_drug[(uniprot, position)][drug] -> list of (regulation, cell line)
+    by_drug = collections.defaultdict(lambda: collections.defaultdict(list))
     for f in site_files:
         for r in csv.DictReader(open(f), delimiter="\t"):
             drug, cell = drug_of(r["experiment"])
             for g in DRUG_TARGETS.get(drug, ()):
                 measured[(r["uniprot"], int(r["position"]))][g].append((r["regulation"], drug, cell))
+            if drug in DRUG_TARGETS:
+                by_drug[(r["uniprot"], int(r["position"]))][drug].append((r["regulation"], cell))
+    cases_out = os.environ.get("CASES_TSV")
+    fc = open(cases_out, "w", newline="") if cases_out else None
+    wc = csv.writer(fc, delimiter="\t") if fc else None
+    if wc:
+        wc.writerow(["pathway_id", "pathway", "split", "drug", "targets", "uniprot", "position",
+                     "site_gene", "measured", "cell_lines"])
+    case_tally = collections.Counter()
     names = {}
     for r in csv.DictReader(open(build / "pathways.tsv"), delimiter="\t"):
         v = list(r.values())
@@ -102,16 +123,27 @@ def main():
                 continue
             split = "tuning" if names[pid] in TUNING_PATHWAYS else "held-out"
             sites, genes = network_sites(pdir, phospho, targets)
+            for drug in sorted(DRUG_TARGETS):
+                hit = sorted(set(DRUG_TARGETS[drug]) & genes)
+                if not hit:
+                    continue
+                for acc, pos, site_gene in sorted(sites):
+                    calls = by_drug.get((acc, pos), {}).get(drug)
+                    if not calls:
+                        continue
+                    m = call(c[0] for c in calls)
+                    case_tally[split, m] += 1
+                    if wc:
+                        wc.writerow([pid, names[pid], split, drug, ";".join(hit), acc, pos, site_gene, m,
+                                     ";".join(sorted({c[1] for c in calls}))])
             for gene in sorted(genes):
                 tally[split, "possible"] += len(sites)
                 for acc, pos, site_gene in sorted(sites):
                     calls = measured.get((acc, pos), {}).get(gene)
                     if not calls:
                         continue
-                    regs = {c[0] for c in calls}
                     # several drugs/lines: a regulated call wins only if all regulated calls agree
-                    called = regs - {"not"}
-                    m = "conflict" if len(called) > 1 else (called.pop() if called else "not")
+                    m = call(c[0] for c in calls)
                     tally[split, m] += 1
                     w.writerow([names[pid], split, gene, acc, pos, site_gene, m,
                                 ";".join(sorted({f"{d}@{c}" for _, d, c in calls}))])
@@ -120,6 +152,11 @@ def main():
         scorable = n["down"] + n["up"] + n["not"]
         print(f"{split}: (gene, site) pairs possible {n['possible']}, measured {scorable + n['conflict']} "
               f"(down {n['down']}, up {n['up']}, unchanged {n['not']}, conflicting {n['conflict']})")
+        c = {k: case_tally[split, k] for k in ("down", "up", "not", "conflict")}
+        print(f"{split}: (drug, pathway, site) cases {sum(c.values())} "
+              f"(down {c['down']}, up {c['up']}, unchanged {c['not']}, conflicting {c['conflict']})")
+    if fc:
+        fc.close()
 
 
 if __name__ == "__main__":

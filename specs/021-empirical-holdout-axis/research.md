@@ -922,6 +922,10 @@ perturbation of all its targets present in the network, not one case per
 target. Counting per gene would score dasatinib's single measurement five
 times (SRC, FYN, LCK, LYN, YES1).
 
+*Superseded:* the down / up / unchanged split below mixed drugs within a
+case. The case count stands. See "Correction, before scoring" at the end
+for the right calls: 202 regulated held-out cases, not 241.
+
 | | held-out | tuning |
 |---|---|---|
 | cases | **839** | 1,023 |
@@ -1029,8 +1033,9 @@ the bench indexes a gene, by `diagram_entity_id` and `member_leaves`.
    trivial and conflict cases.
 
 **Baselines, scored on the same cases.**
-- *Always DOWN.* This is the prior: 192 of 241 regulated held-out cases are
-  down, so a direction accuracy near 80% means nothing by itself.
+- *Always DOWN.* This is the prior: 172 of 202 regulated held-out cases are
+  down (corrected count, below), so a direction accuracy near 85% means
+  nothing by itself.
 - *Reachability.* DOWN when any readout node is reachable from a pinned node
   along the network's edges (any sign), else NORMAL. It is the naive
   Boolean, and it cannot say UP.
@@ -1044,9 +1049,54 @@ DeltaSignal vs reachability is compared by McNemar on the paired cases.
 - If it holds only with them included, the claim is "ERK-driven".
 - If DeltaSignal ties or loses to reachability, that is reported as the
   held-out result, as it stands.
-- **UP cases (49) are reported on their own.** Reachability cannot call
-  them, so they are where a signed model can show anything. With n = 49 any
-  rate there is descriptive.
+- **UP cases (30 held-out, corrected) are reported on their own.**
+  Reachability cannot call them, so they are where a signed model can show
+  anything. With n = 30 any rate there is descriptive.
 - The unchanged-case accuracy is reported with the pilot's caveat. A
   pathway inactive in the cell line makes "unchanged" a weak label, so a
   low score there is not by itself evidence against the model.
+
+### Correction, before scoring: the pilot mixed drugs within a case
+
+Writing the case table with `CASES_TSV` gives the same **839** held-out
+cases, but different calls: **172 down, 30 up, 637 unchanged, 0
+conflicting**. The pilot reported 192 / 49 / 590 / 8.
+
+**Cause, reproduced exactly.** The pilot built each (drug, pathway, site)
+call from the per-gene rows. A gene row pools the calls of every drug that
+targets that gene:
+- a dasatinib case picked up imatinib's call through ABL1 and KIT;
+- a pictilisib case picked up dactolisib's call through PIK3CA.
+
+Combining the gene rows that way gives 192 / 49 / 590 / 8 to the case.
+The registered rule ("every experiment *of that drug*") is what
+`decryptm_coverage.py` now writes. No score had been read.
+
+**Corrected numbers**
+
+| | held-out | tuning |
+|---|---|---|
+| cases | 839 | 1,023 |
+| regulated (down / up) | **202** (172 / 30) | 244 (227 / 17) |
+| unchanged / conflicting | 637 / 0 | 778 / 1 |
+| pathways (with a regulated case) | 42 (34) | 9 (5) |
+| distinct sites (regulated) | 167 (48) | 161 (52) |
+| ERK1/2 activation loop, of regulated | 85 | 52 |
+| dasatinib, of regulated | 99 | 50 |
+| **neither ERK nor dasatinib** | **38** | 146 |
+
+Regulated held-out cases by drug:
+- dasatinib 99, SHP099 23, gefitinib 15, afatinib 14, dactolisib 12;
+- PD325901 9, lapatinib 6, refametinib 6;
+- MK2206, imatinib and AZD4547 5 each, selumetinib 2, trastuzumab 1.
+- Pictilisib has none: its 12 in the pilot were dactolisib's.
+
+The UP calls come from dactolisib (12), dasatinib (6), MK2206 (4),
+imatinib (4) and three other drugs.
+
+**Stated before scoring.**
+- The concentration control rests on **38 cases**, so it can detect only a
+  large difference.
+- If the ERK-and-dasatinib-excluded comparison is not significant, it is
+  reported as underpowered, not as a failure. The decision rule above is
+  otherwise unchanged.

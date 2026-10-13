@@ -855,6 +855,62 @@ def parse_pathway_via_ds_api(pathway_dir_name: str) -> dict:
         return json.loads(r.read())
 
 
+def refuse_unless_default_model(ds_result: dict, pathway_name: str):
+    """Stop when a solve reports that a default rule had no table to act on (a
+    build that predates it), so a run cannot score something other than the
+    default model. Shared with the specs/021 drug bench."""
+    if str(ds_result.get("self_inhibitor_rule", "")).startswith("inert"):
+        raise SystemExit(f"{pathway_name}: the solve reports self_inhibitor_rule="
+                         f"{ds_result['self_inhibitor_rule']!r} -- the network reached the solver "
+                         "without its containment table, so this is not the default model.")
+    if ds_result.get("drug_rule") == "inert: no drug table":
+        raise SystemExit(f"{pathway_name}: DS_DRUG_MODE=inert but the network has no drugs.csv "
+                         "(a build that predates it), so no drug is held (specs/032).")
+    if ds_result.get("pathogen_rule") == "inert: no pathogen table":
+        raise SystemExit(f"{pathway_name}: DS_PATHOGEN_MODE=inert but the network has no pathogens.csv "
+                         "(a build that predates it), so nothing is held (specs/048).")
+    if str(ds_result.get("carrier_loop_rule", "")).endswith(": no carrier table"):
+        raise SystemExit(f"{pathway_name}: {ds_result['carrier_loop_rule']} -- the network has no "
+                         "carrier_loops.csv (a build that predates it), so no loop is changed (specs/049).")
+    if ds_result.get("cycle_rule") == "balance: no pool table":
+        raise SystemExit(f"{pathway_name}: DS_CYCLE_MODE=balance but the network has no pools.csv "
+                         "(a build that predates it), so no pool is solved (specs/039).")
+
+
+def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict):
+    """The nodes to pin for each gene under DS_PIN_SCOPE, and the network's
+    in-degrees. `gene_to_uuids` is every node that is or contains the gene.
+    Shared by the curator bench and the specs/021 drug bench, so both pin by
+    one rule."""
+    indeg = Counter()
+    with open_network(pathway_dir) as f:
+        for row in csv.DictReader(f):
+            indeg[row["target_id"]] += 1
+    if PIN_SCOPE == "entry":
+        pin_adj = build_adjacency(pathway_dir)
+        gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
+                         for g, us in gene_to_uuids.items()}
+    elif PIN_SCOPE in ("root", "root_cycle"):
+        roots = {g: root_occurrences(us, indeg) for g, us in gene_to_uuids.items()}
+        if PIN_SCOPE == "root_cycle" and any(us and not roots[g] for g, us in gene_to_uuids.items()):
+            inc, fwd, ident = defaultdict(list), defaultdict(list), {}
+            with open_network(pathway_dir) as f:
+                for row in csv.DictReader(f):
+                    inc[row["target_id"]].append((row["source_id"], row.get("edge_type", "")))
+                    fwd[row["source_id"]].append(row["target_id"])
+            nodes_csv = pathway_dir / "nodes.csv"
+            if nodes_csv.exists():
+                with open(nodes_csv) as f:
+                    ident = {r["uuid"]: r["diagram_entity_id"] for r in csv.DictReader(f)}
+            for g, us in gene_to_uuids.items():
+                if us and not roots[g]:
+                    own_stids = set(gene_to_stids.get(g, []))
+                    own = {u for u in us if ident.get(u) in own_stids}
+                    roots[g] = recycled_root_occurrences(us, own, inc, fwd)
+        gene_to_uuids = roots
+    return gene_to_uuids, indeg
+
+
 def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                 ground_truth: str = "curator") -> dict:
     pathway_dir = find_pathway_dir(pathway_id)
@@ -887,32 +943,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         for sid in gene_to_stids.get(g, []):
             uuids.extend(stid_to_uuids.get(sid, []))
         gene_to_uuids[g] = uuids
-    indeg = Counter()
-    with open_network(pathway_dir) as f:
-        for row in csv.DictReader(f):
-            indeg[row["target_id"]] += 1
-    if PIN_SCOPE == "entry":
-        pin_adj = build_adjacency(pathway_dir)
-        gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
-                         for g, us in gene_to_uuids.items()}
-    elif PIN_SCOPE in ("root", "root_cycle"):
-        roots = {g: root_occurrences(us, indeg) for g, us in gene_to_uuids.items()}
-        if PIN_SCOPE == "root_cycle" and any(us and not roots[g] for g, us in gene_to_uuids.items()):
-            inc, fwd, ident = defaultdict(list), defaultdict(list), {}
-            with open_network(pathway_dir) as f:
-                for row in csv.DictReader(f):
-                    inc[row["target_id"]].append((row["source_id"], row.get("edge_type", "")))
-                    fwd[row["source_id"]].append(row["target_id"])
-            nodes_csv = pathway_dir / "nodes.csv"
-            if nodes_csv.exists():
-                with open(nodes_csv) as f:
-                    ident = {r["uuid"]: r["diagram_entity_id"] for r in csv.DictReader(f)}
-            for g, us in gene_to_uuids.items():
-                if us and not roots[g]:
-                    own_stids = set(gene_to_stids.get(g, []))
-                    own = {u for u in us if ident.get(u) in own_stids}
-                    roots[g] = recycled_root_occurrences(us, own, inc, fwd)
-        gene_to_uuids = roots
+    gene_to_uuids, indeg = pin_occurrences(pathway_dir, gene_to_uuids, gene_to_stids)
     # Record what was actually pinned, so a run's protocol is on the record
     # rather than inferred from its flags (specs/023: 89% of pins had silently
     # become mid-pathway complexes for two months).
@@ -1079,19 +1110,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                 return {"status": "solve_error", "name": pathway_name,
                         "error": ds_result.get("message")}
 
-        if ds_result and str(ds_result.get("self_inhibitor_rule", "")).startswith("inert"):
-            raise SystemExit(f"{pathway_name}: the solve reports self_inhibitor_rule="
-                             f"{ds_result['self_inhibitor_rule']!r} -- the network reached the solver "
-                             "without its containment table, so this is not the default model.")
-        if ds_result and ds_result.get("drug_rule") == "inert: no drug table":
-            raise SystemExit(f"{pathway_name}: DS_DRUG_MODE=inert but the network has no drugs.csv "
-                             "(a build that predates it), so no drug is held (specs/032).")
-        if ds_result and ds_result.get("pathogen_rule") == "inert: no pathogen table":
-            raise SystemExit(f"{pathway_name}: DS_PATHOGEN_MODE=inert but the network has no pathogens.csv "
-                             "(a build that predates it), so nothing is held (specs/048).")
-        if ds_result and str(ds_result.get("carrier_loop_rule", "")).endswith(": no carrier table"):
-            raise SystemExit(f"{pathway_name}: {ds_result['carrier_loop_rule']} -- the network has no "
-                             "carrier_loops.csv (a build that predates it), so no loop is changed (specs/049).")
+        if ds_result:
+            refuse_unless_default_model(ds_result, pathway_name)
         if ds_result:
             SOLVE_TALLY["solves"] += 1
             SOLVE_TALLY[f"carrier_loop_rule={ds_result.get('carrier_loop_rule', 'unknown')}"] += 1
@@ -1112,9 +1132,6 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["carrier_closed_listed"] += closed_listed
             SOLVE_TALLY["carrier_twins_possible"] += twins_possible
             SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
-            if ds_result.get("cycle_rule") == "balance: no pool table":
-                raise SystemExit(f"{pathway_name}: DS_CYCLE_MODE=balance but the network has no pools.csv "
-                                 "(a build that predates it), so no pool is solved (specs/039).")
             SOLVE_TALLY[f"cycle_rule={ds_result.get('cycle_rule', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_pools_solved"] += int(ds_result.get("cycle_pools_solved") or 0)
             SOLVE_TALLY["cycle_pools_multistep"] += int(ds_result.get("cycle_pools_multistep") or 0)
