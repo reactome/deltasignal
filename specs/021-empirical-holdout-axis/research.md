@@ -842,3 +842,386 @@ and is not reproducible as recorded.** See the specs/012 addendum.
   four regulators are OR-flagged, so the output becomes min(1, 1, 1/x, 1/x) · x
   = x: monotone, with no inversion and no cancellation. This is an existing arm
   to A/B, not a new mechanism.
+
+---
+
+## Pilot, 2026-10-12: is a decryptM axis feasible? (specs/050, Adam's OK)
+
+Analysis only. No model change and no score yet.
+
+**decryptM 2.0 is not available.** The Zenodo record
+(`10.5281/zenodo.17533475`) is published with its files **restricted**: the
+record lists no files and the files API returns 403. That is probably an
+embargo until its paper appears. It cannot be used until then.
+
+**decryptM 1 is available:** PRIDE `PXD037285`, CC0, with fitted
+dose-response curves per experiment. Experiments with a kinase or
+phosphatase target in our networks (from `Experiment_summary.xlsx`):
+
+| experiment | drugs (primary targets) | cell lines |
+|---|---|---|
+| OS_6KI_A549 | AZD8055 (MTOR), dactolisib (PI3K, MTOR), dasatinib (ABL, SRC family), nintedanib (KDR, FGFR, PDGFR), pictilisib (PI3K), tideglusib (GSK3B) | A549 |
+| OS_2KI_A549, OS_Replication_A549 | MK2206 (AKT), PD325901 and refametinib (MEK) | A549 |
+| JR_Selumetinib_MK2206_Combi | selumetinib (MEK), MK2206 (AKT), combinations | A549 |
+| FB_EGFR_3Inhibitors | afatinib, gefitinib (EGFR, ERBB2/4), dasatinib | A431 |
+| SW_HER2Drugs | lapatinib, trastuzumab, pertuzumab (ERBB2, EGFR) | BT-474, MDA-MB-175-VII, SK-BR-3 |
+| JR_*_AZD4547_Combi | AZD4547 (FGFR1–3), gefitinib, lapatinib | PC-9 |
+| FH_BCRABL, FB_Dasatinib | imatinib, dasatinib (ABL1, KIT, PDGFR, SRC family) | K562, A431 |
+| JR_SHP099 | SHP099 (**PTPN11**) | KYSE-520 |
+
+Staurosporine is excluded (pan-kinase). The proteasome, KDAC, KAT,
+chemotherapy and rituximab experiments have no kinase target in our
+networks.
+
+**Overlap with the curator target list** (`phosphosite-targets.tsv`, which
+needs a curator answer):
+- 116 of 418 knockdown cases have a perturbed gene that is a primary
+  target of one of these drugs: 23 sites, 10 pathways.
+- Only **37 of those are held-out** (PTK6 21, VEGF 8, five other pathways
+  with 1–2 each). The other 79 are tuning (PIP3 72).
+
+**The axis does not need curator answers.** Any drug-target gene against
+any phosphosite in the same network is a case: our knockdown prediction
+against the measured dose response. On build `20261012-1401_01206ca`
+(sites from Neo4j: human proteins with an O-phospho-Ser/Thr/Tyr residue at
+a known coordinate, present as a node or inside a complex node):
+- **1,121 distinct phosphosites on 368 proteins** across the catalog
+  (S 466, T 224, Y 431);
+- 54 pathways have at least one site and at least one drug-target gene,
+  **45 of them held-out**.
+- *Correction:* a first count gave 690 sites and 34 pathways. It dropped
+  every phosphotyrosine, because PSI-MOD names it "O4'-phospho-L-tyrosine"
+  and the filter matched only "O-phospho-L-".
+
+**First coverage: SHP099 (PTPN11) in KYSE-520**
+(`bench/analysis/decryptm_sites.py` and `decryptm_coverage.py`, both
+tested):
+- Of 5,593 possible held-out (PTPN11, site) pairs, **61 are measured**: 23
+  down, 0 up, 38 unchanged. Tuning: 19 measured (5 down, 14 unchanged).
+- The regulated sites are ERK1/2's activation loop (MAPK3 T202/Y204, MAPK1
+  T185/Y187) in 7 pathways, and GAB1 Y659 in 3. ERK going down under SHP2
+  inhibition is the textbook result.
+- Peptides are placed on reviewed (Swiss-Prot) sequences. decryptM's
+  leading protein is often a TrEMBL fragment; MAPK3's loop would otherwise
+  land at 88/90.
+
+**Still to measure:** how many of those sites decryptM quantifies under
+the right drug, in a cell line where the curve is regulated. Downloading
+the curve archives (~3.5 GB, to `~/deltasignal-catalogs/external/decryptm`,
+with SHA256 sums recorded).
+
+**Full coverage: all 18 single-target drugs** (PRIDE curve archives with
+SHA256 sums recorded, 28 phosphoproteome curve tables, 854,781
+phosphopeptides placed on reviewed sequences and 24,621 skipped).
+
+One `10_Kinase_Inhibitors` member, a PDF plot, failed its CRC. Every curve
+table passed its own CRC check on extraction.
+
+The case unit is **(drug, pathway, site)**. A multi-target drug is one
+perturbation of all its targets present in the network, not one case per
+target. Counting per gene would score dasatinib's single measurement five
+times (SRC, FYN, LCK, LYN, YES1).
+
+*Superseded:* the down / up / unchanged split below mixed drugs within a
+case. The case count stands. See "Correction, before scoring" at the end
+for the right calls: 202 regulated held-out cases, not 241.
+
+| | held-out | tuning |
+|---|---|---|
+| cases | **839** | 1,023 |
+| regulated (down / up) | **241** (192 / 49) | 332 (306 / 26) |
+| measured, unchanged | 590 | 677 |
+| conflicting across cell lines | 8 | 14 |
+| pathways (with a regulated case) | **42** (34) | 9 (5) |
+| distinct sites (regulated) | 167 (48) | 161 (52) |
+| ERK1/2 activation loop, of regulated | 91 / 241 | 68 / 332 |
+
+Regulated held-out cases by drug:
+- dasatinib 95, SHP099 23, afatinib 18, gefitinib 15, imatinib 14,
+  lapatinib 12;
+- dactolisib 12, pictilisib 12, PD325901 9, refametinib 9;
+- the other six drugs ≤ 5 each.
+
+### Verdict: GO, with these limits stated before any scoring
+
+1. **This is the first held-out experimental axis.** It has 241 regulated
+   cases in 34 held-out pathways. Today's experimental axis has 849 cases,
+   all in the ten tuning pathways.
+2. **Concentration.**
+   - 48 distinct regulated sites.
+   - ERK1/2's activation loop is 38% of the regulated cases.
+   - Dasatinib is 39% of the regulated cases.
+
+   Report results per site and per drug, and with ERK and dasatinib left
+   out. ERK going down under an upstream kinase inhibitor is close to a
+   trivial unit (see `feedback_exclude_trivial_units`), so it is reported
+   separately, not hidden.
+3. **"Unchanged" is weaker evidence than "regulated".** A site measured
+   flat may be correct no-change, or the pathway may be inactive in that
+   cell line (A549, A431, K562, PC-9, KYSE-520, breast lines). Score
+   regulated cases as the primary metric, and unchanged ones as secondary.
+4. **An inhibitor is not a knockout.** That is already stated above.
+   Off-targets are excluded only through the primary-target table, which
+   is in `decryptm_coverage.py` and is a judgement call recorded there.
+5. **Knockdown direction only.** Over-expression predictions stay untested
+   by this axis.
+6. **No tuning against it.** Its first use is to score the frozen
+   Release97 rule set (specs/050) as a held-out witness. After that it is a
+   reported axis, never an objective.
+
+**Next, to pre-register before any score is read:**
+- a bench mode that pins every network root form of a drug's targets to 0
+  (the root protocol, several genes at once);
+- the case table above as ground truth;
+- direction accuracy on regulated cases as the primary metric, and the
+  same with ERK and dasatinib excluded;
+- unchanged cases secondary;
+- the frozen 8757909 solver.
+
+## Pre-registration, 2026-10-12: scoring the frozen Release97 rules on decryptM
+
+Written and committed before the bench script exists and before any
+prediction is read. Adam's go-ahead: "ok" after the pilot verdict.
+
+**What is scored.** Solver `8757909` (the frozen Release97 rule set, specs/050),
+code defaults, served from the dev container on canonical build
+`20261012-1401_01206ca`. One scoring, no arms, no parameter is changed in
+response to it. The tuning-split cases are scored and reported alongside, but
+the held-out cases are the result.
+
+**Cases.** One case is (drug, pathway, phosphosite).
+- The case table is written by `bench/analysis/decryptm_coverage.py`. For
+  each pathway, each of the 18 single-agent drugs in `DRUG_TARGETS` with at
+  least one primary target in that network, and each catalog phosphosite in
+  the network that decryptM measured under that drug.
+- The measured call aggregates every experiment of that drug: cell lines,
+  time points and replicates. Regulated calls that all agree give that
+  direction. Disagreeing regulated calls give `conflict`. No regulated call
+  gives `not`. This is the rule the pilot counts used.
+- `conflict` cases are excluded from every metric and counted.
+
+**Perturbation.** Each drug is one solve per pathway.
+- Every root form of every one of its primary targets present in the network
+  is pinned to 0 at the same time.
+- Root forms are chosen exactly as the curator benchmark chooses them
+  (`DS_PIN_SCOPE=root_cycle`, `DS_PERTURB_UI_DOWN=0`, the same code path,
+  factored out of `run_pathway` and not changed).
+- A drug with no pinnable target in the pathway gives invalid cases, which
+  are counted.
+
+**Readout.** Readout nodes are those that are, or contain, an EWAS carrying
+a phosphorylation at that (UniProt, coordinate). They are indexed the way
+the bench indexes a gene, by `diagram_entity_id` and `member_leaves`.
+- The prediction is the mean over those nodes (`DS_KO_AGG=mean`, the bench
+  default).
+- It is classified with the bench cutoffs: DOWN below 0.85, UP at or above
+  1.15.
+- **A pinned readout node is excluded from the mean.** It reads 0 by
+  construction. If every readout node is pinned, the case is *trivial*: it
+  is counted and excluded, not scored (`feedback_exclude_trivial_units`).
+- A site with no readout node in the network is invalid and counted.
+
+**Metrics.** Held-out, valid, non-trivial, non-conflict cases only.
+1. **Primary: direction accuracy on regulated cases.** The prediction must
+   equal the measured direction. NORMAL counts as wrong.
+2. **Primary, concentration control:** the same metric with the ERK1/2
+   activation-loop sites excluded (MAPK3 T202/Y204, MAPK1 T185/Y187), with
+   dasatinib excluded, and with both excluded.
+3. **Secondary:** accuracy on unchanged cases (prediction NORMAL), and
+   three-class macro-F1 over regulated plus unchanged cases.
+4. Reported by drug, by site and by pathway, with the counts for invalid,
+   trivial and conflict cases.
+
+**Baselines, scored on the same cases.**
+- *Always DOWN.* This is the prior: 172 of 202 regulated held-out cases are
+  down (corrected count, below), so a direction accuracy near 85% means
+  nothing by itself.
+- *Reachability.* DOWN when any readout node is reachable from a pinned node
+  along the network's edges (any sign), else NORMAL. It is the naive
+  Boolean, and it cannot say UP.
+
+DeltaSignal vs reachability is compared by McNemar on the paired cases.
+
+**What would count as what. Read off once, not tuned.**
+- **Information beyond the graph:** regulated direction accuracy above
+  reachability's, at McNemar p < 0.05, holding with ERK and dasatinib
+  excluded.
+- If it holds only with them included, the claim is "ERK-driven".
+- If DeltaSignal ties or loses to reachability, that is reported as the
+  held-out result, as it stands.
+- **UP cases (30 held-out, corrected) are reported on their own.**
+  Reachability cannot call them, so they are where a signed model can show
+  anything. With n = 30 any rate there is descriptive.
+- The unchanged-case accuracy is reported with the pilot's caveat. A
+  pathway inactive in the cell line makes "unchanged" a weak label, so a
+  low score there is not by itself evidence against the model.
+
+### Correction, before scoring: the pilot mixed drugs within a case
+
+Writing the case table with `CASES_TSV` gives the same **839** held-out
+cases, but different calls: **172 down, 30 up, 637 unchanged, 0
+conflicting**. The pilot reported 192 / 49 / 590 / 8.
+
+**Cause, reproduced exactly.** The pilot built each (drug, pathway, site)
+call from the per-gene rows. A gene row pools the calls of every drug that
+targets that gene:
+- a dasatinib case picked up imatinib's call through ABL1 and KIT;
+- a pictilisib case picked up dactolisib's call through PIK3CA.
+
+Combining the gene rows that way gives 192 / 49 / 590 / 8 to the case.
+The registered rule ("every experiment *of that drug*") is what
+`decryptm_coverage.py` now writes. No score had been read.
+
+**Corrected numbers**
+
+| | held-out | tuning |
+|---|---|---|
+| cases | 839 | 1,023 |
+| regulated (down / up) | **202** (172 / 30) | 244 (227 / 17) |
+| unchanged / conflicting | 637 / 0 | 778 / 1 |
+| pathways (with a regulated case) | 42 (34) | 9 (5) |
+| distinct sites (regulated) | 167 (48) | 161 (52) |
+| ERK1/2 activation loop, of regulated | 85 | 52 |
+| dasatinib, of regulated | 99 | 50 |
+| **neither ERK nor dasatinib** | **38** | 146 |
+
+Regulated held-out cases by drug:
+- dasatinib 99, SHP099 23, gefitinib 15, afatinib 14, dactolisib 12;
+- PD325901 9, lapatinib 6, refametinib 6;
+- MK2206, imatinib and AZD4547 5 each, selumetinib 2, trastuzumab 1.
+- Pictilisib has none: its 12 in the pilot were dactolisib's.
+
+The UP calls come from dactolisib (12), dasatinib (6), MK2206 (4),
+imatinib (4) and three other drugs.
+
+**Stated before scoring.**
+- The concentration control rests on **38 cases**, so it can detect only a
+  large difference.
+- If the ERK-and-dasatinib-excluded comparison is not significant, it is
+  reported as underpowered, not as a failure. The decision rule above is
+  otherwise unchanged.
+
+## Result, 2026-10-12: the frozen Release97 rules on decryptM (registered scoring)
+
+Code `5343fea` (solver source identical to `8757909`), build
+`20261012-1401_01206ca`. The output is in
+`builds/20261012-1401_01206ca/results/decryptm_5343fea/`
+(`decryptm_cases.tsv`, `summary.json`, plus the `.log` beside it).
+
+**Status**
+- Held-out: 811 scored, 28 trivial (every readout node pinned).
+- Tuning: 991 scored, 31 trivial, 1 conflict.
+- No case was left without a pin or without a readout.
+
+**Held-out**
+
+| cases | n | DeltaSignal | reachability | always DOWN | McNemar (DS-only / reach-only) |
+|---|---|---|---|---|---|
+| regulated | 190 | **45** | **70** | 160 | 0 / 25, p 6e-8 |
+| no ERK loop | 105 | 36 | 57 | 93 | 0 / 21, p 1e-6 |
+| no dasatinib | 97 | 15 | 28 | 73 | 0 / 13, p 2e-4 |
+| neither | 32 | 7 | 16 | 26 | 0 / 9, p 0.004 |
+| UP | 30 | 0 | 0 | 0 | |
+| unchanged | 621 | 485 | 454 | 0 | 31 / 0, p 9e-10 |
+
+Macro-F1 over the scored cases:
+
+| | DeltaSignal | reachability | always DOWN |
+|---|---|---|---|
+| held-out | 0.352 | 0.371 | 0.110 |
+| tuning | 0.422 | 0.368 | 0.117 |
+
+**Tuning, for reference only**
+
+| cases | n | DeltaSignal | reachability | always DOWN |
+|---|---|---|---|---|
+| regulated | 228 | 111 | 136 | 211 |
+| unchanged | 763 | 595 | 452 | |
+
+**Verdict, under the registered rule:**
+- **No information beyond the graph is shown.**
+- On regulated held-out cases DeltaSignal loses to reachability, 45 against
+  70 of 190 (p 6e-8). The loss holds with ERK, dasatinib, or both excluded.
+- DeltaSignal never calls a regulated case right that reachability calls
+  wrong (DS-only = 0).
+- It calls none of the 30 UP cases.
+- Its one advantage is the secondary metric: it keeps 31 more unchanged
+  cases at NORMAL. Under the registration that is weak evidence.
+
+### What the losses are (traced after scoring; analysis only, nothing changed)
+
+1. **The readout cannot be reached: 116 of 190 regulated held-out cases.**
+   - No path runs inside the pathway's network from the drug's pinned
+     targets to the site. Both methods say NORMAL, and both are wrong.
+   - By drug: dasatinib 47, SHP099 16, dactolisib 12, gefitinib 9.
+   - 26 of the 30 UP cases are among them.
+   - These responses run through other pathways, or through biology
+     Reactome does not curate. A single-pathway network cannot represent
+     them. This is the largest class and is outside the solver.
+2. **Reachable, but DeltaSignal does not call DOWN: 25 cases.**
+   - **17 read UP, in Signaling by EGFR (13) and Interferon gamma (4,
+     SHP099 → ERK).**
+     - The EGFR case, traced (gefitinib, EGFR Y1092): the 2 EGFR root forms
+       are pinned to 0. Most of the 718 readout nodes fall to 0, but 413 of
+       the network's 3,083 nodes rail to 100×, which makes the mean 22×.
+     - The railed component is the curated CBL endocytosis cycle: EGF-like
+       ligands:p-6Y-EGFR:CBL:GRB2, Beta-Pix:CDC42:GTP binding and release
+       (R-HSA-183002, 8951490, 183084, 183058), then CIN85 / endophilin /
+       EPS15 / EPN1 assembly (182994, 8867044).
+     - What drives it: with EGFR gone, the complexes that consume free CBL,
+       EPS15L1, EPN1 and p-SPRY2 fall to 0. Their only in-edge is that
+       depletion, so each de-represses to the 10× ceiling. They enter the
+       cycle as AND inputs. The cycle regenerates its own EGFR-carrying
+       complexes, so it no longer needs the pinned root, and it rails to
+       the cap.
+     - This is the specs/014 positive-cycle knife-edge, set off by
+       depletion de-repression. It is the mirror of the open specs/049
+       item (an enzyme knockout should raise its substrate): here a binding
+       partner's rise is carried back into the receptor's own complex.
+   - **8 read NORMAL near baseline.**
+     - SHC1 under dasatinib in IL-2 signalling: 0.91×.
+     - PTPN11 Y580 under dasatinib in FGFR1–4: exactly 1.0×.
+     - GAB1 Y659 under SHP099 in RET: 0.90×.
+     - In each the path exists, but the knockdown is diluted by OR
+       alternatives.
+
+**What this means for specs/050.**
+- On this axis the Release97 rules are not better than a reachability
+  baseline.
+- Most of the axis tests what a single-pathway network can reach at all,
+  not the solver.
+- The solver-side defect it found (class 2, the railing cycle) is real and
+  traced.
+- A rule written from this trace has *used* the axis. It would have to be
+  registered and judged on the curator and experimental axes, and its
+  decryptM numbers reported as no longer held-out for that mechanism.
+
+### The reachable cases on their own (Adam's question; post hoc, analysis only)
+
+These are the cases where a path runs from a pinned target to the readout,
+so the solver had something to propagate.
+
+**Held-out: 241 cases**
+
+| measured | n | DS DOWN | DS NORMAL | DS UP |
+|---|---|---|---|---|
+| down | 70 | **45** | 8 | 17 |
+| up | 4 | 4 | 0 | 0 |
+| unchanged | 167 | **129** | 31 | 7 |
+
+- **Measured DOWN: 45 of 70 called right (64%).**
+  - The 17 wrong-way UP calls are the EGFR CBL-cycle rail (13) and the
+    IFN-γ ERK cases (4). Without them it is 45 of 53 (85%).
+  - Without the ERK loop it is 36 of 57.
+- **No discrimination.** DeltaSignal calls DOWN on 64% of measured-down
+  reachable cases and on **77%** of measured-unchanged ones.
+  - The false DOWN calls concentrate in VEGF (29), Semaphorin interactions
+    (19), Rho GTPases (11) and PTK6 (9).
+  - The "unchanged" label is the weak one (pathway inactive in the cell
+    line), so this is an upper bound on over-calling, not a measurement
+    of it.
+
+**Tuning, for comparison: 451 cases**
+- Measured down: 111 of 136 called DOWN (82%).
+- Measured unchanged: 161 of 311 called DOWN (52%).
+- So some discrimination there, in the pathways the rules were tuned on.
