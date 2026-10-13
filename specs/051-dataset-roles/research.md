@@ -110,6 +110,62 @@ includes the experimental axis, which was the informative one.
   - These are the severed routes already traced in specs/047, not evidence
     for the null.
 
+## R4. Drug → target map from measured affinity: registration (2026-10-13, before any value is read)
+
+Protocol point 7 retires the hand-written `DRUG_TARGETS` table
+(`bench/analysis/decryptm_coverage.py`). It is replaced by a map built from
+measured affinity.
+
+**Source.**
+- Klaeger 2017 is not open access. Science returns 403 to a scripted
+  download, and Europe PMC reports the manuscript (PMC6542668) as not open
+  access. The supplementary tables are therefore not used.
+- The same measurements were deposited by the Kuster lab in **ChEMBL**
+  (source 48, `TUM_PROTEOMIC_KUSTER`; document `CHEMBL3991601`). That is
+  70,505 activities, all `Kd apparent` in nM, under ChEMBL's
+  **CC BY-SA 3.0** licence.
+  - Pinned to **ChEMBL 37** (released 2026-05-01).
+  - The fetched records and their SHA256 are kept under
+    `~/deltasignal-catalogs/external/klaeger2017_chembl37/`.
+- What was read before this registration: the record structure only.
+  - Measured binding is `relation '='` with comment Active.
+  - No binding is `relation '>'` with comment Inactive.
+  - No drug–target value has been read.
+
+**Rule (primary).**
+- Protein P is a target of drug D if the deposited set has a record for
+  (D, P) with relation `=` and **Kd_app ≤ 1,000 nM**.
+- Only single-protein ChEMBL targets count, mapped to UniProt, then to the
+  HGNC symbol. Complex and family targets are skipped and counted.
+- Non-kinase proteins that kinobeads co-capture are kept as recorded, and
+  their number is reported. They are not filtered by hand.
+
+**Drug names.**
+- Each decryptM drug name maps to one ChEMBL molecule by preferred name or
+  synonym. The mapping is written out and committed before targets are
+  joined.
+
+**Drugs the assay cannot see.**
+- Kinobeads measure ATP-site competition in lysate. Trastuzumab and
+  pertuzumab (antibodies) and SHP099 (an allosteric phosphatase inhibitor)
+  cannot appear.
+- Any drug with no record, or no target at the cutoff, keeps its hand
+  target. Its `source` column says `hand`, and it is listed. Allosteric MEK
+  inhibitors and tideglusib may land here.
+- They are not dropped, because the hand table is the better definition for
+  a drug the assay cannot measure.
+
+**Sensitivity.**
+- The map is also built at 100 nM and 10,000 nM. Both are reported, and
+  neither is chosen on outcome.
+- The cutoff is not changed after a score.
+
+**Use.**
+- The map is a data definition for every future drug dataset (TEST sets
+  included). It is fixed by this registration, not by any score.
+- decryptM 1 is FIT, so it may be re-scored under the new map. The number
+  is reported as a FIT-set measurement, not as accuracy.
+
 ## Open decisions (Adam)
 
 1. HPN-DREAM8 and MCF10A need a Synapse account and acceptance of their
