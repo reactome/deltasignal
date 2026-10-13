@@ -76,6 +76,80 @@ of sets that have never been read.
 Releases change content, so a dataset scored against Release 98 is scored
 on the frozen Release 98 model under the specs/050 procedure.
 
+## Protocol (Adam agreed, 2026-10-12)
+
+These rules bind every fit and every score from here on.
+
+1. **Split by group, never by case.** The groups are:
+   - perturbation (gene, or drug target set);
+   - readout (entity or site);
+   - pathway;
+   - cell line.
+
+   Each claim names the group it generalises over. "Works on unseen
+   pathways" needs a pathway-grouped split. Counts are given in distinct
+   units as well as cases.
+2. **Selection by grouped cross-validation inside FIT + SELECT.**
+   - A fit is chosen by leave-group-out cross-validation: by pathway group
+     and by perturbation, with the folds fixed by a seeded, committed fold
+     file (`bench/splits.py`).
+   - A single fixed selection set wears out; the curator held-out split
+     already has.
+   - SELECT data enters the cross-validation as folds. It is never fitted
+     whole.
+3. **TEST is opened once per frozen release,** under a protocol committed
+   first.
+   - The strongest TEST is prospective: newly curated pathways in the next
+     Reactome release (the specs/050 procedure), and data published after
+     the model froze, such as decryptM 2.0.
+4. **Every score carries these baselines, on the same cases:**
+   - always-majority;
+   - reachability (graph only);
+   - the unfitted defaults, for any fitted model;
+   - a **rewired-network null**: degree-preserving rewiring, edge type and
+     sign kept, several seeds. It shows the curated wiring carries the
+     signal.
+   - Every fit also runs a **label-shuffle control**: fitted to shuffled
+     FIT labels, it must gain nothing on held-out folds. If it does, the
+     procedure leaks.
+5. **Few, shared, anchored parameters.**
+   - Parameters are shared by edge type or motif before any per-edge
+     parameter is allowed.
+   - Each fit is regularised toward the current default.
+   - Parameter pairs that trade off are reported jointly.
+   - Fitted values carry bootstrap intervals over perturbations, and are
+     checked for biological plausibility before adoption.
+6. **Statistics.**
+   - Macro-F1 on direction is the objective and the headline.
+   - McNemar for paired comparisons.
+   - **95% intervals by bootstrap over perturbation groups**, never over
+     cases.
+   - Concentration: pathways and distinct readouts moved.
+   - A count of every arm and fit evaluated against SELECT data, kept in
+     the spec.
+7. **Data definitions are fixed before results.**
+   - "Regulated" comes from each dataset's own statistics.
+   - Drug → target comes from measured affinity (Klaeger 2017 kinobeads),
+     with the cutoff registered before use. The hand-written
+     `DRUG_TARGETS` table is retired once that map exists.
+   - Entity and site mappings are pinned to the Reactome release.
+   - Licence, checksums and the processing script are kept for every file.
+   - Cell lines only.
+8. **Cell context.**
+   - A flat readout in a cell line whose pathway is off is not a model
+     error.
+   - Until context is learned (L3, from FIT data only), unchanged cases are
+     secondary.
+   - Scoring may be restricted to cell lines where the pathway is shown
+     active, by a criterion registered beforehand.
+9. **Reproducible.**
+   - One command regenerates each reported number from pinned data, code
+     and catalog build.
+   - Negative results stay in the record.
+
+**Gate before any fit (L1 onward):** confirmation that the organisation's
+data-use policy permits fitting model parameters to public cell-line data.
+
 ## Stages of learning
 
 Each stage is registered before it runs. It is fitted on FIT, chosen on
@@ -113,7 +187,7 @@ added at a weight registered before the fit.
 ## First steps
 
 1. Survey public perturbation datasets for the TEST reserve and for FIT
-   volume (research.md).
+   volume (research.md). *Done, R1.*
 2. A machine-readable register, `bench/datasets.tsv`, and
    `bench/dataset_roles.py` with `require_role(dataset, purpose)`.
    - Any fitting script calls it, and it refuses a dataset whose role does
@@ -121,7 +195,11 @@ added at a weight registered before the fit.
    - The scoring bench writes the role it scored into its summary.
 3. Pick and register two TEST sets from different labs or technologies.
    Download them with checksums, without reading their values.
-4. L1 as the first registered fit.
+4. The scoring tools the protocol needs:
+   - perturbation-clustered bootstrap intervals;
+   - the grouped fold file;
+   - the rewired-network null.
+5. L1 as the first registered fit, behind the policy gate.
 
 ## Non-goals
 
