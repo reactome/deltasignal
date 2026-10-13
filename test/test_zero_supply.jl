@@ -148,6 +148,24 @@ end
     @test zs == Set(["C1", "C2"]) && rule == "hold" && n == 1
 end
 
+@testset "a malformed nodes.csv is dropped under off, an error under hold" begin
+    mktempdir() do d
+        write(joinpath(d, "logic_network.csv"),
+              "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n" *
+              "a,b,pos,and,input,1,\n")
+        write(joinpath(d, "stid_to_uuid_mapping.csv"), "uuid,stable_id\na,R-HSA-1\nb,R-HSA-2\n")
+        write(joinpath(d, "nodes.csv"), "uuid,node_kind\na,simple_entity\n")    # no member_leaves column
+        load() = DS.parse_complete_network(joinpath(d, "logic_network.csv"),
+                                           joinpath(d, "stid_to_uuid_mapping.csv"), nothing)
+        with_env("DS_ZERO_SUPPLY_MODE" => "off") do
+            @test (@test_logs (:warn, r"malformed node table") match_mode=:any load()).node_leaves === nothing
+        end
+        with_env("DS_ZERO_SUPPLY_MODE" => "hold") do
+            @test_throws ArgumentError load()
+        end
+    end
+end
+
 @testset "nodes.csv: parse, conflicts, JSON round trip" begin
     mktempdir() do d
         write(joinpath(d, "logic_network.csv"), "source_id,target_id\n")

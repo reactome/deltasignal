@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "analysis"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import zero_supply_report as zr  # noqa: E402
 
 KIND = {"r1": "reaction", "r2": "reaction", "r3": "reaction", "r4": "reaction", "rs": "reaction",
@@ -49,3 +50,27 @@ def test_compare_counts_and_by_construction():
     assert m["by_construction"] == {"fixed": 1, "broken": 0} and m["net_without_by_construction"] == 0
     assert (m["ko_up_control"], m["ko_up_wrong_fixed"], m["ko_up_right_broken"]) == (1, 1, 0)
     assert m["pathways_moved"] == 2 and m["distinct_readouts"] == 3
+
+
+def test_load_network_drops_closed_loop_edges(tmp_path):
+    (tmp_path / "nodes.csv").write_text("uuid,node_kind,member_leaves\nE,simple_entity,LE\nEP,simple_complex,LE|LP\n"
+                                        "D,simple_entity,LD\n")
+    (tmp_path / "logic_network.csv").write_text(
+        "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n"
+        "E,EP,pos,and,input,1,\nEP,E,pos,or,output,1,\nD,E,neg,and,depletion,1,\nD,EP,neg,and,depletion,1,\n")
+    nodes, edges = zr.load_network(tmp_path)
+    assert len(edges) == 4                                     # no carrier table: as given
+    (tmp_path / "carrier_loops.csv").write_text("loop_id,r,closed,free_uuid,free_stid,loop_source_uuid\n"
+                                                "l1,1,True,E,R-E,EP\n")
+    nodes, edges = zr.load_network(tmp_path)
+    assert set(edges) == {("E", "EP", "input"), ("D", "EP", "depletion")}
+
+
+def test_bench_refuses_an_unreported_or_tableless_zero_supply_rule():
+    import pytest
+    import benchmark_vs_mpbiopath as bm
+    with pytest.raises(SystemExit, match="did not report zero_supply_rule"):
+        bm.refuse_unless_default_model({"status": "success"}, "P")
+    with pytest.raises(SystemExit, match="needs the network's nodes.csv"):
+        bm.refuse_unless_default_model({"zero_supply_rule": "hold: no node table"}, "P")
+    bm.refuse_unless_default_model({"zero_supply_rule": "off"}, "P")      # passes

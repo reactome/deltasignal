@@ -744,8 +744,10 @@ function parse_handler(req)
             "pools" => DeltaSignal.pools_json(network),
             # specs/049: the carrier-loop table (null when none), for the same reason.
             "carrier_loops" => DeltaSignal.carrier_loops_json(network),
-            # specs/052: node kinds and member leaves (null when none), for the same reason.
-            "node_leaves" => DeltaSignal.node_leaves_json(network),
+            # specs/052: node kinds and member leaves, for the same reason. Sent
+            # only when this server runs DS_ZERO_SUPPLY_MODE=hold: the rule is
+            # not adopted, and the table adds megabytes to every parse.
+            "node_leaves" => DeltaSignal.zero_supply_mode() == "hold" ? DeltaSignal.node_leaves_json(network) : nothing,
         )
         
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))

@@ -869,6 +869,14 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
     if ds_result.get("pathogen_rule") == "inert: no pathogen table":
         raise SystemExit(f"{pathway_name}: DS_PATHOGEN_MODE=inert but the network has no pathogens.csv "
                          "(a build that predates it), so nothing is held (specs/048).")
+    # specs/052: fail on the first solve, not after the run: a server that does
+    # not report the rule (older code) cannot show which model ran.
+    if "zero_supply_rule" not in ds_result:
+        raise SystemExit(f"{pathway_name}: the solver did not report zero_supply_rule; "
+                         "the model that ran cannot be shown (specs/052)")
+    if str(ds_result.get("zero_supply_rule", "")).startswith("hold: "):
+        raise SystemExit(f"{pathway_name}: {ds_result['zero_supply_rule']} -- DS_ZERO_SUPPLY_MODE=hold "
+                         "needs the network's nodes.csv")
     if str(ds_result.get("carrier_loop_rule", "")).endswith(": no carrier table"):
         raise SystemExit(f"{pathway_name}: {ds_result['carrier_loop_rule']} -- the network has no "
                          "carrier_loops.csv (a build that predates it), so no loop is changed (specs/049).")

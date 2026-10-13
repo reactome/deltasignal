@@ -122,8 +122,9 @@ solve silently ran without it).
 `DS_CARRIER_LOOP_MODE=closed_twin` (and every other mode except `off`) reports
 `"<mode>: no carrier table"` and solves as `off`.
 `node_leaves` (specs/052, additive) maps each node uuid to `{kind, leaves}`
-(the generator's `nodes.csv` `node_kind` and `member_leaves`), or `null` when
-the bundle has none. Send it back with an inline network, or
+(the generator's `nodes.csv` `node_kind` and `member_leaves`). It is `null`
+when the bundle has none, and also whenever the server runs the default
+`DS_ZERO_SUPPLY_MODE=off`, because the table is large and only that rule reads it. Send it back with an inline network, or
 `DS_ZERO_SUPPLY_MODE=hold` reports `"hold: no node table"` and solves as `off`.
 
 Node display names are enriched from the Reactome ContentService when the

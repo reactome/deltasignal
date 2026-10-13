@@ -61,12 +61,24 @@ def held_by_rule(nodes, edges, pinned):
 
 
 def load_network(pdir):
+    """The network as the solver ran it under the default DS_CARRIER_LOOP_MODE
+    (closed_twin): a closed carrier loop's free form loses its in-edges from the
+    loop (and depletion in-edges), which the rule then cannot follow either
+    (code review 2026-10-13: the raw network over-held 172 vs 128 in HDR).
+    Twin-supply edges are `carrier_supply`, which never carry a leaf."""
     nodes = {}
     with open(pdir / "nodes.csv", newline="") as f:
         for r in csv.DictReader(f):
             nodes[r["uuid"]] = (r["node_kind"], set(filter(None, (r.get("member_leaves") or "").split("|"))))
     with open_network(pdir) as f:
         edges = [(r["source_id"], r["target_id"], r["edge_type"]) for r in csv.DictReader(f)]
+    closed, cl = set(), pdir / "carrier_loops.csv"
+    if cl.exists():
+        with open(cl, newline="") as f:
+            rows = [r for r in csv.DictReader(f) if r["closed"].strip().lower() in ("true", "1")]
+        closed = {(r["loop_source_uuid"], r["free_uuid"]) for r in rows}
+        free = {r["free_uuid"] for r in rows}
+        edges = [(s, d, t) for s, d, t in edges if (s, d) not in closed and not (t == "depletion" and d in free)]
     return nodes, edges
 
 

@@ -6,9 +6,10 @@ cycle can go on regenerating complexes built from it (Signaling by EGFR: the
 curated CBL endocytosis cycle rails at 100x with no EGFR in the cell). That
 breaks conservation, not a parameter.
 
-For one solve, a leaf L is a CANDIDATE if a node pinned to 0 is built from it.
-A node CARRIES L if L is in its `member_leaves` (any kind), or if it is a
-reaction node with an `input` edge from an L-carrier. An edge carries L if both
+For one solve, a leaf L (a protein, or a small molecule: any `member_leaves`
+entry) is a CANDIDATE if a node pinned to 0 is built from it. A non-reaction
+node CARRIES L if L is in its `member_leaves`; a reaction node carries L if it
+has an `input` edge from an L-carrier. An edge carries L if both
 ends carry it and its type moves material (input, output, assembly,
 dissociation, set_member, variant_pool, variant_split); catalysts, regulators
 and depletion never build their target. An L-SOURCE is a non-reaction carrier

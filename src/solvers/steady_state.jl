@@ -213,8 +213,9 @@ function solve_steady_state(
     end
     zero_supply_held = 0
     if !isempty(zheld)
-        # Held at 0, not baseline: the protein is absent. Only unpinned nodes are
-        # in `zheld`, so an observation always wins.
+        # Held at 0, not baseline: the leaf is absent. `zheld` excludes the
+        # caller's pins, so an observation wins; a cofactor, drug or pathogen
+        # hold merged above also wins, and is not counted here.
         zpins = Dict{String, Tuple{Float64, Float64}}(
             u => (0.0, 1.0) for u in zheld
             if haskey(network.nodes, u) &&

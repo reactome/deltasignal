@@ -414,7 +414,16 @@ function parse_complete_network(
     drugs = parse_drug_list(logic_network_path)
     pathogens = parse_pathogen_list(logic_network_path)
     carrier_loops = parse_carrier_loops(logic_network_path)
-    node_leaves = parse_node_leaves(logic_network_path)
+    # specs/052: read only by DS_ZERO_SUPPLY_MODE=hold, which is not adopted. A
+    # malformed node table must not take a pathway out of service under `off`
+    # (the pool-table precedent below); it is reported and dropped.
+    node_leaves = try
+        parse_node_leaves(logic_network_path)
+    catch err
+        (err isa ArgumentError && zero_supply_mode() == "off") || rethrow()
+        @warn "Ignoring a malformed node table (DS_ZERO_SUPPLY_MODE=off)" logic_network_path exception = err
+        nothing
+    end
     # A malformed pool table is an error when the solve would use it (the
     # default, DS_CYCLE_MODE=balance). Under DS_CYCLE_MODE=off it must not take
     # a pathway out of service, so it is reported and dropped.

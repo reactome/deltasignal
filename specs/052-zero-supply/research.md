@@ -39,9 +39,13 @@ significantly negative. `DS_ZERO_SUPPLY_MODE` stays `off`.
   -7, -8) and one `simple_complex`. The knockout pins them all to 0, and so
   pins every *partner* protein in them to 0 as well.
 - The rule cannot tell the knocked-out protein from its partners. It found
-  partner leaves with no other source and held 172 downstream nodes.
-- 120 of those 172 are produced by reactions with no ERCC1-carrying input
+  partner leaves with no other source and held 128 downstream nodes.
+- 80 of those 128 are produced by reactions with no ERCC1-carrying input
   at all.
+- *Corrected (code review):* these counts first read 172 and 120. They were
+  computed on the raw network rather than the network as solved, which
+  drops closed carrier-loop edges. The mirror now drops them too, and
+  matches the solver.
 - Restricted to the leaves common to every pin (ERCC1 and ERCC4), it holds
   **0** nodes. The whole HDR loss is the partner-leaf artefact.
 
@@ -88,8 +92,10 @@ reported `zero_supply_rule=hold`.
 2. Signaling by EGFR: of the 13 measured-DOWN cases predicted UP, **8 move
    to DOWN and 5 stay UP. Partly met.** 3 measured-unchanged cases also flip
    UP → DOWN.
-3. **Met.** Of 12,050 curator and 393 experimental overexpression cases,
-   0 changed prediction and 0 changed `pred_ui`.
+3. **Met, by construction:** candidates need a pin at exactly 0, so this
+   confirms the code rather than the model. Of 12,050 curator and 393
+   experimental overexpression cases, 0 changed prediction and 0 changed
+   `pred_ui`.
 
 **All 11 changed decryptM cases are EGFR's own autophosphorylation sites
 under EGFR inhibitors.** The readout is the drug's target. So the decryptM
@@ -99,6 +105,11 @@ It also exposes a data-definition gap in the decryptM bench (specs/021).
 Under "drug = knockout", a site on the drug's own target is decided by the
 pin, not by the network. Before decryptM is used to fit anything, these
 cases should be registered as a separate stratum (`site_gene ∈ targets`).
+
+**"Protein" is loose.** A leaf is any `member_leaves` entry, small
+molecules included (there are about 30,000 `R-ALL-*` occurrences in the
+canonical node tables). A ligand bound only inside a pinned root complex
+is affected the same way as the HDR partners.
 
 ## R4. What would be worth trying next (not registered, not run)
 
