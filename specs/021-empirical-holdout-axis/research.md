@@ -1195,3 +1195,33 @@ Macro-F1 over the scored cases:
 - A rule written from this trace has *used* the axis. It would have to be
   registered and judged on the curator and experimental axes, and its
   decryptM numbers reported as no longer held-out for that mechanism.
+
+### The reachable cases on their own (Adam's question; post hoc, analysis only)
+
+These are the cases where a path runs from a pinned target to the readout,
+so the solver had something to propagate.
+
+**Held-out: 241 cases**
+
+| measured | n | DS DOWN | DS NORMAL | DS UP |
+|---|---|---|---|---|
+| down | 70 | **45** | 8 | 17 |
+| up | 4 | 4 | 0 | 0 |
+| unchanged | 167 | **129** | 31 | 7 |
+
+- **Measured DOWN: 45 of 70 called right (64%).**
+  - The 17 wrong-way UP calls are the EGFR CBL-cycle rail (13) and the
+    IFN-γ ERK cases (4). Without them it is 45 of 53 (85%).
+  - Without the ERK loop it is 36 of 57.
+- **No discrimination.** DeltaSignal calls DOWN on 64% of measured-down
+  reachable cases and on **77%** of measured-unchanged ones.
+  - The false DOWN calls concentrate in VEGF (29), Semaphorin interactions
+    (19), Rho GTPases (11) and PTK6 (9).
+  - The "unchanged" label is the weak one (pathway inactive in the cell
+    line), so this is an upper bound on over-calling, not a measurement
+    of it.
+
+**Tuning, for comparison: 451 cases**
+- Measured down: 111 of 136 called DOWN (82%).
+- Measured unchanged: 161 of 311 called DOWN (52%).
+- So some discrimination there, in the pathways the rules were tuned on.
