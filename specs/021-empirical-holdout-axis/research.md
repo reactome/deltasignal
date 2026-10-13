@@ -973,3 +973,80 @@ Regulated held-out cases by drug:
   same with ERK and dasatinib excluded;
 - unchanged cases secondary;
 - the frozen 8757909 solver.
+
+## Pre-registration, 2026-10-12: scoring the frozen Release97 rules on decryptM
+
+Written and committed before the bench script exists and before any
+prediction is read. Adam's go-ahead: "ok" after the pilot verdict.
+
+**What is scored.** Solver `8757909` (the frozen Release97 rule set, specs/050),
+code defaults, served from the dev container on canonical build
+`20261012-1401_01206ca`. One scoring, no arms, no parameter is changed in
+response to it. The tuning-split cases are scored and reported alongside, but
+the held-out cases are the result.
+
+**Cases.** One case is (drug, pathway, phosphosite).
+- The case table is written by `bench/analysis/decryptm_coverage.py`. For
+  each pathway, each of the 18 single-agent drugs in `DRUG_TARGETS` with at
+  least one primary target in that network, and each catalog phosphosite in
+  the network that decryptM measured under that drug.
+- The measured call aggregates every experiment of that drug: cell lines,
+  time points and replicates. Regulated calls that all agree give that
+  direction. Disagreeing regulated calls give `conflict`. No regulated call
+  gives `not`. This is the rule the pilot counts used.
+- `conflict` cases are excluded from every metric and counted.
+
+**Perturbation.** Each drug is one solve per pathway.
+- Every root form of every one of its primary targets present in the network
+  is pinned to 0 at the same time.
+- Root forms are chosen exactly as the curator benchmark chooses them
+  (`DS_PIN_SCOPE=root_cycle`, `DS_PERTURB_UI_DOWN=0`, the same code path,
+  factored out of `run_pathway` and not changed).
+- A drug with no pinnable target in the pathway gives invalid cases, which
+  are counted.
+
+**Readout.** Readout nodes are those that are, or contain, an EWAS carrying
+a phosphorylation at that (UniProt, coordinate). They are indexed the way
+the bench indexes a gene, by `diagram_entity_id` and `member_leaves`.
+- The prediction is the mean over those nodes (`DS_KO_AGG=mean`, the bench
+  default).
+- It is classified with the bench cutoffs: DOWN below 0.85, UP at or above
+  1.15.
+- **A pinned readout node is excluded from the mean.** It reads 0 by
+  construction. If every readout node is pinned, the case is *trivial*: it
+  is counted and excluded, not scored (`feedback_exclude_trivial_units`).
+- A site with no readout node in the network is invalid and counted.
+
+**Metrics.** Held-out, valid, non-trivial, non-conflict cases only.
+1. **Primary: direction accuracy on regulated cases.** The prediction must
+   equal the measured direction. NORMAL counts as wrong.
+2. **Primary, concentration control:** the same metric with the ERK1/2
+   activation-loop sites excluded (MAPK3 T202/Y204, MAPK1 T185/Y187), with
+   dasatinib excluded, and with both excluded.
+3. **Secondary:** accuracy on unchanged cases (prediction NORMAL), and
+   three-class macro-F1 over regulated plus unchanged cases.
+4. Reported by drug, by site and by pathway, with the counts for invalid,
+   trivial and conflict cases.
+
+**Baselines, scored on the same cases.**
+- *Always DOWN.* This is the prior: 192 of 241 regulated held-out cases are
+  down, so a direction accuracy near 80% means nothing by itself.
+- *Reachability.* DOWN when any readout node is reachable from a pinned node
+  along the network's edges (any sign), else NORMAL. It is the naive
+  Boolean, and it cannot say UP.
+
+DeltaSignal vs reachability is compared by McNemar on the paired cases.
+
+**What would count as what. Read off once, not tuned.**
+- **Information beyond the graph:** regulated direction accuracy above
+  reachability's, at McNemar p < 0.05, holding with ERK and dasatinib
+  excluded.
+- If it holds only with them included, the claim is "ERK-driven".
+- If DeltaSignal ties or loses to reachability, that is reported as the
+  held-out result, as it stands.
+- **UP cases (49) are reported on their own.** Reachability cannot call
+  them, so they are where a signed model can show anything. With n = 49 any
+  rate there is descriptive.
+- The unchanged-case accuracy is reported with the pilot's caveat. A
+  pathway inactive in the cell line makes "unchanged" a weak label, so a
+  low score there is not by itself evidence against the model.
