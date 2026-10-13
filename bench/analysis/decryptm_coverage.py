@@ -30,7 +30,7 @@ from holdout_report import TUNING_PATHWAYS  # noqa: E402
 RESIDUE = {"O-phospho-L-serine": "S", "O-phospho-L-threonine": "T", "O4'-phospho-L-tyrosine": "Y"}
 
 # Primary targets only. Staurosporine (pan-kinase) and non-kinase drugs are excluded.
-DRUG_TARGETS = {
+HAND_DRUG_TARGETS = {
     "MK2206": ["AKT1", "AKT2", "AKT3"],
     "Pictilisib": ["PIK3CA", "PIK3CB", "PIK3CD", "PIK3CG"],
     "Dactolisib": ["PIK3CA", "PIK3CB", "PIK3CD", "PIK3CG", "MTOR"],
@@ -46,6 +46,22 @@ DRUG_TARGETS = {
     "Nintedanib": ["KDR", "FLT1", "FLT4", "FGFR1", "FGFR2", "FGFR3", "PDGFRA", "PDGFRB"],
     "Tideglusib": ["GSK3B"],
 }
+
+
+def load_drug_targets(path):
+    """{drug: [genes]} from a bench/drug_targets.py table (specs/051 R4)."""
+    out = collections.defaultdict(list)
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f, delimiter="\t"):
+            out[r["drug"]].append(r["gene"])
+    return dict(out)
+
+
+# specs/051 R4: measured affinity (Kd_app <= 1 uM, kinobeads) replaces the hand
+# table, which a drug the assay cannot see still falls back to. DRUG_TARGETS=hand
+# reproduces specs/021; any other value is a path to a drug_targets.py table.
+_DT = os.environ.get("DRUG_TARGETS", str(Path(__file__).resolve().parent.parent / "drug_targets.tsv"))
+DRUG_TARGETS = HAND_DRUG_TARGETS if _DT == "hand" else load_drug_targets(_DT)
 
 
 def neo4j_rows(path):

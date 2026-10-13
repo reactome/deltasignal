@@ -166,6 +166,65 @@ measured affinity.
 - decryptM 1 is FIT, so it may be re-scored under the new map. The number
   is reported as a FIT-set measurement, not as accuracy.
 
+### R4 result: the map (built 2026-10-13; nothing scored yet)
+
+- Fetched: 70,505 activities, 243 molecules (Klaeger's 243 drugs) and 320
+  targets. Checksums are in `SHA256SUMS` next to the data.
+- Genes are Reactome 97's own name for each UniProt accession
+  (ReferenceGeneProduct, isoforms excluded), so the bench resolves the same
+  gene. Five accessions are not in Reactome.
+- Drug names were fixed first (`bench/drug_molecules.tsv`, 0bdd112). 15 of
+  18 matched. PD325901 is mirdametinib, matched by hand. The two antibodies
+  and SHP099 are absent, as expected.
+- At 1 µM, 11 drugs take kinobeads targets. Seven keep the hand table:
+  - the three the assay cannot see;
+  - tideglusib, which is measured inactive (> 30 µM). It is a non-ATP-site
+    inhibitor;
+  - AZD8055, dactolisib and pictilisib. MTOR and the class I PI3Ks were
+    never measured.
+
+| drug | targets at 1 µM (Kd_app, nM) |
+|---|---|
+| Afatinib | EGFR 2, MET 157, MAPKAPK2 817 |
+| Gefitinib | EGFR 413, RIPK2 903, GAK 951 |
+| Lapatinib | EGFR 51 |
+| MK2206 | AKT1 11, AKT2 21, AKT3 213 |
+| PD325901 | MAP2K1 12, MAP2K2 12, MAP2K5 808 |
+| Selumetinib | MAP2K1 41, MAP2K2 52, SMC2 209, SMC1A 365 |
+| Refametinib | MAPK10 36, MAP2K1 130, MAP2K2 176, CHEK1 439 |
+| Imatinib | BCR 7, DDR1 22, NQO2 41, ABL2 64, ABL1 106, DDR2 181, DDX3X 435 |
+| AZD4547 | 10 (FGFR1 2 first) |
+| Nintedanib | 19 (RET, FLT3, DDR2, DDR1, PDGFRB first) |
+| Dasatinib | 46 (SRC, ABL2, EPHA5, EPHB2, EPHB4, FYN, YES1, ABL1 first) |
+
+Sensitivity:
+- At 100 nM, 10 drugs take kinobeads targets (dasatinib 31).
+- At 10 µM, 13 drugs do (dasatinib 70, nintedanib 40). Pictilisib and
+  AZD8055 then gain measured targets.
+
+**Amendment A1 (2026-10-13, after the map was seen, before any score).**
+- The registered rule read "no record" as "not a target". That is wrong for
+  a protein the profiled lysates did not contain.
+  - ERBB2, ERBB4, KDR, FLT1, FLT4, FGFR2, FGFR3, PDGFRA, MTOR and the
+    class I PI3Ks have **no record for any of the 243 drugs**.
+  - So afatinib and lapatinib lost ERBB2, and nintedanib lost its VEGF
+    receptors.
+- New rule: a drug's targets are its kinobeads targets at the cutoff, plus
+  any hand target whose gene the deposit never measured for any drug
+  (`hand_unmeasured`).
+  - A hand target that was measured is decided by the measurement.
+    Imatinib's KIT and PDGFRB are measured at > 30 µM, so they are dropped.
+- This adds 12 (drug, gene) pairs at 1 µM. The disclosure is that the map
+  had been read, and no outcome had.
+
+**Kept as registered, flagged.**
+- Imatinib → BCR 7 nM, and dasatinib → BCR 5 nM. These are almost certainly
+  the BCR-ABL fusion in the K562 lysate, captured through its ABL kinase.
+  BCR in Reactome is the Rho GEF. Under the registered rule it stays a
+  target, and any case it decides is listed when scored.
+- Other co-captured non-kinases (SMC1A, SMC2, DDX3X, NQO2) also stay.
+  NQO2 is a known imatinib target.
+
 ## Open decisions (Adam)
 
 1. HPN-DREAM8 and MCF10A need a Synapse account and acceptance of their
