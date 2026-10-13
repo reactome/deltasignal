@@ -1225,3 +1225,29 @@ so the solver had something to propagate.
 - Measured down: 111 of 136 called DOWN (82%).
 - Measured unchanged: 161 of 311 called DOWN (52%).
 - So some discrimination there, in the pathways the rules were tuned on.
+
+### Amendment: intervals by drug (specs/051 protocol, 2026-10-12)
+
+The protocol requires intervals from a bootstrap over perturbation groups:
+here, drugs, since one drug is one solve that many sites read. They were
+recomputed from the run's own case log with
+`decryptm_bench.py --summarize`, without solving again.
+
+| held-out | n | drugs | DS − reach | 95% CI by drug | case-level McNemar p |
+|---|---|---|---|---|---|
+| regulated | 190 | 13 | −0.132 | [−0.194, −0.053] | 6e-8 |
+| no ERK loop | 105 | 10 | −0.200 | [−0.394, −0.100] | 1e-6 |
+| no dasatinib | 97 | 12 | −0.134 | [−0.216, 0.000] | 2e-4 |
+| neither | 32 | 9 | −0.281 | [−0.444, 0.000] | 0.004 |
+| unchanged (secondary) | 621 | 18 | +0.050 | [+0.016, +0.071] | 9e-10 |
+
+**The headline stands:** DeltaSignal loses to reachability on regulated
+held-out cases, and the drug-clustered interval excludes 0.
+
+**Without dasatinib, or without both ERK and dasatinib, the intervals
+reach 0.** The case-level McNemar p-values overstated those two, because
+they treated sites read from one solve as independent. The direction is
+the same, but they are not significant once clustered.
+
+Under the specs/051 protocol, perturbation-clustered intervals replace
+case-level McNemar as the significance call. McNemar is still reported.
