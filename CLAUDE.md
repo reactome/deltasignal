@@ -589,6 +589,8 @@ for the last feature that touched it rather than re-deriving from the code.
   (`bench/datasets.tsv`; `bench/dataset_roles.py` refuses fitting on a non-FIT
   set). **The curator held-out split is SELECT**, not a test set: it has chosen
   rules since 2026-09. decryptM 1 is FIT after its one scoring.
+  The degree-preserving rewired-network null (`bench/rewire_network.py`)
+  loses to the real wiring on every axis, experimental included (R3).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
