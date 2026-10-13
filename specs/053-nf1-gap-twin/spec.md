@@ -1,7 +1,7 @@
 # specs/053: a closed recycling copy is joined to its fed identity twin
 
-**Status:** registered 2026-10-13, before any generator code was written or
-any arm run. Trace: research.md T1–T5. Choice of generator over solver:
+**Status:** **not adopted** (2026-10-13; research.md R1). Registered
+before any generator code was written or any arm run. Trace: research.md T1–T5. Choice of generator over solver:
 Adam, 2026-10-13 (research.md T5, option 2).
 
 ## Why

@@ -66,3 +66,64 @@ bypassed the split, it did not model the enzyme.
    cases in one tuning pathway (RAF is one of the paper's ten), so its
    own score is not evidence for it; it rests on faithfulness (the GAP copy
    *is* the SPRED dimer:NF1 that R-HSA-5658438 makes).
+
+## R1. Result: not adopted (2026-10-13)
+
+**Runs.** Both by `scripts/run_arm.sh` at **a807851** (solver identical to
+main 89e8d28).
+- `cj0`: canonical build `20261012-1401_01206ca`. Reproduces `1f58a1b` on
+  every prediction and every `pred_ui` (24,100 curator, 849 experimental).
+- `cj`: build `20261013-1452_cf3fced_ctjoin` (generator cf3fced, LNG PR
+  #112, `LNG_CLOSED_TWIN_JOIN=1`).
+- Results: `builds/<build>/results/a807851/{cj0,cj}`.
+
+**Structural (J-P1): held.** 461 joins, with every pathway's count equal to
+the census. Nodes 213,171 → 212,710 (−461); edges unchanged, because each
+closed copy and its twin had disjoint edges.
+
+**Accuracy: fails the gate on every line.**
+
+| | fixed | broke | net | p |
+|---|---|---|---|---|
+| curator held-out | 40 | 533 | **−493** | < 1e-4 |
+| curator tuning | 13 | 120 | −107 | < 1e-4 |
+| experimental | | | +2 | |
+
+By pathway (curator): DSB repair −488 (18/506), HDR −56, TP53 −47,
+RUNX2 −30, TGF-β −8, IL-2 family −11. Three pathways lose more than 10.
+
+**The losses are far outside the registered "touched" set (382 curator
+cases).** That census counted cases whose pins reach the fed twin but not
+the closed copy. It missed two effects of a merge, which is two-way:
+- the fed twin now also reads the cycle's release, so any perturbation
+  that reaches the cycle moves the twin and everything downstream of it;
+- `root_cycle` pin selection changed: 176 DSB cases, 36 TP53 and 14 VEGF
+  pinned a different number of nodes, because a merged node is no longer
+  a closed cycle form.
+
+The DSB loss is not traced case by case; both mechanisms are present
+there.
+
+**NF1 (J-P2, J-P3): both missed, and the trace shows why.** On the joined
+build the GAP does follow NF1: solved directly, SPRED2 dimer:NF1 reads 1.0
+(control), 6e-5 (NF1 knockout) and 28× (NF1 overexpression).
+- **Knockout, 0 of 11 UP.** RAS:GTP (R-HSA-109783) reads 1.000007. NF1 is
+  one of ten members of the RAS GAPs set (R-HSA-5658216), and losing one
+  barely moves it. Not traced into the pool's drive.
+- **Overexpression, 1 of 6 DOWN.** RAS:GTP itself reads 0.19, DOWN, which
+  is correct. The five p-MAPK and RAS:RAF readouts read UP at 41–100×: the
+  RAF-loop inversion recorded in specs/049 (P7/P8). So the join fixed the
+  edge it targeted, and the readouts are decided further downstream.
+
+**Conclusions.**
+1. A uuid merge is two-way, and here that is the damage. It is the weld
+   family of specs/018 again. A one-way form (the closed copy reads its
+   twin; the twin does not read the cycle) is what `closed_twin` does for
+   root copies (specs/049), and it would not have moved the twin's
+   downstream. It is not registered.
+2. The NF1 cases would still fail: the knockout because NF1 is one of ten
+   GAPs, and the overexpression because of the RAF inversion. The NF1
+   "enzyme knockout raises substrate" item is therefore not one defect, and
+   the specs/052 gain on it was an artefact of holding every NF1 node.
+3. LNG PR #112 is left unmerged (draft); the flag would expire under the
+   specs/020 policy, and the branch is the record.

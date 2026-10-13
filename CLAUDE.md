@@ -612,6 +612,11 @@ for the last feature that touched it rather than re-deriving from the code.
   pool's recycling path (the specs/039 supply rule treats every pin as a
   reach barrier; not exact-zero numerics), the RAF gain NF1 (enzyme
   knockout raising its substrate).
+- `specs/053-nf1-gap-twin/` — why an NF1 knockout cannot reach RAS (the GAP
+  is an identity twin fed only by its own release), and the generator join
+  that merged such copies (`LNG_CLOSED_TWIN_JOIN`, LNG PR #112, unmerged).
+  **Not adopted:** curator held-out −493 (DSB −488); a merge is two-way and
+  re-welds cycles. NF1 still fails: one of ten GAPs, and the RAF inversion.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
