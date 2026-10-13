@@ -904,6 +904,11 @@ function solve_handler(req)
             "carrier_loop_edges_dropped" => get(solver_result.diagnostics, "carrier_loop_edges_dropped", 0),
             "carrier_loop_twin_edges" => get(solver_result.diagnostics, "carrier_loop_twin_edges", 0),
             # specs/035 (additive): "off" or "inert", and how many nodes were held.
+            # specs/052 (additive): "off", "hold" or "hold: no node table", the
+            # candidate leaves left with no supply, and the nodes held at 0.
+            "zero_supply_rule" => get(solver_result.diagnostics, "zero_supply_rule", "unknown"),
+            "zero_supply_leaves" => get(solver_result.diagnostics, "zero_supply_leaves", 0),
+            "zero_supply_held" => get(solver_result.diagnostics, "zero_supply_held", 0),
             "conserved_rule" => get(solver_result.diagnostics, "conserved_rule", "unknown"),
             "conserved_held" => get(solver_result.diagnostics, "conserved_held", 0),
             # specs/039 (additive): "off", "balance", or "balance: no pool table",

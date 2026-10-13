@@ -121,6 +121,10 @@ solve silently ran without it).
 `carrier_loops.csv`. Send it back with an inline network, or the default
 `DS_CARRIER_LOOP_MODE=closed_twin` (and every other mode except `off`) reports
 `"<mode>: no carrier table"` and solves as `off`.
+`node_leaves` (specs/052, additive) maps each node uuid to `{kind, leaves}`
+(the generator's `nodes.csv` `node_kind` and `member_leaves`), or `null` when
+the bundle has none. Send it back with an inline network, or
+`DS_ZERO_SUPPLY_MODE=hold` reports `"hold: no node table"` and solves as `off`.
 
 Node display names are enriched from the Reactome ContentService when the
 generator only provided stable ids (degrades gracefully if that service is
@@ -181,6 +185,10 @@ Response:
   The built-in sample network has no pathogen table, so a bodyless
   `/api/parse` → `/api/solve` reports `"inert: no pathogen table"`; nothing
   is wrong with that solve.
+- **`zero_supply_rule`** / **`zero_supply_leaves`** / **`zero_supply_held`**
+  (additive, specs/052): `"off"` (default), `"hold"` or `"hold: no node
+  table"`; how many proteins pinned to 0 were left with no unpinned source;
+  and how many nodes built from them this solve held at 0.
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):

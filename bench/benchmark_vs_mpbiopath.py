@@ -1512,6 +1512,8 @@ def main():
     zrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("zero_supply_rule="))
     print(f"\nZero supply: rule {'/'.join(zrules) or 'unknown'}, {SOLVE_TALLY['zero_supply_held']} node-solves held, "
           f"{SOLVE_TALLY['zero_supply_leaves']} leaf-solves without supply (specs/052)")
+    if "unknown" in zrules:
+        raise SystemExit("the solver did not report zero_supply_rule; the model that ran cannot be shown (specs/052).")
     if any(r.startswith("hold: ") for r in zrules):
         raise SystemExit("DS_ZERO_SUPPLY_MODE=hold but a network has no node table; the arm is not the rule.")
     if "hold" in zrules and SOLVE_TALLY["zero_supply_held"] == 0:

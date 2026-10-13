@@ -639,7 +639,7 @@ other seven execute code and print output.
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 40 | specs/052, added 2026-10-13 |
 | `test/test_cli_observations.jl` | 45 | |
-| `test/test_api_errors.jl` | 54 | |
+| `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |
 | `test/test_worked_example.jl` | 9 | |
