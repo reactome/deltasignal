@@ -53,6 +53,63 @@ phosphosite readouts. "Verified" means the landing page was opened.
     decryptM could not give.
   - It is one cell line, so the per-site results are not independent.
 
+## R3. Rewired-network null: the curated wiring carries signal (2026-10-13)
+
+Registered in spec.md before any build (495e9e9). Builds and arms:
+
+- Source build `20261012-1401_01206ca`. Null builds `..._rewire1` to
+  `..._rewire5`, made by `bench/rewire_network.py` at 0159108.
+  - 257,125 reaction-level edges per build. Between 247,364 and 247,450
+    moved (96%), from about 2.5 M accepted swaps.
+- All six arms ran at 0159108 with `DS_CYCLE_MODE=off`,
+  `DS_CARRIER_LOOP_MODE=off` and `DS_PIN_NETWORK_ROOT` set to the source
+  build, so the same nodes were pinned in every arm.
+  - Control `wire0`: `results/0159108/wire0` on the source build.
+  - Seeds: `results/0159108/rw<seed>` on each null build.
+- Scored by `bench/analysis/rewire_null.py`, with the JSON at
+  `results/0159108/rewire_null.json` on the source build.
+- Every case was paired across the six arms: 24,100 curator and 849
+  experimental cases, none lost.
+
+| axis | n | genes | wire0 acc / mF1 | seeds acc (mean) | seeds mF1 | wire0 − seeds, correct, 95% by gene | rule |
+|---|---|---|---|---|---|---|---|
+| curator tuning (FIT) | 5,100 | 94 | 0.761 / 0.749 | 0.434 | 0.406–0.427 | [+0.264, +0.390] | **pass** |
+| curator held-out (SELECT) | 19,000 | 463 | 0.876 / 0.838 | 0.588 | 0.483–0.517 | [+0.264, +0.311] | **pass** |
+| experimental (FIT) | 849 | 81 | 0.702 / 0.621 | 0.417 | 0.322–0.423 | [+0.174, +0.375] | **pass** |
+
+Canonical macro-F1 on the same cases is 0.765, 0.853 and 0.616. Turning
+off the pool and carrier rules costs about 0.015 on the curator axes, and
+nothing on the experimental axis.
+
+**Verdict, per the registered rule:** on every axis, `wire0` beats all five
+seeds on macro-F1, and the gene-clustered interval excludes 0. That
+includes the experimental axis, which was the informative one.
+
+**What the null is and is not.**
+- The rewired networks do not fall back to "no change". They over-call UP
+  (38% of tuning predictions against 27% expected), because rewiring
+  scatters inhibitors and depletion edges.
+- On the experimental axis they score below always-majority (accuracy 0.417
+  against 0.468; majority macro-F1 0.212). So this null is a floor, and
+  passing it shows the model is not running on degree and pinning alone.
+  - It does not show the model beats simpler uses of the same wiring.
+  - That is the reachability baseline's job, and on decryptM reachability
+    won (specs/021).
+- Rewired solves converge less often (curator 1,511–1,631 of 1,725 against
+  1,646; experimental 175–214 of 244 against 218). The case dump does not
+  record convergence per case, so the gap is not split by it.
+
+**Traced: cases every seed got right and `wire0` missed.**
+- Curator tuning 146, held-out 194, experimental 28. The reverse (`wire0`
+  right, every seed wrong) is 905, 2,304 and 150.
+- 93 of the tuning 146 are in Mitotic G1, and 85 of those 93 are
+  `no_path`.
+  - They are overexpressions (ABL1, SRC, PTK6, JAK2, CCND1, CDK4) whose
+    readout the real network does not reach. The rewired network connects
+    them at random, and its UP bias lands.
+  - These are the severed routes already traced in specs/047, not evidence
+    for the null.
+
 ## Open decisions (Adam)
 
 1. HPN-DREAM8 and MCF10A need a Synapse account and acceptance of their
