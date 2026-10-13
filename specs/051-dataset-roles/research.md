@@ -225,6 +225,34 @@ Sensitivity:
 - Other co-captured non-kinases (SMC1A, SMC2, DDX3X, NQO2) also stay.
   NQO2 is a known imatinib target.
 
+### R4 score: decryptM 1 under the kinobeads map (FIT measurement, 2026-10-13)
+
+decryptM 1 is FIT, so this is a measurement, not accuracy.
+- Same build (`20261012-1401_01206ca`), and the same bench and case rule as
+  specs/021, at code 6c5b6a9.
+- Case table: `analysis/051/decryptm_cases.tsv`. `target_ewas.csv` was
+  rebuilt for the new genes; its rows for the old genes reproduce the 050
+  file exactly. `DRUG_TARGETS=hand` reproduces the specs/021 case table
+  byte for byte.
+- Results: `results/decryptm_kinobeads_6c5b6a9/`.
+- The new targets put drugs into more pathways: 2,403 cases against 1,862.
+
+| held-out | hand map (specs/021) | kinobeads map |
+|---|---|---|
+| regulated, DS / reachability | 45 / 70 of 190 | 86 / 115 of 278 |
+| DS − reach, 95% by drug | [−0.194, −0.053] | [−0.139, −0.047] (13 drugs) |
+| unchanged, DS / reachability | 485 / 454 of 621 | 633 / 594 of 855 |
+| macro-F1, DS / reachability | 0.352 / 0.371 | 0.359 / 0.368 |
+
+- Tuning: regulated 113 vs 138 of 240 (by drug [−0.163, −0.035]); macro-F1
+  0.422 vs 0.380.
+- **The specs/021 verdict stands under a measured target definition.** On
+  held-out regulated sites, DeltaSignal loses to reachability, and DS-only
+  wins are still 0.
+- The 30 UP sites are still all missed.
+- BCR (flagged above) is in 78 cases. It is never a case's only target; it
+  always appears with ABL1 or ABL2.
+
 ## Open decisions (Adam)
 
 1. HPN-DREAM8 and MCF10A need a Synapse account and acceptance of their
