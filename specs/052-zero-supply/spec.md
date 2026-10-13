@@ -1,6 +1,8 @@
 # specs/052: zero supply — a protein that is not there is in no complex
 
-**Status:** registered 2026-10-13, before any arm. The code and its unit
+**Status:** **not adopted** (2026-10-13; research.md R1). Curator held-out
+−20 (p 1.1e-5), tuning −15, experimental +4 (n.s.). `DS_ZERO_SUPPLY_MODE`
+stays `off`. Registered 2026-10-13, before any arm. The code and its unit
 tests were written alongside this text. Nothing has been run on the
 catalog.
 
