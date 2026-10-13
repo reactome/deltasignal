@@ -1287,13 +1287,17 @@ stitching does to reachability.
 - Both use the same generous definition, so the difference is the
   boundary.
 
-| held-out | n | reachable in pathway | reachable stitched |
-|---|---|---|---|
-| regulated | 278 | 124 (45%) | 272 (98%) |
-| unchanged | 855 | 267 (31%) | 821 (96%) |
+| held-out | n | reachable in pathway | keyed, own pathway only | reachable stitched |
+|---|---|---|---|---|
+| regulated | 278 | 124 (45%) | 130 (47%) | 272 (98%) |
+| unchanged | 855 | 267 (31%) | 388 (45%) | 821 (96%) |
 
-Tuning is the same shape: regulated 142 → 240 of 240, unchanged 332 → 948
-of 961.
+- The identity key also merges copies inside one pathway (variant and silo
+  twins). The middle column is that effect alone. It adds 6 regulated and
+  121 unchanged cases.
+- The jump to 272 is crossing the boundary.
+- Tuning is the same shape: regulated 142 / 155 / 240 of 240, unchanged
+  332 / 381 / 948 of 961.
 
 **Reading.**
 - The unreachable regulated cases are boundary cases in the graph sense.

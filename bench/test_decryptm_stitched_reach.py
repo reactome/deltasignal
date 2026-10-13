@@ -33,4 +33,7 @@ def test_boundary_gain_and_split(tmp_path, capsys):
     # in R-HSA-1 the site is not in the pathway at all; stitched it is reachable
     assert t[("held-out", "unchanged", False, True)] == 1
     assert sum(t.values()) == 2               # the trivial case is not counted
-    assert "only when stitched 1" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "only when stitched 1" in out
+    # keyed own pathway: R-HSA-2's own copy of T has no edge, so merging copies inside it adds nothing
+    assert "keyed own pathway     0" in out

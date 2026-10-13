@@ -8,8 +8,10 @@ from one of the drug's targets?
   the key the 2026-07-16 cross-pathway measurement used (node_kind,
   diagram_entity_id, compartment, member_leaves, chosen_members).
 
-Both use the same generous definition (any target-containing node, any edge),
-so the difference isolates the boundary. Graph only; nothing is solved.
+Both use the same generous definition (any target-containing node, any edge).
+The identity key also merges copies WITHIN a pathway (variant and silo twins),
+so a third count, the keyed graph of the case's own pathway alone, separates
+that from crossing the boundary. Graph only; nothing is solved.
 
 Usage: decryptm_stitched_reach.py BUILD CASES_TSV TARGET_EWAS_CSV PHOSPHO_EWAS_CSV
   CASES_TSV is a decryptm_bench.py case log (status, split, measured, targets,
@@ -84,6 +86,7 @@ def main(argv):
             s_has[l].add(k)
     s_reach_cache = {}
     tally = collections.Counter()
+    keyed_tally = collections.Counter()
     for c in cases:
         key, leaves, edges = pathways[c["pathway_id"]]
         t_ewas = set().union(*(gene_ewas.get(g, set()) for g in c["targets"].split(";")))
@@ -99,8 +102,15 @@ def main(argv):
             s_reach_cache[tk] = reachable(s_adj, set().union(*(s_has[e] for e in t_ewas)) if t_ewas else set())
         s_dst = set().union(*(s_has[e] for e in r_ewas)) if r_ewas else set()
         stitched = bool(s_reach_cache[tk] & s_dst)
+        k_adj = collections.defaultdict(set)          # keyed, own pathway only
+        for a, b in edges:
+            if a in key and b in key:
+                k_adj[key[a]].add(key[b])
+        k_src = {key[u] for u in src}
+        keyed = bool(reachable(k_adj, k_src) & {key[u] for u in dst}) if k_src and dst else False
         reg = "regulated" if c["measured"] in ("down", "up") else "unchanged"
         tally[(c["split"], reg, own, stitched)] += 1
+        keyed_tally[(c["split"], reg)] += keyed
     for split in ("held-out", "tuning"):
         for reg in ("regulated", "unchanged"):
             n = sum(v for k, v in tally.items() if k[:2] == (split, reg))
@@ -109,7 +119,8 @@ def main(argv):
             own = sum(v for k, v in tally.items() if k[:2] == (split, reg) and k[2])
             st = sum(v for k, v in tally.items() if k[:2] == (split, reg) and k[3])
             gain = sum(v for k, v in tally.items() if k[:2] == (split, reg) and k[3] and not k[2])
-            print(f"{split:9s} {reg:10s} n={n:5d}  reachable in pathway {own:5d}  stitched {st:5d}  "
+            print(f"{split:9s} {reg:10s} n={n:5d}  reachable in pathway {own:5d}  "
+                  f"keyed own pathway {keyed_tally[(split, reg)]:5d}  stitched {st:5d}  "
                   f"(only when stitched {gain})")
     return tally
 
