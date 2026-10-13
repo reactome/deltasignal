@@ -64,3 +64,27 @@ def test_summarize_controls_and_baselines():
     assert set(s["by_drug"]) == {"Dasatinib", "SHP099", "MK2206"}
     # macro-F1 over the 5 scored cases. always-DOWN: F1(down) = 2*.6*1/1.6 = .75, others 0
     assert abs(s["macro_f1"]["always_down"] - 0.25) < 1e-12
+
+
+def test_compare_intervals_are_by_drug():
+    rows = ([_row("A", "Q", i, "down", "down", "down") for i in range(5)] +
+            [_row("B", "Q", i, "down", "not", "down") for i in range(5)])
+    m = db.compare(rows)
+    assert m["drugs"] == 2 and (m["deltasignal"], m["reachability"]) == (5, 10)
+    lo, hi = m["ci95_by_drug"]["ds_minus_reach"]
+    assert -1.0 <= lo <= -0.5 <= hi <= 0.0     # two clusters: draws are -1, -0.5 or 0
+    assert db.compare([])["ci95_by_drug"] == {}
+
+
+def test_resummarize_roundtrip(tmp_path):
+    import csv
+    import json
+    rows = [_row("A", "Q", 1, "down", "down", "down"), _row("B", "Q", 2, "up", "not", "not")]
+    with open(tmp_path / "decryptm_cases.tsv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]), delimiter="\t")
+        w.writeheader()
+        w.writerows(rows)
+    (tmp_path / "summary.json").write_text(json.dumps({"build": "b", "code": "c", "solves": 2}))
+    db.resummarize(tmp_path)
+    s = json.loads((tmp_path / "summary.json").read_text())
+    assert s["build"] == "b" and s["held-out"]["regulated"]["n"] == 2 and "summarized_by" in s
