@@ -201,6 +201,84 @@ added at a weight registered before the fit.
    - the rewired-network null.
 5. L1 as the first registered fit, behind the policy gate.
 
+## Rewired-network null: design (registered 2026-10-12, before any build)
+
+Protocol point 4 asks whether the curated wiring carries the signal. A
+rewired network keeps every node, every edge class and every node's degree,
+and moves only which reaction each edge reaches. If the real network does
+not beat it, the score comes from degrees and pinning, not from Reactome.
+
+**What is rewired.**
+- Only the reaction-level classes in `logic_network.csv`: `input`,
+  `output`, `catalyst`, `regulator`, `depletion`.
+- A class is (`edge_type`, `pos_neg`, `and_or`), so an inhibition stays an
+  inhibition and an AND input stays an AND input. There are 7 such classes in
+  the build.
+- **Kept fixed:** the entity-structure edges, meaning `boundary_edges.csv`
+  (assembly, dissociation, set_member) and `variant_pool` / `variant_split`.
+  They say what an entity is made of, not what reacts with what. Rewiring
+  them would test a different claim.
+
+**How.**
+- Repeated double-edge swaps within a class (Maslov–Sneppen):
+  (a→r1), (b→r2) becomes (a→r2), (b→r1).
+- Every node keeps its in- and out-degree in every class. A swap is
+  rejected if it makes a self-loop or repeats an edge already in its class.
+- The target is 10 × |class| accepted swaps, tried at most 100 × |class|
+  times. The achieved count and the share of edges whose target moved are
+  recorded per pathway.
+- The RNG is seeded from the string `"{seed}:{pathway}:{class}"` over edges
+  sorted by (source, target), so a build is reproducible from its seed.
+- A moved edge keeps its source, stoichiometry and attributes. Its
+  `edge_reaction_id` is blanked, because that column names the reaction and
+  would now be stale. The solver and the bench do not read it.
+
+**Side tables.**
+- `pools.csv`, `pool_transitions.csv`, `pool_carriers.csv` and
+  `carrier_loops.csv` name specific steps, built from Reactome chemistry
+  (`find_pools`). They are **deleted** from the rewired build, not emptied,
+  so a default-config run refuses instead of silently solving with zero
+  pools.
+- Entity-level tables (`containment`, `cofactors`, `drugs`, `pathogens`) and
+  the id maps stay. Node identity is unchanged.
+
+**Matched control.**
+- Every rewired build is scored with `DS_CYCLE_MODE=off` and
+  `DS_CARRIER_LOOP_MODE=off`. The real build is scored under the same two
+  overrides (arm `wire0`), so the only difference is the wiring.
+- The canonical score is reported beside it, for scale.
+
+**Pins and readouts come from the real network.**
+- In-degree is preserved, so `root` pins are identical by construction. The
+  `root_cycle` supplement depends on cycles and would change.
+- The bench reads the pin network from the source build
+  (`DS_PIN_NETWORK_ROOT`), so every arm perturbs the same nodes.
+
+**Builds.**
+- Five seeds (1–5), each a variant build `<source>_rewire<seed>` with a
+  `BUILD.json` naming the source build, seed, classes, swap counts and the
+  rewiring script's commit. `current` never moves to them.
+
+**Axes and statistics.**
+- Curator tuning and held-out (SELECT), and experimental, by `run_arm.sh`.
+  decryptM is secondary, if the drug bench accepts the overrides.
+- Per axis: accuracy and macro-F1 for `wire0`, each seed, and their mean.
+- The paired difference `wire0` − seed is computed case by case, with a
+  95% bootstrap interval over perturbation groups (gene; drug for decryptM).
+
+**What the result can say (fixed now).**
+- On an axis, the curated wiring **carries signal** if `wire0` macro-F1
+  exceeds every seed's, and the interval for `wire0` − seed mean correctness
+  excludes 0.
+- If `wire0` is inside the seeds' range, the axis does not show that the
+  wiring matters. That is reported as a headline negative, not explained
+  away.
+- The curator axes are expected to favour the real wiring strongly, because
+  the curators reasoned from the same pathways. The experimental and
+  decryptM axes are the informative ones.
+- Nothing is adopted from this. It is a baseline, and it is counted in the
+  SELECT arm tally (point 6).
+
 ## Non-goals
 
 - No fitting in this spec.
