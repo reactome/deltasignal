@@ -888,6 +888,31 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
 PIN_NETWORK_ROOT = os.environ.get("DS_PIN_NETWORK_ROOT", "")   # specs/051; empty = the served catalog
 
 
+CONTEXT_BRIDGE = "context_bridge"   # specs/056, bench/context_build.py
+
+
+def context_label() -> str:
+    """'-' for an ordinary build; for a specs/056 context build, its base and
+    hub cutoff, so the log says which protocol was scored."""
+    try:
+        b = json.load(open(CATALOG_ROOT / "BUILD.json"))
+    except (OSError, ValueError):
+        return "-"
+    if "context_of" not in b:
+        return "-"
+    return f"{b['context_of']}+hub{b.get('context_hub')}" + ("" if b.get("context_pruned", True) else ",unpruned")
+
+
+def context_own_uuids(pathway_dir: Path):
+    """specs/056: the uuids of the pathway itself in a context build (its
+    readouts are scored on these only), or None outside a context build."""
+    f = Path(pathway_dir) / "context_own.csv"
+    if not f.exists():
+        return None
+    with open(f, newline="") as fh:
+        return {r["uuid"] for r in csv.DictReader(fh)}
+
+
 def pin_network_dir(pathway_dir: Path) -> Path:
     if not PIN_NETWORK_ROOT:
         return pathway_dir
@@ -921,6 +946,12 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
     indeg = Counter()
     with open_network(pathway_dir) as f:
         for row in csv.DictReader(f):
+            # specs/056: a context bridge feeds a root copy from another
+            # pathway's producer. Roots are read without them, so a gene is
+            # pinned at the same forms with and without context, in each
+            # pathway of the context.
+            if row.get("edge_type") == CONTEXT_BRIDGE:
+                continue
             indeg[row["target_id"]] += 1
     if PIN_SCOPE == "entry":
         pin_adj = build_adjacency(pathway_dir)
@@ -932,6 +963,8 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
             inc, fwd, ident = defaultdict(list), defaultdict(list), {}
             with open_network(pathway_dir) as f:
                 for row in csv.DictReader(f):
+                    if row.get("edge_type") == CONTEXT_BRIDGE:
+                        continue
                     inc[row["target_id"]].append((row["source_id"], row.get("edge_type", "")))
                     fwd[row["source_id"]].append(row["target_id"])
             nodes_csv = pathway_dir / "nodes.csv"
@@ -1001,6 +1034,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     # just R-HSA-) so species that are genuinely in the network are found.
     dbid_to_stid = neo4j_dbid_to_stid({str(r["key_output"]) for r in rows})
 
+    own_uuids = context_own_uuids(pathway_dir)
     key_output_uuids = {}
     for r in rows:
         ko = str(r["key_output"])
@@ -1036,6 +1070,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                             continue
                         seen_m.add(m)
                         uuids = uuids + stid_to_uuids.get(m, [])
+            if own_uuids is not None:
+                uuids = [u for u in uuids if u in own_uuids]
             key_output_uuids[ko] = uuids
 
     # Optional key-output remap for recurated pathways (see DS_KO_REMAP). Build
@@ -1390,7 +1426,7 @@ def main():
           f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG} "
           f"DS_SKIP_EDGE_TYPES={','.join(sorted(SKIP_EDGE_TYPES)) or '-'} "
           f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER} "
-          f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT or '-'}", flush=True)
+          f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT or '-'} context={context_label()}", flush=True)
     cache = {}
     results = []
     grand_total = 0
