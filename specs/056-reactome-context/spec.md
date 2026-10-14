@@ -1,7 +1,8 @@
 # specs/056: Reactome context — each pathway solved with the pathways that feed it
 
-**Status:** registered (2026-10-14), before either arm ran and before any case
-was read for it. Requested by Adam, 2026-10-14. This is a **second protocol**,
+**Status:** **claim not supported** (2026-10-14; research.md R1): both arms
+lose on both axes. Registered before either arm ran and before any case was
+read for it. Requested by Adam, 2026-10-14. This is a **second protocol**,
 reported next to the publication protocol and never in place of it.
 
 ## Why
