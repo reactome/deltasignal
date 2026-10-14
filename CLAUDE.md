@@ -656,6 +656,10 @@ for the last feature that touched it rather than re-deriving from the code.
   (`LNG_UB_SUBSTRATE_UBX`, amendment 1) −15 (49/64, p 0.19), experimental 0.
   MET +30 as predicted; CBL-family regulators (−38) were right only through
   the removed edges.
+- `specs/058-depletion-roots/` — bench `DS_PIN_ROOT_IGNORE=depletion`: a
+  form fed only by depletion counts as a root (as in MP-BioPath's networks).
+  **Not adopted:** held-out +9 (33/24, p 0.29), experimental +1. All losses
+  are SMAD2/3 (TGF-beta), which score only through the specs/024 fallback.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
