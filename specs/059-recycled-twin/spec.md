@@ -78,3 +78,20 @@ passes, its settings are recommended as defaults (Adam's call).
 - `rtwin58`: the specs/058 gains (MET OE +10, CBL, PTCH, BRCA1/BARD1, MDM2)
   stay, and SMAD2/3 recover most of their −24, so held-out about +30 against
   the control. Whether p < 0.01 is reached is not predicted.
+
+## Amendment 1 (2026-10-14, after R1, before the arm): add `suppress_only` — POST HOC
+
+R1: `rtwin58` fails only on TGF-beta −12, the SMAD2/3 knockouts, traced to a
+depleter built from its own target (SMAD2:SMURF2 -| SMAD2) de-repressing
+when the knockout zeroes it. Chosen after seeing that loss, so post hoc.
+
+**Arm `rtwin58s`:** `rtwin58` plus `--server
+DS_DEPLETION_OWN_PRODUCT=suppress_only` (existing switch, specs/016; it
+applies to every own-product depleter in the catalog, not only SMAD2).
+Same gate, against the canonical results and against `rtwin58`.
+
+**Predictions:** the 12 SMAD2/3 KO cases recover (TGF-beta 0 or better).
+Elsewhere unknown: specs/016 measured `suppress_only` on an older catalog and
+did not adopt it; it loses de-repression where the complex fell because of
+its other partner (TP53 KO → less MDM2:TP53 → more free MDM2). If this arm
+passes, the decision is Adam's and must weigh that it was chosen after R1.
