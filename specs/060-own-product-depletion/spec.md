@@ -1,6 +1,6 @@
 # specs/060: an own-product depleter may suppress, not de-repress (re-measured on the canonical build)
 
-**Status:** registered 2026-10-14, before the arm.
+**Status:** registered 2026-10-14, before the arm. **Gate fails** (research.md R1): held-out 0 (no case moved), tuning +46, experimental +4 (p 0.125), all in TP53. Not adopted; Adam's call whether tuning and experimental evidence alone justify it.
 
 ## Why
 
