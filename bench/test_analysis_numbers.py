@@ -160,6 +160,7 @@ class TestHoldoutConditioning:
         p = tmp_path / name
         cols = ["pathway", "gene", "direction", "key_output",
                 "predicted", "expected", "n_gene_uuids", "n_ko_uuids"]
+        cols += [c for c in ("valid",) if rows and c in rows[0]]
         with p.open("w", newline="") as fh:
             fh.write("\t".join(cols) + "\n")
             for r in rows:
@@ -239,6 +240,31 @@ class TestHoldoutConditioning:
         p = self._dump(tmp_path, "a.tsv", [self._case("AAA", "1", "1")])
         with pytest.raises(SystemExit):
             holdout_report.main(["--cases", str(p), "--set-aside", "X"])
+
+    def test_pair_on_valid_keeps_a_changed_pin_set_and_drops_invalid(self, tmp_path, capsys):
+        """specs/056: a context arm pins more forms of the same gene. Paired on
+        validity, such a case is compared; a case invalid in either arm is not."""
+        def case(gene, pred, ngene, valid):
+            return {**self._case(gene, pred, "1", ngene=ngene), "valid": valid}
+        base = self._dump(tmp_path, "base.tsv", [case("A", "0", "2", "1"), case("B", "1", "0", "0"),
+                                                 case("C", "1", "2", "1")])
+        arm = self._dump(tmp_path, "arm.tsv", [case("A", "1", "5", "1"), case("B", "1", "3", "1"),
+                                               case("C", "1", "2", "1")])
+        holdout_report.main(["--cases", str(base), "--compare", str(arm)])
+        out = capsys.readouterr().out.split("does it generalise")[1]
+        rows = {l[:26].strip(): l[26:].split() for l in out.splitlines() if l.startswith("TUNING")}
+        assert rows["TUNING (the paper's ten)"][:6] == ["1", "1.0000", "1.0000", "+0", "0", "0"]
+        holdout_report.main(["--cases", str(base), "--compare", str(arm), "--pair-on-valid"])
+        out = capsys.readouterr().out
+        assert "valid only in arm.tsv: 1 (correct 1)" in out
+        rows = {l[:26].strip(): l[26:].split() for l in out.split("does it generalise")[1].splitlines()
+                if l.startswith("TUNING")}
+        assert rows["TUNING (the paper's ten)"][:6] == ["2", "0.5000", "1.0000", "+1", "1", "0"]
+
+    def test_pair_on_valid_needs_compare(self, tmp_path):
+        p = self._dump(tmp_path, "a.tsv", [self._case("AAA", "1", "1")])
+        with pytest.raises(SystemExit):
+            holdout_report.main(["--cases", str(p), "--pair-on-valid"])
 
     def test_the_paper_s_ten_are_the_tuning_set(self):
         """Signaling_by_WNT is one of the ten; Base_Excision_Repair is not."""
