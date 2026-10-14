@@ -43,3 +43,27 @@ may suppress, not de-repress) is the rule for exactly this.
 
 `rtwin`'s one experimental loss (MDM2 OE, Cell Cycle Checkpoints) is fixed
 again under `rtwin58`; not traced.
+
+## R2. Amendment 1, arm `rtwin58s`: the prediction failed; TP53 gains instead
+
+`scripts/run_arm.sh rtwin58s --server DS_RECYCLED_TWIN=on --server
+DS_DEPLETION_OWN_PRODUCT=suppress_only --bench DS_PIN_ROOT_IGNORE=depletion`
+at DS `99b74d8`, results `results/99b74d8/rtwin58s`.
+
+| comparison | held-out | tuning | experimental (= RAF set aside) |
+|---|---|---|---|
+| vs canonical | +21 (33 / 12, p 0.0025) | **+112** (113 / 1) | **+7** (7 / 0, p 0.016) |
+| vs `rtwin58` | 0 (0 / 0) | +111 (111 / 0) | +6 (6 / 0, p 0.031) |
+
+**The registered prediction failed:** the SMAD2/3 knockouts are unchanged
+(TGF-beta still −12), so the gate still fails. Not adopted. Not yet traced
+why; the likely reason is that SMAD2:SMURF2 is built from the root copies, so
+it is not an own-product depleter of the recycled copy it depletes.
+
+**Unpredicted:** every change against `rtwin58` is in Transcriptional
+Regulation by TP53 (a tuning pathway): AKT1 KO +38, AKT2 KO +38, MDM4 KO +32,
+BRCA1 KO +3 (curator); AKT1, AKT2, MDM4, BRCA1 KO (experimental, 6). The AKT
+→ MDM2 → TP53 knockouts are the case specs/016 traced, which every variant
+since read NORMAL or DOWN. The gain is `suppress_only`'s, not the twin rule's.
+It needs its own measurement on the canonical build (specs/016 measured it on
+a much older catalog): registered as specs/060.
