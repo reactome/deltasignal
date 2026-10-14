@@ -161,6 +161,12 @@ PIN_TALLY: Counter = Counter()
 SOLVE_TALLY: Counter = Counter()   # specs/028: how many solves converged
 if PIN_SCOPE not in ("all", "entry", "root", "root_cycle"):
     raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'root', 'root_cycle', 'entry' or 'all'")
+# specs/058: in-edge types that do not stop a node being a root. Depletion is
+# our derived consumption edge (MP-BioPath's networks have none), so a form fed
+# only by depletion is produced by nothing. Unset is the specs/024 rule.
+PIN_ROOT_IGNORE = os.environ.get("DS_PIN_ROOT_IGNORE", "")
+if PIN_ROOT_IGNORE not in ("", "depletion"):
+    raise SystemExit(f"DS_PIN_ROOT_IGNORE={PIN_ROOT_IGNORE!r} must be unset or 'depletion'")
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
 # same reaction. An entity that is both the catalyst and a substrate of one
 # reaction currently contributes TWICE to the AND product, so its fold-change
@@ -954,6 +960,8 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
             # pathway of the context.
             if row.get("edge_type") == CONTEXT_BRIDGE:
                 continue
+            if PIN_ROOT_IGNORE and row.get("edge_type") == PIN_ROOT_IGNORE:
+                continue   # specs/058
             indeg[row["target_id"]] += 1
     if PIN_SCOPE == "entry":
         pin_adj = build_adjacency(pathway_dir)
@@ -1424,7 +1432,7 @@ def main():
         pathways = pathways[: args.limit]
 
     print(f"Running benchmark on {len(pathways)} pathway(s) …", flush=True)
-    print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
+    print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE}{' DS_PIN_ROOT_IGNORE=' + PIN_ROOT_IGNORE if PIN_ROOT_IGNORE else ''} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
           f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG} "
           f"DS_SKIP_EDGE_TYPES={','.join(sorted(SKIP_EDGE_TYPES)) or '-'} "
           f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER} "
