@@ -80,6 +80,11 @@ middle is taken to be right. `DS_PIN_SCOPE` (benchmark-side) selects it:
   to reproduce numbers from that period, which are **not comparable** to root
   numbers (specs/023).
 
+**Rule decisions set RAF aside** (specs/054 D1, Adam 2026-10-13): its
+readouts are a bistable switch, not signal. Gates on any case axis are read
+with `bench/analysis/holdout_report.py --compare B --set-aside
+RAF_MAP_kinase_cascade`, and both figures are reported. Headlines keep RAF.
+
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
 of inferring the protocol from flags.
 
@@ -617,6 +622,14 @@ for the last feature that touched it rather than re-deriving from the code.
   that merged such copies (`LNG_CLOSED_TWIN_JOIN`, LNG PR #112, unmerged).
   **Not adopted:** curator held-out −493 (DSB −488); a merge is two-way and
   re-welds cycles. NF1 still fails: one of ten GAPs, and the RAF inversion.
+- `specs/054-raf-rail/` — RAF readouts are the high state of a bistable
+  switch (threshold about 3.5% either way on HRAS), so every RAS/RAF
+  perturbation rails p-MAPK at about 50×. The loop is curated (input-and-
+  catalyst complexes; ERK negative feedback lives in another pathway).
+  **Decision (Adam, 2026-10-13): RAF is set aside from rule decisions**;
+  gates are read with `holdout_report.py --set-aside RAF_MAP_kinase_cascade`
+  and both figures reported. Re-read: rule B's experimental +20 is +5 (p 0.06)
+  without RAF; inert drugs' −5 is +2.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

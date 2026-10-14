@@ -217,6 +217,29 @@ class TestHoldoutConditioning:
         out = capsys.readouterr().out
         assert "TUNING" in out and "HELD-OUT" in out
 
+    def test_set_aside_reports_both_and_drops_only_that_pathway(self, tmp_path, capsys):
+        """specs/054: a set-aside pathway gets its own row; the full row stays."""
+        def case(pw, gene, pred):
+            return {**self._case(gene, pred, "1"), "pathway": pw}
+        base = self._dump(tmp_path, "base.tsv", [
+            case("RAF_MAP_kinase_cascade", "R1", "0"), case("RAF_MAP_kinase_cascade", "R2", "0"),
+            case("Signaling_by_WNT", "W1", "1")])
+        arm = self._dump(tmp_path, "arm.tsv", [
+            case("RAF_MAP_kinase_cascade", "R1", "1"), case("RAF_MAP_kinase_cascade", "R2", "1"),
+            case("Signaling_by_WNT", "W1", "0")])
+        holdout_report.main(["--cases", str(base), "--compare", str(arm),
+                             "--set-aside", "RAF_MAP_kinase_cascade"])
+        out = capsys.readouterr().out.split("does it generalise")[1]
+        rows = {l[:26].strip(): l[26:].split() for l in out.splitlines() if l.startswith("TUNING")}
+        # cases, baseline, arm, net, fixed, broke
+        assert rows["TUNING (the paper's ten)"][:6] == ["3", "0.3333", "0.6667", "+1", "2", "1"]
+        assert rows["TUNING, set aside"][:6] == ["1", "1.0000", "0.0000", "-1", "0", "1"]
+
+    def test_set_aside_needs_compare(self, tmp_path):
+        p = self._dump(tmp_path, "a.tsv", [self._case("AAA", "1", "1")])
+        with pytest.raises(SystemExit):
+            holdout_report.main(["--cases", str(p), "--set-aside", "X"])
+
     def test_the_paper_s_ten_are_the_tuning_set(self):
         """Signaling_by_WNT is one of the ten; Base_Excision_Repair is not."""
         assert "Signaling_by_WNT" in holdout_report.TUNING_PATHWAYS
