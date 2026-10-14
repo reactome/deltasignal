@@ -1,6 +1,7 @@
 # specs/055 research: result
 
-Arm `dinert` = build `20261012-1401_01206ca`, commit 4683388 (src/test
+Arm `dinert` = build `20261012-1401_01206ca`, commit 4683388 (a pre-squash branch
+commit, so cite a807851: src/test
 identical to a807851), `DS_DRUG_MODE=inert`; results
 `results/4683388/dinert`. Control `cj0` (`results/a807851/cj0`). Both arms
 converged on the same solves (curator 1,652 of 1,725, experimental 215 of
