@@ -126,3 +126,37 @@ is signal (compare specs/054).
   RNF168 coin, so it would very likely still fail the gate by itself; with a
   degradation rule for reason 1 it might not. Both are new registrations.
 - Nothing is adopted. `LNG_UB_SUBSTRATE_CHANGED` stays registered, off.
+
+## R2. Amendment 1, arm `ubx`: as predicted; the gate still fails
+
+Build `20261014-1412_e48a5da_ubx` (LNG `e48a5da`, `--env
+LNG_UB_SUBSTRATE_CHANGED=1 --env LNG_UB_SUBSTRATE_UBX=1`, 92/92 complete).
+Against `ubs` it restores 21 depletion edges (census estimate 24; TGF-beta
+all 9) and 7 variant-pool edges; nothing else differs. Arm at DS `d61d506`,
+results `builds/20261014-1412_e48a5da_ubx/results/d61d506/ubx`.
+
+| comparison | held-out net | fixed / broke | p | experimental |
+|---|---|---|---|---|
+| `ubx` vs `ubs` | **+24** | 24 / 0 (SMAD2, SMAD3 only) | <1e-6 | 0 |
+| `ubx` vs canonical | **−15** | 49 / 64 | 0.19 | 0 (1 / 1, MDM2) |
+
+Tuning +7 (10 / 3) against canonical, as in `ubs`. Convergence: curator
+1,692 of 1,725 (canonical 1,652), experimental 223 of 244 (canonical 215).
+
+Every amendment-1 prediction held: SMAD2/3 recover in full, MET stays +30,
+CBL/EPS15/SH3GL1 (−38) and RNF168 (−16) do not change.
+
+**Gate: fails** (held-out net −15 is not > 0; EGFR −13 and DSB −14 still
+lose more than 10). Not adopted; both flags stay off.
+
+### What this means
+
+- The corrected rule is the faithful one, and against canonical it is
+  −15, not significant. What it loses is the CBL class (right only through
+  edges that deplete an unchanged partner) and one non-converged coin.
+- So the canonical network's 301 wrong depletion edges are close to
+  score-neutral overall: they hold up about 38 CBL-class cases and break
+  30 MET cases.
+- A faithful generator plus the CBL cases would need receptor consumption
+  by CBL binding, which the 2026-07-16 consumption arm refuted as a blanket
+  rule. Not pursued here.
