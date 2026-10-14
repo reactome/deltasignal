@@ -1157,6 +1157,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
             SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
+            SOLVE_TALLY["drugs_listed"] += len(parsed.get("drug_stids") or [])
             SOLVE_TALLY[f"pathogen_rule={ds_result.get('pathogen_rule', 'unknown')}"] += 1
             SOLVE_TALLY["pathogens_held"] += int(ds_result.get("pathogens_held") or 0)
             # how many listed stable ids this solve's network carried: a run whose
@@ -1478,9 +1479,14 @@ def main():
           f"{SOLVE_TALLY['scc_order_ties_max']}")
     rules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("drug_rule="))
     print(f"\nDrugs: rule {'/'.join(rules) or 'unknown'}, {SOLVE_TALLY['drugs_held']} node-solves held (specs/032)")
+    # inert is the default since specs/055, and most pathways list no drug, so a
+    # subset run that holds nothing is expected. Refuse only when networks DID
+    # list drugs and none was held: the listing matched nothing.
     if "inert" in rules and SOLVE_TALLY["drugs_held"] == 0:
-        # An inert arm that held nothing measured the default model.
-        raise SystemExit("DS_DRUG_MODE=inert but no solve held a drug node; the arm is the control.")
+        if SOLVE_TALLY["drugs_listed"]:
+            raise SystemExit("DS_DRUG_MODE=inert and the networks list drugs, but no solve held one; "
+                             "the listing matched no node.")
+        print("  (no pathway in this run lists a drug, so inert holds nothing: identical to propagate here)")
     prules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("pathogen_rule="))
     print(f"\nPathogens: rule {'/'.join(prules) or 'unknown'}, {SOLVE_TALLY['pathogens_held']} node-solves held (specs/048)")
     # inert is the default since specs/048 amendment 2, and 83 of 92 pathways list
