@@ -111,7 +111,15 @@ def main(argv=None) -> int:
                     help="A second dump. Reports whether the change wins on the "
                          "HELD-OUT half as well as the tuning half -- a change "
                          "that only wins on tuning is overfitting.")
+    ap.add_argument("--set-aside", action="append", default=[], metavar="PATHWAY",
+                    help="With --compare: also report each split without this "
+                         "pathway (repeatable). specs/054: RAF_MAP_kinase_cascade "
+                         "reads a bistable switch, not signal, so rule decisions "
+                         "are made without it and both figures are reported.")
     a = ap.parse_args(argv)
+    if a.set_aside and not a.compare:
+        ap.error("--set-aside needs --compare")
+    aside = set(a.set_aside)
 
     base = load(a.cases)
     report(a.cases.name, base)
@@ -140,10 +148,20 @@ def main(argv=None) -> int:
         print(f"{'split':<26}{'cases':>8}{'baseline':>10}{'arm':>10}{'net':>8}"
               f"{'fixed':>7}{'broke':>7}{'p':>9}{'pathways':>10}{'readouts':>10}{'genes':>7}")
         concentrated = []
-        for label, keys in (
+        splits = [
             ("TUNING (the paper's ten)", [k for k in shared if k[0] in TUNING_PATHWAYS]),
             ("HELD-OUT (report this)", [k for k in shared if k[0] not in TUNING_PATHWAYS]),
-        ):
+        ]
+        if aside:
+            unknown = aside - {k[0] for k in shared}
+            if unknown:
+                print(f"  set-aside pathway(s) with no shared case: {', '.join(sorted(unknown))}")
+            # Only splits the set-aside actually changes get a second row.
+            splits += [(label.split(" (")[0] + ", set aside", kept)
+                       for label, keys in list(splits)
+                       for kept in [[k for k in keys if k[0] not in aside]]
+                       if len(kept) != len(keys)]
+        for label, keys in splits:
             if not keys:
                 continue
             b = sum(1 for k in keys if base[k]["predicted"] == base[k]["expected"])
@@ -191,6 +209,8 @@ def main(argv=None) -> int:
             print(f"{label:<26}{len(keys):>8}{b/len(keys):>10.4f}{m/len(keys):>10.4f}"
                   f"{m-b:>+8d}{fixed:>7}{broke:>7}{pval:>9.4f}"
                   f"{f'{n_pw}/{scored_pw}':>10}{n_ro:>10}{n_ge:>7}")
+        if aside:
+            print(f"\n'set aside' rows leave out: {', '.join(sorted(aside))}.")
         print("\nA decision that wins on TUNING but not HELD-OUT is overfitting.")
         print("p is two-sided exact McNemar on the discordant pairs. p >= 0.05 means"
               "\nthe net figure's SIGN is not established, whatever its magnitude.")

@@ -1,6 +1,6 @@
 # specs/054 research: the RAF readouts rail whichever way they are pushed
 
-**Status:** trace only (2026-10-13). Nothing registered.
+**Status:** trace (2026-10-13). **Decision (Adam, 2026-10-13): RAF is set aside from rule decisions** until the switch is resolved; see D1. No solver change.
 
 Build `20261012-1401_01206ca`, solver at a807851 (= main), canonical case
 log `results/a807851/cj0`. Scripts: `bench/analysis/054/`.
@@ -133,3 +133,55 @@ bound the loop's gain (specs/014). Neither is registered.
   (which edges carry gain > 1), and decide what the model should do with a
   curated positive feedback whose balancing negative feedback lives in
   another pathway. That is a design question for Adam before any rule.
+
+## D1. Decision: RAF is set aside from rule decisions (Adam, 2026-10-13)
+
+Of the three options (bring in the curated negative feedback; bound the
+loop's gain; accept it and leave RAF out of rule decisions), Adam chose the
+third. From this date:
+- Every gate evaluated on a case axis (experimental net and p, "no pathway
+  losing more than N", traced experimental losses) is evaluated with
+  `RAF_MAP_kinase_cascade` set aside. Both figures are reported:
+  `holdout_report.py --compare ... --set-aside RAF_MAP_kinase_cascade` adds a
+  "set aside" row to every split it changes.
+- The curator held-out split is unaffected: RAF is one of the paper's ten
+  tuning pathways and was never in it.
+- RAF cases stay in every headline (RESULTS.md, all-pathway and experimental
+  totals). Setting aside is about choosing rules, not about the number reported.
+- It ends when a change removes the high state for a single perturbation
+  (HRAS 0.9 and 1.1 both reading p-MAPK within the 0.85–1.15 band would show it).
+
+## R1. Past decisions re-read with RAF set aside
+
+Each arm's own case logs, re-scored with `--set-aside` (nothing re-run).
+Experimental: net (fixed/broke, McNemar p), all pathways → RAF set aside.
+Curator held-out does not change.
+
+| arm (vs control) | spec | decision then | experimental, all | RAF set aside | held-out |
+|---|---|---|---|---|---|
+| sf040B (rule B) vs ctrl040 | 040 | adopted | +20 (28/8, p 0.0012) | **+5 (5/0, p 0.06)** | +48 |
+| sf040A (rule A) vs ctrl040 | 040 | refuted | −66 | −70 | −33 |
+| path vs pathctl | 048 | refuted (viral RNA) | +7 | +7 | −11 |
+| pathp vs pathpctl | 048 | adopted | +7 | +7 | +1 |
+| kclosed vs kctl | 049 | not adopted | −1 | 0 | +81 |
+| kall vs kctl | 049 | refuted | −7 | −6 | −55 |
+| ktwin vs kctl | 049 | adopted (default) | −2 | −1 | +122 |
+| ksup vs kctl | 049 | not adopted | −2 | −1 | +124 |
+| kcd vs kctl | 049 P8 | not adopted (RAF collapse) | +1 (14/13) | +2 (5/3) | +89 |
+| kdrug vs kctl | 049 | not adopted | −5 (5/10) | **+2 (2/0)** | +8 |
+| sclosed vs sctl | 049 | not adopted | +5 | +5 | +76 |
+| scd vs sctl | 049 P8 | not adopted | 0 (19/19) | **+7 (10/3, p 0.09)** | +84 |
+| zs vs zs0 | 052 | not adopted | +4 | 0 | −20 |
+| cj vs cj0 | 053 | not adopted | +2 | +1 | −493 |
+
+What changes:
+- **Rule B's experimental gain was mostly RAF** (15 of 20). The adoption
+  stands on held-out +48, which RAF never touched, but "the first
+  significant experimental gain" no longer holds: +5, p 0.06.
+- **Holding drug-derived nodes at baseline** (`DS_DRUG_MODE=inert`, specs/032)
+  lost its experimental objection: −5 becomes +2 (kdrug), and with
+  `closed` it is +7 (scd). It was declined on experimental −5 and on RAF.
+  It has never been measured on the canonical build, under `closed_twin`.
+  That is the open re-measurement this decision creates.
+- Nothing adopted is reversed, and nothing refuted is revived: every other
+  arm's verdict is the same with RAF set aside.
