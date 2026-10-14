@@ -28,7 +28,10 @@ Every side table is the union of the included pathways' tables, with pool and
 loop ids prefixed by their pathway. `context_own.csv` lists P's own uuids, so
 the bench scores P's readouts on P's own nodes only.
 
-Usage: context_build.py BASE_BUILD OUT_BUILD [--hub 5] [--census]
+Under `--feed-in`, no bridge leaves P: neighbours only feed P's roots, and
+the context cannot close a cycle through P.
+
+Usage: context_build.py BASE_BUILD OUT_BUILD [--hub 5] [--feed-in] [--census]
 """
 import argparse
 import collections
@@ -160,7 +163,7 @@ def keep_row(t, r, kept):
     return True
 
 
-def build_one(base, out, P, nbrs, bridges, prune=True):
+def build_one(base, out, P, nbrs, bridges, prune=True, feedback=True):
     d = out / P
     d.mkdir(parents=True)
     members = [P] + nbrs
@@ -206,7 +209,8 @@ def build_one(base, out, P, nbrs, bridges, prune=True):
         n = 0
         for q in nbrs:
             bq = bridges[(P, q)]
-            for s_, t_ in bq["in"] + [(s_, t_) for s_, t_ in bq["out"] if t_ in kept[q]]:
+            outs = [(s_, t_) for s_, t_ in bq["out"] if t_ in kept[q]] if feedback else []
+            for s_, t_ in bq["in"] + outs:
                 w.writerow([s_, t_, "pos", "or", "context_bridge", "1", ""])
                 n += 1
     with open(d / "context_own.csv", "w", newline="") as f:
@@ -220,6 +224,8 @@ def main(argv=None):
     ap.add_argument("--hub", type=int, default=5)
     ap.add_argument("--census", action="store_true")
     ap.add_argument("--no-prune", dest="prune", action="store_false")
+    ap.add_argument("--feed-in", dest="feedback", action="store_false",
+                    help="no bridge out of P: neighbours only feed P's roots, so no cross-pathway cycle")
     ap.add_argument("--only", action="append", default=[], help="build only these pathways (checks)")
     a = ap.parse_args(argv)
     base = Path(a.base).resolve()
@@ -247,7 +253,7 @@ def main(argv=None):
     tot = {}
     for p in a.only or names:
         tot[p] = {"neighbours": sorted(nbr[p]),
-                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, a.prune)}
+                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, a.prune, a.feedback)}
     b = json.load(open(base / "BUILD.json"))
     repo = Path(__file__).resolve().parent.parent
     try:
@@ -258,7 +264,7 @@ def main(argv=None):
     except OSError:                      # no git (the test container)
         sha, dirty = "unknown", False
     b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""), "context_of": base.name, "context_hub": a.hub,
-              "context_pruned": a.prune, "context": tot,
+              "context_pruned": a.prune, "context_feedback": a.feedback, "context": tot,
               "pathways_built": len(tot), "status": "complete" if not a.only else "partial"})
     json.dump(b, open(out / "BUILD.json", "w"), indent=1)
 

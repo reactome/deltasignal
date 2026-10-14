@@ -107,6 +107,8 @@ def test_bench_reads_roots_without_bridges_and_scores_own_readouts(tmp_path, mon
     assert bm.context_own_uuids(b / "R-HSA-1") is None
     monkeypatch.setattr(bm, "CATALOG_ROOT", out)
     assert bm.context_label() == "base+hub5"
+    (out / "BUILD.json").write_text(json.dumps({"context_of": "base", "context_hub": 5, "context_feedback": False}))
+    assert bm.context_label() == "base+hub5,feed-in"
     monkeypatch.setattr(bm, "CATALOG_ROOT", b)
     assert bm.context_label() == "-"
 
@@ -133,3 +135,20 @@ def test_a_neighbour_loses_the_centres_reactions(tmp_path):
     e = _edges(out / "R-HSA-1")
     assert ("px", "qx", "context_bridge") in e and ("qy", "py", "context_bridge") in e
     assert not any("qr" in (a, c) or "qu" in (a, c) for a, c, _ in e)   # qu fed only Q's copy of R-R
+
+
+def test_feed_in_adds_no_bridge_out_of_the_centre(tmp_path):
+    b = tmp_path / "base"
+    b.mkdir()
+    (b / "BUILD.json").write_text(json.dumps({"build_id": "base", "status": "complete"}))
+    # P: u -> x, and y a root. Q: x -> s -> y. Feedback: P's x -> Q's x -> y -> P's y.
+    _pathway(b, "R-HSA-1", [("pu", "simple_entity", "R-U"), ("px", "simple_entity", "R-X"),
+                            ("py", "simple_entity", "R-Y")], [("pu", "px"), ("py", "pu")])
+    _pathway(b, "R-HSA-2", [("qx", "simple_entity", "R-X"), ("qs", "reaction", "R-S"),
+                            ("qy", "simple_entity", "R-Y")], [("qx", "qs"), ("qs", "qy")])
+    cb.main([str(b), str(tmp_path / "fb")])
+    cb.main([str(b), str(tmp_path / "in"), "--feed-in"])
+    fb, fi = _edges(tmp_path / "fb" / "R-HSA-1"), _edges(tmp_path / "in" / "R-HSA-1")
+    assert ("px", "qx", "context_bridge") in fb and ("qy", "py", "context_bridge") in fb
+    assert ("qy", "py", "context_bridge") in fi and ("px", "qx", "context_bridge") not in fi
+    assert json.loads((tmp_path / "in" / "BUILD.json").read_text())["context_feedback"] is False

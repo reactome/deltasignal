@@ -900,7 +900,9 @@ def context_label() -> str:
         return "-"
     if "context_of" not in b:
         return "-"
-    return f"{b['context_of']}+hub{b.get('context_hub')}" + ("" if b.get("context_pruned", True) else ",unpruned")
+    return (f"{b['context_of']}+hub{b.get('context_hub')}"
+            + ("" if b.get("context_feedback", True) else ",feed-in")
+            + ("" if b.get("context_pruned", True) else ",unpruned"))
 
 
 def context_own_uuids(pathway_dir: Path):
