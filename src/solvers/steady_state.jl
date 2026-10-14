@@ -127,6 +127,8 @@ function solve_steady_state(
     # First, so every rule resolved on the network below sees the same edges.
     network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges, carrier_loop_twins =
         apply_carrier_loops(network, carrier_loop_mode())
+    # specs/059: a recycled copy of an entity also reads its root copies.
+    network, recycled_twin_rule, recycled_twin_edges = apply_recycled_twins(network, recycled_twin_mode())
     # specs/035: loop participants released unchanged by their loop, held at
     # baseline like cofactors. Resolved on the network as given (before bridges).
     cmode = conserved_mode()
@@ -299,6 +301,8 @@ function solve_steady_state(
     result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
     result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges
     result.diagnostics["carrier_loop_twin_edges"] = carrier_loop_twins
+    result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
+    result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
     result.diagnostics["zero_supply_rule"] = zero_supply_rule
     result.diagnostics["zero_supply_leaves"] = zero_supply_leaves
     result.diagnostics["zero_supply_held"] = zero_supply_held

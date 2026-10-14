@@ -27,6 +27,7 @@ include("core/conserved.jl")
 include("core/cycles.jl")
 include("core/self_fed.jl")
 include("core/carrier_loops.jl")
+include("core/recycled_twin.jl")
 include("core/zero_supply.jl")
 
 # Solvers
@@ -54,6 +55,7 @@ export parse_containment, network_containment_json, containment_from_json
 export parse_drug_list, drug_stids_json, drug_stids_from_json, drug_mode, drug_uuids, pools_json, pools_from_json
 export parse_pathogen_list, pathogen_stids_json, pathogen_stids_from_json, pathogen_mode, pathogen_uuids
 export parse_carrier_loops, carrier_loops_json, carrier_loops_from_json, carrier_loop_mode, apply_carrier_loops, solved_carrier_network
+export recycled_twin_mode, apply_recycled_twins
 export parse_pools, cycle_mode, cycle_carriers, PoolPath
 export conserved_mode, conserved_uuids
 export parse_node_leaves, node_leaves_json, node_leaves_from_json, zero_supply_mode, zero_supply_uuids
