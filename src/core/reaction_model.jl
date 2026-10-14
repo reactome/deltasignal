@@ -519,10 +519,18 @@ function index_reactions(
     stats::Union{Nothing, Dict{String, Any}} = nothing,
     self_shared::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
+    own_entity::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # Node indices that are gene entities (inputs to transcription/expression
     # reactions). Used to detect transcriptional autoregulation loops.
     gene_indices = Set{Int}(uuid_to_idx[u] for u in gene_uuids if haskey(uuid_to_idx, u))
+    idx_to_uuid = isempty(own_entity) ? String[] : begin
+        v = Vector{String}(undef, length(uuid_to_idx))
+        for (u, i) in uuid_to_idx
+            v[i] = u
+        end
+        v
+    end
 
     # First pass: build the bare IndexedReactions (without loop flags) and the
     # forward adjacency for short-loop detection.
@@ -808,6 +816,12 @@ function index_reactions(
         dep_own = Bool[]
         for d in rec.dep_indices
             own = d in chain_adj[rec.target_idx]
+            # specs/060 amendment 1: (depleter, target) whose depleter's entity
+            # contains the target's entity, passed in only under
+            # DS_DEPLETION_OWN_PRODUCT=suppress_only_entity.
+            if !own && !isempty(own_entity)
+                own = (idx_to_uuid[d], idx_to_uuid[rec.target_idx]) in own_entity
+            end
             if !own
                 for mid in chain_adj[rec.target_idx]
                     if d in chain_adj[mid]
@@ -995,7 +1009,7 @@ const DS_VALID_MODES = Dict(
     "DS_OR_MODE"               => Set(["mean", "median", "capacity", "max"]),
     "DS_OR_COMBINE"            => Set(["max", "gate"]),
     "DS_COMPOSITION_MODE"      => Set(["assembly", "limit", "limit_novel"]),
-    "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only"]),
+    "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only", "suppress_only_entity"]),
     "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
     "DS_SET_POOL_MODE"         => Set(["product", "extreme", "geomean", "mean", "max"]),
 )
@@ -2134,7 +2148,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     if !isempty(rxn.depletion_indices)
         eps_dep = T(config.inhibitor_eps)
         h_max_dep = T(config.depletion_h_max)
-        suppress_only = config.depletion_own_product == "suppress_only"
+        suppress_only = config.depletion_own_product in ("suppress_only", "suppress_only_entity")
         @inbounds for k in 1:length(rxn.depletion_indices)
             i_dep = rxn.depletion_indices[k]
             raw_dep = (supply !== nothing && k <= length(rxn.depletion_break) && rxn.depletion_break[k]) ?

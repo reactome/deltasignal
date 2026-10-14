@@ -329,6 +329,11 @@ env vars only override for benchmark sweeps:
   (assembly, depletion; catalyst) read at their entry value and excluded from
   component detection — specs/018. Measured: the generator-side fix absorbed
   it (the `assembly` arm is now ≈0), so it stays off as the record.
+- `DS_DEPLETION_OWN_PRODUCT=suppress_only_entity` (specs/060 amendment 1; not
+  a default): as `suppress_only`, and a depleter whose entity CONTAINS its
+  target's entity (containment table) also counts as own product, so a
+  depleter built from another copy of the target (SMAD2:SMURF2 -| recycled
+  SMAD2) cannot de-repress it. The solve reports `own_entity_depletions`.
 - `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
   byte-identical defaults for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
@@ -695,7 +700,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 215 | |
+| `test/test_config_validation.jl` | 216 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
@@ -710,7 +715,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 34 | specs/059, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 46 | specs/059 and 060, added 2026-10-14 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
