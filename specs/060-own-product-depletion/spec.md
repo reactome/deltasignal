@@ -42,3 +42,32 @@ experimental loss outside RAF traced. Both readings reported.
 - Held-out: no sign predicted. If held-out is about 0, the gate fails as
   written (it asks for a held-out gain); the tuning and experimental gains
   are then reported for Adam to weigh, not adopted by this spec.
+
+## Amendment 1 (2026-10-14, after R1, before any code): own product by entity
+
+specs/059 R2 traced why `suppress_only` missed the SMAD2/3 knockouts: the
+own-product test is per node copy (the depleter is reached from THIS target
+copy along substrate/assembly chains). SMAD2:SMURF2 is built from SMAD2's root
+copies and depletes its recycled copy, so the test says "not own product",
+and the knockout (depleter at 0) de-represses the recycled copy.
+
+**Rule:** a new value `DS_DEPLETION_OWN_PRODUCT=suppress_only_entity`: as
+`suppress_only`, and a depletion edge also counts as own product when the
+depleter's entity CONTAINS the target's entity (the bundle's containment
+table, as specs/022 reads it). Default stays `full`.
+
+**Arms:**
+
+| arm | solver | bench | against |
+|---|---|---|---|
+| `rtwin58e` | `DS_RECYCLED_TWIN=on`, `DS_DEPLETION_OWN_PRODUCT=suppress_only_entity` | `DS_PIN_ROOT_IGNORE=depletion` | canonical, and `rtwin58s` |
+| `ownent` | `DS_DEPLETION_OWN_PRODUCT=suppress_only_entity` | default | canonical, and `ownsup` |
+
+Same gate. **Post hoc**: chosen after seeing the SMAD2/3 loss.
+
+**Predictions:**
+- `rtwin58e`: the 12 SMAD2/3 knockout cases recover, so TGF-beta ≥ 0 and
+  held-out about +33 against canonical; tuning and experimental as `rtwin58s`
+  (about +112, +7), unless the entity test also flags depleters elsewhere.
+- `ownent`: no sign predicted beyond `ownsup`'s TP53 gains; the entity test
+  widens the rule to every depleter containing its target, catalog-wide.
