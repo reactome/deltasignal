@@ -108,7 +108,7 @@ Both directions land on the same railed state (T1).
 **The double count lowers the threshold but does not make the switch.**
 Removing it (`DS_DEDUP_ACTIVATORS=1`) widens the threshold to about 6%.
 Pushes beyond that then drift without converging (2.6× at 0.93; 11× at 0.9
-and 3.4× at 1.1, T3 setup), and the values depend on the iteration cap. The
+and 3.4× at 1.1), and the values depend on the iteration cap. The
 eigenvalues stay above 1 (1.018 and 1.138) with no single edge above 1: the
 signal reconverges through several in-loop inputs of one AND reaction.
 specs/012 measured that deduplication at held-out −15.
