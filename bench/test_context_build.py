@@ -48,16 +48,18 @@ def _fixture(tmp_path):
 def test_bridge_runs_from_producer_to_root_and_skips_cofactors(tmp_path):
     b = _fixture(tmp_path)
     names, bridges, _ = cb.plan(b, hub=5)
-    assert bridges[("R-HSA-2", "R-HSA-1")] == [("qx", "px")]
-    assert not bridges.get(("R-HSA-1", "R-HSA-2"))     # px is not produced in P
-    assert all("patp" not in (s, t) for bs in bridges.values() for s, t in bs)
+    assert bridges[("R-HSA-1", "R-HSA-2")]["in"] == [("qx", "px")]
+    assert bridges[("R-HSA-1", "R-HSA-2")]["out"] == []    # px is not produced in P
+    # seen from Q, P only receives (px is a root in P), so P is no neighbour of Q
+    assert bridges[("R-HSA-2", "R-HSA-1")]["in"] == []
+    assert all("patp" not in (s, t) for bs in bridges.values() for s, t in bs["in"] + bs["out"])
 
 
 def test_hub_entities_are_never_bridged(tmp_path):
     b = _fixture(tmp_path)
     _, bridges, n_paths = cb.plan(b, hub=1)          # R-X is in 2 pathways: a hub at cutoff 1
     assert n_paths["R-X"] == 2
-    assert not any(bridges.values())
+    assert bridges == {}
 
 
 def test_context_bundle_prunes_and_scores_own_nodes(tmp_path):
@@ -78,8 +80,8 @@ def test_context_bundle_prunes_and_scores_own_nodes(tmp_path):
         assert {r["uuid"] for r in csv.DictReader(f)} == {"px", "py", "patp", "qu", "qr", "qx"}
     meta = json.loads((out / "BUILD.json").read_text())
     assert meta["context_of"] == "base" and meta["context_hub"] == 5 and meta["status"] == "complete"
-    # Q's own bundle: nothing in P is produced, so no bridge into Q, and Q has no neighbour
-    assert meta["context"]["R-HSA-2"]["neighbours"] == ["R-HSA-1"]
+    # Q's own bundle: nothing P produces is a root in Q, so nothing enters Q
+    assert meta["context"]["R-HSA-2"]["neighbours"] == []
     assert not any(t == "context_bridge" for _, _, t in _edges(out / "R-HSA-2"))
 
 
@@ -107,3 +109,27 @@ def test_bench_reads_roots_without_bridges_and_scores_own_readouts(tmp_path, mon
     assert bm.context_label() == "base+hub5"
     monkeypatch.setattr(bm, "CATALOG_ROOT", b)
     assert bm.context_label() == "-"
+
+
+def test_a_neighbour_loses_the_centres_reactions(tmp_path):
+    # P has reaction R-R (u -> r -> x) and Q is its parent: the same reaction
+    # plus one P lacks (x -> s -> y). Q's copy of R-R is dropped, so Q's x is a
+    # root there and is fed from P's produced x; P's own copy of R-R is never
+    # re-linked to Q's.
+    b = tmp_path / "base"
+    b.mkdir()
+    (b / "BUILD.json").write_text(json.dumps({"build_id": "base", "status": "complete"}))
+    _pathway(b, "R-HSA-1", [("pu", "simple_entity", "R-U"), ("pr", "reaction", "R-R"), ("px", "simple_entity", "R-X"),
+                            ("py", "simple_entity", "R-Y")], [("pu", "pr"), ("pr", "px"), ("py", "pu")])
+    _pathway(b, "R-HSA-2", [("qu", "simple_entity", "R-U"), ("qr", "reaction", "R-R"), ("qx", "simple_entity", "R-X"),
+                            ("qs", "reaction", "R-S"), ("qy", "simple_entity", "R-Y")],
+             [("qu", "qr"), ("qr", "qx"), ("qx", "qs"), ("qs", "qy")])
+    _, bridges, _ = cb.plan(b, hub=5)
+    bq = bridges[("R-HSA-1", "R-HSA-2")]
+    assert bq["out"] == [("pu", "qu"), ("px", "qx")] and bq["in"] == [("qy", "py")]
+    assert all("qr" not in (a, c) for a, c, _ in bq["edges"])
+    out = tmp_path / "ctx"
+    cb.main([str(b), str(out)])
+    e = _edges(out / "R-HSA-1")
+    assert ("px", "qx", "context_bridge") in e and ("qy", "py", "context_bridge") in e
+    assert not any("qr" in (a, c) or "qu" in (a, c) for a, c, _ in e)   # qu fed only Q's copy of R-R

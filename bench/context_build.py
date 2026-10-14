@@ -6,12 +6,16 @@ Each pathway P becomes P plus its neighbours, joined by directed bridge edges:
   the uuid), and is a HUB when its diagram entity is in more than `--hub`
   of the build's pathways;
 - cofactors, drugs, pathogens, reactions and set pools are never bridged;
-- a BRIDGE runs from a copy that has an in-edge in its own pathway (produced
-  there) to a copy of the same identity, in a different pathway, that has no
-  in-edge in its own pathway (a root there). Only bridges between P and one
-  neighbour are added (a star around P, never neighbour to neighbour);
-- the neighbours of P are the pathways with at least one such bridge to or
-  from P;
+- a neighbour Q first loses every reaction P already has (its reaction
+  nodes, their edges and the edges attributed to it), so it contributes only
+  what P lacks; a parent pathway and its sub-pathway do not re-link P's own
+  reactions to their copies;
+- a BRIDGE runs from a copy that has an in-edge in its own (reduced) pathway
+  (produced there) to a copy of the same identity, in the other pathway, that
+  has no in-edge there (a root). Only bridges between P and one neighbour
+  are added (a star around P, never neighbour to neighbour);
+- the neighbours of P are the pathways with at least one such bridge INTO
+  P (one that only receives from P cannot change P's values);
 - a neighbour keeps only what can reach P: the ancestors, inside it, of its
   bridges into P, closed over its pools and carrier loops (a pool or loop
   with one kept node is kept whole, with its ancestors). P's values depend
@@ -57,49 +61,63 @@ def load(d):
     held = set()
     for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
         held |= {r["stable_id"] for r in rows(d / t)[1]}
-    indeg = collections.Counter()
-    for t in ("logic_network.csv", "boundary_edges.csv"):
-        for r in rows(d / t)[1]:
-            indeg[r["target_id"]] += 1
+    edges = [(r["source_id"], r["target_id"], r.get("edge_reaction_id") or "")
+             for t in ("logic_network.csv", "boundary_edges.csv") for r in rows(d / t)[1]]
+    rnode = {r["uuid"]: r["diagram_entity_id"] for r in nodes if r["node_kind"] == "reaction"}
     ident = {}
     for r in nodes:
         if r["node_kind"] in NEVER or r["diagram_entity_id"] in held:
             continue
         ident[r["uuid"]] = tuple(r.get(k, "") for k in KEY)
-    return {"ident": ident, "indeg": indeg}
+    return {"ident": ident, "edges": edges, "rnode": rnode, "reactions": set(rnode.values())}
+
+
+def reduced_edges(q, without):
+    """Q's edges with every reaction in `without` removed: its reaction nodes,
+    their edges, and edges attributed to it."""
+    return [(a, b, rid) for a, b, rid in q["edges"]
+            if rid not in without and q["rnode"].get(a) not in without and q["rnode"].get(b) not in without]
 
 
 def plan(base, hub):
+    """Bridges for every ordered pair (A, B): {(A, B): [(src in A, dst in B)]},
+    where the side that is not the centre pathway is reduced by the centre's
+    reactions. Keyed (P, Q, direction) as {(P, Q): {"in": [...], "out": [...]}}."""
     paths = sorted(p for p in base.iterdir() if (p / "nodes.csv").exists())
     info = {p.name: load(p) for p in paths}
     n_paths = collections.Counter()
     for v in info.values():
         for de in {k[1] for k in v["ident"].values()}:
             n_paths[de] += 1
-    by_key = collections.defaultdict(lambda: collections.defaultdict(lambda: ([], [])))
+    by_key = collections.defaultdict(lambda: collections.defaultdict(list))
     for name, v in info.items():
         for u, k in v["ident"].items():
-            if n_paths[k[1]] > hub:
-                continue
-            by_key[k][name][0 if v["indeg"][u] else 1].append(u)
-    bridges = collections.defaultdict(list)          # (A, B) -> [(src in A, dst in B)]
+            if n_paths[k[1]] <= hub:
+                by_key[k][name].append(u)
+    shared = collections.defaultdict(list)        # (P, Q) -> [(uuids in P, uuids in Q)]
     for k, per in by_key.items():
-        if len(per) < 2:
-            continue
-        for a, (prod, _) in per.items():
-            for b, (_, root) in per.items():
+        for a in per:
+            for b in per:
                 if a != b:
-                    bridges[(a, b)] += [(s, t) for s in prod for t in root]
+                    shared[(a, b)].append((per[a], per[b]))
+    indeg = {n: collections.Counter(t for _, t, _ in v["edges"]) for n, v in info.items()}
+    bridges = {}
+    for (P, Q), pairs in shared.items():
+        qe = reduced_edges(info[Q], info[P]["reactions"])
+        qin = collections.Counter(t for _, t, _ in qe)
+        into = [(s, t) for ps, qs in pairs for s in qs if qin[s] for t in ps if not indeg[P][t]]
+        out = [(s, t) for ps, qs in pairs for s in ps if indeg[P][s] for t in qs if not qin[t]]
+        if into or out:
+            bridges[(P, Q)] = {"in": into, "out": out, "edges": qe}
     return [p.name for p in paths], bridges, n_paths
 
 
-def kept_nodes(qd, srcs):
-    """The ancestors of `srcs` in pathway dir `qd`, closed over its pools and
-    carrier loops."""
+def kept_nodes(qd, srcs, qe):
+    """The ancestors of `srcs` over edges `qe` of pathway dir `qd`, closed over
+    its pools and carrier loops."""
     inc = collections.defaultdict(set)
-    for t in ("logic_network.csv", "boundary_edges.csv"):
-        for r in rows(qd / t)[1]:
-            inc[r["target_id"]].add(r["source_id"])
+    for a, b, _ in qe:
+        inc[b].add(a)
     groups = collections.defaultdict(set)
     for t, cols in (("pools.csv", ("node_uuid",)), ("pool_carriers.csv", ("carrier_uuid", "release_reaction_uuid")),
                     ("pool_transitions.csv", ("source_uuid", "target_uuid", "reaction_uuid")),
@@ -146,9 +164,13 @@ def build_one(base, out, P, nbrs, bridges, prune=True):
     d = out / P
     d.mkdir(parents=True)
     members = [P] + nbrs
-    kept = {P: None}
+    kept, edges = {P: None}, {}
     for q in nbrs:
-        kept[q] = kept_nodes(base / q, [s for s, _ in bridges.get((q, P), ())]) if prune else None
+        bq = bridges[(P, q)]
+        edges[q] = {(a, b, rid) for a, b, rid in bq["edges"]}
+        # unpruned: the whole reduced neighbour, still without P's reactions
+        kept[q] = kept_nodes(base / q, [s for s, _ in bq["in"]], bq["edges"]) if prune else \
+            {x for a, b, _ in bq["edges"] for x in (a, b)} | {s for s, _ in bq["in"]} | {t for _, t in bq["out"]}
     for t in UNION:
         head, allr = None, []
         for q in members:
@@ -157,6 +179,9 @@ def build_one(base, out, P, nbrs, bridges, prune=True):
                 continue
             head = head or h
             for r in rs:
+                if q != P and t in ("logic_network.csv", "boundary_edges.csv") and \
+                        (r["source_id"], r["target_id"], r.get("edge_reaction_id") or "") not in edges[q]:
+                    continue
                 if kept[q] is not None and not keep_row(t, r, kept[q]):
                     continue
                 for c in PREFIXED.get(t, ()):
@@ -174,16 +199,16 @@ def build_one(base, out, P, nbrs, bridges, prune=True):
         w.writerow(EDGE_HEAD)
         for q in members:
             for r in rows(base / q / "logic_network.csv")[1]:
-                if kept[q] is None or keep_row("logic_network.csv", r, kept[q]):
-                    w.writerow([r[c] for c in EDGE_HEAD])
+                if q != P and ((r["source_id"], r["target_id"], r.get("edge_reaction_id") or "") not in edges[q]
+                               or not keep_row("logic_network.csv", r, kept[q])):
+                    continue
+                w.writerow([r[c] for c in EDGE_HEAD])
         n = 0
         for q in nbrs:
-            for a, b in ((P, q), (q, P)):
-                for s, t in bridges.get((a, b), ()):
-                    if kept[q] is not None and q == b and t not in kept[q]:
-                        continue
-                    w.writerow([s, t, "pos", "or", "context_bridge", "1", ""])
-                    n += 1
+            bq = bridges[(P, q)]
+            for s_, t_ in bq["in"] + [(s_, t_) for s_, t_ in bq["out"] if t_ in kept[q]]:
+                w.writerow([s_, t_, "pos", "or", "context_bridge", "1", ""])
+                n += 1
     with open(d / "context_own.csv", "w", newline="") as f:
         f.write("uuid\n" + "".join(r["uuid"] + "\n" for r in rows(base / P / "nodes.csv")[1]))
     return n
@@ -201,17 +226,17 @@ def main(argv=None):
     names, bridges, n_paths = plan(base, a.hub)
     nbr = collections.defaultdict(set)
     for (x, y), bs in bridges.items():
-        if bs:
-            nbr[x].add(y); nbr[y].add(x)
+        if bs["in"]:                     # only a bridge INTO P can move P's values
+            nbr[x].add(y)
     size = {p: sum(1 for _ in open(base / p / "nodes.csv")) - 1 for p in names}
     print(f"pathways {len(names)}; hub cutoff > {a.hub} pathways; "
           f"hub entities {sum(1 for n in n_paths.values() if n > a.hub)} of {len(n_paths)}")
-    print(f"bridge pairs (directed) {sum(1 for b in bridges.values() if b)}; "
-          f"bridges {sum(len(b) for b in bridges.values())}")
+    print(f"neighbour pairs {len(bridges)}; bridges into the centre "
+          f"{sum(len(b['in']) for b in bridges.values())}, out of it {sum(len(b['out']) for b in bridges.values())} (before pruning)")
     print("pathway\town_nodes\tneighbours\tcontext_nodes\tbridges_in_star")
     for p in names:
         ns = sorted(nbr[p])
-        nb = sum(len(bridges.get((p, q), ())) + len(bridges.get((q, p), ())) for q in ns)
+        nb = sum(len(bridges[(p, q)]["in"]) + len(bridges[(p, q)]["out"]) for q in ns)
         print(f"{p}\t{size[p]}\t{len(ns)}\t{size[p] + sum(size[q] for q in ns)}\t{nb}")
     if a.census:
         return
