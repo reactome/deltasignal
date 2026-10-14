@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-12. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-13. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,41 @@ commit.
 
 ---
 
+
+> **2026-10-13: canonical numbers with drug-derived nodes held at baseline
+> (specs/055).**
+> - Build `20261012-1401_01206ca` (unchanged).
+> - Solver `64d23cb`: `DS_DRUG_MODE=inert` by default, DS #112.
+> - Results: `results/64d23cb`. They reproduce the measured arm (`dinert`)
+>   on every prediction and value.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **89.33%** | **0.8620** |
+> | curator held-out, every case (71 pathways) | 19,000 | 88.72% | 0.8535 |
+> | curator, all pathways, in release (81) | 23,625 | 87.06% | 0.8406 |
+> | curator, all pathways, every case | 24,100 | 86.49% | 0.8331 |
+> | experimental, every case (10 pathways) | 849 | **69.61%** | **0.6179** |
+>
+> **What moved since the previous box.** One rule changed: drug-derived
+> nodes (a Reactome `Drug`, a complex containing one, a set of drugs) are
+> held at baseline, for a cell without the drug.
+> - Against the previous box: curator held-out +8 (8 fixed / 0 broken), all
+>   from KIT overexpression in SCF-KIT (KIT:TKI complexes).
+> - Experimental +2 (12 / 10). Outside RAF it is +2 (2 / 0), from the CDK4
+>   knockout in Mitotic G1 (CDK4-inhibitor complex).
+> - RAF moves from its bistable switch's high state to its low state
+>   (specs/054). Knockouts now read DOWN (right) and RAS overexpressions read
+>   DOWN (wrong). Neither state is signal. Since specs/054 D1, rule decisions
+>   set RAF aside, but this box keeps it.
+>
+> Converged: 1,652 / 1,725 curator and 215 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 86.49% / 0.8331 against 83.34% / 0.8063, **+3.15pp**.
+> - Experimental: 69.61% (591/849) against 75.74% (643/849), **−6.13pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-12: canonical numbers with closed carrier loops reading their
 > own gene (specs/049).**
