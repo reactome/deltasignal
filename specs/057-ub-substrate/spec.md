@@ -105,3 +105,32 @@ nothing changes, and the losses are traced.
   depletion edge is one of the 301), so it is measured, if at all, after this.
 - Degradation as such: what a ubiquitination does to the changed substrate
   is unchanged.
+
+## Amendment 1 (2026-10-14, after R1, before any amended build): the "Ub-X" complex test
+
+R1 found the registered test wrong for Reactome's "Ub-X" complex products
+(e.g. Ub-SMAD2 [cytosol] = SMAD2 + Ub): the real substrate's stId reappears
+in the output, so 24 of the 301 removed edges hit a real substrate.
+
+**Rule (generator `LNG_UB_SUBSTRATE_UBX`, default off, read only with
+`LNG_UB_SUBSTRATE_CHANGED=1`):** an input leaf whose gene is in the output is
+the substrate if its stId is absent from the output's leaves, **or** it is a
+direct component of an output complex (to depth 3) that also has Ub as a
+direct component.
+
+**Not registered: a degradation rule for the CBL class.** Proposed in R1, but
+checked before registering: in "CBL monoubiquitinates activated MET" the CBL
+complex is both input and catalyst, so "the catalyst depletes the input
+complex holding the substrate" is a self-depletion the generator skips. A CBL
+knockout could only raise signaling if CBL binding drained the active
+receptor, the input-consumption rule refuted on 2026-07-16. Not pursued.
+
+**Arm `ubx`:** variant build `--env LNG_UB_SUBSTRATE_CHANGED=1 --env
+LNG_UB_SUBSTRATE_UBX=1`, same solver, against the canonical results; same
+gate, same pairing. Also reported against `ubs`.
+
+**Predictions:** the 24 edges return; SMAD2/3 in TGF-beta recover (about
++24 against `ubs`); MET stays +30; CBL/EPS15/SH3GL1 (−38) and RNF168 (a coin)
+do not change. Against canonical: about −15 held-out, so **the gate most
+likely still fails**. If it fails, nothing is adopted; the corrected test
+stays on record as the faithful form for any future degradation work.
