@@ -47,12 +47,15 @@ fold(r, u) = r.node_activities[u] / BL
 
 @testset "inert drugs (specs/032)" begin
 
-@testset "default is propagate, byte-identical to a network with no drug list" begin
+@testset "default is inert (specs/055); propagate is byte-identical to no drug list" begin
     with_env("DS_DRUG_MODE" => nothing) do
-        @test DS.drug_mode() == "propagate"
+        @test DS.drug_mode() == "inert"
     end
-    a = solve(fixture(Set(["R-C", "R-D"])); mode = nothing)
-    b = solve(fixture(nothing); mode = nothing)
+    d = solve(fixture(Set(["R-C", "R-D"])); mode = nothing)
+    @test d.diagnostics["drug_rule"] == "inert"
+    @test d.diagnostics["drugs_held"] == 2
+    a = solve(fixture(Set(["R-C", "R-D"])); mode = "propagate")
+    b = solve(fixture(nothing); mode = "propagate")
     @test a.node_activities == b.node_activities
     @test a.diagnostics["drug_rule"] == "propagate"
     @test a.diagnostics["drugs_held"] == 0
@@ -224,7 +227,7 @@ end
     end
     @testset "independent of the drug rule" begin
         # a node listed only as a drug is not held by DS_PATHOGEN_MODE, and vice versa
-        r = psolve(pfixture(nothing; drug_stids = Set(["R-C"])); mode = "inert")
+        r = psolve(pfixture(nothing; drug_stids = Set(["R-C"])); mode = "inert", drug = "propagate")
         @test r.diagnostics["pathogen_rule"] == "inert: no pathogen table"
         @test fold(r, "C") ≈ 2.0 rtol = 1e-6
         r = psolve(pfixture(Set(["R-C"]); drug_stids = nothing); mode = "propagate", drug = "inert")

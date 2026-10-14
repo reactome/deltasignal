@@ -1,6 +1,6 @@
 # specs/055: drug-derived nodes held at baseline, re-measured on the canonical build
 
-**Status:** registered 2026-10-13, before the arm ran. **Result: gate passes (research.md R2); thin evidence (2 perturbations outside RAF, 0 broken). Adoption is Adam's call.** No code change: the
+**Status:** registered 2026-10-13, before the arm ran. Gate passes (research.md R2); thin evidence (2 perturbations outside RAF, 0 broken). **Adopted as the default (Adam, 2026-10-13).** No code change: the
 rule is `DS_DRUG_MODE=inert` (specs/032), unchanged since then.
 
 ## Why now

@@ -349,10 +349,15 @@ env vars only override for benchmark sweeps:
   `containment.csv`; the solve reports `self_inhibitor_rule` (on / off /
   inert) and how many inhibitor slots were flagged. Measured numbers are in
   specs/023. specs/022 has the rule; specs/023 has the adoption.
-- `DS_DRUG_MODE=propagate` (default) | `inert` (specs/032): drug-derived
-  nodes (a Reactome `Drug`, a complex containing one, a set that is all drugs),
-  listed by the generator's `drugs.csv`, held at baseline like cofactors, for a
-  cell without the drug. The solve reports `drug_rule` and `drugs_held`.
+- `DS_DRUG_MODE=inert` (**default since 2026-10-13**, specs/055; curator
+  held-out +8, 8 fixed / 0 broken, experimental +2 with RAF set aside) |
+  `propagate` (specs/032): drug-derived nodes (a Reactome `Drug`, a complex
+  containing one, a set that is all drugs), listed by the generator's
+  `drugs.csv`, held at baseline like cofactors, for a cell without the drug.
+  An observation still wins. The solve reports `drug_rule` and `drugs_held`;
+  a bundle without the table reports `inert: no drug table` and the bench
+  refuses it, so re-run such a build with `--server DS_DRUG_MODE=propagate`.
+  RAF moves from its switch's high state to its low one (specs/054).
 - `DS_PATHOGEN_MODE=inert` (**default since 2026-10-10**, specs/048 amendment
   2) | `propagate`: nodes listed in the generator's `pathogens.csv` are held
   at baseline, as drugs are, for a cell without the pathogen. An observation
@@ -529,7 +534,8 @@ for the last feature that touched it rather than re-deriving from the code.
   multiplicity; the targeted join is untried, near a family that failed three
   times. About 41 cases for an any-copy pool. Analysis only.
 - `specs/032-inert-drugs/` — `DS_DRUG_MODE`: drug-derived nodes held at
-  baseline. Not adopted: held-out +30, but experimental −5, RAF worse.
+  baseline. Not adopted then (held-out +30, experimental −5, all RAF);
+  adopted in specs/055 once RAF was set aside.
 - `specs/033-set-pool-nodes/`, `specs/038-pool-max/` — one OR node per
   set-valued catalyst or regulator (`LNG_SET_POOL`), feeding the reaction once.
   Adoptable on faithfulness under `DS_SET_POOL_MODE=product`: held-out +6 / −2,
@@ -630,6 +636,11 @@ for the last feature that touched it rather than re-deriving from the code.
   gates are read with `holdout_report.py --set-aside RAF_MAP_kinase_cascade`
   and both figures reported. Re-read: rule B's experimental +20 is +5 (p 0.06)
   without RAF; inert drugs' −5 is +2.
+- `specs/055-inert-drugs-canonical/` — `DS_DRUG_MODE=inert` re-measured on
+  the canonical build under specs/054 D1: held-out +8 (8 / 0, all KIT
+  overexpression through KIT:TKI complexes), experimental +2 with RAF set
+  aside (CDK4 knockout), nothing broken outside RAF. **Adopted as the
+  default** (Adam, 2026-10-13), mainly because benchmark cells have no drug.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -656,7 +667,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 71 | |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
-| `test/test_drugs.jl` | 125 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
+| `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 260 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |

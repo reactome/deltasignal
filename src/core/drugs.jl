@@ -14,19 +14,20 @@ raising RAS raises the drug-bound complexes, and their inhibitory edges then
 shut the kinase cascade off: every RAS/RAF perturbation in RAF/MAP kinase read
 DOWN (experimental 28.6% against MP-BioPath's 93.9%, specs/032).
 
-  DS_DRUG_MODE=propagate  (default) — previous behaviour.
-  DS_DRUG_MODE=inert      — drug-derived nodes are pinned at baseline, as
+  DS_DRUG_MODE=inert      (default since specs/055, 2026-10-13) —
+                            drug-derived nodes are pinned at baseline, as
                             cofactors are: participants of fold 1.0 that
                             never carry a perturbation. Not 0, because under
                             `divide` an inhibitor at 0 de-represses tenfold,
                             which would model drug WITHDRAWAL. An explicit
                             observation still wins.
+  DS_DRUG_MODE=propagate  — the previous behaviour.
 """
 
 const DS_VALID_DRUG_MODES = Set(["propagate", "inert"])
 
 function drug_mode()::String
-    value = get(ENV, "DS_DRUG_MODE", "propagate")
+    value = get(ENV, "DS_DRUG_MODE", "inert")
     if !(value in DS_VALID_DRUG_MODES)
         throw(ArgumentError(
             "DS_DRUG_MODE must be one of $(join(sort(collect(DS_VALID_DRUG_MODES)), ", ")); got $(repr(value))"))
