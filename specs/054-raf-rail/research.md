@@ -64,6 +64,63 @@ hand-edited to remove such loops (specs/034).
 `raf_pool.jl`: `DS_SET_POOL_MODE` = product, geomean, mean or extreme give
 identical readouts. The set-pool combination is not the lever.
 
+## T5. Loop gain at baseline: a bistable switch, not a linear instability
+
+Scripts: `raf_gain.jl`, `raf_sweep_cap.jl`, `raf_thresh.jl`, `raf_sweep_fine.jl`.
+
+**Raw linearisation.** `raf_gain.jl` takes d log F / d log x of every input
+at baseline (carrier-loop rule applied, cofactors and pathogens held; no
+input has a kink there, and baseline is an exact fixed point). Two cyclic
+components lie upstream of the p-MAPK readouts and both have a leading
+eigenvalue above 1:
+- **194 nodes, 1.32: the RAS GTP/GDP cycle.** RAS:GTP binds a GAP that the
+  same cycle recycles, so "RAS GAPs bind RAS:GTP" (R-HSA-5658435) takes the
+  loop twice. RAS:GTP does not move in any solve (T1), so the specs/039
+  pool solve evidently holds this component; it is not what rails.
+- **685 nodes, 1.02: RAF:scaffold:MAP2K:MAPK.** It has two edges with gain 2,
+  both Reactome curating one complex as both input and catalyst: "RAF
+  phosphorylates MAP2K dimer" (R-HSA-5672978, by R-HSA-5672720) and "MAP2Ks
+  phosphorylate MAPKs" (R-HSA-5672973, by R-HSA-5672723). Multiplying
+  folds squares such a complex (the specs/012 double count). The drug-binding
+  side reactions (R-HSA-9657599, 9657603, 9657606) close further paths
+  through the same complexes. The per-edge eigenvalue shares for this
+  component do not sum to the eigenvalue (the leading eigenvalue is
+  probably degenerate), so they are not used.
+
+**The solve does not show a linear instability.** At gain 1.02 a damped
+sweep would grow a deviation about 1.5% per pass. But HRAS at 0.99, 0.999,
+1.001 and 1.01 leaves p-MAPK at 1.0 at caps of 500, 2,000 and 8,000
+(`raf_sweep_cap.jl`). At 1% the RAF complexes move only about 4e-5 in log
+fold (`raf_thresh.jl`).
+
+**It is a switch with a threshold near 3.5%.** `raf_sweep_fine.jl`:
+
+| HRAS | 0.93 | 0.95 | 0.96 | 0.97–1.03 | 1.04 | 1.05 | 1.07 |
+|---|---|---|---|---|---|---|---|
+| p-MAPK (default) | 51.9 | 51.7 | 51.6 | 1.0 | 51.6 | 51.7 | 51.8 |
+| p-MAPK (`DS_DEDUP_ACTIVATORS=1`) | 2.6 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.9 |
+
+Between a 1% and a 10% push, the response of the RAF:scaffold:MAP2K:MAPK
+complexes goes from 4e-5 to 4.61 (= log 100, the cap). That ratio is
+1e5–1e6 instead of 10. 119 entities move more than 15% at 10%, none at 1%.
+Both directions land on the same railed state (T1).
+
+**The double count lowers the threshold but does not make the switch.**
+Removing it (`DS_DEDUP_ACTIVATORS=1`) widens the threshold to about 6%.
+Pushes beyond that then drift without converging (2.6× at 0.93; 11× at 0.9
+and 3.4× at 1.1, T3 setup), and the values depend on the iteration cap. The
+eigenvalues stay above 1 (1.018 and 1.138) with no single edge above 1: the
+signal reconverges through several in-loop inputs of one AND reaction.
+specs/012 measured that deduplication at held-out −15.
+
+**What this changes.** The RAF baseline is the low state of a bistable
+switch. Every benchmark perturbation (knockout 0, overexpression 80×)
+crosses its threshold, so RAF predictions read the switch's high state
+whatever the input. A fix has to remove the high state for a single
+perturbation, not just shift the threshold. The candidates are those already
+named in "What this means": bring in the curated negative feedback, or
+bound the loop's gain (specs/014). Neither is registered.
+
 ## What this means
 
 - The RAF experimental and curator scores (28/49 experimental) are a coin
