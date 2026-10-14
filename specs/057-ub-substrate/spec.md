@@ -1,6 +1,6 @@
 # specs/057: a ubiquitination depletes what it changes, not what it carries
 
-**Status:** registered 2026-10-14, before any build or arm.
+**Status:** registered 2026-10-14, before any build or arm. **Gate fails** (research.md R1: held-out −39, p 0.0011; experimental 0). Not adopted; the flag stays off. The MET fix works as predicted (+30). Losses: CBL/EPS15/SH3GL1 (−38) were right only through the removed edges; SMAD2/3 (−24) come from a defect in the registered test, found after the arm (Reactome's "Ub-X" complex products, 24 of 301 edges); RNF168 (−16) is a non-converged coin.
 
 ## Why
 

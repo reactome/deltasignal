@@ -13,3 +13,8 @@ Diagnostics for specs/057 (ubiquitination substrate).
       awk -F'\t' 'NR>1 && $1=="Signaling_by_MET" && $7==1 {print "cur\t"$2"\t"$3"\t"$4"\t"$6"\t"$5"\t"$11"\t"$12"\t"$13}'
 
   Run in the dev container with the build at /app/pathway_catalog.
+- `ub_complex_substrates.cypher`: per ubiquitination, the output complexes
+  that hold Ub as a direct component and their other direct components (the
+  real substrate in Reactome's "Ub-X" complex representation; research R1).
+- `dump.jl`: one solve of a bundle (env PW = bundle dir, PINS = uuids joined
+  by |, V = pinned value, OUT = file of uuid, activity on the 0-100 scale).
