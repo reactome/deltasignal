@@ -48,3 +48,19 @@ The SMAD2 recycled copies (7632c373 and two others) have a separate source,
 the root copy c854b46a, which is why TGF-beta was fixed.
 
 `ownsrc` (the rule alone) is reported in R2.
+
+## R2. Arm `ownsrc` (the R1 rule alone): fails, same defect
+
+`scripts/run_arm.sh ownsrc --server DS_DEPLETION_OWN_PRODUCT=suppress_only_source`
+at `cb53f3f` (the pre-amendment rule), results `results/cb53f3f/ownsrc`.
+
+| against | held-out | tuning | experimental |
+|---|---|---|---|
+| control `64d23cb` | −9 (14 / 23, p 0.19) | −34 (13 / 47) | **−11** (2 / 13, p 0.0074) |
+| `ownsup` (`cc9ab80`) | −9 | −80 | −15 (2 / 17, p 0.0007) |
+
+Convergence: curator 1,653, experimental 219 (control 1,652 / 215).
+**Gate: fails.** The losses against `ownsup` are the self-sourced cap
+(R1's MDM2 mechanism) undoing `suppress_only`'s TP53 gains. Not re-run after
+amendment 1; the amended rule is measured only in the registered
+combination (`rtwin58g2`).
