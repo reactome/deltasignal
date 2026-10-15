@@ -641,6 +641,13 @@ for the last feature that touched it rather than re-deriving from the code.
   overexpression through KIT:TKI complexes), experimental +2 with RAF set
   aside (CDK4 knockout), nothing broken outside RAF. **Adopted as the
   default** (Adam, 2026-10-13), mainly because benchmark cells have no drug.
+- `specs/056-reactome-context/` — each pathway solved with the pathways that
+  feed it (`bench/context_build.py`, a separate catalog build; a second
+  protocol, never the headline). **Not supported:** feed-in curator held-out
+  −164, experimental −14 (RAF set aside); with feedback −577 / −30. The
+  cell-cycle cases gain, but importing a neighbour's free forms (EGF at the
+  10× de-repression ceiling, KDM1A drained to 0) breaks more. Compare such
+  arms with `holdout_report.py --pair-on-valid`.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

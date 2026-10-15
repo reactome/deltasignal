@@ -116,7 +116,14 @@ def main(argv=None) -> int:
                          "pathway (repeatable). specs/054: RAF_MAP_kinase_cascade "
                          "reads a bistable switch, not signal, so rule decisions "
                          "are made without it and both figures are reported.")
+    ap.add_argument("--pair-on-valid", action="store_true",
+                    help="With --compare: pair every case valid in both arms, without "
+                         "requiring the same number of pinned nodes. Only for arms that "
+                         "change the pin set BY DESIGN for the same question (specs/056: "
+                         "a context build also pins the gene in the neighbour pathways).")
     a = ap.parse_args(argv)
+    if a.pair_on_valid and not a.compare:
+        ap.error("--pair-on-valid needs --compare")
     if a.set_aside and not a.compare:
         ap.error("--set-aside needs --compare")
     aside = set(a.set_aside)
@@ -137,9 +144,17 @@ def main(argv=None) -> int:
         paired = set(base) & set(arm)
         shared = sorted(
             k for k in paired
-            if base[k]["n_gene_uuids"] == arm[k]["n_gene_uuids"]
-            and base[k]["n_ko_uuids"] == arm[k]["n_ko_uuids"]
+            if (a.pair_on_valid and base[k].get("valid") == "1" and arm[k].get("valid") == "1")
+            or (not a.pair_on_valid and base[k]["n_gene_uuids"] == arm[k]["n_gene_uuids"]
+                                   and base[k]["n_ko_uuids"] == arm[k]["n_ko_uuids"])
         )
+        newly_valid = sorted(k for k in paired if a.pair_on_valid
+                             and base[k].get("valid") != "1" and arm[k].get("valid") == "1")
+        if a.pair_on_valid:
+            nv_ok = sum(1 for k in newly_valid if arm[k]["predicted"] == arm[k]["expected"])
+            print("\n  --pair-on-valid: cases are paired on validity alone; the arms may pin "
+                  "different forms of the same gene (specs/056).")
+            print(f"  valid only in {a.compare.name}: {len(newly_valid)} (correct {nv_ok}); not paired.")
         dropped = len(paired) - len(shared)
         print(f"\n=== does it generalise?  {a.compare.name} vs {a.cases.name} ===")
         if dropped:
