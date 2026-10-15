@@ -681,7 +681,8 @@ for the last feature that touched it rather than re-deriving from the code.
   re-measured on the canonical build: held-out 0 (no case moves), tuning +46,
   experimental +4 (p 0.125), all TP53. Gate fails (needs a held-out gain).
   With specs/058 + 059 (`rtwin58s`): held-out +21, tuning +112, experimental
-  +7 (p 0.016); fails only on TGF-beta −12.
+  +7 (p 0.016); fails only on TGF-beta −12. The entity-level variant
+  (`suppress_only_entity`) fixes SMAD2/3 but loses MDM2 KO (experimental −17).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
