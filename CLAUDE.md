@@ -648,6 +648,14 @@ for the last feature that touched it rather than re-deriving from the code.
   cell-cycle cases gain, but importing a neighbour's free forms (EGF at the
   10× de-repression ceiling, KDM1A drained to 0) breaks more. Compare such
   arms with `holdout_report.py --pair-on-valid`.
+- `specs/057-ub-substrate/` — a ubiquitination depleted every partner of
+  a complex modified in place (CBL monoubiquitinating MET depleted free GRB2,
+  inverting every MET/HGF case). Generator `LNG_UB_SUBSTRATE_CHANGED`
+  (default off, LNG PR #113): 301 of 727 depletion edges. **Not adopted:**
+  curator held-out −39 (p 0.0011); with the "Ub-X" complex test
+  (`LNG_UB_SUBSTRATE_UBX`, amendment 1) −15 (49/64, p 0.19), experimental 0.
+  MET +30 as predicted; CBL-family regulators (−38) were right only through
+  the removed edges.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
