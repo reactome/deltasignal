@@ -76,3 +76,29 @@ What the cases say (16 units, step 1):
 - The adoption decision rests on the SELECT and experimental evidence
   (specs/061 R3) and on Adam's judgement of the post-hoc risk; the next
   Reactome release remains the clean replication when it exists.
+
+## R3 (2026-10-15): the registered reachability baseline, computed
+
+R2 omitted the reachability baseline registered in the spec (as specs/021: DOWN
+when any unpinned readout node is reachable from a pin, else NOT). The bench now
+records it (`a604d84`); korkut2015 is FIT, so re-scoring is allowed. Both arms
+re-ran at `a604d84` (results `a604d84/ks_ctrl`, `a604d84/ks_rtwin58g2`) and
+reproduce every R2 prediction (0 of 11,626 differ), so R2's verdict stands
+unchanged: **inconclusive**.
+
+| on 11,062 scored cases | primary (log2 1.5) acc / macro-F1 | secondary (log2 1.15) acc / macro-F1 |
+|---|---|---|
+| control | 0.638 / 0.333 | 0.499 / 0.372 |
+| arm (`rtwin58g2`) | 0.640 / 0.332 | 0.501 / 0.374 |
+| reachability (same under both arms' pins) | 0.573 / 0.296 | 0.467 / 0.321 |
+| always-DOWN | 0.074 / 0.046 | 0.249 / 0.133 |
+| always-NOT | 0.908 / 0.317 | 0.583 / 0.245 |
+
+- Both arms beat reachability at both thresholds, on accuracy and macro-F1:
+  the propagator adds information beyond wiring on this independent set.
+- Reachability itself carries signal: 10.1% of reachable cases are measured
+  DOWN (478 / 4,739) against 5.4% of unreachable ones (342 / 6,323).
+- Every unreachable case is predicted NOT by both arms, as it must be.
+- Against always-NOT: below it on accuracy at both thresholds, above it on
+  macro-F1 at both. The model over-calls change on this cell line; the
+  data are 91% NOT at the primary threshold.
