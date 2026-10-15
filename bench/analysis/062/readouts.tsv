@@ -1,0 +1,93 @@
+# specs/062: korkut2015 readout (node_Index.csv name) -> genes and phospho sites.
+# Made from the antibody names and eLife supplementary file 1 (table 1) only,
+# with coordinates checked against Release 97 (korkut_sites.cypher). kind:
+#   phospho  nodes that are, or contain, an EWAS of GENE phosphorylated at COORD
+#   total    nodes that are, or contain, any EWAS of GENE
+#   exclude  not scored (reason in note)
+# Legacy antibody numbering is translated to the human coordinate Reactome uses
+# (SRC Y527/Y416 = Y530/Y419; MEK S217 = MAP2K1 S218 / MAP2K2 S222; AMPK T172
+# = PRKAA2 T172 / PRKAA1 T183; ERK T202 = MAPK3 T202 / MAPK1 T185; AKT S473/
+# T308 across isoforms; STAT5 Y694 = STAT5A Y694 / STAT5B Y699).
+readout	kind	sites	note
+4EBP1pS65	exclude		S65 not curated on EIF4EBP1 in Release 97
+RbpS807	phospho	RB1:807
+MAPKpT202	phospho	MAPK3:202,MAPK1:185
+MEKpS217	phospho	MAP2K1:218,MAP2K2:222
+S6	total	RPS6
+PAI-1	total	SERPINE1
+AKTpS473	phospho	AKT1:473,AKT2:474,AKT3:472
+AMPKpT172	phospho	PRKAA2:172,PRKAA1:183
+b-Catenin	total	CTNNB1
+BIM	total	BCL2L11
+Caveolin	total	CAV1
+CyclinB1	total	CCNB1
+CyclinD1	total	CCND1
+GSK3abpS21	phospho	GSK3A:21
+GSKpS9	phospho	GSK3B:9
+IGFBP2	total	IGFBP2
+p38pT180	phospho	MAPK14:180
+p53	total	TP53
+p70S6KpT389	phospho	RPS6KB1:389,RPS6KB1:412
+SRCpY527	phospho	SRC:530
+STAT3pY705	phospho	STAT3:705
+TSC2pT1462	phospho	TSC2:1462
+YAPpS127	phospho	YAP1:127
+ACC1	total	ACACA
+AKTpT308	phospho	AKT1:308,AKT2:309,AKT3:305
+AKT	total	AKT1,AKT2,AKT3
+b-CateninpS	phospho	CTNNB1:33
+Fibronectin	total	FN1
+HSP27	total	HSPB1
+IGF1R-beta	total	IGF1R
+IRS1	total	IRS1
+p27	total	CDKN1B
+c-Myc	total	MYC
+SMAD3	total	SMAD3
+STAT3	total	STAT3
+STAT5	total	STAT5A,STAT5B
+STAT5pY694	phospho	STAT5A:694,STAT5B:699
+COX2	total	PTGS2
+PAX2	total	PAX2
+PLK1	total	PLK1
+YBIpS102	exclude		S102 not curated on YBX1 in Release 97
+CHK2pT68	phospho	CHEK2:68
+S6pS235	phospho	RPS6:235
+S6pS240	phospho	RPS6:240
+4EBP1pT37	phospho	EIF4EBP1:37
+Caspase9	total	CASP9
+a-tubulin	exclude		loading control
+ATMpS1981	phospho	ATM:1981
+ATR	total	ATR
+BAK	total	BAK1
+BCL-XL	total	BCL2L1
+BCL2	total	BCL2
+bRAF	total	BRAF
+c-JUNpS73	phospho	JUN:73
+Casp9cAsp31	exclude		cleavage-site antibody; which cleaved form is not determined from the name
+CHK1pS345	phospho	CHEK1:345
+cRAFV	total	RAF1
+EGFRV	total	EGFR
+ELK1pS383	phospho	ELK1:383
+ERa	total	ESR1
+GATA3	total	GATA3
+GSK3ab	total	GSK3A,GSK3B
+mTORpS2448	exclude		S2448 not curated on MTOR in Release 97
+p21	total	CDKN1A
+STAT6pY641	phospho	STAT6:641
+TAZpS89	phospho	WWTR1:89
+XRCC1	total	XRCC1
+PCNA	total	PCNA
+PDK1pS241	phospho	PDPK1:241
+PI3Kp85	total	PIK3R1
+PKCa	total	PRKCA
+RAD51	total	RAD51
+SRCpY416	phospho	SRC:419
+4EBP1pT70	exclude		T70 not curated on EIF4EBP1 in Release 97
+ACCpS79	exclude		S79 not curated on ACACA in Release 97
+Collagenase	exclude		ambiguous antibody name (which collagenase is not determined)
+CyclinE1	total	CCNE1
+IRS1pS307	exclude		S307 not curated on IRS1 in Release 97
+p38	total	MAPK14
+SMAD3pS423	phospho	SMAD3:423
+TSC2	total	TSC2
+SRC	total	SRC
