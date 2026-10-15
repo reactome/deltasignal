@@ -458,6 +458,14 @@ env vars only override for benchmark sweeps:
   if any, all depletion; never a carrier free form, specs/061 amendment 2). The one-way form of the identity twin that
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
+- `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` (specs/063,
+  registered, arms running): a binding whose complex nothing in the pathway uses
+  (only dissociation sinks) gains a depletion edge from the complex to its
+  partner, so binding takes the partner out of circulation (follistatin,
+  USP18, IL13RA2). `deadend_sole` only where one input is used nowhere else
+  (the sequesterer) and exactly one is a partner. Reads `nodes.csv`; reports
+  `sequestration_rule` and `sequestration_edges`, and the bench refuses
+  `<mode>: no node table`.
 - `DS_ZERO_SUPPLY_MODE=off` (default; `hold` measured and **not adopted**,
   specs/052) | `hold`: under a pin to 0, a
   node built from a leaf (protein or small molecule) that no unpinned source
@@ -704,6 +712,11 @@ for the last feature that touched it rather than re-deriving from the code.
   **inconclusive** (net +18, p 0.17; 3 drugs, 2 pathways; both arms below
   always-NOT). korkut2015 is now FIT. Release 98, the other check, is not
   published yet.
+- `specs/063-sequestration/` — `DS_SEQUESTRATION`: a dead-end binding
+  complex depletes its free partner (348 held-out misses, 274 inhibitor-like).
+  No structural or curated signature separates sequestering complexes from
+  terminal products (6,295 dead ends), so a narrow (`deadend_sole`) and a broad
+  (`deadend`) rule are measured. Arms pending.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -717,7 +730,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty files contain assertions; the
+**Most of the test suite cannot fail.** Twenty-one files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -738,6 +751,7 @@ other seven execute code and print output.
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 68 | specs/059–061, added 2026-10-14 |
+| `test/test_sequestration.jl` | 19 | specs/063, added 2026-10-15 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

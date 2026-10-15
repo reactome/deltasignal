@@ -54,3 +54,16 @@ a terminal product. Candidates still to test, before registering:
 - Reactome-wide use: a complex that is a dead end in this pathway but used
   in another pathway is a route that continues elsewhere (cross-pathway,
   specs/056), not sequestration.
+
+## R3: Reactome's annotations do not separate them either
+
+`bench/analysis/063/annotations.cypher` (scratch query recorded here): for
+the 24 target complexes and a random 300 of the other dead-end complexes
+(seed 63), whether the complex is used anywhere in Reactome (input,
+catalyst, regulator) and the GO process of the reaction producing it.
+- Targets: 0 of 24 used anywhere; 3 have "negative regulation of BMP
+  signaling pathway" (the I-SMAD complexes).
+- Sample: 12 of 300 used anywhere (4%); 5 have any GO process, 3 a negative
+  regulation one.
+So the dead end is curated (not our generator), and "sequestering" is not
+annotated. specs/063 therefore measures a narrow and a broad rule.

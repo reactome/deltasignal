@@ -74,3 +74,7 @@ def test_bench_refuses_an_unreported_or_tableless_zero_supply_rule():
     with pytest.raises(SystemExit, match="needs the network's nodes.csv"):
         bm.refuse_unless_default_model({"zero_supply_rule": "hold: no node table"}, "P")
     bm.refuse_unless_default_model({"zero_supply_rule": "off"}, "P")      # passes
+    with pytest.raises(SystemExit, match="specs/063"):                   # sequestration needs nodes.csv
+        bm.refuse_unless_default_model({"zero_supply_rule": "off",
+                                        "sequestration_rule": "deadend_sole: no node table"}, "P")
+    bm.refuse_unless_default_model({"zero_supply_rule": "off", "sequestration_rule": "deadend_sole"}, "P")

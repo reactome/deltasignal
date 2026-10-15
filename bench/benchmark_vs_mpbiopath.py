@@ -883,6 +883,9 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
     if str(ds_result.get("zero_supply_rule", "")).startswith("hold: "):
         raise SystemExit(f"{pathway_name}: {ds_result['zero_supply_rule']} -- DS_ZERO_SUPPLY_MODE=hold "
                          "needs the network's nodes.csv")
+    if str(ds_result.get("sequestration_rule", "")).endswith(": no node table"):
+        raise SystemExit(f"{pathway_name}: {ds_result['sequestration_rule']} -- DS_SEQUESTRATION "
+                         "needs the network's nodes.csv, so no edge was added (specs/063).")
     if str(ds_result.get("carrier_loop_rule", "")).endswith(": no carrier table"):
         raise SystemExit(f"{pathway_name}: {ds_result['carrier_loop_rule']} -- the network has no "
                          "carrier_loops.csv (a build that predates it), so no loop is changed (specs/049).")

@@ -129,6 +129,8 @@ function solve_steady_state(
         apply_carrier_loops(network, carrier_loop_mode())
     # specs/059: a recycled copy of an entity also reads its root copies.
     network, recycled_twin_rule, recycled_twin_edges = apply_recycled_twins(network, recycled_twin_mode())
+    # specs/063: a dead-end binding complex depletes its free partner.
+    network, sequestration_rule, sequestration_edges = apply_sequestration(network, sequestration_mode())
     # specs/035: loop participants released unchanged by their loop, held at
     # baseline like cofactors. Resolved on the network as given (before bridges).
     cmode = conserved_mode()
@@ -309,6 +311,8 @@ function solve_steady_state(
     result.diagnostics["carrier_loop_twin_edges"] = carrier_loop_twins
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
+    result.diagnostics["sequestration_rule"] = sequestration_rule
+    result.diagnostics["sequestration_edges"] = sequestration_edges
     result.diagnostics["own_entity_depletions"] = length(own_entity)
     result.diagnostics["zero_supply_rule"] = zero_supply_rule
     result.diagnostics["zero_supply_leaves"] = zero_supply_leaves
