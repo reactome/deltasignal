@@ -880,6 +880,8 @@ function index_reactions(
     end
     if stats !== nothing
         stats["self_inhibitors"] = sum((count(!isempty, r.inhibitor_shared) for r in indexed); init = 0)
+        # specs/061 amendment 2: pairs actually gated (node-copy pairs are capped outright)
+        stats["own_source_depletions"] = sum((count(!isempty, r.depletion_own_src) for r in indexed); init = 0)
     end
     return indexed, comp_id, n_comp
 end

@@ -35,7 +35,10 @@ def main():
     a, b = load(ctrl), load(arm)
     keys = sorted(k for k in a.keys() & b.keys()
                   if a[k]["status"] == b[k]["status"] == "scored" and a[k][col] != "conflict")
-    print(f"measured column: {col}; cases scored in both arms (conflicts left out): {len(keys)}")
+    one = sum(1 for k in a.keys() | b.keys()
+              if (a.get(k, {}).get("status") == "scored") != (b.get(k, {}).get("status") == "scored"))
+    print(f"measured column: {col}; cases scored in both arms (conflicts left out): {len(keys)}; "
+          f"scored in one arm only (left out): {one}")
     for name, d in (("control", a), ("arm", b)):
         pairs = [(d[k]["predicted"], d[k][col]) for k in keys]
         acc = sum(p == m for p, m in pairs) / len(pairs)

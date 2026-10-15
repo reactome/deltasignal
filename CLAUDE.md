@@ -337,7 +337,8 @@ env vars only override for benchmark sweeps:
 - `DS_DEPLETION_OWN_PRODUCT=suppress_only_source` (specs/061; not a default):
   as `suppress_only`, and an entity-own depleter is capped at 1 only while a
   SOURCE copy (a copy of the target's entity it is built from, found walking
-  back along non-depletion edges; never the target itself, amendment 1)
+  back along material edges, not catalyst or regulator ones (amendment 2);
+  never the target itself, amendment 1)
   reads below baseline. A SMAD2 knockout
   cannot de-repress SMAD2 through SMAD2:SMURF2; an MDM2 knockout still
   de-represses TP53 through MDM2:TP53. The solve reports
@@ -454,7 +455,7 @@ env vars only override for benchmark sweeps:
   entity (every producer, except depletion and dissociation, downstream of
   itself) that no root copy of the same entity reaches along non-depletion
   edges gains an OR in-edge (`recycled_supply`) from each root copy (in-edges,
-  if any, all depletion). The one-way form of the identity twin that
+  if any, all depletion; never a carrier free form, specs/061 amendment 2). The one-way form of the identity twin that
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
 - `DS_ZERO_SUPPLY_MODE=off` (default; `hold` measured and **not adopted**,
@@ -736,7 +737,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 63 | specs/059–061, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 68 | specs/059–061, added 2026-10-14 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

@@ -52,3 +52,15 @@ def test_maps_are_well_formed():
 def test_every_design_code_is_mapped():
     codes = {c for _, ds in kb.conditions() for c in ds}
     assert codes == {d["code"] for d in kb.read_tsv(kb.MAPS / "drugs.tsv")}
+
+
+def test_measured_calls_refuses_misaligned_columns(tmp_path, monkeypatch):
+    (tmp_path / "node_Index.csv").write_text("p53\np21\n")
+    (tmp_path / "expr.csv").write_text("0.1,0.9\n7,0.1,0.9\n")
+    monkeypatch.setattr(kb, "DATA", tmp_path)
+    design = [(0, ("NT",)), (1, ("AK",))]
+    with pytest.raises(SystemExit, match="misalign"):
+        kb.measured_calls(kb.THRESHOLD, design)
+    (tmp_path / "expr.csv").write_text("0.1,0.9\n-0.7,0.1\n")
+    m = kb.measured_calls(kb.THRESHOLD, design)
+    assert m[(("NT",), "p21")] == "up" and m[(("AK",), "p53")] == "down"

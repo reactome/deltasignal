@@ -111,6 +111,15 @@ for kv in "${BENCH[@]}"; do
   esac
   grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" \
     || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py at $SHA"; }
+  # The korkut bench uses only the pinning and the perturbation level from
+  # that script; any other bench knob would be recorded and inert there.
+  for gt in "${AXES[@]}"; do
+    case "$gt" in korkut|korkut_predict)
+      case " DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN " in *" $n "*) ;;
+        *) git worktree remove --force "$WT"; die "$n has no effect on the korkut bench (it reads DS_PIN_SCOPE, DS_PIN_ROOT_IGNORE, DS_PERTURB_UI_DOWN)" ;;
+      esac ;;
+    esac
+  done
 done
 CNAME="arm-$NAME-$$"
 cleanup() { docker rm -f "$CNAME" >/dev/null 2>&1; git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1; }

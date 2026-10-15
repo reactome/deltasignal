@@ -17,7 +17,8 @@ this rule adds a one-way edge only.
   DS_RECYCLED_TWIN=on   each recycled copy gains an activating OR in-edge
                         (`recycled_supply`) from every root copy of its entity.
 
-A ROOT copy: every in-edge, if any, is depletion, and it has an out-edge.
+A ROOT copy: not a carrier free form, every in-edge, if any, is depletion,
+and it has an out-edge.
 A RECYCLED copy: not a root copy, not a carrier free form (carrier_loops.csv),
 has a producer that is not depletion or dissociation, every such producer is
 downstream of the copy itself, and no root copy of its entity reaches it along
@@ -69,7 +70,11 @@ function apply_recycled_twins(network::ReactionNetwork, mode::String)
     end
     listed = network.carrier_loops === nothing ? Set{String}() :
              Set(f for (f, _, _) in network.carrier_loops)
-    isroot(u) = haskey(fwd, u) && all(e -> e.edge_type == "depletion", get(inc, u, LogicNetworkEdge[]))
+    # specs/061 amendment 2: a carrier free form is never a root copy. Under
+    # closed_twin one without a root twin has lost every in-edge, which would
+    # otherwise pass this test.
+    isroot(u) = !(u in listed) && haskey(fwd, u) &&
+                all(e -> e.edge_type == "depletion", get(inc, u, LogicNetworkEdge[]))
     roots = Dict{String, Vector{String}}()
     for (u, nd) in network.nodes
         rid = entity(nd)

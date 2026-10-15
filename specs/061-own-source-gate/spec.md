@@ -112,3 +112,32 @@ to +33, tuning about +100, experimental about +7, which would pass the gate
 unless RNF168 (DSB −16, a coin) still loses more than 10 in one pathway — it
 did in R1, so **the gate most likely fails on DSB**. If only that fails, I
 report it as the specs/057 coin and do not change the gate.
+
+## Amendment 2 (2026-10-15, after an adversarial code review, before any amended code)
+
+The review of the code behind `rtwin58g2` found two places where it does not
+do what this spec and specs/059 say. Both are fixed in place; the measured
+`rtwin58g2` result stays recorded at `9a0b839`.
+
+1. **A carrier free form is not a root copy** (specs/059). `apply_recycled_twins`
+   runs after `apply_carrier_loops`. Under `closed_twin`, a closed free form
+   with no root twin has lost every in-edge, so it passed the root test and
+   could feed a recycled copy with a node held at baseline. Fix: a form listed
+   in `carrier_loops.csv` is never a root copy, as it is never a recycled one.
+2. **Source copies are what the depleter is BUILT FROM**: the walk back from
+   the depleter follows only material edges (input, output, and the derived
+   supply edges), not catalyst or regulator edges. Before, a copy of the target
+   that only inhibited or catalysed the depleter's reaction counted as a source.
+
+Also: `own_source_depletions` now counts only the pairs actually gated (pairs
+the node-copy test already caps are left out), and the census is re-run on the
+network as the solver sees it, after the carrier and twin edges.
+
+**Arm `rtwin58g3`:** as `rtwin58g2`, at the amended commit. Same control, gate
+and pairing; also reported against `rtwin58g2`.
+
+**Prediction:** few predictions move against `rtwin58g2` (the defects need a
+carrier free form with no root twin next to a recycled copy, or a copy of the
+target that is only a modifier upstream of a depleter). If more than a handful
+move, each is traced before anything else is concluded. The gate decides as
+before; korkut2015 (now FIT) is reported for information only.
