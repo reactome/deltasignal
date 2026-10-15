@@ -1,6 +1,7 @@
 """Pins for entry_occurrences (specs/023): pin where the gene enters the
 network, compute everything downstream."""
 import sys
+import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -145,3 +146,50 @@ def test_pin_network_root_refuses_another_builds_nodes(tmp_path, monkeypatch):
     monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", str(tmp_path / "real"))
     with pytest.raises(SystemExit, match="does not list the served"):
         bm.pin_network_dir(tmp_path / "served" / "R-HSA-1")
+
+
+def _depletion_net(tmp_path):
+    # M (the gene's plain form) is fed only by a depletion edge from L; P (a
+    # side form of the gene) has no in-edge at all. Both feed reactions.
+    d = tmp_path / "R-HSA-1"
+    d.mkdir()
+    (d / "nodes.csv").write_text("uuid,node_kind\nm,simple_entity\np,simple_entity\nl,simple_entity\n"
+                                 "r,reaction\nq,reaction\n")
+    h = "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n"
+    (d / "logic_network.csv").write_text(h + "l,m,neg,and,depletion,1,\nm,r,pos,and,input,1,R\n"
+                                         "p,q,pos,and,input,1,Q\n")
+    return d
+
+
+@pytest.mark.parametrize("scope", ["root", "root_cycle"])
+def test_pin_root_ignore_depletion(tmp_path, monkeypatch, scope):
+    # specs/058: unset, M is not a root (its depletion in-edge counts) and only
+    # P is pinned; under DS_PIN_ROOT_IGNORE=depletion both are.
+    import benchmark_vs_mpbiopath as bm
+    d = _depletion_net(tmp_path)
+    monkeypatch.setattr(bm, "PIN_SCOPE", scope)
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", "")
+    monkeypatch.setattr(bm, "PIN_ROOT_IGNORE", "")
+    assert bm.pin_occurrences(d, {"G": ["m", "p"]}, {})[0] == {"G": ["p"]}
+    monkeypatch.setattr(bm, "PIN_ROOT_IGNORE", "depletion")
+    assert bm.pin_occurrences(d, {"G": ["m", "p"]}, {})[0] == {"G": ["m", "p"]}
+
+
+def test_pin_root_ignore_keeps_other_in_edges(tmp_path, monkeypatch):
+    # A form with a real producer stays a non-root under the setting.
+    import benchmark_vs_mpbiopath as bm
+    d = _depletion_net(tmp_path)
+    (d / "logic_network.csv").write_text((d / "logic_network.csv").read_text()
+                                         + "q,p,pos,or,output,1,Q\n")
+    monkeypatch.setattr(bm, "PIN_SCOPE", "root")
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", "")
+    monkeypatch.setattr(bm, "PIN_ROOT_IGNORE", "depletion")
+    assert bm.pin_occurrences(d, {"G": ["m", "p"]}, {})[0] == {"G": ["m"]}
+
+
+def test_pin_root_ignore_rejects_other_values():
+    import subprocess
+    r = subprocess.run([sys.executable, "-c", "import benchmark_vs_mpbiopath"],
+                       cwd=str(Path(__file__).parent), capture_output=True, text=True,
+                       env={**__import__("os").environ, "DS_PIN_ROOT_IGNORE": "dissociation"})
+    assert r.returncode != 0 and "DS_PIN_ROOT_IGNORE" in r.stderr
