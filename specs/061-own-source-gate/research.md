@@ -117,3 +117,24 @@ the RNF168 solve is still non-converged (specs/057 R1).
   and one benchmark protocol change (`DS_PIN_ROOT_IGNORE=depletion`: a form
   fed only by depletion counts as a root, as in MP-BioPath's networks), which
   is a protocol-of-record decision (Adam, 2026-09-25) and not only a rule.
+
+## R4 (2026-10-15): amendment 2, arm `rtwin58g3` — identical to `rtwin58g2`
+
+Code `639787b` (the two review fixes, amendment 2), canonical build, same
+overrides. Results `639787b/rtwin58g3`.
+
+| against the control (RAF set aside where it applies) | net | fixed / broke | p |
+|---|---|---|---|
+| curator held-out | +32 | 33 / 1 | < 1e-4 |
+| curator tuning | +112 | 113 / 1 | < 1e-4 |
+| experimental | +7 | 7 / 0 | 0.016 |
+
+- Against `rtwin58g2`: **0** predicted classes differ on either axis (24,100
+  curator, 849 experimental cases), validity identical; the largest
+  `pred_ui` change is 1.9e-5. Convergence identical (curator 1,645 / 1,725,
+  experimental 214 / 244).
+- So both defects are real in the code (each has a test that fails on the
+  old code) but latent on this catalog: no carrier free form without a root
+  twin sat next to a recycled copy in a scored solve, and no modifier-only
+  copy changed a gate that mattered.
+- The registered gate passes as in R3. The candidate is the amended code.
