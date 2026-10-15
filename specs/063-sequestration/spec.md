@@ -1,6 +1,6 @@
 # specs/063: sequestration — a dead-end complex lowers its free partner
 
-**Status:** registered 2026-10-15, before any code or arm. Groundwork in
+**Status:** registered 2026-10-15, before any code or arm. **Refuted in all three forms** (R4: `deadend_sole` −1,180, `deadend` −1,686; R5: amendment 1 `sole_direct` −1,121, RUNX1 co-activators read as sequesterers). Not adopted. Groundwork in
 research.md R0–R3 (no structural or curated signature separates a
 sequestering complex from a terminal product), so the question is put to
 measurement: a narrow and a broad rule.

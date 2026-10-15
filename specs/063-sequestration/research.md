@@ -103,3 +103,42 @@ times the partner's, so the part of the complex's change that is not the
 partner's own is the sequesterer's fold. Depleting the partner from the
 sequesterer directly (A -| B) carries exactly that. Registered as amendment 1
 in spec.md before any code.
+
+## R5 (2026-10-15): amendment 1 (`sole_direct`) also refuted — sequestration is not a structural motif
+
+Code `fada74f`, arm `seqdirect`, against the control `64d23cb`.
+
+| | net | fixed / broke | p |
+|---|---|---|---|
+| curator held-out | **−1,121** | 123 / 1,244 | < 1e-4 |
+| curator tuning | −1 | 3 / 4 | 1.0 |
+| experimental | +1 | 1 / 0 | 1.0 |
+
+Convergence recovered (curator 1,613, experimental 216, against 1,652 / 215),
+so the R4 self-feedback is gone, as predicted. The targets gained as
+predicted: USP18 +56, SOCS6 +16, SH2B3 +16, IL13RA2 +4, CER1 +4 (+96).
+
+**The losses are not feedback.** RUNX1 −588 and DSB Repair −407 carry 89% of
+the loss. RUNX1 has 72 `sole_direct` edges, nearly all into RUNX1:CBFB, from
+the SWI/SNF complex (20), PRC1.4 (24), PRC1.5 (12) and the TAL1 core complex
+(12). Each binds RUNX1:CBFB at a target gene, and the bound complex goes
+nowhere in this pathway, because the transcription it drives is curated as
+regulation of gene expression. These are co-activators, not sequesterers:
+structurally identical to follistatin:activin. A knockout of a SWI/SNF or
+TAL1-complex subunit (SMARCA4, ARID1A, PBRM1, GATA3, TAL1, TCF3, LMO1: −73
+each) frees RUNX1:CBFB to the 10× de-repression cap, and every RUNX1 readout
+moves from 1.0× to 10× or 0.1×; the curators expect NOT. DSB's −407 comes
+from two edges (UBXN1 -| BRCA1:BARD1, p-PHF6 -| SMARCA5) into hubs of its
+giant loop; not traced further.
+
+**Conclusion for specs/063: not adopted, in any of the three forms.** R1–R3
+found no structural, event-order or annotation signature for sequestration,
+and R4–R5 show the cost of proceeding without one: the same dead-end binding
+is an inhibitor in IFN α/β and a co-activator in RUNX1. The ~96 target cases
+are reachable only with knowledge Reactome does not encode. A hand list of
+sequestering reactions drawn from these misses would be fitted to the
+evaluation set, so it is not proposed. The constructive outcome is for
+Reactome: a curated flag on binding reactions whose role is sequestration
+(or a negative regulation link from the complex to the partner's downstream
+event) would let any model separate the two. That belongs with the curation
+review list.

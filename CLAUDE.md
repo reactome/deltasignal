@@ -459,8 +459,7 @@ env vars only override for benchmark sweeps:
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
 - `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` | `sole_direct` (specs/063,
-  `deadend_sole` held-out −1,180, `deadend` −1,686: refuted, own-product
-  feedback; `sole_direct`, amendment 1, arm running): a binding whose complex nothing in the pathway uses
+  all **refuted**: held-out −1,180 / −1,686 / −1,121): a binding whose complex nothing in the pathway uses
   (only dissociation sinks) gains a depletion edge from the complex to its
   partner, so binding takes the partner out of circulation (follistatin,
   USP18, IL13RA2). `deadend_sole` only where one input is used nowhere else
@@ -717,9 +716,11 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/063-sequestration/` — `DS_SEQUESTRATION`: a dead-end binding
   complex depletes its free partner (348 held-out misses, 274 inhibitor-like).
   No structural or curated signature separates sequestering complexes from
-  terminal products (6,295 dead ends). Complex-to-partner edges are refuted
-  (held-out −1,180 / −1,686: the complex is built from the partner, so the
-  partner's own fall feeds back). Amendment 1 (`sole_direct`) pending.
+  terminal products (6,295 dead ends). **Refuted in three forms**:
+  complex-to-partner edges feed the partner's own fall back (−1,180 /
+  −1,686); sequesterer-to-partner edges (`sole_direct`, −1,121) read RUNX1's
+  co-activators (SWI/SNF, PRC1, TAL1 complex) as sequesterers. The
+  distinction is not encoded in Reactome; a curated flag would be.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
