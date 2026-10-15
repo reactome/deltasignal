@@ -334,6 +334,15 @@ env vars only override for benchmark sweeps:
   target's entity (containment table) also counts as own product, so a
   depleter built from another copy of the target (SMAD2:SMURF2 -| recycled
   SMAD2) cannot de-repress it. The solve reports `own_entity_depletions`.
+- `DS_DEPLETION_OWN_PRODUCT=suppress_only_source` (specs/061; not a default):
+  as `suppress_only`, and an entity-own depleter is capped at 1 only while a
+  SOURCE copy (a copy of the target's entity it is built from, found walking
+  back along material edges, not catalyst or regulator ones (amendment 2);
+  never the target itself, amendment 1)
+  reads below baseline. A SMAD2 knockout
+  cannot de-repress SMAD2 through SMAD2:SMURF2; an MDM2 knockout still
+  de-represses TP53 through MDM2:TP53. The solve reports
+  `own_source_depletions`.
 - `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
   byte-identical defaults for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
@@ -446,7 +455,7 @@ env vars only override for benchmark sweeps:
   entity (every producer, except depletion and dissociation, downstream of
   itself) that no root copy of the same entity reaches along non-depletion
   edges gains an OR in-edge (`recycled_supply`) from each root copy (in-edges,
-  if any, all depletion). The one-way form of the identity twin that
+  if any, all depletion; never a carrier free form, specs/061 amendment 2). The one-way form of the identity twin that
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
 - `DS_ZERO_SUPPLY_MODE=off` (default; `hold` measured and **not adopted**,
@@ -683,6 +692,13 @@ for the last feature that touched it rather than re-deriving from the code.
   With specs/058 + 059 (`rtwin58s`): held-out +21, tuning +112, experimental
   +7 (p 0.016); fails only on TGF-beta −12. The entity-level variant
   (`suppress_only_entity`) fixes SMAD2/3 but loses MDM2 KO (experimental −17).
+- `specs/061-own-source-gate/` — `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`:
+  an entity-own depleter is capped only while a source copy (never the
+  target itself, amendment 1) is below baseline. With specs/058 + 059
+  (`rtwin58g2`) **the registered gate passes**: held-out +32 (33 / 1),
+  tuning +112, experimental +7 (7 / 0), worst pathway −1. Post hoc; **not
+  adopted** pending an independent check (Adam's call). The pre-amendment
+  rule failed (self-sourced cap locked TP53 low under MDM2 KO).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -701,7 +717,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 216 | |
+| `test/test_config_validation.jl` | 217 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
@@ -716,7 +732,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 46 | specs/059 and 060, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 68 | specs/059–061, added 2026-10-14 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

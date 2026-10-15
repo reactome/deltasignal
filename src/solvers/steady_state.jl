@@ -164,6 +164,8 @@ function solve_steady_state(
     self_shared, self_rule, self_leaf_pairs = self_inhibitor_setup(network)
     # specs/060 amendment 1: depleters whose entity contains their target's.
     own_entity = own_entity_depletion_pairs(network)
+    # specs/061: entity-own pairs gated at solve time on their source copies.
+    own_source = own_source_depletion_sources(network)
     # specs/040 rule A: resolved here so a misspelt mode fails before any solve.
     sfmode = self_fed_mode()
     
@@ -286,6 +288,7 @@ function solve_steady_state(
     result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                         self_shared = self_shared,
                                         own_entity = own_entity,
+                                        own_source = own_source,
                                         cycle_pools = ypools,
                                         cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                         cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
@@ -344,9 +347,9 @@ entity CONTAINS the target's entity (the network's containment table): the
 depleter is built from the target, so its absence cannot raise the target.
 Empty under any other value, or with no containment table.
 """
-function own_entity_depletion_pairs(network::ReactionNetwork)::Set{Tuple{String, String}}
+function own_entity_depletion_pairs(network::ReactionNetwork; mode::String = "suppress_only_entity")::Set{Tuple{String, String}}
     out = Set{Tuple{String, String}}()
-    get(ENV, "DS_DEPLETION_OWN_PRODUCT", "full") == "suppress_only_entity" || return out
+    get(ENV, "DS_DEPLETION_OWN_PRODUCT", "full") == mode || return out
     isempty(network.containment) && return out
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
     for e in network.edges
@@ -354,6 +357,53 @@ function own_entity_depletion_pairs(network::ReactionNetwork)::Set{Tuple{String,
         d, t = sid(e.parent_uuid), sid(e.child_uuid)
         (d === nothing || t === nothing) && continue
         t in get(network.containment, d, Set{String}()) && push!(out, (e.parent_uuid, e.child_uuid))
+    end
+    return out
+end
+
+"""
+specs/061. Under `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, each
+entity-own depletion pair (as `own_entity_depletion_pairs`) -> its SOURCE
+copies: nodes with the target's stable id reached walking backward from the
+depleter along material edges (not depletion, catalyst or regulator;
+amendment 2), stopping at each such copy (the copies the depleter is built
+from). The target itself is never a source
+(amendment 1: that test was circular); the walk passes through it. The propagator caps the
+edge at 1 while any source reads below baseline. Pairs with no source are
+left out (not capped). Empty under any other value.
+"""
+const OWN_SOURCE_SKIP_EDGES = ("depletion", "catalyst", "regulator")
+
+function own_source_depletion_sources(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
+    out = Dict{Tuple{String, String}, Vector{String}}()
+    pairs = own_entity_depletion_pairs(network; mode = "suppress_only_source")
+    isempty(pairs) && return out
+    back = Dict{String, Vector{String}}()
+    for e in network.edges
+        # amendment 2: only edges that carry material; a copy that merely
+        # catalyses or regulates the depleter's reaction is not built into it.
+        e.edge_type in OWN_SOURCE_SKIP_EDGES && continue
+        push!(get!(back, e.child_uuid, String[]), e.parent_uuid)
+    end
+    for (d, t) in pairs
+        tid = network.nodes[t].reactome_id
+        seen = Set{String}([d])
+        stack = copy(get(back, d, String[]))
+        src = String[]
+        while !isempty(stack)
+            n = pop!(stack)
+            n in seen && continue
+            push!(seen, n)
+            nd = get(network.nodes, n, nothing)
+            # amendment 1: the target is never its own source (its value
+            # includes the depletion being decided); walk through it.
+            if n != t && nd !== nothing && nd.reactome_id == tid
+                push!(src, n)
+                continue
+            end
+            append!(stack, get(back, n, String[]))
+        end
+        isempty(src) || (out[(d, t)] = sort!(src))
     end
     return out
 end
@@ -1276,6 +1326,7 @@ function solve_scc_ordered!(
                 n_supply_depl += length(drop)
                 length(r.depletion_break) == length(r.depletion_indices) && deleteat!(r.depletion_break, drop)
                 length(r.depletion_own_product) == length(r.depletion_indices) && deleteat!(r.depletion_own_product, drop)
+                length(r.depletion_own_src) == length(r.depletion_indices) && deleteat!(r.depletion_own_src, drop)
                 deleteat!(r.depletion_indices, drop)
             end
             # amendment 5 (post hoc): pool-fed inputs of the pool's own steps,
@@ -1641,6 +1692,8 @@ function solve_steady_state_penalty(
     self_shared::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
     own_entity::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
+    own_source::Dict{Tuple{String, String}, Vector{String}} =
+        Dict{Tuple{String, String}, Vector{String}}(),
     cycle_pools = nothing,
     cycle_phi::Float64 = 0.1,
     cycle_carriers::Bool = true,
@@ -1653,7 +1706,7 @@ function solve_steady_state_penalty(
     index_stats = Dict{String, Any}()
     rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids;
                                                stats = index_stats, self_shared = self_shared,
-                                               own_entity = own_entity)
+                                               own_entity = own_entity, own_source = own_source)
     order_mode = scc_order_mode()
     index_stats["scc_order"] = order_mode
     order_key = nothing
@@ -1866,6 +1919,8 @@ function solve_steady_state_penalty(
             # specs/022: inhibitor slots damped by DS_SELF_INHIBITOR_WEIGHT
             # (0 when off), so an arm cannot silently measure the old model.
             "self_inhibitors" => get(index_stats, "self_inhibitors", 0),
+            # specs/061: entity-own depletion edges gated on their source copies
+            "own_source_depletions" => get(index_stats, "own_source_depletions", 0),
             "scc_cyclic_after" => get(index_stats, "scc_cyclic_after", 0),
             "scc_largest_after" => get(index_stats, "scc_largest_after", 0),
             # specs/039: interconversion pools solved in closed form, left to the
@@ -1940,7 +1995,9 @@ function compute_influence_scores(
     indexed, _, _ = index_reactions(reactions, uuid_to_idx, baselines, gene_uuids;
                                     self_shared = self_shared,
                                     own_entity = network === nothing ? Set{Tuple{String, String}}() :
-                                                 own_entity_depletion_pairs(network))
+                                                 own_entity_depletion_pairs(network),
+                                    own_source = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
+                                                 own_source_depletion_sources(network))
 
     x = Vector{Float64}(undef, length(all_nodes))
     @inbounds for (i, uuid) in enumerate(all_nodes)
