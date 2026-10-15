@@ -367,7 +367,8 @@ specs/061. Under `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, each
 entity-own depletion pair (as `own_entity_depletion_pairs`) -> its SOURCE
 copies: nodes with the target's stable id reached walking backward from the
 depleter along non-depletion edges, stopping at each such copy (the copies
-the depleter is built from; the target may be one). The propagator caps the
+the depleter is built from). The target itself is never a source
+(amendment 1: that test was circular); the walk passes through it. The propagator caps the
 edge at 1 while any source reads below baseline. Pairs with no source are
 left out (not capped). Empty under any other value.
 """
@@ -390,7 +391,9 @@ function own_source_depletion_sources(network::ReactionNetwork)::Dict{Tuple{Stri
             n in seen && continue
             push!(seen, n)
             nd = get(network.nodes, n, nothing)
-            if nd !== nothing && nd.reactome_id == tid
+            # amendment 1: the target is never its own source (its value
+            # includes the depletion being decided); walk through it.
+            if n != t && nd !== nothing && nd.reactome_id == tid
                 push!(src, n)
                 continue
             end

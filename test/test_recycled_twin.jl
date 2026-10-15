@@ -194,6 +194,10 @@ end
         @test isempty(DS.own_entity_depletion_pairs(mdm_net()))   # the static cap is off
         # no containment, no pair
         @test isempty(DS.own_source_depletion_sources(fixture(extra = [dep("C", "Y")])))
+        # amendment 1: a depleter built from the target itself has no source
+        # (R is a root copy; C -| R would be self-sourced)
+        net = mdm_net(); push!(net.edges, dep("C", "R"))
+        @test DS.own_source_depletion_sources(net) == Dict(("C", "Y") => ["R"])
     end
 end
 
