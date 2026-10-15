@@ -102,6 +102,9 @@ def measured_calls(threshold, design):
         raise SystemExit(f"expr.csv has {len(rows)} rows, expr_index.txt {len(design)}: stop and amend (specs/062)")
     by = collections.defaultdict(list)
     for (i, ds), row in zip(design, rows):
+        if len(row) != len(names):
+            raise SystemExit(f"expr.csv row {i} has {len(row)} values, node_Index.csv {len(names)} names: "
+                             "the columns would misalign; stop and amend (specs/062)")
         for name, v in zip(names, row):
             by[(ds, name)].append(float(v))
     return {k: drug_set_call(v, threshold) for k, v in by.items()}
@@ -140,7 +143,7 @@ def main():
     print(f"Protocol: korkut2015 drug-set bench (specs/062), DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
           f"readout=mean(unpinned) cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; measured |log2| >= "
-          f"{THRESHOLD:.3f}; build {build.name}; code {sha}; dataset korkut2015 registered {role}; "
+          f"{THRESHOLD:.3f}; build {build.name}; code {sha}; dataset korkut2015 ({DATA}) registered {role}; "
           f"{'PREDICT ONLY (values unread)' if predict_only else 'scoring'}", flush=True)
     rows, solves, conv = [], 0, 0
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())

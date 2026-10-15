@@ -158,8 +158,9 @@ def main(argv=None) -> int:
         dropped = len(paired) - len(shared)
         print(f"\n=== does it generalise?  {a.compare.name} vs {a.cases.name} ===")
         if dropped:
-            print(f"  {dropped} of {len(paired)} shared cases dropped: the arms "
-                  f"resolved a different perturbation set for them.")
+            why = ("valid in one arm only" if a.pair_on_valid
+                   else "the arms resolved a different perturbation set for them")
+            print(f"  {dropped} of {len(paired)} shared cases dropped: {why}.")
         print(f"{'split':<26}{'cases':>8}{'baseline':>10}{'arm':>10}{'net':>8}"
               f"{'fixed':>7}{'broke':>7}{'p':>9}{'pathways':>10}{'readouts':>10}{'genes':>7}")
         concentrated = []
