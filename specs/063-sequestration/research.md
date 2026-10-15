@@ -67,3 +67,39 @@ catalyst, regulator) and the GO process of the reaction producing it.
   regulation one.
 So the dead end is curated (not our generator), and "sequestering" is not
 annotated. specs/063 therefore measures a narrow and a broad rule.
+
+## R4 (2026-10-15): both arms refuted
+
+Code `47614c3`, canonical build, against the control `64d23cb`, RAF set aside
+where it applies (it changes nothing on curator held-out).
+
+| arm | curator held-out | tuning | experimental | convergence (curator / exp) |
+|---|---|---|---|---|
+| control | — | — | — | 1,652 / 215 |
+| `seqsole` (primary) | **−1,180** (121 / 1,301), 25 of 71 pathways move | −154 | −20 (1 / 21) | 1,488 / 187 |
+| `seqall` (record) | **−1,686** (296 / 1,982), 46 of 71 | −239 | −36 (3 / 39) | 1,205 / 164 |
+
+Both fail every part of the gate. The prediction for `seqall` (fails) held;
+for `seqsole` I gave even odds, and it is a large loss.
+
+**Where the targets went** (`seqsole`): USP18 +56 (every case, as predicted),
+SOCS6 +8, SH2B3 +8, IL13RA2 +4, CER1 +4, SOCS1 −12. So the mechanism works
+where the partner is a quiet root.
+
+**Where the losses come from.** RUNX1 −607 and DSB Repair −414 carry 86% of
+the held-out loss; 979 of the 1,301 broken cases are expected NOT and now
+move. DSB loses 414 to two edges: UBXN1:BRCA1:BARD1 -| BRCA1:BARD1 (the
+partner has 15 other uses inside DSB's giant loop) and p-PHF6:SMARCA5 -|
+SMARCA5. The complex is built FROM the partner, so the edge is an own-product
+depletion: any perturbation that lowers the partner lowers the complex, which
+de-represses the partner by its own fall (the specs/060–061 motif). Most
+perturbations in these pathways move the partner, not the sequesterer, so
+the rule mostly injects feedback, and convergence drops (curator 1,652 →
+1,488).
+
+**Not adopted.** A version without the self-feedback is the obvious next
+step: under multiplicative AND the complex's fold is the sequesterer's fold
+times the partner's, so the part of the complex's change that is not the
+partner's own is the sequesterer's fold. Depleting the partner from the
+sequesterer directly (A -| B) carries exactly that. Registered as amendment 1
+in spec.md before any code.

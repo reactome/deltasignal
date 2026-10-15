@@ -73,3 +73,24 @@ reported (the edges close loops C -| P -> R -> C).
   depletes free receptor). I give it even odds of passing.
 - `seqall`: larger gains (follistatin, LEFTY, CDK6, PMEPA1 join) and larger
   losses; I expect it to fail the held-out gate, as the July rule did.
+
+## Amendment 1 (2026-10-15, after R4, before any amended code): the sequesterer depletes its partner directly
+
+R4: the complex is built from the partner, so C -| B is an own-product
+depletion and the partner is de-repressed by its own fall (DSB −414 from two
+edges). Under multiplicative AND the complex's fold is the sequesterer's fold
+times the partner's; the part that is not the partner's own is the
+sequesterer's. So:
+
+- `DS_SEQUESTRATION=sole_direct` (new value; `deadend_sole` and `deadend` stay
+  as recorded): the same dead-end bindings as `deadend_sole`, but the edge is
+  A -| B from each sole-use input A (the sequesterer) to the partner B, not
+  from the complex. No loop is closed; B's own changes do not feed back.
+- Arm `seqdirect`, same control, gate and readings as above.
+
+**Predictions:** the targets as in `seqsole` (USP18 +56, SOCS6, SH2B3,
+IL13RA2, CER1 gain; SOCS1 may still lose), and the DSB and most RUNX1 losses
+gone, since the false changes came from the feedback. Losses remain where a
+sole-use input is not a sequesterer at all (a terminal ligand–receptor
+complex: ligand overexpression would now lower free receptor). I expect
+held-out between −200 and +60; it passes only if RUNX1 is mostly feedback.
