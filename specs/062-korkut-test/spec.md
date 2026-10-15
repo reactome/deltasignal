@@ -1,6 +1,6 @@
 # specs/062: korkut2015 as the independent check of specs/061's candidate
 
-**Status:** registered 2026-10-15, before any korkut2015 value is read
+**Status:** scored once 2026-10-15 (research.md R2): **inconclusive** (net +18, p 0.17; by drug set 11 / 18). korkut2015 is now FIT. Registered 2026-10-15, before any korkut2015 value is read
 (`expr.csv`, `pert.csv`, and supplementary tables 2–5 stay unread). Adam
 (2026-10-15) asked for both independent checks; the other one, the next
 Reactome release, waits: Release 98 is not published (ContentService reports
