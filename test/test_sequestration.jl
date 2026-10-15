@@ -68,6 +68,30 @@ end
     @test seq_edges(fixture(), "deadend") == [("C", "B")]
 end
 
+@testset "sole_direct: the sequesterer depletes the partner, not the complex" begin
+    @test seq_edges(fixture(), "sole_direct") == [("A", "B")]
+    net = fixture(extra = [e("A", "rZ"), e("rZ", "Z", "output")])
+    @test isempty(seq_edges(net, "sole_direct"))
+end
+
+@testset "sole_direct solve: knockout UP, overexpression DOWN, partner's own fall not fed back" begin
+    @test fold(solve(fixture(), "sole_direct", 0.0), "T") > 1.15
+    @test fold(solve(fixture(), "sole_direct", 2.0), "T") < 0.85
+    # B is made from U (rU); lowering U lowers B. Under sole_direct T follows B
+    # as under off; under deadend_sole the complex falls with B and props it up.
+    up = [e("U", "rU"), e("rU", "B", "output")]
+    pu(mode) = with_env("DS_SEQUESTRATION" => mode) do
+        net = fixture(extra = up)
+        net.nodes["U"] = DS.NetworkNode("U", "R-U", "protein", nothing, "U", BL)
+        net.nodes["rU"] = DS.NetworkNode("rU", "R-rU", "protein", nothing, "rU", BL)
+        net.node_leaves["U"] = ("simple_entity", String[]); net.node_leaves["rU"] = ("reaction", String[])
+        DS.solve_steady_state(net, Dict("U" => (0.5, 1.0)), DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty"))
+    end
+    @test fold(pu("off"), "T") < 0.85
+    @test fold(pu("sole_direct"), "T") ≈ fold(pu("off"), "T") atol = 1e-9
+    @test abs(fold(pu("deadend_sole"), "T") - fold(pu("off"), "T")) > 0.05
+end
+
 @testset "no edge when the complex is used" begin
     net = fixture(extra = [e("C", "rD"), e("rD", "W", "output")])
     @test isempty(seq_edges(net, "deadend"))

@@ -18,12 +18,19 @@ into anything but that reaction or a dissociation sink).
                                  nowhere else (the sequesterer) and exactly
                                  one partner: C -| partner.
   DS_SEQUESTRATION=deadend       every dead-end binding: C -| each partner.
+  DS_SEQUESTRATION=sole_direct   (amendment 1) the bindings of `deadend_sole`,
+                                 but A -| partner from each input A used
+                                 nowhere else. C is built from the partner,
+                                 so C -| partner fed the partner's own fall
+                                 back into it (R4: DSB -414 from two edges);
+                                 under multiplicative AND the part of C's
+                                 change that is not the partner's is A's.
 
 Needs node kinds (`nodes.csv`); a network without them reports
 `<mode>: no node table` and is solved as `off`.
 """
 
-const DS_VALID_SEQUESTRATION_MODES = Set(["off", "deadend_sole", "deadend"])
+const DS_VALID_SEQUESTRATION_MODES = Set(["off", "deadend_sole", "deadend", "sole_direct"])
 
 function sequestration_mode()::String
     value = get(ENV, "DS_SEQUESTRATION", "off")
@@ -63,13 +70,15 @@ function apply_sequestration(network::ReactionNetwork, mode::String)
         all(e -> sink(e.child_uuid), get(out, c, LogicNetworkEdge[])) || continue
         used(u) = any(e -> e.child_uuid != r && !sink(e.child_uuid), get(out, u, LogicNetworkEdge[]))
         partners = filter(used, ins)
-        if mode == "deadend_sole"
+        if mode in ("deadend_sole", "sole_direct")
             (length(partners) == 1 && length(partners) < length(ins)) || continue
         end
-        for p in partners
-            (c, p) in have && continue
-            push!(have, (c, p))
-            push!(added, LogicNetworkEdge(c, p, true, false, 1.0, "depletion"))
+        # the depleting nodes: the complex, or under sole_direct the sequesterers
+        from = mode == "sole_direct" ? filter(!used, ins) : [c]
+        for s in from, p in partners
+            (s, p) in have && continue
+            push!(have, (s, p))
+            push!(added, LogicNetworkEdge(s, p, true, false, 1.0, "depletion"))
         end
     end
     isempty(added) && return network, mode, 0

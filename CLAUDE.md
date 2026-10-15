@@ -458,12 +458,14 @@ env vars only override for benchmark sweeps:
   if any, all depletion; never a carrier free form, specs/061 amendment 2). The one-way form of the identity twin that
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
-- `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` (specs/063,
-  registered, arms running): a binding whose complex nothing in the pathway uses
+- `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` | `sole_direct` (specs/063,
+  `deadend_sole` held-out −1,180, `deadend` −1,686: refuted, own-product
+  feedback; `sole_direct`, amendment 1, arm running): a binding whose complex nothing in the pathway uses
   (only dissociation sinks) gains a depletion edge from the complex to its
   partner, so binding takes the partner out of circulation (follistatin,
   USP18, IL13RA2). `deadend_sole` only where one input is used nowhere else
-  (the sequesterer) and exactly one is a partner. Reads `nodes.csv`; reports
+  (the sequesterer) and exactly one is a partner; `sole_direct` draws the edge
+  from the sequesterer instead of the complex. Reads `nodes.csv`; reports
   `sequestration_rule` and `sequestration_edges`, and the bench refuses
   `<mode>: no node table`.
 - `DS_ZERO_SUPPLY_MODE=off` (default; `hold` measured and **not adopted**,
@@ -715,8 +717,9 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/063-sequestration/` — `DS_SEQUESTRATION`: a dead-end binding
   complex depletes its free partner (348 held-out misses, 274 inhibitor-like).
   No structural or curated signature separates sequestering complexes from
-  terminal products (6,295 dead ends), so a narrow (`deadend_sole`) and a broad
-  (`deadend`) rule are measured. Arms pending.
+  terminal products (6,295 dead ends). Complex-to-partner edges are refuted
+  (held-out −1,180 / −1,686: the complex is built from the partner, so the
+  partner's own fall feeds back). Amendment 1 (`sole_direct`) pending.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -751,7 +754,7 @@ other seven execute code and print output.
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 68 | specs/059–061, added 2026-10-14 |
-| `test/test_sequestration.jl` | 19 | specs/063, added 2026-10-15 |
+| `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
