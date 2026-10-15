@@ -329,6 +329,11 @@ env vars only override for benchmark sweeps:
   (assembly, depletion; catalyst) read at their entry value and excluded from
   component detection — specs/018. Measured: the generator-side fix absorbed
   it (the `assembly` arm is now ≈0), so it stays off as the record.
+- `DS_DEPLETION_OWN_PRODUCT=suppress_only_entity` (specs/060 amendment 1; not
+  a default): as `suppress_only`, and a depleter whose entity CONTAINS its
+  target's entity (containment table) also counts as own product, so a
+  depleter built from another copy of the target (SMAD2:SMURF2 -| recycled
+  SMAD2) cannot de-repress it. The solve reports `own_entity_depletions`.
 - `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
   byte-identical defaults for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
@@ -667,6 +672,17 @@ for the last feature that touched it rather than re-deriving from the code.
   form fed only by depletion counts as a root (as in MP-BioPath's networks).
   **Not adopted:** held-out +9 (33/24, p 0.29), experimental +1. All losses
   are SMAD2/3 (TGF-beta), which score only through the specs/024 fallback.
+- `specs/059-recycled-twin/` — `DS_RECYCLED_TWIN` (default off): a recycled
+  copy of an entity reads its root copies (one-way, like `closed_twin`).
+  **Not adopted:** alone held-out 0; with specs/058's pins held-out +21
+  (p 0.0025) but TGF-beta −12 (SMAD2/3 knockouts read UP: SMAD2:SMURF2, built
+  from SMAD2, de-represses SMAD2 when the knockout zeroes it).
+- `specs/060-own-product-depletion/` — `DS_DEPLETION_OWN_PRODUCT=suppress_only`
+  re-measured on the canonical build: held-out 0 (no case moves), tuning +46,
+  experimental +4 (p 0.125), all TP53. Gate fails (needs a held-out gain).
+  With specs/058 + 059 (`rtwin58s`): held-out +21, tuning +112, experimental
+  +7 (p 0.016); fails only on TGF-beta −12. The entity-level variant
+  (`suppress_only_entity`) fixes SMAD2/3 but loses MDM2 KO (experimental −17).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -685,7 +701,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 215 | |
+| `test/test_config_validation.jl` | 216 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
@@ -700,7 +716,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 34 | specs/059, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 46 | specs/059 and 060, added 2026-10-14 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

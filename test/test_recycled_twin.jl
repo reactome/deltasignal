@@ -28,7 +28,8 @@ e(s, t, et = "input") = DS.LogicNetworkEdge(s, t, et != "output", true, 1.0, et)
 dep(s, t) = DS.LogicNetworkEdge(s, t, true, false, 1.0, "depletion")
 
 # extra: more edges; table: carrier_loops; rdep: give R a depletion in-edge from C
-function fixture(; extra = DS.LogicNetworkEdge[], table = nothing, rdep = false)
+function fixture(; extra = DS.LogicNetworkEdge[], table = nothing, rdep = false,
+                 containment = Dict{String, Set{String}}())
     nodes = Dict(nd("R", "R-X"), nd("Y", "R-X"), nd("P", "R-PX"), nd("T", "R-T"), nd("C", "R-C"),
                  nd("rS", "R-rS"), nd("rA", "R-rA"), nd("rD", "R-rD"), nd("rT", "R-rT"))
     edges = [e("R", "rS"), e("rS", "C", "output"),
@@ -37,7 +38,7 @@ function fixture(; extra = DS.LogicNetworkEdge[], table = nothing, rdep = false)
     rdep && push!(edges, dep("C", "R"))
     append!(edges, extra)
     DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
-                       Dict{String, Set{String}}(), nothing, nothing, nothing, table)
+                       containment, nothing, nothing, nothing, table)
 end
 
 solve(net, mode, v) = with_env("DS_RECYCLED_TWIN" => mode) do
@@ -127,6 +128,45 @@ end
     with_env("DS_RECYCLED_TWIN" => "off") do
         @test !any(x -> x.edge_type == "recycled_supply", DS.solved_carrier_network(fixture()).edges)
     end
+end
+
+# --- specs/060 amendment 1: own product by entity ---------------------------
+# C (built from R, so its entity contains X) depletes the recycled copy Y: the
+# SMAD2:SMURF2 -| SMAD2 shape. A knockout of R zeroes C.
+smad_net() = fixture(extra = [dep("C", "Y")], containment = Dict("R-C" => Set(["R-X"])))
+
+solve2(net, own, v) = with_env("DS_RECYCLED_TWIN" => "on", "DS_DEPLETION_OWN_PRODUCT" => own) do
+    DS.solve_steady_state(net, Dict("R" => (v, 1.0)), DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty"))
+end
+
+@testset "own_entity pairs: only under suppress_only_entity, only by containment" begin
+    for (own, n) in (("full", 0), ("suppress_only", 0), ("suppress_only_entity", 1))
+        with_env("DS_DEPLETION_OWN_PRODUCT" => own) do
+            @test length(DS.own_entity_depletion_pairs(smad_net())) == n
+        end
+    end
+    with_env("DS_DEPLETION_OWN_PRODUCT" => "suppress_only_entity") do
+        @test DS.own_entity_depletion_pairs(smad_net()) == Set([("C", "Y")])
+        # no containment, no pair
+        @test isempty(DS.own_entity_depletion_pairs(fixture(extra = [dep("C", "Y")])))
+    end
+end
+
+@testset "knockout: full de-represses the recycled copy; suppress_only_entity does not" begin
+    full = solve2(smad_net(), "full", 0.0)
+    ent = solve2(smad_net(), "suppress_only_entity", 0.0)
+    @test fold(full, "T") > 1.15          # the SMAD2/3 knockout inversion
+    @test fold(ent, "T") < 0.85           # follows the knockout down
+    @test ent.diagnostics["own_entity_depletions"] == 1
+    @test full.diagnostics["own_entity_depletions"] == 0
+    # node-copy suppress_only misses it (C is not built from Y)
+    @test fold(solve2(smad_net(), "suppress_only", 0.0), "T") > 1.15
+end
+
+@testset "suppress_only_entity still lets the depleter suppress" begin
+    ent = solve2(smad_net(), "suppress_only_entity", 2.0)
+    @test fold(ent, "C") > 1.15
+    @test fold(ent, "Y") < fold(solve2(fixture(), "suppress_only_entity", 2.0), "Y")
 end
 
 end

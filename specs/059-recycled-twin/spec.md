@@ -1,6 +1,6 @@
 # specs/059: a recycled copy reads its root twin
 
-**Status:** registered 2026-10-14, before any code or arm.
+**Status:** registered 2026-10-14, before any code or arm. **Not adopted** (research.md R1–R2): `rtwin` held-out 0; `rtwin58` held-out +21 (p 0.0025), experimental +1, but TGF-beta −12 (SMAD2/3 knockouts read UP through a self-built depleter); amendment 1 `rtwin58s` (post hoc, + suppress_only) did not fix them (prediction failed) and added TP53 tuning +111, experimental +6.
 
 ## Why
 
