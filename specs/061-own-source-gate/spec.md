@@ -1,6 +1,6 @@
 # specs/061: an entity-own depleter may de-repress only while its source copy holds
 
-**Status:** registered 2026-10-14, before any code or arm. R1 (`rtwin58g`) and R2 (`ownsrc`) fail: the source test was circular when the target is its own source. **Amendment 1 (`rtwin58g2`, R3) passes the registered gate:** held-out +32 (33 / 1), tuning +112, experimental +7 (7 / 0), worst pathway −1. Not adopted yet: post hoc, so an independent check is recommended first (Adam's call). Post hoc: the
+**Status:** registered 2026-10-14, before any code or arm. R1 (`rtwin58g`) and R2 (`ownsrc`) fail: the source test was circular when the target is its own source. **Amendment 1 (`rtwin58g2`, R3) passes the registered gate, and amendment 2 (`rtwin58g3`, R4: two review fixes) reproduces it exactly:** held-out +32 (33 / 1), tuning +112, experimental +7 (7 / 0), worst pathway −1. Not adopted yet: post hoc, so an independent check is recommended first (Adam's call). Post hoc: the
 third refinement in the chain specs/058 → 059 → 060, designed after seeing
 which cases each arm moved. Adam approved continuing (2026-10-14).
 
