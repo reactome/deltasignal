@@ -443,6 +443,12 @@ struct IndexedReaction
                                             # Under DS_DEPLETION_OWN_PRODUCT=
                                             # suppress_only such an edge may
                                             # suppress but not de-repress.
+    depletion_own_src::Vector{Vector{Tuple{Int, Float64}}}  # per-depletion
+                                            # (specs/061): (index, baseline) of
+                                            # the SOURCE copies of an entity-own
+                                            # pair; under suppress_only_source the
+                                            # edge is capped at 1 while any reads
+                                            # below its baseline. Empty otherwise.
                                             # inhibitor edges from
                                             # edge_type="depletion". Always
                                             # treated with divide-form
@@ -520,11 +526,13 @@ function index_reactions(
     self_shared::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
     own_entity::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
+    own_source::Dict{Tuple{String, String}, Vector{String}} =
+        Dict{Tuple{String, String}, Vector{String}}(),
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # Node indices that are gene entities (inputs to transcription/expression
     # reactions). Used to detect transcriptional autoregulation loops.
     gene_indices = Set{Int}(uuid_to_idx[u] for u in gene_uuids if haskey(uuid_to_idx, u))
-    idx_to_uuid = isempty(own_entity) ? String[] : begin
+    idx_to_uuid = (isempty(own_entity) && isempty(own_source)) ? String[] : begin
         v = Vector{String}(undef, length(uuid_to_idx))
         for (u, i) in uuid_to_idx
             v[i] = u
@@ -814,6 +822,7 @@ function index_reactions(
         # order-free, independent of any DS_* setting; the propagator decides
         # what to do with it (DS_DEPLETION_OWN_PRODUCT).
         dep_own = Bool[]
+        dep_src = Vector{Tuple{Int, Float64}}[]
         for d in rec.dep_indices
             own = d in chain_adj[rec.target_idx]
             # specs/060 amendment 1: (depleter, target) whose depleter's entity
@@ -831,6 +840,15 @@ function index_reactions(
                 end
             end
             push!(dep_own, own)
+            # specs/061: an entity-own pair the node-copy test did not flag is
+            # gated at solve time on its source copies.
+            src = Tuple{Int, Float64}[]
+            if !own && !isempty(own_source)
+                for u in get(own_source, (idx_to_uuid[d], idx_to_uuid[rec.target_idx]), String[])
+                    haskey(uuid_to_idx, u) && push!(src, (uuid_to_idx[u], get(baselines, u, 0.01)))
+                end
+            end
+            push!(dep_src, src)
         end
 
         # Redundant composition inputs: source -> some reaction -> this target
@@ -856,7 +874,7 @@ function index_reactions(
             rec.act_indices, rec.act_is_and, act_break, act_in_loop, act_loop_size,
             rec.act_is_assembly, comp_redundant, rec.act_group,
             rec.inh_indices, rec.inh_is_and, in_loop, in_transcription, rec.inh_shared,
-            rec.dep_indices, closure_dep[ri], dep_own,
+            rec.dep_indices, closure_dep[ri], dep_own, dep_src,
             rec.sub_indices, rec.params,
         ))
     end
@@ -1009,7 +1027,7 @@ const DS_VALID_MODES = Dict(
     "DS_OR_MODE"               => Set(["mean", "median", "capacity", "max"]),
     "DS_OR_COMBINE"            => Set(["max", "gate"]),
     "DS_COMPOSITION_MODE"      => Set(["assembly", "limit", "limit_novel"]),
-    "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only", "suppress_only_entity"]),
+    "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only", "suppress_only_entity", "suppress_only_source"]),
     "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
     "DS_SET_POOL_MODE"         => Set(["product", "extreme", "geomean", "mean", "max"]),
 )
@@ -1316,6 +1334,12 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         #       partner (TP53 KO -> less MDM2:TP53 -> more free MDM2). The
         #       propagator cannot tell the two apart at the node; which the
         #       curators expect more often is the A/B.
+        #   "suppress_only_entity" (specs/060): also a depleter whose entity
+        #       contains the target's, statically.
+        #   "suppress_only_source" (specs/061): as suppress_only, and such an
+        #       entity-own depleter is capped only while one of its source
+        #       copies (the target's entity it is built from) reads below
+        #       baseline: it tells which partner fell, during the solve.
         _mode_env("DS_DEPLETION_OWN_PRODUCT", "full"),
         # specs/022. An inhibitor that CONTAINS one of its reaction's inputs
         # (a sequestering complex such as WIF1:WNT) moves with that input, and
@@ -1457,6 +1481,17 @@ function set_pool_value(vals::AbstractVector{T}, bl::T, mode::String) where {T<:
         return clamp(bl * exp(s / length(vals)), zero(T), one(T))
     end
     throw(ArgumentError("set_pool_value: unknown mode $(repr(mode))"))
+end
+
+"""
+specs/061: is any source copy of an entity-own depletion pair below its
+baseline (by more than a relative 1e-6)? Empty sources: never.
+"""
+function _own_source_down(src::Vector{Tuple{Int, Float64}}, x::AbstractVector)
+    @inbounds for (i, b) in src
+        x[i] < b * (1 - 1e-6) && return true
+    end
+    return false
 end
 
 """
@@ -2148,7 +2183,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     if !isempty(rxn.depletion_indices)
         eps_dep = T(config.inhibitor_eps)
         h_max_dep = T(config.depletion_h_max)
-        suppress_only = config.depletion_own_product in ("suppress_only", "suppress_only_entity")
+        suppress_only = config.depletion_own_product in ("suppress_only", "suppress_only_entity", "suppress_only_source")
         @inbounds for k in 1:length(rxn.depletion_indices)
             i_dep = rxn.depletion_indices[k]
             raw_dep = (supply !== nothing && k <= length(rxn.depletion_break) && rxn.depletion_break[k]) ?
@@ -2157,6 +2192,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             f_dep = (bl + eps_dep) / (x_dep + eps_dep)
             if suppress_only && k <= length(rxn.depletion_own_product) &&
                rxn.depletion_own_product[k]
+                f_dep = min(f_dep, one(T))
+            elseif suppress_only && k <= length(rxn.depletion_own_src) &&
+                   _own_source_down(rxn.depletion_own_src[k], x)
                 f_dep = min(f_dep, one(T))
             end
             H_dep *= f_dep

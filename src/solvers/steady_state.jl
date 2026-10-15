@@ -164,6 +164,8 @@ function solve_steady_state(
     self_shared, self_rule, self_leaf_pairs = self_inhibitor_setup(network)
     # specs/060 amendment 1: depleters whose entity contains their target's.
     own_entity = own_entity_depletion_pairs(network)
+    # specs/061: entity-own pairs gated at solve time on their source copies.
+    own_source = own_source_depletion_sources(network)
     # specs/040 rule A: resolved here so a misspelt mode fails before any solve.
     sfmode = self_fed_mode()
     
@@ -286,6 +288,7 @@ function solve_steady_state(
     result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                         self_shared = self_shared,
                                         own_entity = own_entity,
+                                        own_source = own_source,
                                         cycle_pools = ypools,
                                         cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                         cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
@@ -307,6 +310,7 @@ function solve_steady_state(
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
     result.diagnostics["own_entity_depletions"] = length(own_entity)
+    result.diagnostics["own_source_depletions"] = length(own_source)
     result.diagnostics["zero_supply_rule"] = zero_supply_rule
     result.diagnostics["zero_supply_leaves"] = zero_supply_leaves
     result.diagnostics["zero_supply_held"] = zero_supply_held
@@ -344,9 +348,9 @@ entity CONTAINS the target's entity (the network's containment table): the
 depleter is built from the target, so its absence cannot raise the target.
 Empty under any other value, or with no containment table.
 """
-function own_entity_depletion_pairs(network::ReactionNetwork)::Set{Tuple{String, String}}
+function own_entity_depletion_pairs(network::ReactionNetwork; mode::String = "suppress_only_entity")::Set{Tuple{String, String}}
     out = Set{Tuple{String, String}}()
-    get(ENV, "DS_DEPLETION_OWN_PRODUCT", "full") == "suppress_only_entity" || return out
+    get(ENV, "DS_DEPLETION_OWN_PRODUCT", "full") == mode || return out
     isempty(network.containment) && return out
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
     for e in network.edges
@@ -354,6 +358,45 @@ function own_entity_depletion_pairs(network::ReactionNetwork)::Set{Tuple{String,
         d, t = sid(e.parent_uuid), sid(e.child_uuid)
         (d === nothing || t === nothing) && continue
         t in get(network.containment, d, Set{String}()) && push!(out, (e.parent_uuid, e.child_uuid))
+    end
+    return out
+end
+
+"""
+specs/061. Under `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, each
+entity-own depletion pair (as `own_entity_depletion_pairs`) -> its SOURCE
+copies: nodes with the target's stable id reached walking backward from the
+depleter along non-depletion edges, stopping at each such copy (the copies
+the depleter is built from; the target may be one). The propagator caps the
+edge at 1 while any source reads below baseline. Pairs with no source are
+left out (not capped). Empty under any other value.
+"""
+function own_source_depletion_sources(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
+    out = Dict{Tuple{String, String}, Vector{String}}()
+    pairs = own_entity_depletion_pairs(network; mode = "suppress_only_source")
+    isempty(pairs) && return out
+    back = Dict{String, Vector{String}}()
+    for e in network.edges
+        e.edge_type == "depletion" && continue
+        push!(get!(back, e.child_uuid, String[]), e.parent_uuid)
+    end
+    for (d, t) in pairs
+        tid = network.nodes[t].reactome_id
+        seen = Set{String}([d])
+        stack = copy(get(back, d, String[]))
+        src = String[]
+        while !isempty(stack)
+            n = pop!(stack)
+            n in seen && continue
+            push!(seen, n)
+            nd = get(network.nodes, n, nothing)
+            if nd !== nothing && nd.reactome_id == tid
+                push!(src, n)
+                continue
+            end
+            append!(stack, get(back, n, String[]))
+        end
+        isempty(src) || (out[(d, t)] = sort!(src))
     end
     return out
 end
@@ -1276,6 +1319,7 @@ function solve_scc_ordered!(
                 n_supply_depl += length(drop)
                 length(r.depletion_break) == length(r.depletion_indices) && deleteat!(r.depletion_break, drop)
                 length(r.depletion_own_product) == length(r.depletion_indices) && deleteat!(r.depletion_own_product, drop)
+                length(r.depletion_own_src) == length(r.depletion_indices) && deleteat!(r.depletion_own_src, drop)
                 deleteat!(r.depletion_indices, drop)
             end
             # amendment 5 (post hoc): pool-fed inputs of the pool's own steps,
@@ -1641,6 +1685,8 @@ function solve_steady_state_penalty(
     self_shared::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
     own_entity::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
+    own_source::Dict{Tuple{String, String}, Vector{String}} =
+        Dict{Tuple{String, String}, Vector{String}}(),
     cycle_pools = nothing,
     cycle_phi::Float64 = 0.1,
     cycle_carriers::Bool = true,
@@ -1653,7 +1699,7 @@ function solve_steady_state_penalty(
     index_stats = Dict{String, Any}()
     rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids;
                                                stats = index_stats, self_shared = self_shared,
-                                               own_entity = own_entity)
+                                               own_entity = own_entity, own_source = own_source)
     order_mode = scc_order_mode()
     index_stats["scc_order"] = order_mode
     order_key = nothing
@@ -1940,7 +1986,9 @@ function compute_influence_scores(
     indexed, _, _ = index_reactions(reactions, uuid_to_idx, baselines, gene_uuids;
                                     self_shared = self_shared,
                                     own_entity = network === nothing ? Set{Tuple{String, String}}() :
-                                                 own_entity_depletion_pairs(network))
+                                                 own_entity_depletion_pairs(network),
+                                    own_source = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
+                                                 own_source_depletion_sources(network))
 
     x = Vector{Float64}(undef, length(all_nodes))
     @inbounds for (i, uuid) in enumerate(all_nodes)

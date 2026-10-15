@@ -169,4 +169,57 @@ end
     @test fold(ent, "Y") < fold(solve2(fixture(), "suppress_only_entity", 2.0), "Y")
 end
 
+# --- specs/061: suppress_only_source ----------------------------------------
+# C is built from R and a partner M (AND). A knockout of R (SMAD2 KO) zeroes
+# C's source copy: C may not de-repress Y. A knockout of M (MDM2 KO) zeroes C
+# while R holds: C's fall de-represses Y as under `full`.
+mdm_net() = begin
+    net = fixture(extra = [dep("C", "Y"), e("M", "rS")], containment = Dict("R-C" => Set(["R-X"])))
+    net.nodes["M"] = DS.NetworkNode("M", "R-M", "protein", nothing, "M", BL)
+    net
+end
+solve3(net, own, pins) = with_env("DS_RECYCLED_TWIN" => "on", "DS_DEPLETION_OWN_PRODUCT" => own) do
+    DS.solve_steady_state(net, Dict(k => (v, 1.0) for (k, v) in pins),
+                          DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty"))
+end
+
+@testset "own_source map: only under suppress_only_source; sources walk back from the depleter" begin
+    for own in ("full", "suppress_only", "suppress_only_entity")
+        with_env("DS_DEPLETION_OWN_PRODUCT" => own) do
+            @test isempty(DS.own_source_depletion_sources(mdm_net()))
+        end
+    end
+    with_env("DS_DEPLETION_OWN_PRODUCT" => "suppress_only_source") do
+        @test DS.own_source_depletion_sources(mdm_net()) == Dict(("C", "Y") => ["R"])
+        @test isempty(DS.own_entity_depletion_pairs(mdm_net()))   # the static cap is off
+        # no containment, no pair
+        @test isempty(DS.own_source_depletion_sources(fixture(extra = [dep("C", "Y")])))
+    end
+end
+
+@testset "the target's own source falls (SMAD2 KO): no de-repression" begin
+    src = solve3(mdm_net(), "suppress_only_source", ("R" => 0.0,))
+    @test fold(src, "C") < 0.01
+    @test fold(src, "T") < 0.85
+    @test src.diagnostics["own_source_depletions"] == 1
+    @test fold(solve3(mdm_net(), "full", ("R" => 0.0,)), "T") > 1.15
+end
+
+@testset "the partner falls (MDM2 KO): de-repression kept, as full" begin
+    src = solve3(mdm_net(), "suppress_only_source", ("M" => 0.0,))
+    full = solve3(mdm_net(), "full", ("M" => 0.0,))
+    @test fold(src, "C") < 0.01
+    @test fold(src, "Y") > 1.15
+    @test fold(src, "T") ≈ fold(full, "T") atol = 1e-9
+    # the static entity test forbids it
+    @test fold(solve3(mdm_net(), "suppress_only_entity", ("M" => 0.0,)), "Y") ≈ 1.0 atol = 1e-3
+end
+
+@testset "suppress_only_source still lets the depleter suppress" begin
+    src = solve3(mdm_net(), "suppress_only_source", ("R" => 2.0,))
+    full = solve3(mdm_net(), "full", ("R" => 2.0,))
+    @test fold(src, "C") > 1.15
+    @test fold(src, "T") ≈ fold(full, "T") atol = 1e-9
+end
+
 end

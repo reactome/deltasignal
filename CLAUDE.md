@@ -334,6 +334,13 @@ env vars only override for benchmark sweeps:
   target's entity (containment table) also counts as own product, so a
   depleter built from another copy of the target (SMAD2:SMURF2 -| recycled
   SMAD2) cannot de-repress it. The solve reports `own_entity_depletions`.
+- `DS_DEPLETION_OWN_PRODUCT=suppress_only_source` (specs/061; not a default):
+  as `suppress_only`, and an entity-own depleter is capped at 1 only while a
+  SOURCE copy (a copy of the target's entity it is built from, found walking
+  back along non-depletion edges) reads below baseline. A SMAD2 knockout
+  cannot de-repress SMAD2 through SMAD2:SMURF2; an MDM2 knockout still
+  de-represses TP53 through MDM2:TP53. The solve reports
+  `own_source_depletions`.
 - `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
   byte-identical defaults for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
@@ -701,7 +708,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 216 | |
+| `test/test_config_validation.jl` | 217 | |
 | `test/test_loop_elasticity.jl` | 173 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
@@ -716,7 +723,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 46 | specs/059 and 060, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 62 | specs/059–061, added 2026-10-14 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
