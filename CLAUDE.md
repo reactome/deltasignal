@@ -699,6 +699,11 @@ for the last feature that touched it rather than re-deriving from the code.
   tuning +112, experimental +7 (7 / 0), worst pathway −1. Post hoc; **not
   adopted** pending an independent check (Adam's call). The pre-amendment
   rule failed (self-sourced cap locked TP53 low under MDM2 KO).
+- `specs/062-korkut-test/` — korkut2015 (TEST) scored once against specs/061's
+  candidate (`bench/korkut_bench.py`, `run_arm.sh --axis korkut[_predict]`):
+  **inconclusive** (net +18, p 0.17; 3 drugs, 2 pathways; both arms below
+  always-NOT). korkut2015 is now FIT. Release 98, the other check, is not
+  published yet.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

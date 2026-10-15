@@ -1,0 +1,18 @@
+# specs/062: korkut2015 drug code (expr_index.txt) -> drug, target, target genes.
+# Code-to-drug by dose: every code's two doses in expr_index.txt equal the
+# drug's doses in eLife supplementary file 1 table 1 (nM or uM as written).
+# Genes: the target as the table names it, expanded to its human paralogues
+# where the target is a family the drug is reported to inhibit broadly.
+code	drug	target	genes
+901	PD0325901	MEK1/2	MAP2K1,MAP2K2
+AK	AKTi 1/2	AKT	AKT1,AKT2,AKT3
+HN	HNHA	HDAC	HDAC1,HDAC2,HDAC3
+NT	Nutlin	MDM2	MDM2
+P6	P6 (pyridone 6)	JAK	JAK1,JAK2,JAK3,TYK2
+PLX	PLX4720	BRAFV600E	BRAF
+RO	RO-31-7549	PKC	PRKCA,PRKCB,PRKCG
+RY	RY (table name)	CDK4	CDK4
+SR	SR (table name)	SRC	SRC
+ST	Stattic	STAT3	STAT3
+Tm	Temsirolimus	mTOR	MTOR
+ZS	ZSTK474	PI3K	PIK3CA,PIK3CB,PIK3CD,PIK3CG

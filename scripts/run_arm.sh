@@ -46,7 +46,7 @@ NAME=$1; shift
 # A leading '-' is refused: `run_arm.sh --help` used to start a real arm named
 # "--help" on the current catalog (2026-10-09).
 [[ "$NAME" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || die "NAME must be [A-Za-z0-9._-]+ and not start with '-' (usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--catalog ID] [--max-edges N])"
-SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=100000
+SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=100000; AXES=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --server) [[ "${2:-}" == DS_*=* ]] || die "--server needs DS_NAME=value"; SERVER+=("$2"); shift 2 ;;
@@ -55,6 +55,10 @@ while [ $# -gt 0 ]; do
     --limit)  LIMIT=(--limit "$2"); shift 2 ;;
     --max-edges) [[ "${2:-}" =~ ^[0-9]+$ ]] || die "--max-edges needs a number"; MAX_EDGES=$2; shift 2 ;;
     --catalog) [ -n "${2:-}" ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
+    # specs/062: which benches to run (default curator and experimental).
+    # korkut_predict never opens the korkut2015 values; korkut scores them.
+    --axis) case "${2:-}" in curator|experimental|korkut|korkut_predict) AXES+=("$2") ;;
+              *) die "--axis must be curator, experimental, korkut or korkut_predict" ;; esac; shift 2 ;;
     *) die "unknown argument $1" ;;
   esac
 done
@@ -107,6 +111,15 @@ for kv in "${BENCH[@]}"; do
   esac
   grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" \
     || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py at $SHA"; }
+  # The korkut bench uses only the pinning and the perturbation level from
+  # that script; any other bench knob would be recorded and inert there.
+  for gt in "${AXES[@]}"; do
+    case "$gt" in korkut|korkut_predict)
+      case " DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN " in *" $n "*) ;;
+        *) git worktree remove --force "$WT"; die "$n has no effect on the korkut bench (it reads DS_PIN_SCOPE, DS_PIN_ROOT_IGNORE, DS_PERTURB_UI_DOWN)" ;;
+      esac ;;
+    esac
+  done
 done
 CNAME="arm-$NAME-$$"
 cleanup() { docker rm -f "$CNAME" >/dev/null 2>&1; git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1; }
@@ -140,11 +153,18 @@ mkdir -p "$OUT"
 # (later -e wins over --env-file, and the container check above confirmed it).
 { cat "$ENVF"; for kv in "${SERVER[@]}"; do echo "$kv"; done; } > "$OUT/server.env"
 STARTED=$(date -Is); status=0
-for gt in curator experimental; do
-  env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
-    "$PY" "$WT/bench/benchmark_vs_mpbiopath.py" --max-edges "$MAX_EDGES" "${LIMIT[@]}" --ground-truth "$gt" \
-    --report "$OUT/${gt}_report.tsv" --dump-cases "$OUT/${gt}_cases.tsv" > "$OUT/$gt.log" 2>&1 \
-    || { echo "run_arm: $gt benchmark failed; see $OUT/$gt.log" >&2; status=1; break; }
+[ ${#AXES[@]} -gt 0 ] || AXES=(curator experimental)
+for gt in "${AXES[@]}"; do
+  case "$gt" in
+    korkut|korkut_predict)
+      kflag=(); [ "$gt" = korkut_predict ] && kflag=(--predict-only)
+      env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
+        "$PY" "$WT/bench/korkut_bench.py" "${kflag[@]}" "$OUT" > "$OUT/$gt.log" 2>&1 ;;
+    *)
+      env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
+        "$PY" "$WT/bench/benchmark_vs_mpbiopath.py" --max-edges "$MAX_EDGES" "${LIMIT[@]}" --ground-truth "$gt" \
+        --report "$OUT/${gt}_report.tsv" --dump-cases "$OUT/${gt}_cases.tsv" > "$OUT/$gt.log" 2>&1 ;;
+  esac || { echo "run_arm: $gt benchmark failed; see $OUT/$gt.log" >&2; status=1; break; }
 done
 
 ARM_LIMIT="${LIMIT[1]:-}" python3 - "$OUT" "$NAME" "$SHA" "$BID" "$STARTED" "$status" "${SERVER[*]:-}" "${BENCH[*]:-}" <<'PY'
@@ -155,7 +175,7 @@ rec = {"name": name, "commit": sha, "build": bid, "started": started,
        "exit": int(status), "limit": os.environ.get("ARM_LIMIT") or None,
        "server_overrides": server.split() if server else [],
        "bench_overrides": bench.split() if bench else []}
-for gt in ("curator", "experimental"):
+for gt in ("curator", "experimental", "korkut", "korkut_predict"):
     log = os.path.join(out, f"{gt}.log")
     if os.path.exists(log):
         text = open(log).read()
