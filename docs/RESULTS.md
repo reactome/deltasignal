@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-13. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-15. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,42 @@ commit.
 
 ---
 
+
+> **2026-10-15: canonical numbers with the specs/061 rule adopted.**
+> - Build `20261012-1401_01206ca` (unchanged).
+> - Solver `9e93c11` (PR #121): `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`,
+>   `DS_RECYCLED_TWIN=on`, and the bench's `DS_PIN_ROOT_IGNORE=depletion`
+>   (a form fed only by depletion is pinned as a root, as in MP-BioPath's
+>   networks; `none` restores the old pins).
+> - Results: `results/9e93c11`. They reproduce the measured arm (`rtwin58g3`,
+>   specs/061 R4) on every prediction.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **89.51%** | **0.8649** |
+> | curator held-out, every case (71 pathways) | 19,000 | 88.88% | 0.8563 |
+> | curator, all pathways, in release (81) | 23,625 | 87.67% | 0.8486 |
+> | curator, all pathways, every case | 24,100 | 87.08% | 0.8411 |
+> | experimental, every case (10 pathways) | 849 | **70.44%** | **0.6246** |
+>
+> **What moved since the previous box.** Three linked rules (specs/058–061):
+> a SMAD2 knockout can no longer raise SMAD2 through SMAD2:SMURF2, while an
+> MDM2 knockout still raises TP53 through MDM2:TP53; recycled copies of a
+> protein follow its root copies; depletion-only forms are pinned.
+> - Against the previous box, paired on cases valid in both (the pin set
+>   changes by design): curator held-out +32 (33 fixed / 1 broken), tuning
+>   +112, experimental +7 (7 / 0), worst pathway −1.
+> - Chosen after four rounds on these sets (post hoc). The independent
+>   korkut2015 check was inconclusive (specs/062); Reactome Release 98 is the
+>   replication, and the rule is reverted if it loses there.
+>
+> Converged: 1,645 / 1,725 curator and 214 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 87.08% / 0.8411 against 83.34% / 0.8063, **+3.74pp**.
+> - Experimental: 70.44% (598/849) against 75.74% (643/849), **−5.30pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-13: canonical numbers with drug-derived nodes held at baseline
 > (specs/055).**
