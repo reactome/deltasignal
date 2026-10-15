@@ -42,6 +42,13 @@ def main():
         print(f"  {name}: accuracy {acc:.4f}, macro-F1 {macro_f1(pairs):.4f}")
     down = [("down", a[k][col]) for k in keys]
     print(f"  always-DOWN: accuracy {sum(p == m for p, m in down) / len(down):.4f}, macro-F1 {macro_f1(down):.4f}")
+    for name, d in (("control", a), ("arm", b)):
+        if all(d[k].get("reach_predicted") for k in keys):
+            rp = [(d[k]["reach_predicted"], d[k][col]) for k in keys]
+            print(f"  reachability ({name} pins): accuracy {sum(p == m for p, m in rp) / len(rp):.4f}, "
+                  f"macro-F1 {macro_f1(rp):.4f}")
+    nots = [("not", a[k][col]) for k in keys]
+    print(f"  always-NOT: accuracy {sum(p == m for p, m in nots) / len(nots):.4f}, macro-F1 {macro_f1(nots):.4f}")
     print(f"  measured: {dict(collections.Counter(a[k][col] for k in keys))}")
     disc = [k for k in keys if a[k]["predicted"] != b[k]["predicted"]]
     fixed = [k for k in disc if b[k]["predicted"] == b[k][col] and a[k]["predicted"] != a[k][col]]

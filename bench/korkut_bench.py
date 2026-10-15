@@ -163,6 +163,7 @@ def main():
                 continue
             if parsed is None:
                 parsed = bm.parse_pathway_via_ds_api(pdir.name)
+                adj = bm.build_adjacency(pdir)
                 if parsed.get("status") != "success":
                     raise SystemExit(f"{pdir.name}: parse failed: {parsed.get('message')}")
             obs = {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(pinned)}
@@ -173,19 +174,23 @@ def main():
             solves += 1
             conv += bool(res.get("converged"))
             act = res.get("node_activities", {})
+            reach = bm.reachable_from(adj, pinned)
             for name, nodes in sorted(ro_nodes.items()):
                 free = [u for u in nodes if u not in pinned]
                 if not free:
-                    status, ui, pred = "trivial", None, None
+                    status, ui, pred, rp = "trivial", None, None, None
                 else:
                     ui = 100.0 * sum(act.get(u, 0.01) for u in free) / len(free)
                     status, pred = "scored", bm.classify(ui)
+                    # specs/021 reachability baseline: DOWN when a readout node is reachable
+                    rp = bm.DOWN if any(u in reach for u in free) else bm.NORMAL
                 rows.append({"pathway_id": pdir.name, "drug_set": "+".join(ds), "readout": name,
                              "targets_pinned": ";".join(sorted(g for g, us in pins.items() if us)),
                              "pinned": len(pinned), "readout_nodes": len(nodes), "status": status,
                              "converged": int(bool(res.get("converged"))),
                              "pred_ui": "" if ui is None else f"{ui:.6g}",
-                             "predicted": NAMES.get(pred, "")})
+                             "predicted": NAMES.get(pred, ""),
+                             "reach_predicted": NAMES.get(rp, "")})
         print(f"  {pdir.name}: {len(ro_nodes)} readouts", flush=True)
     after = (json.loads(urlopen(f"{bm.DS_BASE}/api/health", timeout=30).read()).get("catalog") or {})
     if after.get("build_id") != build.name:
