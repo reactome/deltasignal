@@ -96,6 +96,21 @@ end
     @test DS.apply_recycled_twins(fixture(table = DS.CarrierLoopEdge[("Y", "rD", true)]), "on")[3] == 0
 end
 
+@testset "a carrier free form is never a root copy (specs/061 amendment 2)" begin
+    # F: another copy of X with an out-edge and no in-edge (as a closed free form
+    # is left after the carrier rule drops its loop in-edges). Listed, it feeds
+    # nothing; unlisted, it is a root like R.
+    net(table) = begin
+        n = fixture(extra = [e("F", "rS")], table = table)
+        n.nodes["F"] = DS.NetworkNode("F", "R-X", "protein", nothing, "F", BL)
+        n
+    end
+    added(n) = sort([(x.parent_uuid, x.child_uuid) for x in DS.apply_recycled_twins(n, "on")[1].edges
+                     if x.edge_type == "recycled_supply"])
+    @test added(net(DS.CarrierLoopEdge[("F", "rS", true)])) == [("R", "Y")]
+    @test added(net(nothing)) == [("F", "Y"), ("R", "Y")]
+end
+
 @testset "solve: off, the readout ignores the root; on, it follows it" begin
     for v in (0.0, 2.0)
         off = solve(fixture(), "off", v)
@@ -198,6 +213,13 @@ end
         # (R is a root copy; C -| R would be self-sourced)
         net = mdm_net(); push!(net.edges, dep("C", "R"))
         @test DS.own_source_depletion_sources(net) == Dict(("C", "Y") => ["R"])
+        # amendment 2: a copy that only catalyses or regulates the depleter's
+        # reaction is not a source; one that is an input is
+        for (et, want) in (("catalyst", ["R"]), ("regulator", ["R"]), ("input", ["I", "R"]))
+            net = mdm_net(); push!(net.edges, e("I", "rS", et))
+            net.nodes["I"] = DS.NetworkNode("I", "R-X", "protein", nothing, "I", BL)
+            @test DS.own_source_depletion_sources(net) == Dict(("C", "Y") => want)
+        end
     end
 end
 

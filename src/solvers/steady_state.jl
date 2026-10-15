@@ -310,7 +310,6 @@ function solve_steady_state(
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
     result.diagnostics["own_entity_depletions"] = length(own_entity)
-    result.diagnostics["own_source_depletions"] = length(own_source)
     result.diagnostics["zero_supply_rule"] = zero_supply_rule
     result.diagnostics["zero_supply_leaves"] = zero_supply_leaves
     result.diagnostics["zero_supply_held"] = zero_supply_held
@@ -366,19 +365,24 @@ end
 specs/061. Under `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, each
 entity-own depletion pair (as `own_entity_depletion_pairs`) -> its SOURCE
 copies: nodes with the target's stable id reached walking backward from the
-depleter along non-depletion edges, stopping at each such copy (the copies
-the depleter is built from). The target itself is never a source
+depleter along material edges (not depletion, catalyst or regulator;
+amendment 2), stopping at each such copy (the copies the depleter is built
+from). The target itself is never a source
 (amendment 1: that test was circular); the walk passes through it. The propagator caps the
 edge at 1 while any source reads below baseline. Pairs with no source are
 left out (not capped). Empty under any other value.
 """
+const OWN_SOURCE_SKIP_EDGES = ("depletion", "catalyst", "regulator")
+
 function own_source_depletion_sources(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
     out = Dict{Tuple{String, String}, Vector{String}}()
     pairs = own_entity_depletion_pairs(network; mode = "suppress_only_source")
     isempty(pairs) && return out
     back = Dict{String, Vector{String}}()
     for e in network.edges
-        e.edge_type == "depletion" && continue
+        # amendment 2: only edges that carry material; a copy that merely
+        # catalyses or regulates the depleter's reaction is not built into it.
+        e.edge_type in OWN_SOURCE_SKIP_EDGES && continue
         push!(get!(back, e.child_uuid, String[]), e.parent_uuid)
     end
     for (d, t) in pairs
@@ -1915,6 +1919,8 @@ function solve_steady_state_penalty(
             # specs/022: inhibitor slots damped by DS_SELF_INHIBITOR_WEIGHT
             # (0 when off), so an arm cannot silently measure the old model.
             "self_inhibitors" => get(index_stats, "self_inhibitors", 0),
+            # specs/061: entity-own depletion edges gated on their source copies
+            "own_source_depletions" => get(index_stats, "own_source_depletions", 0),
             "scc_cyclic_after" => get(index_stats, "scc_cyclic_after", 0),
             "scc_largest_after" => get(index_stats, "scc_largest_after", 0),
             # specs/039: interconversion pools solved in closed form, left to the
