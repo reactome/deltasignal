@@ -691,6 +691,13 @@ for the last feature that touched it rather than re-deriving from the code.
   With specs/058 + 059 (`rtwin58s`): held-out +21, tuning +112, experimental
   +7 (p 0.016); fails only on TGF-beta −12. The entity-level variant
   (`suppress_only_entity`) fixes SMAD2/3 but loses MDM2 KO (experimental −17).
+- `specs/061-own-source-gate/` — `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`:
+  an entity-own depleter is capped only while a source copy (never the
+  target itself, amendment 1) is below baseline. With specs/058 + 059
+  (`rtwin58g2`) **the registered gate passes**: held-out +32 (33 / 1),
+  tuning +112, experimental +7 (7 / 0), worst pathway −1. Post hoc; **not
+  adopted** pending an independent check (Adam's call). The pre-amendment
+  rule failed (self-sourced cap locked TP53 low under MDM2 KO).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

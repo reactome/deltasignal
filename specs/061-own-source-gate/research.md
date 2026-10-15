@@ -64,3 +64,56 @@ Convergence: curator 1,653, experimental 219 (control 1,652 / 215).
 (R1's MDM2 mechanism) undoing `suppress_only`'s TP53 gains. Not re-run after
 amendment 1; the amended rule is measured only in the registered
 combination (`rtwin58g2`).
+
+## R3. Amendment 1, arm `rtwin58g2`: the registered gate passes
+
+`scripts/run_arm.sh rtwin58g2 --server DS_RECYCLED_TWIN=on --server
+DS_DEPLETION_OWN_PRODUCT=suppress_only_source --bench
+DS_PIN_ROOT_IGNORE=depletion` at DS `9a0b839` (rule code `5992c91`), results
+`builds/20261012-1401_01206ca/results/9a0b839/rtwin58g2`. RAF moves nothing;
+both readings identical.
+
+| against | held-out | tuning | experimental |
+|---|---|---|---|
+| control `64d23cb` | **+32** (33 / 1, p < 1e-4) | **+112** (113 / 1) | **+7** (7 / 0, p 0.016) |
+| `rtwin58s` | +11 (12 / 1, p 0.0034; TGF-beta only) | 0 | 0 |
+| `rtwin58g` | +8 (22 / 14, p 0.24) | +138 | +16 (18 / 2, p 0.0004) |
+
+Headline, in release: curator held-out **89.51%** (control 89.33%), tuning
+80.92% (78.70%), all 87.67%; experimental 7 more correct (598 / 849, from
+591). Convergence: curator 1,645 of 1,725 (control 1,652), experimental 214
+of 244 (215); the bench does not record which solves, and no case moved
+outside the perturbations below.
+
+**Gate (registered, unchanged): passes.** Held-out net > 0 at p < 1e-4;
+no experimental loss (7 / 0); worst pathway −1 (TGF-beta, SMAD7 KO, one
+case; CHEK2 KO in TP53, one case); no experimental loss to trace.
+
+Against the control, by perturbation (curator net): AKT1 KO +38, AKT2 KO
++38, MDM4 KO +32, BRCA1 KO +3 (TP53, tuning); MET OE +10, CBL KO/OE +11,
+PTCH KO/OE +8, BRCA1/BARD1 +4 (DSB), MDM2 OE +2 (Cell Cycle Checkpoints);
+SMAD2/SMAD3 0. Experimental: AKT1 +2, MDM4 +2, AKT2 +1, BRCA1 +1, MDM2 OE
++1.
+
+Predictions: MDM2 KO returned to canonical (as predicted), TGF-beta held
+at 0 (as predicted), AKT1/AKT2 recovered to +38 each (as predicted).
+**Wrong:** I predicted DSB would fail the gate on RNF168; RNF168 did not
+move in this arm (the coin landed as in canonical). That is luck, not a fix:
+the RNF168 solve is still non-converged (specs/057 R1).
+
+### What this means
+
+- `rtwin58g2` is `rtwin58s` (specs/059 R2) plus the 12 SMAD2/3 cases, with
+  nothing else moving: the three rules together (specs/058 pins, specs/059
+  twin edge, this amended own-product rule) do what each step was built for.
+- It is post hoc (four amendments' worth of looking at these sets: 058 →
+  059 → 060 → 061 → amendment 1). The held-out gain is concentrated: 33
+  fixed cases in 5 pathways, 22 readouts, 6 genes. The spec's own condition
+  applies: **I recommend an independent check before adopting it as the
+  default** (Adam's call): the korkut2015 TEST set scored once, or a fresh
+  Reactome release.
+- Adoption would mean three changes: two solver defaults
+  (`DS_RECYCLED_TWIN=on`, `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`)
+  and one benchmark protocol change (`DS_PIN_ROOT_IGNORE=depletion`: a form
+  fed only by depletion counts as a root, as in MP-BioPath's networks), which
+  is a protocol-of-record decision (Adam, 2026-09-25) and not only a rule.
