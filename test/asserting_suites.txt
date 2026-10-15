@@ -29,3 +29,4 @@ test_self_fed
 test_carrier_loops
 test_zero_supply
 test_recycled_twin
+test_sequestration

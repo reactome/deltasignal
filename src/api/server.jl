@@ -908,6 +908,8 @@ function solve_handler(req)
             # specs/059: "off" or "on", and how many recycled_supply edges were added.
             "recycled_twin_rule" => get(solver_result.diagnostics, "recycled_twin_rule", "unknown"),
             "recycled_twin_edges" => get(solver_result.diagnostics, "recycled_twin_edges", 0),
+            "sequestration_rule" => get(solver_result.diagnostics, "sequestration_rule", "unknown"),
+            "sequestration_edges" => get(solver_result.diagnostics, "sequestration_edges", 0),
             # specs/035 (additive): "off" or "inert", and how many nodes were held.
             # specs/052 (additive): "off", "hold" or "hold: no node table", the
             # candidate leaves left with no supply, and the nodes held at 0.
