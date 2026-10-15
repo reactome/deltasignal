@@ -437,6 +437,13 @@ env vars only override for benchmark sweeps:
   `off`, and the bench refuses it. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
   `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261012-1401_01206ca`.
+- `DS_RECYCLED_TWIN=off` (default) | `on` (specs/059): a RECYCLED copy of an
+  entity (every producer, except depletion and dissociation, downstream of
+  itself) that no root copy of the same entity reaches along non-depletion
+  edges gains an OR in-edge (`recycled_supply`) from each root copy (in-edges,
+  if any, all depletion). The one-way form of the identity twin that
+  `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
+  reports `recycled_twin_rule` and `recycled_twin_edges`.
 - `DS_ZERO_SUPPLY_MODE=off` (default; `hold` measured and **not adopted**,
   specs/052) | `hold`: under a pin to 0, a
   node built from a leaf (protein or small molecule) that no unpinned source
@@ -693,6 +700,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
+| `test/test_recycled_twin.jl` | 34 | specs/059, added 2026-10-14 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

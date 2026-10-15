@@ -905,6 +905,9 @@ function solve_handler(req)
             "carrier_loop_forms" => get(solver_result.diagnostics, "carrier_loop_forms", 0),
             "carrier_loop_edges_dropped" => get(solver_result.diagnostics, "carrier_loop_edges_dropped", 0),
             "carrier_loop_twin_edges" => get(solver_result.diagnostics, "carrier_loop_twin_edges", 0),
+            # specs/059: "off" or "on", and how many recycled_supply edges were added.
+            "recycled_twin_rule" => get(solver_result.diagnostics, "recycled_twin_rule", "unknown"),
+            "recycled_twin_edges" => get(solver_result.diagnostics, "recycled_twin_edges", 0),
             # specs/035 (additive): "off" or "inert", and how many nodes were held.
             # specs/052 (additive): "off", "hold" or "hold: no node table", the
             # candidate leaves left with no supply, and the nodes held at 0.

@@ -114,6 +114,8 @@ end
 """
 The network the solve actually runs under the active `DS_CARRIER_LOOP_MODE`:
 for influence scores, which must differentiate the edges the solve used (the
-twin's `carrier_supply` edge), not the loop edges it dropped.
+twin's `carrier_supply` edge, and specs/059's `recycled_supply` edges), not the
+loop edges it dropped.
 """
-solved_carrier_network(network::ReactionNetwork) = first(apply_carrier_loops(network, carrier_loop_mode()))
+solved_carrier_network(network::ReactionNetwork) =
+    first(apply_recycled_twins(first(apply_carrier_loops(network, carrier_loop_mode())), recycled_twin_mode()))
