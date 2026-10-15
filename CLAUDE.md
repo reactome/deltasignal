@@ -80,6 +80,12 @@ middle is taken to be right. `DS_PIN_SCOPE` (benchmark-side) selects it:
   to reproduce numbers from that period, which are **not comparable** to root
   numbers (specs/023).
 
+**`DS_PIN_ROOT_IGNORE=depletion` (default since 2026-10-15, specs/061
+adoption)**: an in-edge of type depletion does not stop a node being a root,
+so a form fed only by depletion is pinned as a root (as in MP-BioPath's
+networks, specs/058). `DS_PIN_ROOT_IGNORE=none` restores the specs/024 rule,
+for reproducing numbers from before 2026-10-15.
+
 **Rule decisions set RAF aside** (specs/054 D1, Adam 2026-10-13): its
 readouts are a bistable switch, not signal. Gates on any case axis are read
 with `bench/analysis/holdout_report.py --compare B --set-aside
@@ -334,7 +340,10 @@ env vars only override for benchmark sweeps:
   target's entity (containment table) also counts as own product, so a
   depleter built from another copy of the target (SMAD2:SMURF2 -| recycled
   SMAD2) cannot de-repress it. The solve reports `own_entity_depletions`.
-- `DS_DEPLETION_OWN_PRODUCT=suppress_only_source` (specs/061; not a default):
+- `DS_DEPLETION_OWN_PRODUCT=suppress_only_source` (**default since 2026-10-15**,
+  specs/061, adopted with `DS_RECYCLED_TWIN=on` and the bench's
+  `DS_PIN_ROOT_IGNORE=depletion`; held-out +32 (33 / 1), experimental +7 (7 / 0)
+  against the previous defaults; `full` restores them):
   as `suppress_only`, and an entity-own depleter is capped at 1 only while a
   SOURCE copy (a copy of the target's entity it is built from, found walking
   back along material edges, not catalyst or regulator ones (amendment 2);
@@ -343,8 +352,8 @@ env vars only override for benchmark sweeps:
   cannot de-repress SMAD2 through SMAD2:SMURF2; an MDM2 knockout still
   de-represses TP53 through MDM2:TP53. The solve reports
   `own_source_depletions`.
-- `DS_COMPOSITION_MODE=assembly` and `DS_DEPLETION_OWN_PRODUCT=full` are the
-  byte-identical defaults for two measured-but-not-adopted alternatives
+- `DS_COMPOSITION_MODE=assembly` (default) and `DS_DEPLETION_OWN_PRODUCT=full`
+  (the default until 2026-10-15) are the baselines for two measured-but-not-adopted alternatives
   (`limit`: a `composition` edge can lower a container but never raise it;
   `limit_novel`: the same, skipping the 54% of composition edges that repeat a
   producing reaction; `suppress_only`: a depleter built from the target cannot
@@ -451,7 +460,8 @@ env vars only override for benchmark sweeps:
   `off`, and the bench refuses it. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
   `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261012-1401_01206ca`.
-- `DS_RECYCLED_TWIN=off` (default) | `on` (specs/059): a RECYCLED copy of an
+- `DS_RECYCLED_TWIN=on` (**default since 2026-10-15**, specs/061 adoption) |
+  `off` (specs/059): a RECYCLED copy of an
   entity (every producer, except depletion and dissociation, downstream of
   itself) that no root copy of the same entity reaches along non-depletion
   edges gains an OR in-edge (`recycled_supply`) from each root copy (in-edges,
@@ -679,11 +689,12 @@ for the last feature that touched it rather than re-deriving from the code.
   the removed edges.
 - `specs/058-depletion-roots/` — bench `DS_PIN_ROOT_IGNORE=depletion`: a
   form fed only by depletion counts as a root (as in MP-BioPath's networks).
-  **Not adopted:** held-out +9 (33/24, p 0.29), experimental +1. All losses
+  Alone not adopted: held-out +9 (33/24, p 0.29), experimental +1. All losses
   are SMAD2/3 (TGF-beta), which score only through the specs/024 fallback.
-- `specs/059-recycled-twin/` — `DS_RECYCLED_TWIN` (default off): a recycled
-  copy of an entity reads its root copies (one-way, like `closed_twin`).
-  **Not adopted:** alone held-out 0; with specs/058's pins held-out +21
+  **Default since 2026-10-15** as part of the specs/061 adoption.
+- `specs/059-recycled-twin/` — `DS_RECYCLED_TWIN` (default on since
+  2026-10-15, with specs/061): a recycled copy of an entity reads its root
+  copies (one-way, like `closed_twin`). Alone: held-out 0; with specs/058's pins held-out +21
   (p 0.0025) but TGF-beta −12 (SMAD2/3 knockouts read UP: SMAD2:SMURF2, built
   from SMAD2, de-represses SMAD2 when the knockout zeroes it).
 - `specs/060-own-product-depletion/` — `DS_DEPLETION_OWN_PRODUCT=suppress_only`
@@ -696,9 +707,12 @@ for the last feature that touched it rather than re-deriving from the code.
   an entity-own depleter is capped only while a source copy (never the
   target itself, amendment 1) is below baseline. With specs/058 + 059
   (`rtwin58g2`) **the registered gate passes**: held-out +32 (33 / 1),
-  tuning +112, experimental +7 (7 / 0), worst pathway −1. Post hoc; **not
-  adopted** pending an independent check (Adam's call). The pre-amendment
-  rule failed (self-sourced cap locked TP53 low under MDM2 KO).
+  tuning +112, experimental +7 (7 / 0), worst pathway −1. Amendment 2 (two
+  code-review fixes, `rtwin58g3`) reproduces it exactly. Post hoc; the
+  independent korkut2015 check was inconclusive. **Adopted as the default
+  2026-10-15** (Adam: "include something that passes more tests"), with
+  specs/058's pins and specs/059's twins; Release 98 remains the replication.
+  The pre-amendment rule failed (self-sourced cap locked TP53 low under MDM2 KO).
 - `specs/062-korkut-test/` — korkut2015 (TEST) scored once against specs/061's
   candidate (`bench/korkut_bench.py`, `run_arm.sh --axis korkut[_predict]`):
   **inconclusive** (net +18, p 0.17; 3 drugs, 2 pathways; both arms below

@@ -336,8 +336,8 @@ end
         partner_ko  = Dict("W" => (0.0, 1.0))
         partner_oe  = Dict("W" => (20.0, 1.0))
 
-        # default is byte-identical to the flag being absent
-        @test act(dep_net(), half_supply, nothing) == act(dep_net(), half_supply, "full")
+        # the default (specs/061 adoption, 2026-10-15) is suppress_only_source
+        @test act(dep_net(), half_supply, nothing) == act(dep_net(), half_supply, "suppress_only_source")
 
         # the defect, pinned: under "full" a halved supply reads back above 0.5 at X
         @test act(dep_net(), half_supply, "full")["X"] / BL > 0.55

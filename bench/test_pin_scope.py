@@ -193,3 +193,17 @@ def test_pin_root_ignore_rejects_other_values():
                        cwd=str(Path(__file__).parent), capture_output=True, text=True,
                        env={**__import__("os").environ, "DS_PIN_ROOT_IGNORE": "dissociation"})
     assert r.returncode != 0 and "DS_PIN_ROOT_IGNORE" in r.stderr
+
+
+def test_pin_root_ignore_default_is_depletion_and_none_restores_specs024():
+    # specs/061 adoption (2026-10-15): depletion-only forms are roots by default
+    import os
+    import subprocess
+    env = {k: v for k, v in os.environ.items() if k != "DS_PIN_ROOT_IGNORE"}
+    probe = "import benchmark_vs_mpbiopath as bm; print(repr(bm.PIN_ROOT_IGNORE))"
+    for value, want in ((None, "'depletion'"), ("none", "''"), ("depletion", "'depletion'")):
+        e = env if value is None else {**env, "DS_PIN_ROOT_IGNORE": value}
+        r = subprocess.run([sys.executable, "-c", probe], cwd=str(Path(__file__).parent),
+                           capture_output=True, text=True, env=e)
+        assert r.returncode == 0, r.stderr
+        assert r.stdout.strip().splitlines()[-1] == want

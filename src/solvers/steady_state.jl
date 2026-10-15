@@ -349,7 +349,7 @@ Empty under any other value, or with no containment table.
 """
 function own_entity_depletion_pairs(network::ReactionNetwork; mode::String = "suppress_only_entity")::Set{Tuple{String, String}}
     out = Set{Tuple{String, String}}()
-    get(ENV, "DS_DEPLETION_OWN_PRODUCT", "full") == mode || return out
+    get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT) == mode || return out
     isempty(network.containment) && return out
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
     for e in network.edges

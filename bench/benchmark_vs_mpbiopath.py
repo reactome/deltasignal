@@ -163,10 +163,13 @@ if PIN_SCOPE not in ("all", "entry", "root", "root_cycle"):
     raise SystemExit(f"DS_PIN_SCOPE={PIN_SCOPE!r} must be 'root', 'root_cycle', 'entry' or 'all'")
 # specs/058: in-edge types that do not stop a node being a root. Depletion is
 # our derived consumption edge (MP-BioPath's networks have none), so a form fed
-# only by depletion is produced by nothing. Unset is the specs/024 rule.
-PIN_ROOT_IGNORE = os.environ.get("DS_PIN_ROOT_IGNORE", "")
-if PIN_ROOT_IGNORE not in ("", "depletion"):
-    raise SystemExit(f"DS_PIN_ROOT_IGNORE={PIN_ROOT_IGNORE!r} must be unset or 'depletion'")
+# only by depletion is produced by nothing. Default since 2026-10-15 (specs/061
+# adoption, Adam); `none` is the specs/024 rule, for reproducing earlier numbers.
+PIN_ROOT_IGNORE = os.environ.get("DS_PIN_ROOT_IGNORE", "depletion")
+if PIN_ROOT_IGNORE not in ("none", "depletion"):
+    raise SystemExit(f"DS_PIN_ROOT_IGNORE={PIN_ROOT_IGNORE!r} must be 'depletion' (default) or 'none'")
+if PIN_ROOT_IGNORE == "none":
+    PIN_ROOT_IGNORE = ""
 # Diagnostic: collapse duplicate ACTIVATOR edges from the same source into the
 # same reaction. An entity that is both the catalyst and a substrate of one
 # reaction currently contributes TWICE to the AND product, so its fold-change

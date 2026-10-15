@@ -48,9 +48,9 @@ fold(r, u) = r.node_activities[u] / BL
 
 @testset "recycled twins (specs/059)" begin
 
-@testset "default is off; bad values are errors" begin
+@testset "default is on (specs/061 adoption); bad values are errors" begin
     with_env("DS_RECYCLED_TWIN" => nothing) do
-        @test DS.recycled_twin_mode() == "off"
+        @test DS.recycled_twin_mode() == "on"
     end
     for bad in ("ON", "1", "true", "closed")
         with_env("DS_RECYCLED_TWIN" => bad) do
