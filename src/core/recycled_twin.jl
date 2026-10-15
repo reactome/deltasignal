@@ -13,8 +13,9 @@ gives a closed carrier free form the same kind of supply edge; specs/053's
 generator merge of such copies welded cycles both ways (held-out -493), so
 this rule adds a one-way edge only.
 
-  DS_RECYCLED_TWIN=off  (default) nothing changes.
-  DS_RECYCLED_TWIN=on   each recycled copy gains an activating OR in-edge
+  DS_RECYCLED_TWIN=off  nothing changes.
+  DS_RECYCLED_TWIN=on   (default since 2026-10-15, specs/061 adoption) each
+                        recycled copy gains an activating OR in-edge
                         (`recycled_supply`) from every root copy of its entity.
 
 A ROOT copy: not a carrier free form, every in-edge, if any, is depletion,
@@ -29,7 +30,7 @@ const DS_VALID_RECYCLED_TWIN_MODES = Set(["off", "on"])
 const RECYCLED_DERIVED_IN = ("depletion", "dissociation")
 
 function recycled_twin_mode()::String
-    value = get(ENV, "DS_RECYCLED_TWIN", "off")
+    value = get(ENV, "DS_RECYCLED_TWIN", "on")
     value in DS_VALID_RECYCLED_TWIN_MODES || throw(ArgumentError(
         "DS_RECYCLED_TWIN must be one of $(join(sort(collect(DS_VALID_RECYCLED_TWIN_MODES)), ", ")); got $(repr(value))"))
     return value

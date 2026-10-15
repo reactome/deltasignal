@@ -1017,6 +1017,9 @@ explicitly so that selecting it stays deliberate):
 - `DS_SET_POOL_MODE` (specs/033): `mean` is the existing OR rule, so it takes
   no special branch; the other three combine a set pool's member folds.
 """
+# specs/061, adopted 2026-10-15 (Adam): read here and by the solver's pair builders.
+const DS_DEPLETION_OWN_PRODUCT_DEFAULT = "suppress_only_source"
+
 const DS_VALID_MODES = Dict(
     "DS_INHIBITION_MODE" => Set([
         "divide", "devspec", "spec", "krep", "hill_sat", "inversion",
@@ -1342,7 +1345,8 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         #       entity-own depleter is capped only while one of its source
         #       copies (the target's entity it is built from) reads below
         #       baseline: it tells which partner fell, during the solve.
-        _mode_env("DS_DEPLETION_OWN_PRODUCT", "full"),
+        # Default `suppress_only_source` since 2026-10-15 (specs/061 adoption).
+        _mode_env("DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT),
         # specs/022. An inhibitor that CONTAINS one of its reaction's inputs
         # (a sequestering complex such as WIF1:WNT) moves with that input, and
         # `divide` then counts the input twice: one such inhibitor cancels it,

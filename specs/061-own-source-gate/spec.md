@@ -141,3 +141,19 @@ carrier free form with no root twin next to a recycled copy, or a copy of the
 target that is only a modifier upstream of a depleter). If more than a handful
 move, each is traced before anything else is concluded. The gate decides as
 before; korkut2015 (now FIT) is reported for information only.
+
+## Decision (2026-10-15): adopted as the default
+
+Adam: "The decision is to include something that passes more tests. so I
+would say yes." Adopted on the gate result (R3, reproduced by R4 after the
+review fixes), knowing it is post hoc and that the korkut2015 check (specs/062)
+was inconclusive. Three defaults change together:
+
+- solver `DS_DEPLETION_OWN_PRODUCT=suppress_only_source` (was `full`);
+- solver `DS_RECYCLED_TWIN=on` (was `off`, specs/059);
+- bench `DS_PIN_ROOT_IGNORE=depletion` (was unset, specs/058); `none` restores
+  the old pins.
+
+The canonical numbers are re-benchmarked at the adopting commit and must
+reproduce `rtwin58g3` case by case. Reactome Release 98 is the replication;
+if the rule loses there, it is reverted.
