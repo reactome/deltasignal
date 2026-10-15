@@ -88,3 +88,27 @@ once, or a fresh Reactome release.
   +4); SMAD2/3 does not move without the twin edge and pins.
 - Risk: the threshold makes the factor discontinuous at baseline;
   convergence may drop in pathways with these pairs inside loops.
+
+## Amendment 1 (2026-10-14, after R1, before any amended code): the target is not its own source
+
+R1 traced the MDM2 loss to a circular test: where the target is its own
+source copy (202 of 315 pairs), its below-baseline value both results from and
+decides the cap, so a dip locks in (TP53 8c4aa191 under the MDM2 knockout).
+
+**Rule (`DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, changed in place;
+the R1 form is recorded at `cb53f3f`):** the source copies exclude the target
+itself. The walk does not stop at the target: it passes through it (so a
+copy reached only through the target still counts). Pairs left with no source
+are not capped. By the census, 191 pairs lose their only source and 124
+remain gated, including the three SMAD2 recycled copies (source c854b46a).
+
+**Arm `rtwin58g2`:** as `rtwin58g`, at the amended commit. Same control, gate
+and pairing; also reported against `rtwin58g` and `rtwin58s`.
+
+**Predictions:** MDM2 KO returns to canonical (+42 curator, +9 experimental
+against `rtwin58g`); TGF-beta stays 0 against the control; AKT1/AKT2 move
+toward `rtwin58s` (+38 each). If so, against the control: held-out about +24
+to +33, tuning about +100, experimental about +7, which would pass the gate
+unless RNF168 (DSB −16, a coin) still loses more than 10 in one pathway — it
+did in R1, so **the gate most likely fails on DSB**. If only that fails, I
+report it as the specs/057 coin and do not change the gate.
