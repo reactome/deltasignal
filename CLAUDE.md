@@ -751,6 +751,9 @@ for the last feature that touched it rather than re-deriving from the code.
   (2,906 duplicate reaction nodes). Fixed in LNG #114; held-out −4 (one
   perturbation, traced), nothing else moves. Canonical build since
   2026-10-16: `20261016-0006_da08370`.
+- `specs/065-sig-cache/` — the generator kept set-member signatures across
+  pathways of one build (LNG #115 clears them per pathway). Measured: all 92
+  networks identical in content, no predicted class changes; no rebuild.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

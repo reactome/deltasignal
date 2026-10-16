@@ -23,7 +23,7 @@ one, 1 refuted by both.
 | 9 | low | Bench POSTed payload omitted `pools` and `node_leaves`. | Added. |
 | 10 | low | decryptM protocol line omits the pin setting; korkut predict and score axes overwrite one file; `cycle_carriers_held` counts a shared carrier per pool. | Fixed. PR #123. |
 | 11 | low | Pool modifiers read activators at baseline, which would disable the live source gate there (latent). | Moot under amendment 3: a gated pair is gated for the whole solve. |
-| 12 | low | Generator `_sig_cache` persists across pathways and can read prefetch-limited caches. | Open: clearing it per pathway may change the catalog, so it needs its own build and measurement. |
+| 12 | low | Generator `_sig_cache` persists across pathways and can read prefetch-limited caches. | Fixed (LNG #115, specs/065): measured, no network changes in the current build order. |
 | 13 | low | Generator docstring of `_leaf_multiset` contradicts the code. | Fixed (LNG #114). |
 | 14 | low | Docs: API.md drug default; spec status lines for 058–061; `LNG_CAP_POOLS` default; asserting-file count. | Fixed. |
 | critic | low | The determinism suite's relabel test drops every bundle table. | Relabel test under the twin and source rules with containment kept. Pools/carriers already had relabel tests in `test_cycles.jl`. |
