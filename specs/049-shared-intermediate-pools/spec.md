@@ -491,3 +491,33 @@ identical to 8116f24, which built K. Build `20261012-1401_01206ca`, solver
 - experimental 589/849.
 
 docs/RESULTS.md carries the box.
+
+## Amendment 7 (2026-10-15, after the week review, before any code): a carrier shared by several pools excludes every pool's release steps
+
+The week's adversarial review found, and reproduced on the canonical build,
+that the specs/039 carrier rule (`DS_CYCLE_CARRIERS=on`, default) excludes
+only the CURRENT pool's release steps when it writes a carrier. Each of the
+12 RAS GAP free forms in RAF (R-HSA-5673001) is a carrier of all four RAS
+isoform pools and has no producer except those pools' four release
+reactions. Each pool in turn writes the GAP from the mean of the OTHER three
+pools' release flux, which re-closes the gain-1 release loop the rule exists
+to cut. The value depends on which pool writes last, the writes disagree
+within every sweep, and the RAF solve does not converge (pool1 base state
+pinned at 10: GAPs 4.03×, converged false; the documented rule gives 1×).
+These are the only multi-pool carriers in the canonical build.
+
+**Rule (in place, under `DS_CYCLE_CARRIERS=on`):** a carrier reads the mean
+fold of its producers other than the release steps of EVERY pool that lists
+it as a carrier (1 if none), as the rule's own description says. Every pool
+then computes the same value, so write order no longer matters.
+`cycle_carriers_held` counts distinct carriers (fixed separately, PR #123).
+
+**Arm `carrierfix`:** the code at this amendment (on top of specs/061
+amendment 3), against `rtwin58g4` (same code without it), RAF reported
+separately since only RAF has multi-pool carriers.
+
+**Prediction:** only RAF predictions move (no other pathway has a
+multi-pool carrier); RAF convergence improves; the GAPs read about 1× under
+RAS perturbations. Which way RAF's scored cases move I do not know; RAF is
+set aside from rule decisions (specs/054), so the decision is on
+faithfulness (the documented rule) provided nothing outside RAF moves.

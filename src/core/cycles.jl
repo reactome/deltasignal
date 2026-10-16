@@ -344,7 +344,8 @@ than the release steps (1 if none), times its modifier. Returns the largest
 absolute change written.
 """
 function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec, obs_set, config;
-                      carriers::Bool = true, acc::Union{Nothing, Dict{Int, Tuple{Float64, Float64}}} = nothing)
+                      carriers::Bool = true, acc::Union{Nothing, Dict{Int, Tuple{Float64, Float64}}} = nothing,
+                      carrier_rel::Union{Nothing, Dict{Int, Set{Int}}} = nothing)
     pi, u, cu = pool_stationary(x, p, rxns_idx, baseline_vec, config)
     s = NaN
     for (k, f) in enumerate(p.forms)
@@ -414,9 +415,12 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
     if carriers
         for (c, ri, rel) in zip(p.carriers, p.carrier_rxn, p.carrier_release)
             c in obs_set && continue
+            # specs/049 amendment 7: a carrier listed by several pools leaves
+            # out every pool's release steps, not only this pool's.
+            excl = carrier_rel === nothing ? rel : get(carrier_rel, c, rel)
             tot = 0.0; cnt = 0
             for a in rxns_idx[ri].activator_indices
-                a in rel && continue
+                a in excl && continue
                 bl = baseline_vec[a]
                 bl > 0 || continue
                 tot += x[a] / bl; cnt += 1
@@ -454,9 +458,18 @@ Returns the largest absolute change written.
 function update_pools!(x::Vector{Float64}, ps, shared::Set{Int}, rxns_idx, baseline_vec, obs_set, config;
                        carriers::Bool = true)
     acc = isempty(shared) ? nothing : Dict(v => (0.0, 0.0) for v in shared)
+    # specs/049 amendment 7: the release steps of every pool listing a carrier
+    crel = nothing
+    if carriers && length(ps) > 1
+        crel = Dict{Int, Set{Int}}()
+        for p in ps, (c, rel) in zip(p.carriers, p.carrier_release)
+            union!(get!(crel, c, Set{Int}()), rel)
+        end
+    end
     maxch = 0.0
     for p in ps
-        ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = carriers, acc = acc)
+        ch = update_pool!(x, p, rxns_idx, baseline_vec, obs_set, config; carriers = carriers, acc = acc,
+                          carrier_rel = crel)
         isfinite(ch) || return ch          # a NaN or Inf must reach the residual check
         ch > maxch && (maxch = ch)
     end
