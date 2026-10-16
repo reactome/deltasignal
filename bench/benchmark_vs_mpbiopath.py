@@ -1411,8 +1411,8 @@ def main():
     ap.add_argument("--limit", type=int, default=None,
                     help="Process only the first N pathways (smoke test)")
     ap.add_argument("--max-edges", type=int, default=100000,
-                    help="Skip pathways larger than this (default 20k — RAF_MAP's "
-                         "1.6M edges chokes the HTTP path)")
+                    help="Skip pathways larger than this (default 100k, as catalog.sh and run_arm.sh pass; "
+                         "RAF_MAP once had 1.6M edges, which choked the HTTP path)")
     ap.add_argument("--ground-truth", choices=["curator", "experimental"],
                     default="curator",
                     help="Which ground truth to compare against. 'experimental' is the "
