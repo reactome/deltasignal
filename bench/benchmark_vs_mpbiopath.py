@@ -1172,7 +1172,11 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                        # reached the solver with no drug table (review of the branch).
                        "drug_stids": parsed.get("drug_stids"),
                        "pathogen_stids": parsed.get("pathogen_stids"),
-                       "carrier_loops": parsed.get("carrier_loops")}
+                       "carrier_loops": parsed.get("carrier_loops"),
+                       # week review 2026-10-15: without these an edge-modifying
+                       # arm solved iterated loops and was refused as "no pool table"
+                       "pools": parsed.get("pools"),
+                       "node_leaves": parsed.get("node_leaves")}
     # Use the server-cached network by id (fast: send only observations per
     # solve). But if SKIP_EDGE_TYPES modified the edges above, the cached
     # network is stale, so send the full modified payload instead.

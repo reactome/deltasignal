@@ -75,6 +75,12 @@ Parse a logic network into nodes + edges. Three input modes (checked in order):
    `boundary_edges.csv`, the edges it derives at root inputs and terminal
    outputs. Send it with a bundle from a split generator, or the network is the
    curated one alone. A catalog `pathway_id` reads it automatically.
+   The bundle's tables can come as optional parts too, named `drugs`,
+   `pathogens`, `carrier_loops`, `pools`, `pool_transitions`, `pool_carriers`,
+   `containment`, `cofactors` and `nodes` (each the bundle's `<name>.csv`).
+   Without them the solve runs, but the rules that read them are inert and
+   say so (`drug_rule: "inert: no drug table"` and so on): send them to get
+   the same model a catalog `pathway_id` gets.
    A request that declares `multipart/form-data` but is missing either required
    part is a **`400`** — it is not silently treated as mode 3.
 3. **No body** — falls back to the bundled sample network. This applies only to

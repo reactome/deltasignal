@@ -191,6 +191,15 @@ const SRV = DeltaSignal
         r = SRV.parse_handler(upload(f))
         @test r.status == 200
         @test nedges(r) == 3
+        # week review 2026-10-15: bundle tables come as their own parts and are
+        # read as the catalog's are; without them a rule reports no table
+        drugs(resp) = SRV.JSON3.read(String(resp.body))[:drug_stids]
+        @test drugs(SRV.parse_handler(upload(fields()))) === nothing
+        f = fields()
+        f["drugs"] = part("drugs", "stable_id,schema_class,name,reactome_release\nR-HSA-2,ChemicalDrug,x,97\n")
+        r = SRV.parse_handler(upload(f))
+        @test r.status == 200
+        @test collect(drugs(r)) == ["R-HSA-2"]
     end
 
     @testset "/api/health answers 200 and carries the catalog" begin

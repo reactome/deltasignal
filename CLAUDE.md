@@ -774,7 +774,7 @@ other seven execute code and print output.
 | `test/test_recycled_twin.jl` | 73 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_cli_observations.jl` | 45 | |
-| `test/test_api_errors.jl` | 58 | |
+| `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |
 | `test/test_worked_example.jl` | 9 | |
