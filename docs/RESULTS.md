@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-13. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-16. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,46 @@ commit.
 
 ---
 
+
+> **2026-10-16: canonical numbers after the week review.**
+> - Build `20261016-0006_da08370`: generator `da08370` (LNG #114, no
+>   duplicate variant reaction copies, specs/064; plus dependency bumps).
+> - Solver `0406a4b` (DS #121, #123, #124):
+>   - specs/061 adopted in its converging form (amendments 3–5:
+>     `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, `DS_RECYCLED_TWIN=on`);
+>   - bench `DS_PIN_ROOT_IGNORE=depletion`;
+>   - specs/049 amendment 7 (RAF shared carriers).
+> - Results: `results/0406a4b`. They reproduce the measured arm (`dedup_g6`)
+>   on every prediction.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **89.49%** | **0.8645** |
+> | curator held-out, every case (71 pathways) | 19,000 | 88.87% | 0.8559 |
+> | curator, all pathways, in release (81) | 23,625 | 87.28% | 0.8441 |
+> | curator, all pathways, every case | 24,100 | 86.70% | 0.8365 |
+> | experimental, every case (10 pathways) | 849 | **71.38%** | **0.6320** |
+>
+> **What moved since the 2026-10-13 box**, each measured on its own:
+> - **specs/061 (amendment 5)**: curator held-out +33 (33 fixed / 0 broken);
+>   tuning +1 and experimental +1 with RAF set aside. Every discordant case
+>   converges and keeps its class at iteration caps 500–4000.
+>   - The adoption's first measurement reported tuning +112 and
+>     experimental +7. Those were iteration-cap artifacts (specs/061 R5).
+>   - A box with them (DS #122) was never merged.
+> - **specs/049 amendment 7**: RAF only. Tuning +21, experimental +14,
+>   0 broken. RAS overexpressions now read UP; 58 RAF cases now converge.
+> - **specs/064**: curator held-out −4, all one perturbation (SH3GL1 KO in
+>   EGFR, traced). Nothing else moves.
+>
+> Converged: 1,654 / 1,725 curator and 222 / 244 experimental solves (the
+> 2026-10-13 box: 1,652 / 215).
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 86.70% / 0.8365 against 83.34% / 0.8063, **+3.36pp**.
+> - Experimental: 71.38% (606/849) against 75.74% (643/849), **−4.36pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-13: canonical numbers with drug-derived nodes held at baseline
 > (specs/055).**
