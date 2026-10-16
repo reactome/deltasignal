@@ -263,6 +263,36 @@ function solve_ring(net; obs = Dict{String, Float64}(), phi = "0.1", carriers = 
     end
 end
 
+@testset "a carrier shared by two pools leaves out both pools' release steps (specs/049 amendment 7)" begin
+    # two copies of the ring share the kinase K (with its supply KG -> KP -> K):
+    # K is a carrier of both pools and must read only KP, not the other pool's
+    # release flux (the RAS GAPs in RAF were written from it, and the solve never
+    # converged).
+    shared = ("K", "KG", "KP")
+    ra(k) = k in shared ? k : "a_" * k
+    rb(k) = k in shared ? k : "b_" * k
+    na, nb = ring(; rl = ra), ring(; rl = rb)
+    seen = Set{Tuple{String, String, String}}()
+    edges = DS.LogicNetworkEdge[]
+    for e in vcat(na.edges, nb.edges)
+        key = (e.parent_uuid, e.child_uuid, e.edge_type)
+        key in seen && continue
+        push!(seen, key); push!(edges, e)
+    end
+    net = DS.ReactionNetwork(merge(na.nodes, nb.nodes), edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict{String, Set{String}}(), nothing, vcat(na.pools, nb.pools))
+    r = with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_CYCLE_CARRIERS" => "on",
+                 "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        o = Dict(k => (1.0, 1.0) for k in ("a_G", "a_Ph", "b_G", "b_Ph"))
+        o["KG"] = (80.0, 1.0)
+        DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    @test r.converged
+    @test fold(r, "K") ≈ 80.0 atol = 1e-6
+    @test fold(r, "a_Ss") ≈ fold(r, "b_Ss") atol = 1e-9
+    @test r.diagnostics["cycle_carriers_held"] == 1      # one distinct carrier
+end
+
 @testset "multi-step cycles (amendment 2)" begin
     net = ring()
     # Fable's fixtures: the lumped ring reduces to the two-form rule

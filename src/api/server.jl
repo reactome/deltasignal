@@ -222,6 +222,16 @@ function error_response(e::Exception; context::String="")
 end
 
 const PARSE_FIELDS = ("logic_network", "boundary_edges", "uuid_mapping", "set_mappings", "observations")
+# The bundle tables the default model reads beside a logic network (week review
+# 2026-10-15: an upload had no way to supply them, so it solved without the
+# drug, pathogen, carrier, pool, containment and cofactor rules). Each optional
+# part is saved under its bundle file name, where the parser's sibling rule
+# finds it. A rule whose table is absent still reports `<mode>: no ... table`.
+const PARSE_TABLE_FIELDS = Dict(
+    "drugs" => "drugs.csv", "pathogens" => "pathogens.csv", "carrier_loops" => "carrier_loops.csv",
+    "pools" => "pools.csv", "pool_transitions" => "pool_transitions.csv", "pool_carriers" => "pool_carriers.csv",
+    "containment" => "containment.csv", "cofactors" => "cofactors.csv", "nodes" => "nodes.csv",
+)
 
 # Server-side cache of parsed networks, so a client can /api/parse once and then
 # /api/solve many times against a `network_id` — sending only observations, not
@@ -381,6 +391,14 @@ function extract_uploaded_files(req)
     tmp_dir = mktempdir()
     paths = Dict{String, String}()
     for part in multiparts
+        if haskey(PARSE_TABLE_FIELDS, part.name)
+            target = joinpath(tmp_dir, PARSE_TABLE_FIELDS[part.name])
+            open(target, "w") do io
+                write(io, read(part.data))
+            end
+            paths[part.name] = target
+            continue
+        end
         part.name in PARSE_FIELDS || continue
         # The client-controlled filename must never steer the write path: strip
         # to a bare name and keep only safe characters (no separators, no "..").

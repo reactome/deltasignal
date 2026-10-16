@@ -138,3 +138,64 @@ overrides. Results `639787b/rtwin58g3`.
   twin sat next to a recycled copy in a scored solve, and no modifier-only
   copy changed a gate that mattered.
 - The registered gate passes as in R3. The candidate is the amended code.
+
+## R5 (2026-10-15, after adoption): most tuning and experimental gains are iteration-cap artifacts
+
+The week's adversarial review (finding: "the source gate puts TGF-beta into a
+limit cycle") showed `_own_source_down` is an on/off switch read on the live
+iterate, so where a source copy sits in its target's cyclic component the
+cap toggles between sweeps and the solve never settles; the scored value is
+wherever the 500-iteration cap stops. Census: 11 of 97 gated pairs, in 3
+pathways (TGF-beta 4, R-HSA-8878166 6, R-HSA-5358351 1).
+
+Check (`bench/analysis/061/capcheck.jl`, results `capcheck_9e93c11.tsv`):
+every case whose class differs between the control (`64d23cb`) and the
+adopted defaults (`9e93c11`), 176 in all, re-solved under the defaults at
+iteration caps 500, 1000, 2000 and 4000. At 500 every case reproduces the
+benchmark exactly.
+
+| | fixed / broke | fixes converged and stable at every cap |
+|---|---|---|
+| curator held-out | 33 / 1 | **33 of 33**; the 1 break (SMAD7 KO, TGF-beta) is unconverged and flips with the cap |
+| curator tuning | 113 / 1 | **2 of 113**: 111 are AKT1, AKT2, MDM4 and BRCA1 knockouts in Transcriptional Regulation by TP53 whose solves never converge; their class changes with the cap |
+| experimental | 7 / 0 | **1 of 7**: 6 are the same unconverged TP53 solves |
+
+So the held-out +32 that decided the gate is real (all converged, all stable),
+and the reported tuning +112 and experimental +7 are not: they are the
+iteration cap's choice in an oscillating TP53 solve. The experimental gate
+condition (no significant loss) still holds; the experimental gain does not.
+The adoption decision rested on "passes more tests"; on stable cases it still
+does (held-out +33 stable fixes against 0 stable breaks), but it introduced
+non-convergence in TP53 and TGF-beta, which amendment 3 addresses.
+
+## R6 (2026-10-15): amendments 3–5 — the rule now converges, and the held-out gain is all real
+
+- **`rtwin58g4` (amendment 3, gate decided once; `b46783c`):** 0 classes
+  differ from the adopted defaults; convergence unchanged (1,645). Per-case
+  convergence showed TGF-beta SMAD7 KO now converges (to NOT), but TP53 still
+  oscillates. Traced (`tp53iso.jl`): `suppress_only` alone oscillates in TP53,
+  `full` does not; the node-copy `min(factor, 1)` cap is the cause.
+- **Amendment 4** (remove de-repressing node-copy edges after an uncapped
+  first solve) still oscillated in the probe; not run as an arm.
+- **`rtwin58g6` (amendment 5: node-copy pairs free, only source-gated
+  entity-own edges removed after an uncapped first solve; `76d7306`, which
+  also carries the specs/049 amendment 7 carrier fix, RAF only):**
+
+| against the old defaults `64d23cb`, RAF set aside | net | fixed / broke | p |
+|---|---|---|---|
+| **curator held-out** | **+33** | 33 / 0 | < 1e-4 |
+| curator tuning | +1 | 2 / 1 | 1.0 |
+| experimental | +1 | 1 / 0 | 1.0 |
+
+  With RAF included: tuning +22, experimental +15 (RAF +21 / +14, the
+  carrier fix; isolated separately). Convergence: curator 1,653 (control
+  1,652), experimental 221 (215). Cap re-check (`capcheck_76d7306.tsv`): all
+  78 discordant cases converge and keep their class at caps 500–4000; all
+  reproduce the bench exactly.
+- Against the adopted `9e93c11`: held-out +1; tuning (RAF set aside) −111 and
+  experimental −6, which are exactly the R5 cap artifacts going away.
+
+**Verdict:** the registered gate and the amendment-3 convergence condition
+pass. The default stays, in the amended form. The honest account of the
+adoption is now: curator held-out +33 (33 / 0), every case converged and
+stable; no real tuning or experimental gain outside RAF.

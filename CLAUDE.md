@@ -348,7 +348,15 @@ env vars only override for benchmark sweeps:
   SOURCE copy (a copy of the target's entity it is built from, found walking
   back along material edges, not catalyst or regulator ones (amendment 2);
   never the target itself, amendment 1)
-  reads below baseline. A SMAD2 knockout
+  reads below baseline. **Amendments 3–5 (2026-10-15): no cap is applied
+  during an iteration.** Pass 1 solves with every own-product depletion free
+  (as `full`); an entity-own edge whose depleter AND a source copy fell in
+  pass 1 is removed; pass 2 solves without it, again uncapped. Node-copy own
+  products are NOT capped under this mode (as `full`): read live, the
+  `min(factor, 1)` cap and the source switch made TP53 and TGF-beta oscillate,
+  and the scored value was the iteration cap's choice (specs/061 R5). The
+  solve reports `own_source_depletions` (edges removed) and
+  `own_product_removed`. A SMAD2 knockout
   cannot de-repress SMAD2 through SMAD2:SMURF2; an MDM2 knockout still
   de-represses TP53 through MDM2:TP53. The solve reports
   `own_source_depletions`.
@@ -415,7 +423,10 @@ env vars only override for benchmark sweeps:
   release) is one pool: its enzyme complexes are intermediates with no
   baseline share that read the flux through them (amendment 2).
   `DS_CYCLE_CARRIERS=on` (default; `off` for the isolation arm) makes the
-  enzyme's free form read its producers other than the release steps. The
+  enzyme's free form read its producers other than the release steps of
+  EVERY pool that lists it (specs/049 amendment 7: the RAS GAPs, carriers of
+  four pools, were written from the other pools' release flux and RAF never
+  converged; fixing it is RAF tuning +21, experimental +14, nothing else). The
   solve reports `cycle_rule`, `cycle_pools_solved`, `cycle_pools_multistep`,
   `cycle_carriers` and `cycle_carriers_held`; under any `DS_SCC_METHOD` other than
   `fixed_point`, or `DS_SCC_SOLVE=0`, pools are not solved and `cycle_rule`
@@ -764,14 +775,14 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 260 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |
+| `test/test_cycles.jl` | 264 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 68 | specs/059–061, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_cli_observations.jl` | 45 | |
-| `test/test_api_errors.jl` | 58 | |
+| `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |
 | `test/test_worked_example.jl` | 9 | |

@@ -241,6 +241,45 @@ end
     @test fold(solve3(mdm_net(), "suppress_only_entity", ("M" => 0.0,)), "Y") ≈ 1.0 atol = 1e-3
 end
 
+@testset "amendment 4: caps are decided from an uncapped first solve, then edges removed" begin
+    # SMAD2 KO: the source falls and the depleter falls in the first solve, so
+    # the edge is removed for the second
+    src = solve3(mdm_net(), "suppress_only_source", ("R" => 0.0,))
+    @test src.diagnostics["own_source_first_pass_converged"] == true
+    @test src.diagnostics["own_source_depletions"] == 1
+    @test src.diagnostics["own_product_removed"] == [("C", "Y")]
+    @test !haskey(src.diagnostics, "own_node_pairs")
+    # MDM2 KO: the source holds; nothing removed, de-repression kept
+    src = solve3(mdm_net(), "suppress_only_source", ("M" => 0.0,))
+    @test src.diagnostics["own_source_depletions"] == 0
+    # R overexpressed: the depleter rises, the edge suppresses; nothing removed
+    src = solve3(mdm_net(), "suppress_only_source", ("R" => 2.0,))
+    @test src.diagnostics["own_source_depletions"] == 0
+    # the other suppress modes keep the live cap (recorded arms)
+    @test !haskey(solve3(mdm_net(), "suppress_only", ("R" => 0.0,)).diagnostics, "own_product_removed")
+end
+
+@testset "relabelling the uuids moves nothing under the twin and source rules" begin
+    # week review 2026-10-15: the determinism suite's relabel test drops every
+    # bundle table; this one keeps containment, so both default rules act
+    rl(u) = "z" * reverse(u)
+    function relabel(net)
+        nodes = Dict(rl(u) => DS.NetworkNode(rl(u), n.reactome_id, n.entity_type, n.original_set_id, rl(u), n.baseline)
+                     for (u, n) in net.nodes)
+        edges = [DS.LogicNetworkEdge(rl(e.parent_uuid), rl(e.child_uuid), e.is_and, e.is_positive,
+                                     e.stoichiometry, e.edge_type) for e in net.edges]
+        DS.ReactionNetwork(nodes, edges, net.set_mappings, net.cofactor_stids, net.containment,
+                           nothing, nothing, nothing, nothing)
+    end
+    for pins in (("R" => 0.0,), ("M" => 0.0,), ("R" => 2.0,))
+        a = solve3(mdm_net(), "suppress_only_source", pins)
+        b = solve3(relabel(mdm_net()), "suppress_only_source", Tuple(rl(k) => v for (k, v) in pins))
+        @test all(a.node_activities[u] == b.node_activities[rl(u)] for u in keys(a.node_activities))
+        @test a.diagnostics["own_source_depletions"] == b.diagnostics["own_source_depletions"]
+        @test a.diagnostics["recycled_twin_edges"] == b.diagnostics["recycled_twin_edges"]
+    end
+end
+
 @testset "suppress_only_source still lets the depleter suppress" begin
     src = solve3(mdm_net(), "suppress_only_source", ("R" => 2.0,))
     full = solve3(mdm_net(), "full", ("R" => 2.0,))

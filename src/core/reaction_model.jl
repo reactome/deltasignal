@@ -845,7 +845,11 @@ function index_reactions(
             src = Tuple{Int, Float64}[]
             if !own && !isempty(own_source)
                 for u in get(own_source, (idx_to_uuid[d], idx_to_uuid[rec.target_idx]), String[])
-                    haskey(uuid_to_idx, u) && push!(src, (uuid_to_idx[u], get(baselines, u, 0.01)))
+                    if u == OWN_SOURCE_GATED
+                        push!(src, (0, Inf))   # amendment 3: gated for the whole solve
+                    elseif haskey(uuid_to_idx, u)
+                        push!(src, (uuid_to_idx[u], get(baselines, u, 0.01)))
+                    end
                 end
             end
             push!(dep_src, src)
@@ -880,6 +884,11 @@ function index_reactions(
     end
     if stats !== nothing
         stats["self_inhibitors"] = sum((count(!isempty, r.inhibitor_shared) for r in indexed); init = 0)
+        # specs/061 amendment 4: the node-copy own-product pairs, by uuid
+        inv = Dict(i => u for (u, i) in uuid_to_idx)
+        stats["own_node_pairs"] = Tuple{String, String}[(inv[r.depletion_indices[k]], inv[r.target_idx])
+                                  for r in indexed for k in eachindex(r.depletion_indices)
+                                  if k <= length(r.depletion_own_product) && r.depletion_own_product[k]]
         # specs/061 amendment 2: pairs actually gated (node-copy pairs are capped outright)
         stats["own_source_depletions"] = sum((count(!isempty, r.depletion_own_src) for r in indexed); init = 0)
     end
@@ -1017,6 +1026,10 @@ explicitly so that selecting it stays deliberate):
 - `DS_SET_POOL_MODE` (specs/033): `mean` is the existing OR rule, so it takes
   no special branch; the other three combine a set pool's member folds.
 """
+# specs/061 amendment 3: the source marker of a pair gated for a whole solve
+# (decided from a first, ungated solve), so no threshold is read mid-iteration.
+const OWN_SOURCE_GATED = "*gated*"
+
 # specs/061, adopted 2026-10-15 (Adam): read here and by the solver's pair builders.
 const DS_DEPLETION_OWN_PRODUCT_DEFAULT = "suppress_only_source"
 
@@ -1489,12 +1502,17 @@ function set_pool_value(vals::AbstractVector{T}, bl::T, mode::String) where {T<:
     throw(ArgumentError("set_pool_value: unknown mode $(repr(mode))"))
 end
 
+"""`config` with `depletion_own_product` replaced (specs/061 amendment 4)."""
+with_own_product(config::ReactionEvalConfig, mode::String) =
+    ReactionEvalConfig((f == :depletion_own_product ? mode : getfield(config, f) for f in fieldnames(ReactionEvalConfig))...)
+
 """
 specs/061: is any source copy of an entity-own depletion pair below its
 baseline (by more than a relative 1e-6)? Empty sources: never.
 """
 function _own_source_down(src::Vector{Tuple{Int, Float64}}, x::AbstractVector)
     @inbounds for (i, b) in src
+        i == 0 && return true   # amendment 3: decided before the solve
         x[i] < b * (1 - 1e-6) && return true
     end
     return false
