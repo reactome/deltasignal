@@ -35,3 +35,26 @@ identical predictions.
   traced loss shows the per-pathway signature is the wrong one. Report
   held-out, tuning and experimental net with McNemar p, both with and without
   RAF.
+
+## Amendment 1 (2026-10-16, before the build): every derived per-pathway cache
+
+Reading `neo4j_connector.py` directly (week review gap) found the same defect
+in five more caches. Each memoises values computed from
+`get_complex_components` / `get_set_members` / `get_labels`, which return
+empty for anything outside the current pathway's prefetch, and none is
+cleared between pathways:
+
+- `logic_network_generator._variant_leafsets_cache`
+- `logic_network_generator._matching_leaves_cache`
+- `logic_network_generator._handoff_leaf_cache`
+- `logic_network_generator._sets_chosen_cache`
+- `variant_keys` memo (`reset_caches()`: `_memo`, `_variants_cache`, `_struct`)
+
+Caches filled by their own direct Neo4j query (`_containing_cache`, drug,
+pathogen, form-profile, cofactor) hold database truth and are left alone.
+Every catch-all in the connector logs and re-raises; none falls back silently.
+
+Fix: clear all five in `prime_entity_caches`. Measurement, prediction and
+decision rule as above (most likely nothing moves; if something moves, trace
+every case; adopted unless a traced loss shows the per-pathway value is the
+wrong one), against canonical `20261016-0006_da08370/results/0406a4b`.
