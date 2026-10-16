@@ -287,15 +287,30 @@ function solve_steady_state(
               smethod != "fixed_point" ? "DS_SCC_METHOD=$smethod" : nothing
     cycle_rule = ymode == "off" ? "off" : network.pools === nothing ? "balance: no pool table" :
                  y_inert !== nothing ? "balance: inert under $y_inert" : "balance"
-    result = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
-                                        self_shared = self_shared,
-                                        own_entity = own_entity,
-                                        own_source = own_source,
-                                        cycle_pools = ypools,
-                                        cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
-                                        cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
-                                        node_keys = Dict{String, String}(
-                                            u => something(nd.reactome_id, "") for (u, nd) in network.nodes))
+    node_keys = Dict{String, String}(u => something(nd.reactome_id, "") for (u, nd) in network.nodes)
+    penalty(os) = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
+                                             self_shared = self_shared,
+                                             own_entity = own_entity,
+                                             own_source = os,
+                                             cycle_pools = ypools,
+                                             cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
+                                             cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
+                                             node_keys = node_keys)
+    # specs/061 amendment 3: which partner fell is decided ONCE, from a first
+    # solve with the entity-own pairs free; the second solve caps the gated
+    # pairs for the whole iteration. Read live, the gate toggled between sweeps
+    # inside cyclic components and the solve never settled (R5).
+    if isempty(own_source)
+        result = penalty(own_source)
+    else
+        first_pass = penalty(Dict{Tuple{String, String}, Vector{String}}())
+        down(u) = haskey(first_pass.node_activities, u) &&
+                  first_pass.node_activities[u] < get(baseline_activities, u, 0.01) * (1 - 1e-6)
+        gated = Dict{Tuple{String, String}, Vector{String}}(
+            k => [OWN_SOURCE_GATED] for (k, srcs) in own_source if any(down, srcs))
+        result = penalty(gated)
+        result.diagnostics["own_source_first_pass_converged"] = first_pass.converged
+    end
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
@@ -369,7 +384,7 @@ function own_entity_depletion_pairs(network::ReactionNetwork; mode::String = "su
 end
 
 """
-specs/061. Under `DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, each
+specs/061. Under `DS_DEPLETION_OWN_PRODUCT=suppress_only_source` (default), each
 entity-own depletion pair (as `own_entity_depletion_pairs`) -> its SOURCE
 copies: nodes with the target's stable id reached walking backward from the
 depleter along material edges (not depletion, catalyst or regulator;

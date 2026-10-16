@@ -241,6 +241,19 @@ end
     @test fold(solve3(mdm_net(), "suppress_only_entity", ("M" => 0.0,)), "Y") ≈ 1.0 atol = 1e-3
 end
 
+@testset "amendment 3: the gate is decided once, from a first ungated solve" begin
+    # SMAD2 KO: the source falls in the first solve, so the pair is gated
+    src = solve3(mdm_net(), "suppress_only_source", ("R" => 0.0,))
+    @test src.diagnostics["own_source_first_pass_converged"] == true
+    @test src.diagnostics["own_source_depletions"] == 1
+    # MDM2 KO: the source holds in the first solve; nothing is gated
+    src = solve3(mdm_net(), "suppress_only_source", ("M" => 0.0,))
+    @test src.diagnostics["own_source_depletions"] == 0
+    # the marker gates for the whole solve, whatever the iterate reads
+    @test DS._own_source_down([(0, Inf)], [0.01])
+    @test !DS._own_source_down(Tuple{Int, Float64}[], [0.01])
+end
+
 @testset "suppress_only_source still lets the depleter suppress" begin
     src = solve3(mdm_net(), "suppress_only_source", ("R" => 2.0,))
     full = solve3(mdm_net(), "full", ("R" => 2.0,))

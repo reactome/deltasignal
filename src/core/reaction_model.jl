@@ -845,7 +845,11 @@ function index_reactions(
             src = Tuple{Int, Float64}[]
             if !own && !isempty(own_source)
                 for u in get(own_source, (idx_to_uuid[d], idx_to_uuid[rec.target_idx]), String[])
-                    haskey(uuid_to_idx, u) && push!(src, (uuid_to_idx[u], get(baselines, u, 0.01)))
+                    if u == OWN_SOURCE_GATED
+                        push!(src, (0, Inf))   # amendment 3: gated for the whole solve
+                    elseif haskey(uuid_to_idx, u)
+                        push!(src, (uuid_to_idx[u], get(baselines, u, 0.01)))
+                    end
                 end
             end
             push!(dep_src, src)
@@ -1017,6 +1021,10 @@ explicitly so that selecting it stays deliberate):
 - `DS_SET_POOL_MODE` (specs/033): `mean` is the existing OR rule, so it takes
   no special branch; the other three combine a set pool's member folds.
 """
+# specs/061 amendment 3: the source marker of a pair gated for a whole solve
+# (decided from a first, ungated solve), so no threshold is read mid-iteration.
+const OWN_SOURCE_GATED = "*gated*"
+
 # specs/061, adopted 2026-10-15 (Adam): read here and by the solver's pair builders.
 const DS_DEPLETION_OWN_PRODUCT_DEFAULT = "suppress_only_source"
 
@@ -1495,6 +1503,7 @@ baseline (by more than a relative 1e-6)? Empty sources: never.
 """
 function _own_source_down(src::Vector{Tuple{Int, Float64}}, x::AbstractVector)
     @inbounds for (i, b) in src
+        i == 0 && return true   # amendment 3: decided before the solve
         x[i] < b * (1 - 1e-6) && return true
     end
     return false

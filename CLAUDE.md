@@ -348,7 +348,10 @@ env vars only override for benchmark sweeps:
   SOURCE copy (a copy of the target's entity it is built from, found walking
   back along material edges, not catalyst or regulator ones (amendment 2);
   never the target itself, amendment 1)
-  reads below baseline. A SMAD2 knockout
+  reads below baseline. Amendment 3: that test is made ONCE, on a first solve
+  with the entity-own pairs free, and the gated pairs stay capped for the
+  whole second solve (read live, the switch toggled inside cyclic components
+  and TP53/TGF-beta never converged, specs/061 R5). A SMAD2 knockout
   cannot de-repress SMAD2 through SMAD2:SMURF2; an MDM2 knockout still
   de-represses TP53 through MDM2:TP53. The solve reports
   `own_source_depletions`.
@@ -768,7 +771,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 68 | specs/059–061, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 73 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 58 | |
