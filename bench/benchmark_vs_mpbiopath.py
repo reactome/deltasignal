@@ -1261,6 +1261,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["self_fed_edges_held"] += int(ds_result.get("self_fed_edges_held") or 0)
             SOLVE_TALLY[f"self_inhibitor_leaves={ds_result.get('self_inhibitor_leaves', 'unknown')}"] += 1
             SOLVE_TALLY["self_inhibitor_leaf_pairs"] += int(ds_result.get("self_inhibitor_leaf_pairs") or 0)
+            # specs/066: the non-converged fallback and what it did.
+            SOLVE_TALLY[f"nonconv_fallback={ds_result.get('nonconv_fallback', 'unknown')}"] += 1
+            for k in ("nonconv_components", "nonconv_improved", "nonconv_rescued", "nonconv_skipped_pools"):
+                SOLVE_TALLY[k] += int(ds_result.get(k) or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
         # per-case convergence (week review 2026-10-15): a prediction from a solve
         # that stopped at the iteration cap is flagged in the case dump.
@@ -1631,6 +1635,12 @@ def main():
         raise SystemExit("DS_SELF_FED_MODE=entry but no solve held a self-fed edge; the arm is the control.")
     if "on" in lrules and SOLVE_TALLY["self_inhibitor_leaf_pairs"] == 0:
         raise SystemExit("DS_SELF_INHIBITOR_LEAVES=1 but no solve flagged a leaf-shared inhibitor; the arm is the control.")
+    nrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("nonconv_fallback="))
+    print(f"\nNon-converged: fallback {'/'.join(nrules) or 'unknown'}, {SOLVE_TALLY['nonconv_components']} component-solves "
+          f"above tolerance, {SOLVE_TALLY['nonconv_improved']} improved, {SOLVE_TALLY['nonconv_rescued']} rescued, "
+          f"{SOLVE_TALLY['nonconv_skipped_pools']} skipped (pools) (specs/066)")
+    if "lm" in nrules and SOLVE_TALLY["nonconv_components"] > SOLVE_TALLY["nonconv_skipped_pools"] and SOLVE_TALLY["nonconv_improved"] == 0:
+        raise SystemExit("DS_NONCONV_FALLBACK=lm but no non-converged component was improved; the arm is the control.")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
           f"perturbations, {PIN_TALLY['pinned_roots']} of them roots, "
           f"{PIN_TALLY['pinned_drugs']} drug nodes (DS_PIN_SCOPE={PIN_SCOPE})")

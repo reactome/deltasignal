@@ -790,6 +790,7 @@ other seven execute code and print output.
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
+| `test/test_limit_cycles.jl` | 31 | specs/066, added 2026-10-16 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

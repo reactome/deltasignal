@@ -170,6 +170,8 @@ function solve_steady_state(
     own_source = own_source_depletion_sources(network)
     # specs/040 rule A: resolved here so a misspelt mode fails before any solve.
     sfmode = self_fed_mode()
+    # specs/066: resolved here so a misspelt mode fails before any solve.
+    ncmode = nonconv_fallback_mode()
     
     # Initialize node activities
     all_nodes = collect(keys(network.nodes))
@@ -360,6 +362,7 @@ function solve_steady_state(
     result.diagnostics["conserved_held"] = conserved_held
     # specs/040: which self-feedback rules ran. The counts come from the solve.
     result.diagnostics["self_fed_rule"] = sfmode
+    result.diagnostics["nonconv_fallback"] = ncmode
     result.diagnostics["self_inhibitor_leaves"] = self_inhibitor_leaves() ? "on" : "off"
     result.diagnostics["self_inhibitor_leaf_pairs"] = self_leaf_pairs
     return result
@@ -837,7 +840,8 @@ function minimize_component!(
     baseline_vec::Vector{Float64},
     params::SteadyStateParams,
     config::ReactionEvalConfig,
-    supply::Union{Nothing,Vector{Float64}},
+    supply::Union{Nothing,Vector{Float64}};
+    lm_cap::Union{Nothing,Int} = nothing,
 )::Float64
     prob = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
                             params.mu, params.gamma, config, supply)
@@ -860,7 +864,7 @@ function minimize_component!(
     try
         if opt == "lm"
             zb = copy(z0)
-            cap = max(1, min(params.max_iters, _lm_iter_cap()))
+            cap = lm_cap === nothing ? max(1, min(params.max_iters, _lm_iter_cap())) : lm_cap
             gtol = params.tolerance * 1e-2
             # gamma-continuation (homotopy). A cyclic component can have several
             # self-consistent states -- on an 840-node ring, collapsed (~0.2 UI),
@@ -941,6 +945,36 @@ end
 function _lm_iter_cap()
     n = round(Int, _float_env("DS_LM_ITERS", 60.0))
     n < 1 && throw(ArgumentError("DS_LM_ITERS=$n must be at least 1."))
+    n
+end
+
+"""
+`DS_NONCONV_FALLBACK` (specs/066): `off` (default) | `lm`. Under `lm`, a cyclic
+component whose damped fixed point ends at or above tolerance is re-solved by
+Levenberg-Marquardt on the pure residual |F(x) - x|^2 (no baseline prior),
+started from the last iterate, for `DS_NONCONV_LM_ITERS` (default 400)
+iterations. The result is kept only if its residual is lower. Converged
+components are never touched. Components holding cycle-balance pool nodes are
+skipped: those nodes are solved by their pool (pi = piP), not by F.
+
+Why: some components are Goodwin rings (a chain of lags closed by a high-gain
+negative feedback, e.g. a complex depleting each of its own free subunits
+across an AND). Their fixed point exists but is unstable under any damped
+relaxation, so the iteration settles into a limit cycle and the scored value
+is the phase the iteration cap lands on.
+"""
+const DS_VALID_NONCONV_FALLBACK = ("off", "lm")
+
+function nonconv_fallback_mode()::String
+    v = get(ENV, "DS_NONCONV_FALLBACK", "off")
+    v in DS_VALID_NONCONV_FALLBACK || throw(ArgumentError(
+        "DS_NONCONV_FALLBACK=\"$v\" is not a recognised mode; expected \"off\" or \"lm\"."))
+    return v
+end
+
+function _nonconv_lm_iters()::Int
+    n = round(Int, _float_env("DS_NONCONV_LM_ITERS", 400.0))
+    n < 1 && throw(ArgumentError("DS_NONCONV_LM_ITERS=$n must be at least 1."))
     n
 end
 
@@ -1126,6 +1160,7 @@ function solve_scc_ordered!(
         ))
     end
     minimize = scc_method == "minimize"
+    nonconv_lm = nonconv_fallback_mode() == "lm"        # specs/066
     pooling = scc_method in ("pool", "pool_parity", "pool_all")
     parity = scc_method == "pool_parity"
     pool_all = scc_method == "pool_all"
@@ -1598,6 +1633,30 @@ function solve_scc_ordered!(
                 comp_residual = maxch
                 maxch < tol && break
             end
+            # specs/066: a component still above tolerance after the cap is
+            # usually a limit cycle (a Goodwin ring), whose fixed point exists
+            # but repels damped relaxation. Find it by least squares on the
+            # residual instead, and keep it only if it is closer to F(x) = x.
+            # A component bounded on purpose (DS_SCC_NEG_MODE) is left alone.
+            if nonconv_lm && !minimize && !is_neg && comp_residual >= tol
+                pool_stats["nonconv_components"] = get(pool_stats, "nonconv_components", 0) + 1
+                if haskey(comp_pools, c) || any(u -> u in managed, comp_nodes[c])
+                    pool_stats["nonconv_skipped_pools"] = get(pool_stats, "nonconv_skipped_pools", 0) + 1
+                else
+                    saved = x[comp_nodes[c]]
+                    r0 = _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+                    pz = SteadyStateParams(1.0, 0.0, params.max_iters, tol, params.method)
+                    r1 = minimize_component!(x, rs, rxns_idx, obs_set, baseline_vec, pz, config, supply;
+                                             lm_cap = _nonconv_lm_iters())
+                    if r1 < r0
+                        comp_residual = r1
+                        pool_stats["nonconv_improved"] = get(pool_stats, "nonconv_improved", 0) + 1
+                        r1 < tol && (pool_stats["nonconv_rescued"] = get(pool_stats, "nonconv_rescued", 0) + 1)
+                    else
+                        x[comp_nodes[c]] = saved
+                    end
+                end
+            end
             # Warm-started minimisation of the specified objective. The
             # fixed-point sweep above produced the starting point; this moves
             # from "a root the sweep happened to reach" to "the minimiser of
@@ -2006,6 +2065,11 @@ function solve_steady_state_penalty(
             "scc_order" => get(index_stats, "scc_order", "label"),
             "scc_order_ties" => get(index_stats, "scc_order_ties", 0),
             "self_fed_edges_held" => get(index_stats, "self_fed_edges_held", 0),
+            # specs/066: non-converged components, and what the fallback did.
+            "nonconv_components" => get(index_stats, "nonconv_components", 0),
+            "nonconv_improved" => get(index_stats, "nonconv_improved", 0),
+            "nonconv_rescued" => get(index_stats, "nonconv_rescued", 0),
+            "nonconv_skipped_pools" => get(index_stats, "nonconv_skipped_pools", 0),
         ),
     )
 end

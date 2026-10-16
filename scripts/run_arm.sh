@@ -188,6 +188,7 @@ for gt in ("curator", "experimental", "korkut", "korkut_predict"):
         m = re.search(r"^Cycles: .*$", text, re.M); rec[f"{gt}_cycles"] = m.group(0) if m else None
         m = re.search(r"^Carrier loops: .*$", text, re.M); rec[f"{gt}_carrier_loops"] = m.group(0) if m else None
         m = re.search(r"^Depletion: .*$", text, re.M); rec[f"{gt}_depletion"] = m.group(0) if m else None
+        m = re.search(r"^Non-converged: .*$", text, re.M); rec[f"{gt}_nonconv"] = m.group(0) if m else None
 json.dump(rec, open(os.path.join(out, "ARM.json"), "w"), indent=2)
 print(json.dumps(rec, indent=2))
 PY

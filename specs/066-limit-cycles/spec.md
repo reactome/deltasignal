@@ -99,3 +99,18 @@ gate:
   held-out class change in a component the fallback did not rescue (those are
   still the cap's choice, so a gain or loss there is not credited to the
   rule).
+
+## Amendment 1 (2026-10-16, before the arm): two implementation details
+
+- **Components holding cycle-balance pool nodes are skipped** and counted
+  (`nonconv_skipped_pools`). Their pool nodes are set by the pool's own
+  π = πP solve, not by F, and the least-squares step would overwrite them
+  with reaction outputs. None of the five traced components holds a pool
+  node, so the predictions above stand.
+- `DS_NONCONV_LM_ITERS` (default 400) sets the LM budget; the existing
+  `DS_LM_ITERS` (60, `DS_SCC_METHOD=minimize`) is not reused, because 60 left
+  EGFR's 373-node component at residual ~5e-5.
+- Test: `test/test_limit_cycles.jl` (31 assertions). A nine-subunit Goodwin
+  ring cycles under `off` (the readout differs between caps 500 and 501) and,
+  under `lm`, lands on the analytic fixed point d = P^(1/10) at both caps;
+  an acyclic network and a gain-1 ring are bit-identical under both modes.
