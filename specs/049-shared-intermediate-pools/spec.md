@@ -521,3 +521,22 @@ multi-pool carrier); RAF convergence improves; the GAPs read about 1× under
 RAS perturbations. Which way RAF's scored cases move I do not know; RAF is
 set aside from rule decisions (specs/054), so the decision is on
 faithfulness (the documented rule) provided nothing outside RAF moves.
+
+### Amendment 7 result (2026-10-16)
+
+Isolated by an arm with only this change reverted (`9ff8335`, local branch,
+`results/9ff8335/iso_nocarrier`) against `76d7306` (`rtwin58g6`):
+
+| | net | fixed / broke | p |
+|---|---|---|---|
+| curator held-out | 0 | 0 / 0 | |
+| curator tuning | +21 | 21 / 0 (all RAF) | < 1e-4 |
+| experimental | +14 | 14 / 0 (all RAF) | 1e-4 |
+
+Nothing outside RAF moves, as predicted. 36 curator and 22 experimental RAF
+cases go from unconverged to converged. RAS overexpressions (HRAS, NRAS,
+KRAS) now read UP and KRAS knockouts DOWN, as the curators and experiments
+expect; under the old carrier write the RAS overexpressions read DOWN
+(specs/055 noted them as wrong). RAF is set aside from rule decisions
+(specs/054), so this is adopted on faithfulness: it implements the rule's
+documented behaviour, it converges, and nothing outside RAF changes.

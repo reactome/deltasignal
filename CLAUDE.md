@@ -423,7 +423,10 @@ env vars only override for benchmark sweeps:
   release) is one pool: its enzyme complexes are intermediates with no
   baseline share that read the flux through them (amendment 2).
   `DS_CYCLE_CARRIERS=on` (default; `off` for the isolation arm) makes the
-  enzyme's free form read its producers other than the release steps. The
+  enzyme's free form read its producers other than the release steps of
+  EVERY pool that lists it (specs/049 amendment 7: the RAS GAPs, carriers of
+  four pools, were written from the other pools' release flux and RAF never
+  converged; fixing it is RAF tuning +21, experimental +14, nothing else). The
   solve reports `cycle_rule`, `cycle_pools_solved`, `cycle_pools_multistep`,
   `cycle_carriers` and `cycle_carriers_held`; under any `DS_SCC_METHOD` other than
   `fixed_point`, or `DS_SCC_SOLVE=0`, pools are not solved and `cycle_rule`
