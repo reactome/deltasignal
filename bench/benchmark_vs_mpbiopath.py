@@ -1410,7 +1410,7 @@ def main():
     ap.add_argument("--report", default="/tmp/deltasignal_vs_mpbiopath.tsv")
     ap.add_argument("--limit", type=int, default=None,
                     help="Process only the first N pathways (smoke test)")
-    ap.add_argument("--max-edges", type=int, default=20000,
+    ap.add_argument("--max-edges", type=int, default=100000,
                     help="Skip pathways larger than this (default 20k — RAF_MAP's "
                          "1.6M edges chokes the HTTP path)")
     ap.add_argument("--ground-truth", choices=["curator", "experimental"],
