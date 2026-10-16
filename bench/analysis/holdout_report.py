@@ -155,12 +155,24 @@ def main(argv=None) -> int:
             print("\n  --pair-on-valid: cases are paired on validity alone; the arms may pin "
                   "different forms of the same gene (specs/056).")
             print(f"  valid only in {a.compare.name}: {len(newly_valid)} (correct {nv_ok}); not paired.")
-        dropped = len(paired) - len(shared)
+        # Coverage LOST: valid in the baseline, not in the arm. These are left out
+        # of the net figure in both modes, so say how many and how many of them
+        # the baseline had right (week review 2026-10-15: a coverage loss read
+        # as net 0).
+        lost = sorted(k for k in paired if base[k].get("valid") == "1" and arm[k].get("valid") != "1")
+        if lost:
+            lost_ok = sum(1 for k in lost if base[k]["predicted"] == base[k]["expected"])
+            print(f"\n  !! valid only in {a.cases.name} (coverage lost in the arm): {len(lost)} "
+                  f"(baseline correct {lost_ok}); not paired, NOT in the net figure below.")
+        dropped = sorted(set(paired) - set(shared))
         print(f"\n=== does it generalise?  {a.compare.name} vs {a.cases.name} ===")
         if dropped:
-            why = ("valid in one arm only" if a.pair_on_valid
-                   else "the arms resolved a different perturbation set for them")
-            print(f"  {dropped} of {len(paired)} shared cases dropped: {why}.")
+            vv = Counter((base[k].get("valid") == "1", arm[k].get("valid") == "1") for k in dropped)
+            parts = [f"{n} {lab}" for lab, n in (
+                ("invalid in both", vv[(False, False)]), ("valid in the baseline only", vv[(True, False)]),
+                ("valid in the arm only", vv[(False, True)]),
+                ("valid in both but a different perturbation set", vv[(True, True)])) if n]
+            print(f"  {len(dropped)} of {len(paired)} shared cases not paired: {', '.join(parts)}.")
         print(f"{'split':<26}{'cases':>8}{'baseline':>10}{'arm':>10}{'net':>8}"
               f"{'fixed':>7}{'broke':>7}{'p':>9}{'pathways':>10}{'readouts':>10}{'genes':>7}")
         concentrated = []
@@ -235,6 +247,10 @@ def main(argv=None) -> int:
               "\n(pathway, gene) perturbations among them.")
         for label, n_pw, n_ro, n_ge, scored_pw, top_gene, top_share in concentrated:
             if n_ro == 0:
+                if lost:
+                    print(f"\n  !! {label}: NO paired case moved, but {len(lost)} cases lost "
+                          f"coverage in the arm (above): this is not a neutral result.")
+                    continue
                 print(f"\n  !! {label}: NO comparable case moved. Every discordant "
                       f"case was dropped by the\n     perturbation-set conditioning "
                       f"above, which is what happens when the change is a\n     "

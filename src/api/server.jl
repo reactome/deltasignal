@@ -886,6 +886,9 @@ function solve_handler(req)
             "influence_scores" => influence_scores,
             "converged" => solver_result.converged,
             "iterations" => solver_result.iterations,
+            # week review 2026-10-15: a non-converged solve is scored as given;
+            # the residual lets a caller see how far from steady it stopped.
+            "residual" => solver_result.final_residual,
             "solve_time" => solver_result.solve_time,
             # specs/017 (additive): how the cyclic components were resolved, so a
             # client can tell a pooled solve from an iterated one.
@@ -908,6 +911,10 @@ function solve_handler(req)
             # specs/059: "off" or "on", and how many recycled_supply edges were added.
             "recycled_twin_rule" => get(solver_result.diagnostics, "recycled_twin_rule", "unknown"),
             "recycled_twin_edges" => get(solver_result.diagnostics, "recycled_twin_edges", 0),
+            # specs/061 (default since 2026-10-15): the own-product rule and how many
+            # depletion edges were gated on their source copies.
+            "depletion_own_product" => get(solver_result.diagnostics, "depletion_own_product", "unknown"),
+            "own_source_depletions" => get(solver_result.diagnostics, "own_source_depletions", 0),
             "sequestration_rule" => get(solver_result.diagnostics, "sequestration_rule", "unknown"),
             "sequestration_edges" => get(solver_result.diagnostics, "sequestration_edges", 0),
             # specs/035 (additive): "off" or "inert", and how many nodes were held.

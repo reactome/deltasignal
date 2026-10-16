@@ -211,6 +211,7 @@ def main():
     for c in cases:
         by_pathway[c["pathway_id"]][(c["drug"], c["targets"])].append(c)
     print(f"Protocol: decryptM drug bench, DS_PIN_SCOPE={bm.PIN_SCOPE} "
+          f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} "
           f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} DS_KO_AGG=mean(unpinned) "
           f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
           f"dataset decryptm1 registered {role}", flush=True)

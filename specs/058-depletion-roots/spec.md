@@ -1,6 +1,6 @@
 # specs/058: a form fed only by depletion is still a root
 
-**Status:** registered 2026-10-14, before any code or arm. **Not adopted** (research.md R1): held-out +9 (33 / 24, p 0.29), experimental +1; the gate fails. Gains in MET, CBL, PTCH, BRCA1/BARD1, MDM2; all losses are SMAD2/3 in TGF-beta (−24), whose plain cytosolic form becomes a root that does not reach the signaling route.
+**Status:** **Adopted as the bench default 2026-10-15** together with specs/059 and specs/061 (specs/061 Decision); alone it was not adopted: registered 2026-10-14, before any code or arm. **Not adopted** (research.md R1): held-out +9 (33 / 24, p 0.29), experimental +1; the gate fails. Gains in MET, CBL, PTCH, BRCA1/BARD1, MDM2; all losses are SMAD2/3 in TGF-beta (−24), whose plain cytosolic form becomes a root that does not reach the signaling route.
 
 ## Why
 

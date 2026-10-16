@@ -204,7 +204,9 @@ def main():
             for r in rows:
                 r[col] = m[(tuple(r["drug_set"].split("+")), r["readout"])]
     out_dir.mkdir(parents=True, exist_ok=True)
-    with open(out_dir / "korkut_cases.tsv", "w", newline="") as f:
+    # the values-blind run gets its own file, so one arm can hold both axes
+    name = "korkut_predict_cases.tsv" if predict_only else "korkut_cases.tsv"
+    with open(out_dir / name, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()), delimiter="\t")
         w.writeheader()
         w.writerows(rows)

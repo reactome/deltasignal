@@ -206,6 +206,21 @@ class TestHoldoutConditioning:
             "credits the change for answering a different question"
         )
 
+    def test_coverage_loss_is_reported_not_silently_dropped(self, tmp_path, capsys):
+        """Week review 2026-10-15: an arm that makes correct cases invalid read
+        as net 0 with a 'COVERAGE fix' note. The lost cases must be named."""
+        def case(g, pred, valid):
+            c = self._case(g, pred, "1"); c["valid"] = valid; return c
+        base = self._dump(tmp_path, "base.tsv", [case("AAA", "1", "1"), case("BBB", "1", "1"),
+                                                  case("CCC", "1", "0")])
+        arm = self._dump(tmp_path, "arm.tsv", [case("AAA", "1", "1"), case("BBB", "1", "0"),
+                                                case("CCC", "1", "0")])
+        holdout_report.main(["--cases", str(base), "--compare", str(arm), "--pair-on-valid"])
+        out = capsys.readouterr().out
+        assert "coverage lost in the arm): 1 (baseline correct 1)" in out
+        assert "1 invalid in both" in out and "1 valid in the baseline only" in out
+        assert "this is not a neutral result" in out
+
     def test_report_runs_on_both_splits(self, capsys):
         """The tuning/held-out split must actually partition the cases."""
         cases = {

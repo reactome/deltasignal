@@ -593,7 +593,7 @@ for the last feature that touched it rather than re-deriving from the code.
   experimental was −122.
 - `specs/036-capped-bundles-as-pools/`, `specs/037-combined-raf-fixes/` — the
   variant cap bundles a set's alternatives into one all-required node
-  (`LNG_CAP_POOLS` fixes the structure, default off). Combined with de-duplication
+  (`LNG_CAP_POOLS` fixes the structure; default on in the generator since specs/045). Combined with de-duplication
   it was held-out −162; de-duplication is the damage. Not adopted.
 - `specs/040-self-feedback/` — a node's own downstream multiplied back into
   it (RAF traced: recycled set-pool members, bundle leaves fed only by their
@@ -748,7 +748,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty-one files contain assertions; the
+**Most of the test suite cannot fail.** Twenty-two files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |

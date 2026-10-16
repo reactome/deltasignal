@@ -175,8 +175,8 @@ Response:
 - **`node_activities`**: `uuid → activity` on the **0–1 internal scale**
   (`× 100` for display — see Conventions).
 - **`self_inhibitors`** (additive, specs/022): the number of inhibitor slots FLAGGED as self-contained (the inhibitor contains one of its own reaction's inputs AND is reachable from it in the network). A flagged slot is damped only when the inhibitor moves with that input. On by default (`DS_SELF_INHIBITOR_WEIGHT=0.1`; `off` disables it).
-- **`drug_rule`** / **`drugs_held`** (additive, specs/032): `"propagate"`
-  (default), `"inert"`, or `"inert: no drug table"`, and how many drug-derived
+- **`drug_rule`** / **`drugs_held`** (additive, specs/032): `"inert"`
+  (default since 2026-10-13, specs/055), `"propagate"`, or `"inert: no drug table"`, and how many drug-derived
   nodes this solve held at baseline. Under `inert` a drug participates at fold
   1.0 and never carries a perturbation; an explicit observation still wins.
 - **`pathogen_rule`** / **`pathogens_held`** (additive, specs/048): `"inert"`
@@ -204,6 +204,15 @@ Response:
   reaction nodes that more than one pool passes through. Each is written once,
   from the flux of every pool through it. It is 0 unless the bundle was built
   with `LNG_POOL_SHARED=1`.
+- **`residual`** (additive, 2026-10-15): the solve's final residual. A solve
+  that stopped at the iteration cap (`converged: false`) is still returned; this
+  says how far from steady it stopped.
+- **`depletion_own_product`** / **`own_source_depletions`** (additive,
+  specs/061): the own-product depletion rule that ran
+  (`"suppress_only_source"` by default since 2026-10-15; `"full"`,
+  `"suppress_only"`, `"suppress_only_entity"`) and how many depletion edges
+  were gated on their source copies. **`recycled_twin_rule`** /
+  **`recycled_twin_edges`** (specs/059): `"on"` by default since 2026-10-15.
 - **`carrier_loop_rule`**, **`carrier_loop_forms`**,
   **`carrier_loop_edges_dropped`**, **`carrier_loop_twin_edges`** (additive,
   specs/049): `"closed_twin"` (default since amendment 6), `"off"`,
