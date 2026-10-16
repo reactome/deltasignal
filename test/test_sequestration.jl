@@ -2,7 +2,9 @@
 # (reaction rB) into complex C, which only dissociates (sink K): a dead end.
 # B also signals: B -> rS -> T (the readout). Pinning A never reaches T unless
 # C depletes B: knocking A out frees B (T UP); overexpressing A binds more B
-# (T DOWN).
+# (T DOWN). The rule was measured under DS_DEPLETION_OWN_PRODUCT=full (the
+# default then); C is built from B, so under the specs/061 rule the edge is an
+# own product, and the fixtures pin `full` (CI broke when the default moved).
 using Test
 using DeltaSignal
 const DS = DeltaSignal
@@ -40,7 +42,7 @@ function fixture(; extra = DS.LogicNetworkEdge[], leaves = true, cofactors = Set
 end
 seq_edges(net, mode) = sort([(x.parent_uuid, x.child_uuid) for x in DS.apply_sequestration(net, mode)[1].edges
                              if x.edge_type == "depletion"])
-solve(net, mode, v) = with_env("DS_SEQUESTRATION" => mode) do
+solve(net, mode, v) = with_env("DS_DEPLETION_OWN_PRODUCT" => "full", "DS_SEQUESTRATION" => mode) do
     DS.solve_steady_state(net, Dict("A" => (v, 1.0)), DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty"))
 end
 fold(r, u) = r.node_activities[u] / BL
@@ -48,10 +50,10 @@ fold(r, u) = r.node_activities[u] / BL
 @testset "sequestration (specs/063)" begin
 
 @testset "default is off; bad values are errors" begin
-    with_env("DS_SEQUESTRATION" => nothing) do
+    with_env("DS_DEPLETION_OWN_PRODUCT" => "full", "DS_SEQUESTRATION" => nothing) do
         @test DS.sequestration_mode() == "off"
     end
-    with_env("DS_SEQUESTRATION" => "dead_end") do
+    with_env("DS_DEPLETION_OWN_PRODUCT" => "full", "DS_SEQUESTRATION" => "dead_end") do
         @test_throws ArgumentError DS.sequestration_mode()
     end
 end
@@ -80,7 +82,7 @@ end
     # B is made from U (rU); lowering U lowers B. Under sole_direct T follows B
     # as under off; under deadend_sole the complex falls with B and props it up.
     up = [e("U", "rU"), e("rU", "B", "output")]
-    pu(mode) = with_env("DS_SEQUESTRATION" => mode) do
+    pu(mode) = with_env("DS_DEPLETION_OWN_PRODUCT" => "full", "DS_SEQUESTRATION" => mode) do
         net = fixture(extra = up)
         net.nodes["U"] = DS.NetworkNode("U", "R-U", "protein", nothing, "U", BL)
         net.nodes["rU"] = DS.NetworkNode("rU", "R-rU", "protein", nothing, "rU", BL)
@@ -124,7 +126,7 @@ end
     @test ko.diagnostics["sequestration_rule"] == "deadend_sole"
     @test ko.diagnostics["sequestration_edges"] == 1
     # an observation on the partner still wins
-    obs = with_env("DS_SEQUESTRATION" => "deadend_sole") do
+    obs = with_env("DS_DEPLETION_OWN_PRODUCT" => "full", "DS_SEQUESTRATION" => "deadend_sole") do
         DS.solve_steady_state(fixture(), Dict("A" => (0.0, 1.0), "B" => (1.0, 1.0)),
                               DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty"))
     end
@@ -132,7 +134,7 @@ end
 end
 
 @testset "influence scores see the same network" begin
-    with_env("DS_SEQUESTRATION" => "deadend_sole") do
+    with_env("DS_DEPLETION_OWN_PRODUCT" => "full", "DS_SEQUESTRATION" => "deadend_sole") do
         net = DS.solved_carrier_network(fixture())
         @test any(x -> x.edge_type == "depletion" && x.parent_uuid == "C", net.edges)
     end
