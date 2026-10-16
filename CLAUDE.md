@@ -771,7 +771,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 156 | specs/049, added 2026-10-11 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 73 | specs/059–061, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 82 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_cli_observations.jl` | 45 | |
 | `test/test_api_errors.jl` | 61 | |

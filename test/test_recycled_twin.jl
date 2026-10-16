@@ -254,6 +254,27 @@ end
     @test !DS._own_source_down(Tuple{Int, Float64}[], [0.01])
 end
 
+@testset "relabelling the uuids moves nothing under the twin and source rules" begin
+    # week review 2026-10-15: the determinism suite's relabel test drops every
+    # bundle table; this one keeps containment, so both default rules act
+    rl(u) = "z" * reverse(u)
+    function relabel(net)
+        nodes = Dict(rl(u) => DS.NetworkNode(rl(u), n.reactome_id, n.entity_type, n.original_set_id, rl(u), n.baseline)
+                     for (u, n) in net.nodes)
+        edges = [DS.LogicNetworkEdge(rl(e.parent_uuid), rl(e.child_uuid), e.is_and, e.is_positive,
+                                     e.stoichiometry, e.edge_type) for e in net.edges]
+        DS.ReactionNetwork(nodes, edges, net.set_mappings, net.cofactor_stids, net.containment,
+                           nothing, nothing, nothing, nothing)
+    end
+    for pins in (("R" => 0.0,), ("M" => 0.0,), ("R" => 2.0,))
+        a = solve3(mdm_net(), "suppress_only_source", pins)
+        b = solve3(relabel(mdm_net()), "suppress_only_source", Tuple(rl(k) => v for (k, v) in pins))
+        @test all(a.node_activities[u] == b.node_activities[rl(u)] for u in keys(a.node_activities))
+        @test a.diagnostics["own_source_depletions"] == b.diagnostics["own_source_depletions"]
+        @test a.diagnostics["recycled_twin_edges"] == b.diagnostics["recycled_twin_edges"]
+    end
+end
+
 @testset "suppress_only_source still lets the depleter suppress" begin
     src = solve3(mdm_net(), "suppress_only_source", ("R" => 2.0,))
     full = solve3(mdm_net(), "full", ("R" => 2.0,))
