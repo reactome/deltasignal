@@ -236,3 +236,29 @@ TP53's AKT/MDM4 knockouts converge to one answer; most likely their
 control-like NOT, so tuning falls from +112 to near the 2 stable fixes and
 experimental to about +1. If the held-out gain holds with convergence, the
 default stays (amended); otherwise it is reverted.
+
+## Amendment 5 (2026-10-15, after a probe of amendment 4, before the arm): drop the node-copy cap
+
+Before running `rtwin58g5`, the TP53 probe (`tp53iso.jl`, AKT1 KO) under
+amendment 4 still oscillates (residual 0.04 at caps 500 and 2000): removing
+the de-repressing node-copy edges leaves TP53's loop without the restoring
+force, so pass 2 does not settle either. Under `full` it converges. So the
+node-copy part of the rule (inherited from `suppress_only`, specs/016/060)
+prevents convergence in TP53 in every form tried: a live `min`, and removal.
+specs/060 R1 already showed it moves **no** held-out case (its tuning +46 were
+all TP53, and R5 shows the TP53 movements are cap artifacts).
+
+**Rule (`suppress_only_source`, changed in place; amendment 4's form is at
+the commit before this one):** as amendment 4, but node-copy own-product
+pairs are NOT capped or removed (they act as under `full`). Only entity-own
+pairs whose source copy fell, and whose depleter fell, in the uncapped first
+solve are removed for the second. `rtwin58g5` is not run; arm `rtwin58g6`
+replaces it, with the same comparisons, convergence condition and cap
+re-check.
+
+**Predictions:** convergence about the control's (TP53 behaves as under
+`full`); held-out keeps the 33 stable fixes (SMAD2/3 through the entity-own
+SMAD2:SMURF2 pairs, MET/CBL/PTCH through pins and twins); tuning about +2,
+experimental about +1. If held-out stays positive at p < 0.01 with
+convergence, the default is this amended form; otherwise the adoption is
+reverted.
