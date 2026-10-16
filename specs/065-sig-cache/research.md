@@ -34,3 +34,27 @@ the iteration stops at the cap. Headline 20,894 / 24,100 in both.
 Nothing moves: the stale-signature path did not occur in this build order,
 so the fix changes no network today and guards the next pathway list or
 build order. Merge LNG #115; no new canonical build.
+
+## Amendment 1 measured (2026-10-16): the five derived caches
+
+- **Build:** variant `20261016-1609_14207d4_caches`, from LNG #116
+  (`derived-caches-per-pathway`, `14207d4`), complete, 92 pathways.
+- **Networks:** 211,767 nodes and 500,762 edges, as canonical. Labelled by
+  `nodes.csv` content as above, **all 92 pathways are identical**, and every
+  side table (pools, transitions, carriers, carrier loops, drugs, pathogens,
+  cofactors, containment, boundary edges, exclusions) has the same row count
+  in every pathway.
+- **Predictions:** solver `e3e9beb` (same `src/`, `bench/` and `cli/` as
+  `0406a4b`), `results/e3e9beb/caches` against `results/0406a4b`:
+
+| axis | rows | predicted class changed | value changed |
+|---|---|---|---|
+| curator | 24,100 | 0 | 13 |
+| experimental | 849 | 0 | 0 |
+
+  The 13 are a subset of the 15 above: the same non-converged DSB Repair
+  overexpressions (9) and EGFR SH3GL1 knockout (4), at most 0.12% relative,
+  from uuid tie order where the iteration stops at the cap.
+- **Decision (registered rule):** nothing moves, so LNG #116 is merged with
+  no new canonical build. Like #115 it guards a future pathway list or build
+  order. Probe scripts: `~/deltasignal-catalogs/probe_065a1/`.

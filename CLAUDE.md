@@ -752,7 +752,8 @@ for the last feature that touched it rather than re-deriving from the code.
   perturbation, traced), nothing else moves. Canonical build since
   2026-10-16: `20261016-0006_da08370`.
 - `specs/065-sig-cache/` — the generator kept set-member signatures across
-  pathways of one build (LNG #115 clears them per pathway). Measured: all 92
+  pathways of one build (LNG #115 clears them per pathway; #116 five more
+  derived caches, amendment 1). Measured both times: all 92
   networks identical in content, no predicted class changes; no rebuild.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).

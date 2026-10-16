@@ -151,6 +151,21 @@ B3 is adopted as a faithfulness fix. `LNG_BIND_STOICH` now defaults on in
 generator PR #110 (commit 0123fbb), which Adam merges. Canonical numbers do not
 change.
 
+**Re-checked by regeneration (2026-10-16, week review gap).** A build at
+generator `cbbd694` with `LNG_BIND_STOICH=0` (`20261016-1044_cbbd694_nobind`,
+complete) against canonical `20261016-0006_da08370`:
+- 211,483 nodes and 499,818 edges against 211,767 and 500,762. Compared by
+  node content (uuids aside), 20 of 92 pathways differ, the largest
+  R-HSA-168928 (DDX58/IFIH1), R-HSA-1236394, R-HSA-373755 and R-HSA-194138.
+- Solver `e3e9beb` (same `src/` and `bench/` as `0406a4b`): **no predicted
+  class changes on either axis** (curator 24,100, experimental 849). Values
+  move in 192 curator cases (181 of them converged; IFN-γ 68, IL-4/13 53,
+  IL-3/5/GM-CSF 37, RAF 15, others 19) and 7 experimental ones (RAF, at most
+  4% relative). None crosses a threshold; the largest are near-zero readouts
+  (STAT6 knockout 0.065 → 0, IL-3 knockout 0.005 → 0.011).
+- The claim stands at class level on the current networks: the fix changes
+  structure and values, not predictions.
+
 ## What this leaves
 
 - The RAF knockout→UP class (12 of 21 RAF failures) needs pools that share

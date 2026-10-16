@@ -1,6 +1,6 @@
 # specs/065: per-pathway signature cache (generator bug fix)
 
-**Status:** pre-registered 2026-10-16, before the build; measured the same day (research.md): no network and no predicted class changes. Merge LNG #115, no new canonical build. From the week
+**Status:** pre-registered 2026-10-16, before the build; measured the same day (research.md): no network and no predicted class changes. Merge LNG #115, no new canonical build. Amendment 1 (five more caches, LNG #116) measured the same day: again identical networks and no class change. From the week
 review (docs/reviews/2026-10-15-week-review.md, finding 12).
 
 ## The defect
