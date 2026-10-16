@@ -248,8 +248,8 @@ prevents convergence in TP53 in every form tried: a live `min`, and removal.
 specs/060 R1 already showed it moves **no** held-out case (its tuning +46 were
 all TP53, and R5 shows the TP53 movements are cap artifacts).
 
-**Rule (`suppress_only_source`, changed in place; amendment 4's form is at
-the commit before this one):** as amendment 4, but node-copy own-product
+**Rule (`suppress_only_source`, changed in place; amendment 4's form was
+probed in the working tree, not committed or run as an arm):** as amendment 4, but node-copy own-product
 pairs are NOT capped or removed (they act as under `full`). Only entity-own
 pairs whose source copy fell, and whose depleter fell, in the uncapped first
 solve are removed for the second. `rtwin58g5` is not run; arm `rtwin58g6`

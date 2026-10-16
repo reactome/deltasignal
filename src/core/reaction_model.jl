@@ -884,6 +884,11 @@ function index_reactions(
     end
     if stats !== nothing
         stats["self_inhibitors"] = sum((count(!isempty, r.inhibitor_shared) for r in indexed); init = 0)
+        # specs/061 amendment 4: the node-copy own-product pairs, by uuid
+        inv = Dict(i => u for (u, i) in uuid_to_idx)
+        stats["own_node_pairs"] = Tuple{String, String}[(inv[r.depletion_indices[k]], inv[r.target_idx])
+                                  for r in indexed for k in eachindex(r.depletion_indices)
+                                  if k <= length(r.depletion_own_product) && r.depletion_own_product[k]]
         # specs/061 amendment 2: pairs actually gated (node-copy pairs are capped outright)
         stats["own_source_depletions"] = sum((count(!isempty, r.depletion_own_src) for r in indexed); init = 0)
     end
@@ -1496,6 +1501,10 @@ function set_pool_value(vals::AbstractVector{T}, bl::T, mode::String) where {T<:
     end
     throw(ArgumentError("set_pool_value: unknown mode $(repr(mode))"))
 end
+
+"""`config` with `depletion_own_product` replaced (specs/061 amendment 4)."""
+with_own_product(config::ReactionEvalConfig, mode::String) =
+    ReactionEvalConfig((f == :depletion_own_product ? mode : getfield(config, f) for f in fieldnames(ReactionEvalConfig))...)
 
 """
 specs/061: is any source copy of an entity-own depletion pair below its

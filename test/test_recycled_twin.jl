@@ -241,17 +241,22 @@ end
     @test fold(solve3(mdm_net(), "suppress_only_entity", ("M" => 0.0,)), "Y") ≈ 1.0 atol = 1e-3
 end
 
-@testset "amendment 3: the gate is decided once, from a first ungated solve" begin
-    # SMAD2 KO: the source falls in the first solve, so the pair is gated
+@testset "amendment 4: caps are decided from an uncapped first solve, then edges removed" begin
+    # SMAD2 KO: the source falls and the depleter falls in the first solve, so
+    # the edge is removed for the second
     src = solve3(mdm_net(), "suppress_only_source", ("R" => 0.0,))
     @test src.diagnostics["own_source_first_pass_converged"] == true
     @test src.diagnostics["own_source_depletions"] == 1
-    # MDM2 KO: the source holds in the first solve; nothing is gated
+    @test src.diagnostics["own_product_removed"] == [("C", "Y")]
+    @test !haskey(src.diagnostics, "own_node_pairs")
+    # MDM2 KO: the source holds; nothing removed, de-repression kept
     src = solve3(mdm_net(), "suppress_only_source", ("M" => 0.0,))
     @test src.diagnostics["own_source_depletions"] == 0
-    # the marker gates for the whole solve, whatever the iterate reads
-    @test DS._own_source_down([(0, Inf)], [0.01])
-    @test !DS._own_source_down(Tuple{Int, Float64}[], [0.01])
+    # R overexpressed: the depleter rises, the edge suppresses; nothing removed
+    src = solve3(mdm_net(), "suppress_only_source", ("R" => 2.0,))
+    @test src.diagnostics["own_source_depletions"] == 0
+    # the other suppress modes keep the live cap (recorded arms)
+    @test !haskey(solve3(mdm_net(), "suppress_only", ("R" => 0.0,)).diagnostics, "own_product_removed")
 end
 
 @testset "relabelling the uuids moves nothing under the twin and source rules" begin

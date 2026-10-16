@@ -296,21 +296,42 @@ function solve_steady_state(
                                              cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                              cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
                                              node_keys = node_keys)
-    # specs/061 amendment 3: which partner fell is decided ONCE, from a first
-    # solve with the entity-own pairs free; the second solve caps the gated
-    # pairs for the whole iteration. Read live, the gate toggled between sweeps
-    # inside cyclic components and the solve never settled (R5).
-    if isempty(own_source)
-        result = penalty(own_source)
-    else
-        first_pass = penalty(Dict{Tuple{String, String}, Vector{String}}())
+    own_mode = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
+    if own_mode == "suppress_only_source"
+        # specs/061 amendments 4-5: no cap is applied during an iteration. Pass 1
+        # solves with every own-product depletion free (as `full`); an
+        # entity-own edge that would de-repress (its depleter fell) and one of
+        # whose source copies fell is removed; pass 2 solves without those
+        # edges, again uncapped. Read live, the
+        # `min(factor, 1)` cap and the source switch made TP53 and TGF-beta
+        # oscillate (R5).
+        pfull(rx) = solve_steady_state_penalty(rx, observations, x0, baseline_activities, params, start_time, gene_uuids;
+                                               self_shared = self_shared, own_override = "full",
+                                               cycle_pools = ypools,
+                                               cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
+                                               cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
+                                               node_keys = node_keys)
+        first_pass = pfull(reactions)
         down(u) = haskey(first_pass.node_activities, u) &&
                   first_pass.node_activities[u] < get(baseline_activities, u, 0.01) * (1 - 1e-6)
-        gated = Dict{Tuple{String, String}, Vector{String}}(
-            k => [OWN_SOURCE_GATED] for (k, srcs) in own_source if any(down, srcs))
-        result = penalty(gated)
+        # amendment 5: node-copy own products are left free (as `full`); removing
+        # or capping them made TP53 oscillate in every form tried.
+        removed = Set{Tuple{String, String}}()
+        for (k, srcs) in own_source
+            down(k[1]) && any(down, srcs) && push!(removed, k)
+        end
+        if isempty(removed)
+            result = first_pass
+        else
+            result = pfull(convert_to_reaction_network(without_depletions(network, removed)))
+        end
         result.diagnostics["own_source_first_pass_converged"] = first_pass.converged
+        result.diagnostics["own_source_depletions"] = length(removed)
+        result.diagnostics["own_product_removed"] = sort!(collect(removed))
+    else
+        result = penalty(own_source)
     end
+    delete!(result.diagnostics, "own_node_pairs")
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
@@ -395,6 +416,15 @@ edge at 1 while any source reads below baseline. Pairs with no source are
 left out (not capped). Empty under any other value.
 """
 const OWN_SOURCE_SKIP_EDGES = ("depletion", "catalyst", "regulator")
+
+"""`network` without the depletion edges (depleter, target) in `pairs` (specs/061 amendment 4)."""
+function without_depletions(network::ReactionNetwork, pairs::Set{Tuple{String, String}})
+    edges = [e for e in network.edges
+             if !(e.edge_type == "depletion" && (e.parent_uuid, e.child_uuid) in pairs)]
+    return ReactionNetwork(network.nodes, edges, network.set_mappings, network.cofactor_stids,
+                           network.containment, network.drug_stids, network.pools, network.pathogen_stids,
+                           network.carrier_loops, network.node_leaves)
+end
 
 function own_source_depletion_sources(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}
     out = Dict{Tuple{String, String}, Vector{String}}()
@@ -1721,6 +1751,7 @@ function solve_steady_state_penalty(
     own_entity::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
     own_source::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
+    own_override::Union{Nothing, String} = nothing,
     cycle_pools = nothing,
     cycle_phi::Float64 = 0.1,
     cycle_carriers::Bool = true,
@@ -1747,6 +1778,8 @@ function solve_steady_state_penalty(
     # iteration inside compute_reaction_output_vec). Threaded into every forward
     # evaluation below.
     eval_config = resolve_reaction_eval_config()
+    # specs/061 amendment 4: the two-pass own-product rule solves uncapped
+    own_override === nothing || (eval_config = with_own_product(eval_config, own_override))
 
     # Initial state vector.
     x = Vector{Float64}(undef, n)
@@ -1948,6 +1981,9 @@ function solve_steady_state_penalty(
             "self_inhibitors" => get(index_stats, "self_inhibitors", 0),
             # specs/061: entity-own depletion edges gated on their source copies
             "own_source_depletions" => get(index_stats, "own_source_depletions", 0),
+            # specs/061 amendment 4: node-copy own-product pairs (uuid), read by
+            # the two-pass rule and removed from the result before it returns
+            "own_node_pairs" => get(index_stats, "own_node_pairs", Tuple{String, String}[]),
             "scc_cyclic_after" => get(index_stats, "scc_cyclic_after", 0),
             "scc_largest_after" => get(index_stats, "scc_largest_after", 0),
             # specs/039: interconversion pools solved in closed form, left to the
@@ -2019,11 +2055,18 @@ function compute_influence_scores(
             end
         end
     end
+    # specs/061 amendment 4: a two-pass solve ran uncapped on the network without
+    # the edges it removed; differentiate that model, not the live cap.
+    removed = get(result.diagnostics, "own_product_removed", nothing)
+    two_pass = removed !== nothing && network !== nothing
+    if two_pass
+        reactions = convert_to_reaction_network(without_depletions(network, Set{Tuple{String, String}}(removed)))
+    end
     indexed, _, _ = index_reactions(reactions, uuid_to_idx, baselines, gene_uuids;
                                     self_shared = self_shared,
-                                    own_entity = network === nothing ? Set{Tuple{String, String}}() :
+                                    own_entity = network === nothing || two_pass ? Set{Tuple{String, String}}() :
                                                  own_entity_depletion_pairs(network),
-                                    own_source = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
+                                    own_source = network === nothing || two_pass ? Dict{Tuple{String, String}, Vector{String}}() :
                                                  own_source_depletion_sources(network))
 
     x = Vector{Float64}(undef, length(all_nodes))
@@ -2032,6 +2075,7 @@ function compute_influence_scores(
     end
 
     eval_config = resolve_reaction_eval_config()
+    two_pass && (eval_config = with_own_product(eval_config, "full"))
     infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
     influence_scores = Dict{String, Float64}()
     h = 1e-6
