@@ -196,3 +196,43 @@ experimental could move either way from the control by up to the 111 / 6
 unstable cases. Convergence returns to about the control's. If the stable
 held-out gain survives and convergence holds, the default stays (amended);
 if not, the adoption is reverted to the previous defaults.
+
+## Amendment 4 (2026-10-15, after arm `rtwin58g4`, before any amended code): no cap is applied during the iteration
+
+`rtwin58g4` (amendment 3) moved no class against the adopted defaults and
+convergence stayed at 1,645. Per-case convergence (new in the case dumps)
+showed TGF-beta SMAD7 KO now converges, but TP53 still oscillates. Traced
+(`bench/analysis/061/tp53iso.jl`, AKT1 KO, readout 6801636): `full`
+converges (residual ~1e-6) and so does `suppress_only_entity`; `suppress_only`
+alone oscillates (residual 0.03), with or without twins, under either pin
+set. So the cause is the node-copy cap itself, `min(factor, 1)` on a depleter
+built directly from its target: a kink at baseline that the damped
+Gauss-Seidel sweep circles. specs/060's TP53 tuning gains under
+`suppress_only` were probably the same artifact.
+
+**Rule (`suppress_only_source`, changed in place; amendment 3's form is at
+`b46783c`; the other `suppress_only*` modes are left as recorded):**
+1. Pass 1: solve with no own-product cap at all (as `full`).
+2. A depletion edge D -| T is REMOVED for pass 2 if it would de-repress
+   (D reads below baseline × (1 − 1e-6) in pass 1) and either
+   (a) D is a node-copy own product of T (T reaches D within two activator
+   hops, the existing structural test), or
+   (b) D is an entity-own depleter of T (containment) and one of its source
+   copies (amendment 1–2 walk) reads below baseline in pass 1.
+3. Pass 2: solve with those edges removed and no cap (as `full`).
+No threshold or `min` is evaluated during either iteration. Removing an edge
+is what the cap does at a fixed point for a de-repressing edge (factor 1).
+The solve reports `own_source_depletions` as the edges removed.
+
+**Arm `rtwin58g5`:** the defaults at the amended commit, against the control
+`64d23cb` and the adopted `9e93c11`; the amendment-3 convergence condition
+(curator ≥ 1,647 and experimental ≥ 210 converged) and the cap-stability
+re-check (`capcheck.jl` on every discordant case) apply, and only stable
+cases count in the decision.
+
+**Predictions:** convergence back to about the control's (TP53 and TGF-beta
+settle). The 33 stable held-out fixes stay (they do not depend on TP53).
+TP53's AKT/MDM4 knockouts converge to one answer; most likely their
+control-like NOT, so tuning falls from +112 to near the 2 stable fixes and
+experimental to about +1. If the held-out gain holds with convergence, the
+default stays (amended); otherwise it is reverted.
