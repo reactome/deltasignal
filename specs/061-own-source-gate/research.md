@@ -138,3 +138,32 @@ overrides. Results `639787b/rtwin58g3`.
   twin sat next to a recycled copy in a scored solve, and no modifier-only
   copy changed a gate that mattered.
 - The registered gate passes as in R3. The candidate is the amended code.
+
+## R5 (2026-10-15, after adoption): most tuning and experimental gains are iteration-cap artifacts
+
+The week's adversarial review (finding: "the source gate puts TGF-beta into a
+limit cycle") showed `_own_source_down` is an on/off switch read on the live
+iterate, so where a source copy sits in its target's cyclic component the
+cap toggles between sweeps and the solve never settles; the scored value is
+wherever the 500-iteration cap stops. Census: 11 of 97 gated pairs, in 3
+pathways (TGF-beta 4, R-HSA-8878166 6, R-HSA-5358351 1).
+
+Check (`bench/analysis/061/capcheck.jl`, results `capcheck_9e93c11.tsv`):
+every case whose class differs between the control (`64d23cb`) and the
+adopted defaults (`9e93c11`), 176 in all, re-solved under the defaults at
+iteration caps 500, 1000, 2000 and 4000. At 500 every case reproduces the
+benchmark exactly.
+
+| | fixed / broke | fixes converged and stable at every cap |
+|---|---|---|
+| curator held-out | 33 / 1 | **33 of 33**; the 1 break (SMAD7 KO, TGF-beta) is unconverged and flips with the cap |
+| curator tuning | 113 / 1 | **2 of 113**: 111 are AKT1, AKT2, MDM4 and BRCA1 knockouts in Transcriptional Regulation by TP53 whose solves never converge; their class changes with the cap |
+| experimental | 7 / 0 | **1 of 7**: 6 are the same unconverged TP53 solves |
+
+So the held-out +32 that decided the gate is real (all converged, all stable),
+and the reported tuning +112 and experimental +7 are not: they are the
+iteration cap's choice in an oscillating TP53 solve. The experimental gate
+condition (no significant loss) still holds; the experimental gain does not.
+The adoption decision rested on "passes more tests"; on stable cases it still
+does (held-out +33 stable fixes against 0 stable breaks), but it introduced
+non-convergence in TP53 and TGF-beta, which amendment 3 addresses.

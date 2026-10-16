@@ -157,3 +157,42 @@ was inconclusive. Three defaults change together:
 The canonical numbers are re-benchmarked at the adopting commit and must
 reproduce `rtwin58g3` case by case. Reactome Release 98 is the replication;
 if the rule loses there, it is reverted.
+
+## Amendment 3 (2026-10-15, after R5, before any code): decide the gate once, not on every sweep
+
+R5: the gate is a switch read on the live iterate; inside a cyclic component
+it toggles between sweeps, the solve never converges (TP53, TGF-beta), and
+the scored value is the iteration cap's choice.
+
+**Rule (`DS_DEPLETION_OWN_PRODUCT=suppress_only_source`, changed in place; the
+amendment-2 form is recorded at `9e93c11`):** two passes. First the network
+is solved with the entity-own pairs not gated (as `suppress_only`: node-copy
+own products capped, entity-own pairs free). A pair is GATED for the second
+pass if any of its source copies reads below baseline × (1 − 1e-6) in that
+first solution. The second pass solves with the gated pairs capped at 1 and
+the others free, fixed for the whole iteration. Only solves with at least one
+entity-own pair run twice. The solve reports `own_source_depletions` as the
+pairs gated in the second pass.
+
+**Why this form:** "which partner fell" is a property of the perturbation,
+not of a sweep; the first solve answers it without the cap feeding back into
+its own condition. No threshold is read during the iteration, so no switch
+can chatter. SMAD2 KO: the source copy is pinned to 0 in both passes, so the
+pair is gated, as before. MDM2 KO: the source (excluding the target) does not
+fall, so it is free, as before.
+
+**Arm `rtwin58g4`:** the adopted defaults at the amended commit, against the
+control `64d23cb` (pre-adoption) and against `9e93c11` (adopted). Same gate,
+plus a convergence condition registered now: **curator and experimental
+convergence must be at least the control's (1,652 / 215) minus 5**, and every
+discordant case is re-checked at caps 500–4000 with `capcheck.jl`; only stable
+cases are counted as fixed or broken in the decision (both counts reported).
+
+**Predictions:** held-out keeps the 33 stable fixes (SMAD2/3, MET, CBL, PTCH
+classes do not depend on the toggling pairs); SMAD7 KO converges and returns
+to UP (the control's answer), so held-out about +33. The TP53 AKT/MDM4
+knockouts converge to one answer; I do not know which, so tuning and
+experimental could move either way from the control by up to the 111 / 6
+unstable cases. Convergence returns to about the control's. If the stable
+held-out gain survives and convergence holds, the default stays (amended);
+if not, the adoption is reverted to the previous defaults.
