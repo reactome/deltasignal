@@ -179,4 +179,45 @@ end
             @test solve_provenance(m, p, "mean")["mu_gamma_read"] == false
         end
     end
+    @testset "parse -> solve end to end equals the library solve" begin
+        # Week review 2026-10-15: no test executed the CLI's parse and solve
+        # commands, so the JSON round trip (bundle tables, rule diagnostics)
+        # was unchecked. On the canonical TGF-beta network with a SMAD2
+        # knockout the two agree exactly (specs/065 research); this pins the
+        # round trip on the bundled example.
+        ex = joinpath(@__DIR__, "..", "examples")
+        mktempdir() do dir
+            net_json = joinpath(dir, "network.json")
+            res_json = joinpath(dir, "results.json")
+            pa = Dict{Symbol,Any}(:logic => joinpath(ex, "sample_logic_network.tsv"),
+                                  :uuid_map => joinpath(ex, "sample_uuid_mapping.tsv"),
+                                  :set_map => joinpath(ex, "sample_set_mappings.tsv"),
+                                  :boundary => nothing, :output => net_json, :validate => false)
+            redirect_stdout(devnull) do
+                execute_parse_command(pa)
+            end
+            @test isfile(net_json)
+            obs_path = joinpath(ex, "sample_observations.csv")
+            sa = Dict{Symbol,Any}(:network => net_json, :observations => obs_path,
+                                  :mode => "steady-state", :output => res_json,
+                                  :output_pathway => nothing, :mu => nothing, :gamma => nothing,
+                                  :max_iters => nothing, :tolerance => nothing,
+                                  :aggregation => "stoichiometry_weighted")
+            redirect_stdout(devnull) do
+                execute_solve_command(sa)
+            end
+            out = JSON3.read(read(res_json, String))
+
+            net = DeltaSignal.parse_complete_network(pa[:logic], pa[:uuid_map], pa[:set_map];
+                                                     boundary_path = :sibling)
+            ref = DeltaSignal.solve_steady_state(net, read_observations(obs_path))
+            acts = out[:node_activities]
+            @test length(acts) == length(ref.node_activities)
+            @test all(haskey(acts, Symbol(k)) && isapprox(Float64(acts[Symbol(k)]), v * 100; atol = 1e-9)
+                      for (k, v) in ref.node_activities)
+            dg = out[:solver_info][:diagnostics]
+            @test dg[:depletion_own_product] == "suppress_only_source"
+            @test out[:solver_info][:converged] == ref.converged
+        end
+    end
 end

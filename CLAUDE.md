@@ -752,7 +752,8 @@ for the last feature that touched it rather than re-deriving from the code.
   perturbation, traced), nothing else moves. Canonical build since
   2026-10-16: `20261016-0006_da08370`.
 - `specs/065-sig-cache/` — the generator kept set-member signatures across
-  pathways of one build (LNG #115 clears them per pathway). Measured: all 92
+  pathways of one build (LNG #115 clears them per pathway; #116 five more
+  derived caches, amendment 1). Measured both times: all 92
   networks identical in content, no predicted class changes; no rebuild.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
@@ -789,7 +790,7 @@ other seven execute code and print output.
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
-| `test/test_cli_observations.jl` | 45 | |
+| `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |
