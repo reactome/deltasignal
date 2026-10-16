@@ -167,3 +167,35 @@ condition (no significant loss) still holds; the experimental gain does not.
 The adoption decision rested on "passes more tests"; on stable cases it still
 does (held-out +33 stable fixes against 0 stable breaks), but it introduced
 non-convergence in TP53 and TGF-beta, which amendment 3 addresses.
+
+## R6 (2026-10-15): amendments 3–5 — the rule now converges, and the held-out gain is all real
+
+- **`rtwin58g4` (amendment 3, gate decided once; `b46783c`):** 0 classes
+  differ from the adopted defaults; convergence unchanged (1,645). Per-case
+  convergence showed TGF-beta SMAD7 KO now converges (to NOT), but TP53 still
+  oscillates. Traced (`tp53iso.jl`): `suppress_only` alone oscillates in TP53,
+  `full` does not; the node-copy `min(factor, 1)` cap is the cause.
+- **Amendment 4** (remove de-repressing node-copy edges after an uncapped
+  first solve) still oscillated in the probe; not run as an arm.
+- **`rtwin58g6` (amendment 5: node-copy pairs free, only source-gated
+  entity-own edges removed after an uncapped first solve; `76d7306`, which
+  also carries the specs/049 amendment 7 carrier fix, RAF only):**
+
+| against the old defaults `64d23cb`, RAF set aside | net | fixed / broke | p |
+|---|---|---|---|
+| **curator held-out** | **+33** | 33 / 0 | < 1e-4 |
+| curator tuning | +1 | 2 / 1 | 1.0 |
+| experimental | +1 | 1 / 0 | 1.0 |
+
+  With RAF included: tuning +22, experimental +15 (RAF +21 / +14, the
+  carrier fix; isolated separately). Convergence: curator 1,653 (control
+  1,652), experimental 221 (215). Cap re-check (`capcheck_76d7306.tsv`): all
+  78 discordant cases converge and keep their class at caps 500–4000; all
+  reproduce the bench exactly.
+- Against the adopted `9e93c11`: held-out +1; tuning (RAF set aside) −111 and
+  experimental −6, which are exactly the R5 cap artifacts going away.
+
+**Verdict:** the registered gate and the amendment-3 convergence condition
+pass. The default stays, in the amended form. The honest account of the
+adoption is now: curator held-out +33 (33 / 0), every case converged and
+stable; no real tuning or experimental gain outside RAF.
