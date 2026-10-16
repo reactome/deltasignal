@@ -958,8 +958,10 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
     perturbed at exactly the real network's nodes."""
     pathway_dir = pin_network_dir(pathway_dir)
     indeg = Counter()
+    ignored_in, has_out = set(), set()
     with open_network(pathway_dir) as f:
         for row in csv.DictReader(f):
+            has_out.add(row["source_id"])
             # specs/056: a context bridge feeds a root copy from another
             # pathway's producer. Roots are read without them, so a gene is
             # pinned at the same forms with and without context, in each
@@ -967,8 +969,16 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
             if row.get("edge_type") == CONTEXT_BRIDGE:
                 continue
             if PIN_ROOT_IGNORE and row.get("edge_type") == PIN_ROOT_IGNORE:
+                ignored_in.add(row["target_id"])
                 continue   # specs/058
             indeg[row["target_id"]] += 1
+    # Week review 2026-10-15: a form fed only by depletion counts as a root only
+    # if it feeds something. A depletion-fed dead end would make the case valid
+    # while moving nothing, and block the specs/024 fallback (which requires an
+    # out-edge for the same reason).
+    for u in ignored_in - has_out:
+        if indeg[u] == 0:
+            indeg[u] = 1
     if PIN_SCOPE == "entry":
         pin_adj = build_adjacency(pathway_dir)
         gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
@@ -1207,6 +1217,14 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["carrier_loop_twin_edges"] += int(ds_result.get("carrier_loop_twin_edges") or 0)
             SOLVE_TALLY["cycle_shared_nodes"] += int(ds_result.get("cycle_shared_nodes") or 0)
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
+            # specs/059-061, defaults since 2026-10-15 (week review): record which
+            # own-product and twin rules ran, as for every other default rule.
+            SOLVE_TALLY[f"depletion_own_product={ds_result.get('depletion_own_product', 'unknown')}"] += 1
+            SOLVE_TALLY["own_source_depletions"] += int(ds_result.get("own_source_depletions") or 0)
+            SOLVE_TALLY[f"recycled_twin_rule={ds_result.get('recycled_twin_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["recycled_twin_edges"] += int(ds_result.get("recycled_twin_edges") or 0)
+            if not ds_result.get("converged"):
+                SOLVE_TALLY["scored_unconverged"] += 1
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
             SOLVE_TALLY["drugs_held"] += int(ds_result.get("drugs_held") or 0)
             SOLVE_TALLY["drugs_listed"] += len(parsed.get("drug_stids") or [])
@@ -1240,6 +1258,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY[f"self_inhibitor_leaves={ds_result.get('self_inhibitor_leaves', 'unknown')}"] += 1
             SOLVE_TALLY["self_inhibitor_leaf_pairs"] += int(ds_result.get("self_inhibitor_leaf_pairs") or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
+        # per-case convergence (week review 2026-10-15): a prediction from a solve
+        # that stopped at the iteration cap is flagged in the case dump.
+        solve_conv = "" if not ds_result else str(int(bool(ds_result.get("converged"))))
+        solve_res = "" if not ds_result or ds_result.get("residual") is None else f"{float(ds_result['residual']):.3g}"
 
         for r in rows:
             ko = str(r["key_output"])
@@ -1307,7 +1329,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                 failure_categories[cat] += 1
             case_log.append((gene, direction, ko, predicted, expected, is_valid,
                              len(uuids), len(ko_uuids), cat, pred_ui,
-                             "|".join(sorted(set(uuids))), "|".join(sorted(set(ko_uuids))), excl))
+                             "|".join(sorted(set(uuids))), "|".join(sorted(set(ko_uuids))), excl,
+                             solve_conv, solve_res))
 
     return {
         "status": "ok",
@@ -1526,6 +1549,14 @@ def main():
                     f"{r['total']}\t{r['correct']}\t{r['accuracy']:.6f}\t"
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
     print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
+    drules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("depletion_own_product="))
+    trules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("recycled_twin_rule="))
+    print(f"\nDepletion: own-product rule {'/'.join(drules) or 'unknown'}, {SOLVE_TALLY['own_source_depletions']} "
+          f"gated edge-solves; recycled twins {'/'.join(trules) or 'unknown'}, {SOLVE_TALLY['recycled_twin_edges']} "
+          f"edge-solves (specs/059-061)")
+    if SOLVE_TALLY["solves"] and ("unknown" in drules or "unknown" in trules):
+        raise SystemExit("the solver did not report its own-product or twin rule; the model that ran "
+                         "cannot be shown (server older than the specs/061 adoption?)")
     orders = {k.split("=", 1)[1]: v for k, v in SOLVE_TALLY.items() if k.startswith("scc_order=")}
     print(f"Sweep order: {orders or 'unreported'}; most tied reactions in one solve: "
           f"{SOLVE_TALLY['scc_order_ties_max']}")
@@ -1608,14 +1639,15 @@ def main():
                     # The uuids actually pinned and read, so a failure can be
                     # classified on the network without re-deriving resolution
                     # (bench/analysis/case_cyclicity.py expects these).
-                    "gene_uuids\toutput_uuids\texclusion\n")
+                    "gene_uuids\toutput_uuids\texclusion\tconverged\tresidual\n")
             for r in results:
                 if r["status"] != "ok":
                     continue
                 for (gene, direction, ko, pred, exp, valid,
-                     ng, nk, cat, pred_ui, gus, kus, excl) in r.get("case_log", []):
+                     ng, nk, cat, pred_ui, gus, kus, excl, conv, res) in r.get("case_log", []):
                     f.write(f"{r['name']}\t{gene}\t{direction}\t{ko}\t{pred}\t{exp}\t"
-                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\t{gus}\t{kus}\t{excl}\n")
+                            f"{int(valid)}\t{ng}\t{nk}\t{cat}\t{pred_ui:.6f}\t{gus}\t{kus}\t{excl}\t"
+                            f"{conv}\t{res}\n")
         print(f"Per-case dump: {args.dump_cases}")
 
     # A pathway whose parse or solve FAILED is not the same as one with no

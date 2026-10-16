@@ -314,6 +314,9 @@ function solve_steady_state(
     result.diagnostics["sequestration_rule"] = sequestration_rule
     result.diagnostics["sequestration_edges"] = sequestration_edges
     result.diagnostics["own_entity_depletions"] = length(own_entity)
+    # specs/061 (week review 2026-10-15): which own-product rule ran, now that
+    # it is a default, so a run can show it measured the model it claims.
+    result.diagnostics["depletion_own_product"] = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
     result.diagnostics["zero_supply_rule"] = zero_supply_rule
     result.diagnostics["zero_supply_leaves"] = zero_supply_leaves
     result.diagnostics["zero_supply_held"] = zero_supply_held
@@ -1270,6 +1273,7 @@ function solve_scc_ordered!(
     n_carrier_conflicts = 0; n_pinned_fallback = 0; n_supply_depl = 0; n_held_inputs = 0
     rxn_of = isempty(pools) ? Dict{Int, Int}() : Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
     n_carriers_held = 0; n_multistep = 0
+    carriers_seen = Set{Int}()   # a carrier shared by k pools is counted once
     for p in pools
         nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes)
         c0 = comp_id[nodes[1]]
@@ -1380,7 +1384,11 @@ function solve_scc_ordered!(
             push!(get!(comp_pools, c0, IndexedPool[]), p)
             union!(managed, nodes)
             if pool_carriers
-                union!(managed, p.carriers); n_carriers_held += count(c -> !(c in obs_set), p.carriers)
+                union!(managed, p.carriers)
+                for c in p.carriers
+                    (c in obs_set || c in carriers_seen) && continue
+                    push!(carriers_seen, c); n_carriers_held += 1
+                end
             end
             any(st -> length(st) > 1, p.path_steps) && (n_multistep += 1)
         else

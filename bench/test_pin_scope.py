@@ -187,6 +187,20 @@ def test_pin_root_ignore_keeps_other_in_edges(tmp_path, monkeypatch):
     assert bm.pin_occurrences(d, {"G": ["m", "p"]}, {})[0] == {"G": ["m"]}
 
 
+def test_pin_root_ignore_needs_an_out_edge(tmp_path, monkeypatch):
+    # Week review 2026-10-15: a depletion-fed dead end (D: fed only by depletion,
+    # feeds nothing) is not a root; pinning it would move nothing and block the
+    # specs/024 fallback.
+    import benchmark_vs_mpbiopath as bm
+    d = _depletion_net(tmp_path)
+    (d / "logic_network.csv").write_text((d / "logic_network.csv").read_text()
+                                         + "l,dd,neg,and,depletion,1,\n")
+    monkeypatch.setattr(bm, "PIN_SCOPE", "root")
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", "")
+    monkeypatch.setattr(bm, "PIN_ROOT_IGNORE", "depletion")
+    assert bm.pin_occurrences(d, {"G": ["m", "dd"]}, {})[0] == {"G": ["m"]}
+
+
 def test_pin_root_ignore_rejects_other_values():
     import subprocess
     r = subprocess.run([sys.executable, "-c", "import benchmark_vs_mpbiopath"],
