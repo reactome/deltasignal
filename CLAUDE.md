@@ -511,8 +511,9 @@ env vars only override for benchmark sweeps:
   the iteration cycled and the cap chose the class. The solve reports
   `nonconv_fallback`, `nonconv_components`, `nonconv_improved`,
   `nonconv_rescued` and `nonconv_skipped_pools`. DSB Repair's 454-node
-  component improves but still does not converge (RNF8/RNF168, 18 held-out
-  cases still decided by the cap).
+  component improves but still ends above tolerance (RNF8/RNF168). That is
+  no longer the cap's choice: across caps 500–4000 none of the 638 cases
+  still flagged non-converged changes class (specs/066 amendment 2).
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
