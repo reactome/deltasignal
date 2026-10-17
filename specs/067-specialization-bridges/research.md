@@ -87,5 +87,7 @@ Hedgehog and DNA Damage Bypass losses sit in the grown components.
   worst pathway −7 (≥ −10).
 - `sbrep` **fails** on the worst-pathway floor (DNA Damage Bypass −14).
 - Only one variant passes, so by the rule the candidate is
-  `LNG_SPECIALIZATION_BRIDGE=add`. Whether to make it the generator default
-  (which needs a canonical rebuild) is Adam's call.
+  `LNG_SPECIALIZATION_BRIDGE=add`. **Adopted as the generator default
+  2026-10-17 (Adam)**; the losses above are follow-ups (the PLCG1 carrier
+  loop opened by an outside producer; TLS polymerases coupled through the
+  generic template; the grown Hedgehog and TGF-beta components).
