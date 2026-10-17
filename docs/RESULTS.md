@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-16. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-17. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,42 @@ commit.
 
 ---
 
+
+> **2026-10-17: canonical numbers with specialization bridges (specs/067).**
+> - Build `20261017-0654_d3ebf38`: generator `d3ebf38` (LNG #117,
+>   `LNG_SPECIALIZATION_BRIDGE=add` by default). A specific complex and the
+>   generic complex it is one member combination of are joined copy to copy
+>   where the curators order the two reactions by `precedingEvent`: 61
+>   pairs, 203 edges, 24 pathways.
+> - Solver `fa2c451` (unchanged code since `0709a1e`).
+> - Results: `results/fa2c451`. They reproduce the measured arm (`sbadd`) on
+>   every predicted class, both axes. 13 values differ, all in solves that
+>   never converged (CCNE1 in Mitotic G1; DSB Repair overexpressions), where
+>   the magnitude is approximate (specs/066 amendment 2).
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **89.81%** | **0.8695** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.18% | 0.8609 |
+> | curator, all pathways, in release (81) | 23,625 | 87.53% | 0.8479 |
+> | curator, all pathways, every case | 24,100 | 86.95% | 0.8403 |
+> | experimental, every case (10 pathways) | 849 | **71.38%** | **0.6320** |
+>
+> **What moved**: curator held-out +59 (101 fixed / 42 broken, p 8.7e-7):
+> PDGF +61 (the ligand and both receptors now reach every signalling
+> readout; PTPN12 too), NODAL +8, Hedgehog −1, CD28 family −2, DNA Damage
+> Bypass −7. Tuning 0, experimental 0. The losses are traced in specs/067
+> (PLCG1: an outside producer opens a closed carrier loop; translesion
+> polymerases coupled through the generic PCNA template).
+>
+> Converged: 1,682 / 1,725 curator and 234 / 244 experimental solves
+> (unchanged).
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 86.95% / 0.8403 against 83.34% / 0.8063, **+3.61pp**.
+> - Experimental: 71.38% (606/849) against 75.74% (643/849), **−4.36pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-16 (later): canonical numbers with the limit-cycle fallback
 > (specs/066).**

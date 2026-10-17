@@ -470,7 +470,7 @@ env vars only override for benchmark sweeps:
   A bundle without the table reports `<mode>: no carrier table` and solves as
   `off`, and the bench refuses it. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
-  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261016-0006_da08370` (since 2026-10-16; `20261012-1401_01206ca` before).
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261017-0654_d3ebf38` (since 2026-10-17, specs/067; `20261016-0006_da08370` before).
 - `DS_RECYCLED_TWIN=on` (**default since 2026-10-15**, specs/061 adoption) |
   `off` (specs/059): a RECYCLED copy of an
   entity (every producer, except depletion and dissociation, downstream of
