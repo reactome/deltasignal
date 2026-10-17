@@ -1,6 +1,6 @@
 # specs/067: specialization bridges — a specific complex is one member combination of a generic one
 
-**Status:** pre-registered 2026-10-16, before any build or arm. From a census of
+**Status:** pre-registered 2026-10-16, before any build or arm. Measured 2026-10-17 (research.md): `add` passes the gate (held-out +59, p 8.7e-7, experimental 0, worst pathway −7); `replace` fails it (DNA Damage Bypass −14). Adoption pending (Adam). From a census of
 the held-out misses on canonical `results/0709a1e`: Signaling by PDGF loses 80
 held-out cases as `no_path`, 60 of them the ligand and its receptors
 (PDGFB, PDGFRA, PDGFRB, both directions, every readout). specs/023 counted that
