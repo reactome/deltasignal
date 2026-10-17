@@ -42,8 +42,10 @@ commit.
 > tuning 0; experimental 0.
 >
 > Converged: 1,682 / 1,725 curator and 234 / 244 experimental solves (was
-> 1,654 / 222). DSB Repair's RNF8/RNF168 component still does not converge
-> (18 held-out cases still decided by the cap).
+> 1,654 / 222). DSB Repair's RNF8/RNF168 component still ends above
+> tolerance, but the cap no longer decides any class: across caps 500–4000,
+> none of the 638 cases from non-converged solves changes class (specs/066
+> amendment 2).
 >
 > **Against MP-BioPath's published figures:**
 > - Curator: 86.70% / 0.8366 against 83.34% / 0.8063, **+3.36pp**.
