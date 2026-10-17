@@ -1,6 +1,6 @@
 # specs/068: a specialization bridge is identity, not outside supply, to a carrier loop
 
-**Status:** pre-registered 2026-10-17, before any build or arm. Follow-up to
+**Status:** pre-registered 2026-10-17, before any build or arm. Measured 2026-10-17 (research.md): held-out +18 (18 / 0, p 7.6e-6), experimental 0, every prediction held; passes the gate. Adoption pending (Adam). Follow-up to
 specs/067's largest traced loss.
 
 ## Diagnosis (traced on canonical build `20261017-0654_d3ebf38`)
