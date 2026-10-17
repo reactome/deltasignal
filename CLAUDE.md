@@ -498,6 +498,21 @@ env vars only override for benchmark sweeps:
   edges carry a protein. The solve reports `zero_supply_rule`,
   `zero_supply_leaves` and `zero_supply_held`; a bundle without `nodes.csv`
   reports `hold: no node table` and the bench refuses it.
+- `DS_NONCONV_FALLBACK=lm` (**default since 2026-10-16**, specs/066; held-out
+  +1 (2 / 1), experimental 0, converged solves 1,654 → 1,682 curator and
+  222 → 234 experimental) | `off`: a cyclic component still above tolerance
+  at the iteration cap is re-solved by Levenberg-Marquardt on |F(x) − x|²
+  (no baseline prior; `DS_NONCONV_LM_ITERS`, default 400), started from the
+  last iterate, and the result is kept only if its residual is lower.
+  Converged components are never touched; components holding cycle-balance
+  pool nodes are skipped. Why: Goodwin rings (a complex depleting each of its
+  own free subunits across an AND, from the generator's ubiquitin pass, the
+  specs/057 class) have a fixed point that repels any damped relaxation, so
+  the iteration cycled and the cap chose the class. The solve reports
+  `nonconv_fallback`, `nonconv_components`, `nonconv_improved`,
+  `nonconv_rescued` and `nonconv_skipped_pools`. DSB Repair's 454-node
+  component improves but still does not converge (RNF8/RNF168, 18 held-out
+  cases still decided by the cap).
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -755,6 +770,11 @@ for the last feature that touched it rather than re-deriving from the code.
   pathways of one build (LNG #115 clears them per pathway; #116 five more
   derived caches, amendment 1). Measured both times: all 92
   networks identical in content, no predicted class changes; no rebuild.
+- `specs/066-limit-cycles/` — the 23 held-out cases the iteration cap
+  decided are Goodwin rings (traced in Fanconi: period-30 limit cycle; no
+  damping, linear or log, converges). `DS_NONCONV_FALLBACK=lm` finds the
+  fixed point by least squares where relaxation fails. **Adopted as the
+  default** (Adam, 2026-10-16): held-out +1, experimental 0.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
@@ -790,6 +810,7 @@ other seven execute code and print output.
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
+| `test/test_limit_cycles.jl` | 31 | specs/066, added 2026-10-16 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
