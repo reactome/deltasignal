@@ -776,6 +776,17 @@ for the last feature that touched it rather than re-deriving from the code.
   damping, linear or log, converges). `DS_NONCONV_FALLBACK=lm` finds the
   fixed point by least squares where relaxation fails. **Adopted as the
   default** (Adam, 2026-10-16): held-out +1, experimental 0.
+- `specs/067-specialization-bridges/` — Reactome curates one species under
+  two ids: a generic complex of sets and a specific member combination of
+  it, ordered only by `precedingEvent` (PDGF: autophosphorylation makes the
+  specific p-receptor, every signalling step consumes the generic one).
+  Generator `LNG_SPECIALIZATION_BRIDGE=add` joins the two copies with the
+  same member leaves (61 pairs, 203 edges, 24 pathways). **Adopted as the
+  default** (Adam, 2026-10-17): held-out +59 (101 / 42, p 8.7e-7),
+  experimental 0, worst pathway −7; `replace` failed (DNA Damage Bypass
+  −14). Open: PLCG1 (an outside producer opens a closed carrier loop), TLS
+  polymerases coupled through the generic template, cyclic growth in
+  Hedgehog and TGF-beta.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
