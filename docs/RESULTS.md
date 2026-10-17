@@ -19,6 +19,38 @@ commit.
 ---
 
 
+> **2026-10-16 (later): canonical numbers with the limit-cycle fallback
+> (specs/066).**
+> - Build `20261016-0006_da08370` (unchanged).
+> - Solver `0709a1e`: `DS_NONCONV_FALLBACK=lm` by default, DS #128. A cyclic
+>   component still above tolerance at the iteration cap is re-solved by
+>   least squares instead of scoring whichever phase of its limit cycle the
+>   cap landed on.
+> - Results: `results/0709a1e`. They reproduce the measured arm (`nclm`) on
+>   every prediction and value.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **89.50%** | **0.8646** |
+> | curator held-out, every case (71 pathways) | 19,000 | 88.87% | 0.8561 |
+> | curator, all pathways, in release (81) | 23,625 | 87.28% | 0.8442 |
+> | curator, all pathways, every case | 24,100 | 86.70% | 0.8366 |
+> | experimental, every case (10 pathways) | 849 | **71.38%** | **0.6320** |
+>
+> **What moved**: curator held-out +1 (FANCA and FANCC overexpression fixed,
+> SH3GL1 knockout at 167679 broken, all three predicted before the arm);
+> tuning 0; experimental 0.
+>
+> Converged: 1,682 / 1,725 curator and 234 / 244 experimental solves (was
+> 1,654 / 222). DSB Repair's RNF8/RNF168 component still does not converge
+> (18 held-out cases still decided by the cap).
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 86.70% / 0.8366 against 83.34% / 0.8063, **+3.36pp**.
+> - Experimental: 71.38% (606/849) against 75.74% (643/849), **−4.36pp**.
+>
+> **Previous box**, kept below for the record.
+
 > **2026-10-16: canonical numbers after the week review.**
 > - Build `20261016-0006_da08370`: generator `da08370` (LNG #114, no
 >   duplicate variant reaction copies, specs/064; plus dependency bumps).
