@@ -19,6 +19,38 @@ commit.
 ---
 
 
+> **2026-10-17 (later): canonical numbers with closed carrier loops kept
+> closed (specs/068).**
+> - Build `20261017-1246_5e663d9`: generator `5e663d9` (LNG #118,
+>   `LNG_SPECIALIZATION_CLOSED=twin` by default). A specialization bridge no
+>   longer counts as outside supply when the generator decides whether a
+>   carrier loop is closed. It had reopened one loop, PLC-gamma's release of
+>   the generic PDGF receptor (10 free forms). Logic networks are unchanged.
+> - Solver `6fb4329` (unchanged code since `0709a1e`).
+> - Results: `results/6fb4329`. They reproduce the measured arm (`sctwin`)
+>   on every case, both axes.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **89.91%** | **0.8706** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.28% | 0.8620 |
+> | curator, all pathways, in release (81) | 23,625 | 87.61% | 0.8486 |
+> | curator, all pathways, every case | 24,100 | 87.02% | 0.8411 |
+> | experimental, every case (10 pathways) | 849 | **71.38%** | **0.6320** |
+>
+> **What moved**: curator held-out +18 (18 fixed / 0 broken, p 7.6e-6), all
+> PLCG1 in Signaling by PDGF: the 18 cases specs/067 broke. Tuning 0,
+> experimental 0.
+>
+> Converged: 1,682 / 1,725 curator and 234 / 244 experimental solves
+> (unchanged).
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 87.02% / 0.8411 against 83.34% / 0.8063, **+3.68pp**.
+> - Experimental: 71.38% (606/849) against 75.74% (643/849), **−4.36pp**.
+>
+> **Previous box**, kept below for the record.
+
 > **2026-10-17: canonical numbers with specialization bridges (specs/067).**
 > - Build `20261017-0654_d3ebf38`: generator `d3ebf38` (LNG #117,
 >   `LNG_SPECIALIZATION_BRIDGE=add` by default). A specific complex and the
