@@ -26,7 +26,11 @@ could not rescue), WNT 111, Mitotic G1 100, TP53 51, TGF-beta 42.
 | curator | tuning | 0 | 0 | 0 | — |
 | experimental | all (with or without RAF) | 0 | 0 | 0 | — |
 
-Held-out accuracy 88.87% in both; macro-F1 0.8561 → 0.8559. RAF has no
+Held-out accuracy 88.87% in both; macro-F1 0.8559 → 0.8561 (corrected
+2026-10-16: first written reversed).
+
+Canonical re-run on main (solver `0709a1e`, `results/0709a1e`) reproduces
+`nclm` on every prediction and value, both axes. RAF has no
 moved case, so the set-aside reading is the same.
 
 The three class changes are exactly the three the spec predicted:
