@@ -784,9 +784,14 @@ for the last feature that touched it rather than re-deriving from the code.
   same member leaves (61 pairs, 203 edges, 24 pathways). **Adopted as the
   default** (Adam, 2026-10-17): held-out +59 (101 / 42, p 8.7e-7),
   experimental 0, worst pathway −7; `replace` failed (DNA Damage Bypass
-  −14). Open: PLCG1 (an outside producer opens a closed carrier loop), TLS
-  polymerases coupled through the generic template, cyclic growth in
-  Hedgehog and TGF-beta.
+  −14). Open: TLS polymerases coupled through the generic template, cyclic
+  growth in Hedgehog and TGF-beta. Its PLCG1 loss is fixed by specs/068.
+- `specs/068-specialization-closed-loops/` — a specialization bridge is
+  identity, not outside supply, when the generator decides whether a carrier
+  loop is closed (`LNG_SPECIALIZATION_CLOSED=twin`, LNG #118). The bridges
+  had reopened one loop, PLC-gamma's release of the generic PDGF receptor,
+  so PLCG1 set the receptor's level. **Adopted as the default** (Adam,
+  2026-10-17): held-out +18 (18 / 0, all PLCG1), experimental 0.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

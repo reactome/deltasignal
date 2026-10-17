@@ -45,4 +45,4 @@ unchanged.
 ## Decision (by the registered rule)
 
 Passes: held-out +18 at p 7.6e-6, experimental 0 (≥ −5), worst pathway 0
-(≥ −10). Candidate for the generator default; adoption is Adam's decision.
+(≥ −10). **Adopted as the generator default 2026-10-17 (Adam).**
