@@ -949,7 +949,7 @@ function _lm_iter_cap()
 end
 
 """
-`DS_NONCONV_FALLBACK` (specs/066): `off` (default) | `lm`. Under `lm`, a cyclic
+`DS_NONCONV_FALLBACK` (specs/066): `lm` (default since 2026-10-16) | `off`. Under `lm`, a cyclic
 component whose damped fixed point ends at or above tolerance is re-solved by
 Levenberg-Marquardt on the pure residual |F(x) - x|^2 (no baseline prior),
 started from the last iterate, for `DS_NONCONV_LM_ITERS` (default 400)
@@ -966,7 +966,7 @@ is the phase the iteration cap lands on.
 const DS_VALID_NONCONV_FALLBACK = ("off", "lm")
 
 function nonconv_fallback_mode()::String
-    v = get(ENV, "DS_NONCONV_FALLBACK", "off")
+    v = get(ENV, "DS_NONCONV_FALLBACK", "lm")
     v in DS_VALID_NONCONV_FALLBACK || throw(ArgumentError(
         "DS_NONCONV_FALLBACK=\"$v\" is not a recognised mode; expected \"off\" or \"lm\"."))
     return v

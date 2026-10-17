@@ -80,8 +80,13 @@ end
     @test fold(up, "EP") > 50
     down = solve(fixture(nothing); mode = "off", p = 0.5)
     @test fold(down, "EP") < 0.01
-    # and before it settles, the value is the sweep count's
-    @test fold(solve(fixture(nothing); mode = "off", p = 0.5, iters = 10), "E") > 100 * fold(down, "E")
+    # and before it settles, the value is the sweep count's (relaxation alone:
+    # since specs/066 a component stopped above tolerance is re-solved to its
+    # fixed point by default, which this check turns off)
+    early = with_env("DS_NONCONV_FALLBACK" => "off") do
+        solve(fixture(nothing); mode = "off", p = 0.5, iters = 10)
+    end
+    @test fold(early, "E") > 100 * fold(down, "E")
 end
 
 @testset "closed: E reads its supply (baseline); EP and T follow P at any sweep count" begin

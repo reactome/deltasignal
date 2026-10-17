@@ -50,9 +50,9 @@ fold(r, u) = r.node_activities[u] / BL
 
 @testset "limit cycles (specs/066)" begin
 
-@testset "default is off; bad values are errors" begin
+@testset "default is lm (adopted 2026-10-16); bad values are errors" begin
     with_env("DS_NONCONV_FALLBACK" => nothing) do
-        @test DS.nonconv_fallback_mode() == "off"
+        @test DS.nonconv_fallback_mode() == "lm"
     end
     with_env("DS_NONCONV_FALLBACK" => "LM") do
         @test_throws ArgumentError DS.nonconv_fallback_mode()

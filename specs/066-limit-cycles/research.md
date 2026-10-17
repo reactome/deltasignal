@@ -60,4 +60,4 @@ moved (all in solves the fallback touched).
 The gate passes: held-out +1 (≥ −15), experimental 0 (≥ −15), both read
 with RAF set aside, and converged solves rise on both axes. By the rule,
 `DS_NONCONV_FALLBACK=lm` is adopted as a faithfulness fix. Making it the
-default (and the canonical box that follows, held-out +1) is Adam's call.
+default was Adam's call: **adopted as the default 2026-10-16**.

@@ -1,6 +1,6 @@
 # specs/066: limit cycles — find the fixed point when relaxation cannot
 
-**Status:** pre-registered 2026-10-16, before the arm; measured the same day (research.md): held-out +1 (2 / 1, exactly the predicted cases), experimental 0, converged solves up on both axes. Passes the registered gate; default pending Adam. From the week review
+**Status:** pre-registered 2026-10-16, before the arm; measured the same day (research.md): held-out +1 (2 / 1, exactly the predicted cases), experimental 0, converged solves up on both axes. Passes the registered gate; **adopted as the default 2026-10-16 (Adam)**. From the week review
 (docs/reviews/2026-10-15-week-review.md, section 5): 23 curator held-out cases
 change class with the iteration cap, all from five perturbations
 (RNF8 ×15 and RNF168 ×3 in DSB Repair / DSB Response, FANCA and FANCC in
