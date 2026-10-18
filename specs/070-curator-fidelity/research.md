@@ -93,3 +93,58 @@ Traced example of `copy`, PIP3/AKT (R-HSA-1257604): PTEN (R-HSA-199420) has
 five network copies. R-HSA-6807126 outputs one that feeds nothing; R-HSA-6807106
 reads the root copy. PTEN Regulation's own diagram (R-HSA-6807070) draws one
 PTEN glyph as 6807126's output and 6807106's input.
+
+## 4. Arm dsub: the drawn hand-offs, joined
+
+Variant build `20261018-0815_ddbd828_dsub` (`LNG_DIAGRAM_SUBPATHWAYS=1`),
+results `results/40adace/dsub`, against canonical `results/6fb4329`.
+
+**Prediction 1 holds.** The audit re-run on the variant leaves 9 of the 459
+shared-glyph hand-offs missing (the seams and regulator glyphs); 583
+hand-offs are added. Network size falls (nodes 211,767 → 204,187, edges
+500,965 → 490,333), as merges do.
+
+**Gate fails.**
+
+| reading | fixed | broken | net | p |
+|---|---|---|---|---|
+| curator held-out, paired (gate; RAF set aside, none in held-out) | 23 | 194 | −171 | < 1e-4 |
+| curator tuning, paired | 169 | 401 | −232 | < 1e-4 |
+| experimental, paired (RAF set aside) | 21 | 40 | −19 | 0.020 |
+| curator, all valid in both | 213 | 840 | −627 | |
+| experimental, all valid in both | 30 | 59 | −29 | |
+
+Curator held-out in release 89.91% → 88.31%; experimental 606 → 577 of 849
+(71.38% → 67.96%). 1,384 curator and 73 experimental cases change pin set.
+
+Per pathway (all valid in both, `perpathway.py`):
+
+| pathway | fixed / broken | net |
+|---|---|---|
+| TP53 | 146 / 511 | −365 |
+| DSB Repair | 6 / 201 | −195 |
+| RUNX1 | 2 / 95 | −93 |
+| IL-2, WNT, TGF-beta, Hedgehog | | −8 to −6 each |
+| RUNX2 | 12 / 1 | +11 |
+| PIP3/AKT | 42 / 0 | +42 (experimental 13 / 0) |
+
+The added hand-offs are recycling returns (TP53: 47 unordered, 30 reverse,
+42 of 78 the TP53 tetramer R-HSA-3209194 returned to earlier reactions; DSB
+24 of 40 reverse; RUNX1 12 of 18 R-HSA-8865295).
+
+- **TP53: non-convergence.** Cases whose solve does not converge rise from
+  51 to 663 of 1,836; 361 of the 511 broken are non-converged in the arm.
+  The returned tetramer closes a large positive cycle and the iteration cap
+  picks the class (specs/066's failure, at scale).
+- **DSB Repair, RUNX1: knockouts drain the loop.** Converged; the broken cases
+  are knockouts (PARP1, PARP2, FEN1, XRCC1, LIG3, POLQ, RAD52; PTPN11, SRC)
+  whose readout now reads 0 where the answer is no change or up. A knockout
+  on a closed positive cycle collapses it to the all-zero state (specs/014).
+  Traced at this level only.
+- **PIP3/AKT: the predicted fix.** PTEN released by R-HSA-6807126 now returns
+  to R-HSA-6807106; 42 curator and 13 experimental cases fixed, none broken.
+
+So the drawn networks are more faithful and score worse, because the solver
+cannot handle the curated recycling loops they contain: it fails to converge
+on them or collapses them to zero. This is the specs/069 finding at catalog
+scale. The loss is the solver's loop handling, not a wrong hand-off.

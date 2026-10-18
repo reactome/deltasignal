@@ -1,6 +1,6 @@
 # specs/070: are the networks what the curators drew?
 
-**Status:** audit done 2026-10-18; arm `dsub` pre-registered below, not yet run.
+**Status:** audit done 2026-10-18. Arm `dsub` FAILS its gate (curator held-out −171, experimental −19 paired; TP53 −365, DSB −195, RUNX1 −93, PIP3/AKT +42); not adopted. research.md §4.
 
 Adam, 2026-10-18: "now that you understand how to check the networks vs what
 was intended by the curator perhaps you could check to make sure the networks
