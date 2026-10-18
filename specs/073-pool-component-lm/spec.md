@@ -1,8 +1,9 @@
 # specs/073: re-solve a non-converged pool component jointly
 
-**Status:** drafted 2026-10-18. Blocked on specs/074 (a numerical defect in
-the default AND, found by this spec's probe); the arms wait for it. The
-predictions below are revised from one probed case and say so.
+**Status:** pre-registered 2026-10-18, before the arms, on a solver that
+includes the specs/074 fix (a numerical defect in the default AND that this
+spec's probe found; measured separately, no class changes). Prediction 5 is
+revised from one probed case and says so.
 
 Adam, 2026-10-18: "ok" to #2 of specs/071 research ("LM fallback for pool
 components"), after the specs/072 report.
@@ -79,7 +80,7 @@ by Levenberg-Marquardt over all its free nodes at once:
 ## Arms (solver only; no rebuild)
 
 - `plj`: canonical, `--server DS_NONCONV_POOLS=joint`, against the specs/074
-  arm on canonical.
+  arm on canonical (`results/501e480/hsc`).
 - `pljd`: faithful build, `--server DS_POOL_SUPPLY_REACH=material --server
   DS_CYCLE_CARRIER_RELEASE=reaction --server DS_NONCONV_POOLS=joint`, against
   the same overrides without `joint` on the specs/074 solver (`crsd74`, run
@@ -100,10 +101,11 @@ faithful-network work and are not gated.
 **Predictions:**
 1. `plj`: no prediction changes; the log reports 0 pool components
    re-solved.
-2. `pljd`: only Transcriptional Regulation by TP53 moves, on both axes.
-3. `pljd`: of the component-solves `crsd` skipped (12 curator, 12
-   experimental), at least 9 on each axis are improved, and TP53's
-   non-converged curator cases fall from 663 to at most 330.
+2. `pljd` against `crsd74`: only Transcriptional Regulation by TP53 moves,
+   on both axes.
+3. `pljd`: of the component-solves `crsd74` skips, at least three quarters
+   on each axis are improved, and TP53's non-converged curator cases fall to
+   at most half of `crsd74`'s.
 4. `pljd` vs `pljd2k`: no TP53 case that is converged in both changes class.
 5. `pljd`: of the 46 MDM2 overexpression cases that `psrd` read UP against
    curator DOWN, at most 15 read DOWN (`crsd`: 6). Revised from the probe
