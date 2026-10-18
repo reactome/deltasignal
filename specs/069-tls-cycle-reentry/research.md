@@ -70,3 +70,38 @@ A label-free definition of a cycle's re-entry point that takes exactly these
 two edges here is not found. Options: a curated-flag question to Reactome
 (is TLS completion meant to feed new loading?), which needs Adam's approval
 to raise; or a rule derived blind on other pathways and only then scored here.
+
+## Rule T as registered (spec.md): refuted, 2026-10-17
+
+Arm `t069`: `scripts/run_arm.sh t069 --catalog 20261017-1246_5e663d9_t069`
+at solver `5e2320e` (results under that build, `results/5e2320e/t069`),
+against `20261017-1246_5e663d9` / `results/6fb4329`.
+
+| reading | fixed | broken | net | p |
+|---|---|---|---|---|
+| curator held-out, DNA Damage Bypass / DNA Repair / RAF set aside (**gate**) | 36 | 298 | **−262** | < 1e-4 |
+| curator held-out, all | 36 | 298 | −262 | < 1e-4 |
+| curator tuning | 13 | 320 | −307 | < 1e-4 |
+| experimental | 1 | 104 | **−103** | < 1e-4 |
+
+Coverage: 86 curator cases valid in the baseline only. Per pathway
+(`bench/analysis/069/t069_perpathway.txt`): TP53 −274 (13 / 287), DSB
+Repair −93, PTK6 −91, Base Excision Repair −43, HDR −32, TGF-beta −14,
+KIT −8, PDGF −8, others ≥ −3; Fanconi +6. Experimental: TP53 −97, HDR −6.
+
+Predictions: 1 failed (DNA Damage Bypass 73 → 73, **no case moved**);
+2 failed (TP53, DSB, PTK6 moved by far more than 5); 3 had no sign. The gate
+fails on every term.
+
+**Why (traced).** The registered operation drops E's `input` edges into the
+earlier reaction S. When E is also the pathway's own supply of S (the usual
+case: the factor that starts the process is the one released at the end),
+that severs the start, not the re-entry. TP53: the TP53 tetramer
+(R-HSA-3209194), released by a terminal step, is cut as an input of five
+early reactions, so TP53, MDM2, MDM4 and AKT perturbations no longer reach
+their readouts. DNA Damage Bypass: cutting PCNA:POLD,POLE:RPA:RFC into
+5651992 is the probe's "recycle only" variant, which moved nothing; and
+Damaged dsDNA (5652135) is a set whose network nodes carry its MEMBERS'
+ids, so matching the set id cut no black-box edge at all. The probe that
+fixed 45 cut the terminal reaction's OUTPUT edges. Amendment 1 registers
+that operation.

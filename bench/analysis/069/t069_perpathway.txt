@@ -1,0 +1,22 @@
+== curator
+ -274   13/287  Transcriptional_Regulation_by_TP53
+  -93   23/116  DNA_Double-Strand_Break_Repair
+  -91    0/91   Signaling_by_PTK6
+  -43    0/43   Base_Excision_Repair
+  -32    0/32   HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_
+  -14    0/14   Signaling_by_TGF-beta_Receptor_Complex
+   -8    0/8    Signaling_by_SCF-KIT
+   -8    0/8    Signaling_by_PDGF
+   -3    7/10   Signaling_by_EGFR
+   -2    0/2    Signaling_by_FGFR4
+   -2    0/2    Signaling_by_FGFR3
+   -2    0/2    Signaling_by_FGFR1
+   -2    0/2    Signaling_by_FGFR2
+   -2    0/2    Transcriptional_regulation_by_RUNX1
+   -1    0/1    Signaling_by_WNT
+   +6    6/0    Fanconi_Anemia_Pathway
+ top perturbations: [(('Transcriptional_Regulation_by_TP53', 'MDM2', '0', 'break'), 50), (('Transcriptional_Regulation_by_TP53', 'TP53', '0', 'break'), 41), (('Transcriptional_Regulation_by_TP53', 'TP53', '2', 'break'), 41), (('Transcriptional_Regulation_by_TP53', 'MDM2', '2', 'break'), 41), (('Transcriptional_Regulation_by_TP53', 'MDM4', '2', 'break'), 38), (('Transcriptional_Regulation_by_TP53', 'AKT1', '2', 'break'), 36), (('Transcriptional_Regulation_by_TP53', 'AKT2', '2', 'break'), 36), (('DNA_Double-Strand_Break_Repair', 'KPNA2', '0', 'break'), 17), (('DNA_Double-Strand_Break_Repair', 'KPNA2', '2', 'break'), 17), (('Signaling_by_PTK6', 'PTK6', '2', 'break'), 13), (('Signaling_by_PTK6', 'HIF1A', '2', 'break'), 13), (('Signaling_by_PTK6', 'PTK6', '0', 'break'), 13)]
+== experimental
+  -97    1/98   Transcriptional_Regulation_by_TP53
+   -6    0/6    HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_
+ top perturbations: [(('Transcriptional_Regulation_by_TP53', 'TP53', '2', 'break'), 39), (('Transcriptional_Regulation_by_TP53', 'TP53', '0', 'break'), 37), (('Transcriptional_Regulation_by_TP53', 'MDM2', '0', 'break'), 13), (('Transcriptional_Regulation_by_TP53', 'MDM2', '2', 'break'), 4), (('HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_', 'BRIP1', '0', 'break'), 2), (('HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_', 'BRIP1', '2', 'break'), 2), (('Transcriptional_Regulation_by_TP53', 'AKT1', '2', 'break'), 2), (('HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_', 'RAD52', '0', 'break'), 1), (('HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_', 'RAD52', '2', 'break'), 1), (('Transcriptional_Regulation_by_TP53', 'AKT2', '2', 'break'), 1), (('Transcriptional_Regulation_by_TP53', 'BRCA1', '0', 'fix'), 1), (('Transcriptional_Regulation_by_TP53', 'MDM4', '0', 'break'), 1)]
