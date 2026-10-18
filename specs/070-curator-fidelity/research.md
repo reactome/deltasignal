@@ -136,11 +136,10 @@ The added hand-offs are recycling returns (TP53: 47 unordered, 30 reverse,
   51 to 663 of 1,836; 361 of the 511 broken are non-converged in the arm.
   The returned tetramer closes a large positive cycle and the iteration cap
   picks the class (specs/066's failure, at scale).
-- **DSB Repair, RUNX1: knockouts drain the loop.** Converged; the broken cases
-  are knockouts (PARP1, PARP2, FEN1, XRCC1, LIG3, POLQ, RAD52; PTPN11, SRC)
-  whose readout now reads 0 where the answer is no change or up. A knockout
-  on a closed positive cycle collapses it to the all-zero state (specs/014).
-  Traced at this level only.
+- **DSB Repair, RUNX1:** converged; the broken cases are PARP1, PARP2, FEN1,
+  XRCC1, LIG3, POLQ, RAD52 (DSB) and PTPN11, SRC (RUNX1). This bullet first
+  said "knockouts drain the loop to 0"; that was wrong. The overexpressions
+  break too, reading UP, and the mechanisms differ. §5 has the traces.
 - **PIP3/AKT: the predicted fix.** PTEN released by R-HSA-6807126 now returns
   to R-HSA-6807106; 42 curator and 13 experimental cases fixed, none broken.
 
@@ -148,3 +147,64 @@ So the drawn networks are more faithful and score worse, because the solver
 cannot handle the curated recycling loops they contain: it fails to converge
 on them or collapses them to zero. This is the specs/069 finding at catalog
 scale. The loss is the solver's loop handling, not a wrong hand-off.
+
+## 5. Arm dsub: the losses traced
+
+One case per pathway, solved under the code defaults on the canonical bundle
+and on the `dsub` bundle (`bench/analysis/070/dump_case.jl`, pins from each
+run's case log), every node compared. The escape point is the first node that
+moves in `dsub` and not in the canonical solve.
+
+**DSB Repair (−195): an open carrier loop's release read as supply.**
+PARP1 knockout. Every alt-EJ (MMEJ) gene now reaches 12 HR and SSA readouts
+in both directions (knockout DOWN, overexpression UP; curators: no change).
+The signal leaves MMEJ at RBBP8 homotetramer (R-HSA-5684097). MMEJ's last
+step, "LIG3 ligates remaining SSBs in MMEJ" (R-HSA-5687675), releases RBBP8,
+and the MMEJ diagram draws that glyph as the input of MMEJ's first step
+(R-HSA-5687465). The join makes the released copy the free RBBP8 node, which
+also feeds HR end processing ("MRN complex binds CDK2 and RBBP8",
+R-HSA-5684081; the two reactions are never on a common diagram). The free node
+reads OR(SIRT6 deacetylation, MMEJ release), so stalling MMEJ halves it and
+HR stops. The generator lists the loop in `carrier_loops.csv` but as OPEN
+(SIRT6 also produces free RBBP8), and the default `closed_twin` acts only on
+closed loops. The faithful build has 83 carrier loops in DSB Repair (24
+closed, 59 open); the canonical has none. Over the catalog the join adds 173
+closed and 191 open loops (DNA Repair 114, Rho GTPases 39, WNT 53, DSB 83).
+Under conservation a carrier released unchanged is not a supply: if MMEJ never
+starts, RBBP8 is never bound and its free level is unchanged.
+
+**RUNX1 (−93): a phosphorylation cycle closed into a pool, and the enzyme
+knocked out.** PTPN11 knockout. Free RUNX1 (R-HSA-8865295) is made by
+translation and by "PTPN11 dephosphorylates RUNX1" (R-HSA-8937767); in the
+canonical build the dephosphorylated RUNX1 was a dead-end copy. Joined, SRC
+phosphorylation and PTPN11 dephosphorylation form a two-path cycle-balance
+pool (specs/039) whose return path's carrier is PTPN11 itself. With PTPN11 at
+0 the return rate is 0, all RUNX1 ends phosphorylated (π absorbed), and free
+RUNX1 and every target read 0; SRC overexpression does the same through the
+forward rate. That is the mass-action answer for a missing phosphatase. The
+curators answer no change. Before any rule, the ground truth needs checking.
+The 2019 answers may predate the SRC and PTPN11 reactions, or may not treat
+p-7Y-RUNX1 as inactive.
+
+**TP53 (−365): MDM2 and the tetramer pooled, the gene's supply excluded.**
+The join returns the TP53 tetramer from USP7 deubiquitination (R-HSA-3215310)
+and from the p14ARF release (R-HSA-6804996), and p-MDM2 from its own steps.
+That makes five cycle-balance pools (canonical: none), MDM2 (R-HSA-69486)
+among them. MDM2 knockout (100 cases broken, MDM2 both directions): the
+pinned root (R-HSA-3700996) zeroes translation (R-HSA-3700992), but every pool
+form stays at baseline. Traced in the pool update: the supply list of every
+MDM2 form is empty. specs/039 finding 6 excludes from a pool's supply any
+producer the pool's own forms reach. TP53 transcribes MDM2, so MDM2
+translation is downstream of the MDM2 pool, and the gene's only supply is
+dropped. With no supply the pool reads s = 1, so no perturbation of MDM2
+can reach TP53. The other broken TP53 cases are non-converged (663 of
+1,836, from 51; 361 of the 511 broken). The specs/066 LM fallback skips
+components that hold pool nodes, and TP53's main component now holds five
+pools. The traced MDM2 knockout itself converged.
+
+Three mechanisms, none of them a wrong hand-off:
+1. an open carrier loop's release read as supply (DSB);
+2. a cycle pool absorbed when its reverse enzyme is knocked out (RUNX1), a
+   ground-truth question;
+3. a pool whose supply is in feedback with it reads no supply (TP53/MDM2),
+   and non-convergence the fallback does not reach.
