@@ -1,6 +1,6 @@
 # specs/074: the hill_sat AND is wrong just below its 100× cap
 
-**Status:** pre-registered 2026-10-18, before the arms.
+**Status:** pre-registered 2026-10-18; results in `research.md`: no class changes on either build, gate passes, 187 more curator and 20 more experimental cases converge on canonical. Adoption is Adam's call.
 
 Found by specs/073's probe (Adam's "ok" to #2, 2026-10-18): Levenberg-Marquardt
 stalled on the TP53 pool component because one AND's gradient was wrong. The
