@@ -976,6 +976,11 @@ function solve_handler(req)
             "nonconv_rescued" => get(solver_result.diagnostics, "nonconv_rescued", 0),
             "nonconv_improved" => get(solver_result.diagnostics, "nonconv_improved", 0),
             "nonconv_skipped_pools" => get(solver_result.diagnostics, "nonconv_skipped_pools", 0),
+            # specs/073 (additive): pool components under DS_NONCONV_POOLS ("skip"/"joint").
+            "nonconv_pools" => get(solver_result.diagnostics, "nonconv_pools", "unknown"),
+            "nonconv_pool_components" => get(solver_result.diagnostics, "nonconv_pool_components", 0),
+            "nonconv_pool_improved" => get(solver_result.diagnostics, "nonconv_pool_improved", 0),
+            "nonconv_pool_rescued" => get(solver_result.diagnostics, "nonconv_pool_rescued", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),

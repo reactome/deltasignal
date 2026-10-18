@@ -586,6 +586,66 @@ end
     end
 end
 
+@testset "a non-converged pool component is re-solved jointly (specs/073)" begin
+    # The iteration is stopped after `iters` sweeps, so the pool component ends
+    # above tolerance; the converged solve (500 sweeps) is the reference.
+    function capped(net, obs, iters, pools_mode; fallback = "lm", pinned = ("G", "K", "Ph"))
+        with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_CYCLE_CARRIERS" => "on",
+                 "DS_SELF_INHIBITOR_WEIGHT" => "off", "DS_NONCONV_FALLBACK" => fallback,
+                 "DS_NONCONV_POOLS" => pools_mode) do
+            o = Dict(k => (1.0, 1.0) for k in pinned)
+            for (k, v) in obs; o[k] = (v, 1.0); end
+            DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, iters, 1e-9, "penalty"))
+        end
+    end
+    with_env("DS_NONCONV_POOLS" => nothing) do
+        @test DS.nonconv_pools_mode() == "skip"
+    end
+    # A pool alone is solved exactly in one sweep; a loop from its readout D
+    # back into one of its steps makes the component iterate.
+    function looped(n, s, t)
+        DS.ReactionNetwork(n.nodes, vcat(n.edges, [edge(s, t, "input")]), n.set_mappings, n.cofactor_stids,
+                           n.containment, nothing, n.pools)
+    end
+    rg = looped(ring(), "D", "c1")
+    cases = [(rg, Dict("G" => 3.0), ("G", "K", "Ph")),
+             (rg, Dict("G" => 80.0), ("G", "K", "Ph")),
+             (rg, Dict("K" => 0.2), ("G", "K", "Ph")),
+             (looped(ring(; copies = true), "D", "c1"), Dict("K2" => 5.0), ("G", "K", "Ph", "K2")),
+             (looped(fixture(), "D", "F"), Dict("EF" => 3.0), ("G", "EF", "EB", "Z")),
+             (looped(fixture(), "D", "F"), Dict("EB" => 0.2), ("G", "EF", "EB", "Z"))]
+    for (net, obs, pinned) in cases
+        ref = capped(net, obs, 500, "skip"; pinned = pinned)
+        @test ref.converged
+        skip = capped(net, obs, 3, "skip"; pinned = pinned)
+        @test !skip.converged
+        @test skip.diagnostics["nonconv_pools"] == "skip"
+        @test skip.diagnostics["nonconv_skipped_pools"] == 1
+        @test skip.diagnostics["nonconv_pool_components"] == 0
+        joint = capped(net, obs, 3, "joint"; pinned = pinned)
+        @test joint.diagnostics["nonconv_pools"] == "joint"
+        @test joint.diagnostics["nonconv_skipped_pools"] == 0
+        @test joint.diagnostics["nonconv_pool_components"] == 1
+        @test joint.diagnostics["nonconv_pool_improved"] == 1
+        @test joint.diagnostics["nonconv_pool_rescued"] == 1
+        @test joint.converged
+        @test maximum(abs(joint.node_activities[k] - ref.node_activities[k]) for k in keys(ref.node_activities)) < 1e-7
+        # converged solves are untouched, bit for bit
+        @test capped(net, obs, 500, "joint"; pinned = pinned).node_activities == ref.node_activities
+    end
+    # with the fallback off, the pool rule is reported as skip and nothing runs
+    off = capped(rg, Dict("G" => 3.0), 3, "joint"; fallback = "off")
+    @test !off.converged
+    @test off.diagnostics["nonconv_pools"] == "skip"
+    @test off.diagnostics["nonconv_pool_components"] == 0
+    for bad in ("", "Joint", "lm")
+        with_env("DS_NONCONV_POOLS" => bad) do
+            @test_throws ArgumentError DS.nonconv_pools_mode()
+            @test_throws ArgumentError solve_ring(ring())
+        end
+    end
+end
+
 @testset "label-independent" begin
     rl(u) = "zz_" * u
     r1 = solve(fixture(); obs = Dict("EF" => 3.0))

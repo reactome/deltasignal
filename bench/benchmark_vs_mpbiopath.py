@@ -1272,6 +1272,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY[f"nonconv_fallback={ds_result.get('nonconv_fallback', 'unknown')}"] += 1
             for k in ("nonconv_components", "nonconv_improved", "nonconv_rescued", "nonconv_skipped_pools"):
                 SOLVE_TALLY[k] += int(ds_result.get(k) or 0)
+            # specs/073: pool components re-solved jointly.
+            SOLVE_TALLY[f"nonconv_pools={ds_result.get('nonconv_pools', 'unknown')}"] += 1
+            for k in ("nonconv_pool_components", "nonconv_pool_improved", "nonconv_pool_rescued"):
+                SOLVE_TALLY[k] += int(ds_result.get(k) or 0)
         activities = ds_result.get("node_activities", {}) if ds_result else {}
         # per-case convergence (week review 2026-10-15): a prediction from a solve
         # that stopped at the iteration cap is flagged in the case dump.
@@ -1654,6 +1658,11 @@ def main():
           f"{SOLVE_TALLY['nonconv_skipped_pools']} skipped (pools) (specs/066)")
     if "lm" in nrules and SOLVE_TALLY["nonconv_components"] > SOLVE_TALLY["nonconv_skipped_pools"] and SOLVE_TALLY["nonconv_improved"] == 0:
         raise SystemExit("DS_NONCONV_FALLBACK=lm but no non-converged component was improved; the arm is the control.")
+    prules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("nonconv_pools="))
+    print(f"Pool components: {'/'.join(prules) or 'unknown'}, {SOLVE_TALLY['nonconv_pool_components']} re-solved jointly, "
+          f"{SOLVE_TALLY['nonconv_pool_improved']} improved, {SOLVE_TALLY['nonconv_pool_rescued']} rescued (specs/073)")
+    if "joint" in prules and SOLVE_TALLY["nonconv_pool_components"] > 0 and SOLVE_TALLY["nonconv_pool_improved"] == 0:
+        raise SystemExit("DS_NONCONV_POOLS=joint but no pool component was improved; the arm is the control.")
     print(f"\nPinned: {PIN_TALLY['pinned']} nodes over {PIN_TALLY['perturbations']} "
           f"perturbations, {PIN_TALLY['pinned_roots']} of them roots, "
           f"{PIN_TALLY['pinned_drugs']} drug nodes (DS_PIN_SCOPE={PIN_SCOPE})")
