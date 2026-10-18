@@ -1255,6 +1255,9 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             # producers it kept because the pool reaches them only by regulation.
             SOLVE_TALLY[f"pool_supply_reach={ds_result.get('pool_supply_reach', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_supply_regulated_kept"] += int(ds_result.get("cycle_supply_regulated_kept") or 0)
+            # specs/072: which producers count as a carrier's release steps.
+            SOLVE_TALLY[f"cycle_carrier_release={ds_result.get('cycle_carrier_release', 'unknown')}"] += 1
+            SOLVE_TALLY["cycle_carrier_release_added"] += int(ds_result.get("cycle_carrier_release_added") or 0)
             # specs/013 amendment 3: sweep order, and adjacent reactions in a
             # cyclic component it could not tell apart (they keep label order).
             SOLVE_TALLY[f"scc_order={ds_result.get('scc_order', 'unknown')}"] += 1
@@ -1619,6 +1622,9 @@ def main():
     yr = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("pool_supply_reach="))
     print(f"Pool supply reach: {'/'.join(yr) or 'unknown'}, "
           f"{SOLVE_TALLY['cycle_supply_regulated_kept']} regulated producers kept (specs/071)")
+    ycr = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carrier_release="))
+    print(f"Carrier release: {'/'.join(ycr) or 'unknown'}, "
+          f"{SOLVE_TALLY['cycle_carrier_release_added']} release copies added (specs/072)")
     if "balance" in yrules and SOLVE_TALLY["cycle_pools_solved"] == 0:
         raise SystemExit("DS_CYCLE_MODE=balance but no solve used a pool; the arm is the control.")
     zrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("zero_supply_rule="))

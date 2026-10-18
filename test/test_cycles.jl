@@ -525,6 +525,54 @@ end
     end
 end
 
+@testset "every copy of a listed release reaction is a release step (specs/072)" begin
+    # r1x is a second copy of the release reaction r1 (same stable id): it
+    # releases K from an intermediate SsEx that is not in the pool (USP7 from a
+    # second DAXX:PolyUb-MDM2:USP7 variant, specs/071). Only r1 is listed.
+    function ring_copy()
+        n = ring()
+        nodes = copy(n.nodes)
+        for k in ("V", "SsEx"); nodes[k] = DS.NetworkNode(k, "R-" * k, "protein", nothing, k, BL); end
+        nodes["r1x"] = DS.NetworkNode("r1x", "R-r1", "reaction", nothing, "r1x", BL)
+        edges = vcat(n.edges, [edge("V", "SsEx", "output"; and = false), edge("SsEx", "r1x", "input"),
+                               edge("r1x", "K", "output"; and = false)])
+        DS.ReactionNetwork(nodes, edges, n.set_mappings, n.cofactor_stids, n.containment, nothing, n.pools)
+    end
+    net = ring_copy()
+    rr(obs, mode) = with_env("DS_CYCLE_CARRIER_RELEASE" => mode) do
+        solve_ring(net; obs = obs, pinned = ("G", "Ph", "V"))
+    end
+    for mode in (nothing, "listed", "reaction")
+        r = rr(Dict{String,Float64}(), mode)
+        @test r.converged
+        @test fold(r, "K") ≈ 1.0 atol = 1e-6
+        @test r.diagnostics["cycle_carrier_release"] == something(mode, "listed")
+    end
+    listed = rr(Dict("V" => 80.0), "listed")
+    @test listed.diagnostics["cycle_carrier_release_added"] == 0
+    @test fold(listed, "K") > 2.0                    # the unlisted copy feeds the carrier
+    react = rr(Dict("V" => 80.0), "reaction")
+    @test react.converged
+    @test react.diagnostics["cycle_carrier_release_added"] == 1
+    @test fold(react, "K") ≈ 1.0 atol = 1e-6         # both copies left out: K reads KP only
+    @test fold(react, "Ss") ≈ 1.0 atol = 1e-6
+    # a producer with another stable id is still read
+    kg = rr(Dict("V" => 80.0, "KG" => 80.0), "reaction")
+    @test fold(kg, "K") ≈ 80.0 atol = 1e-6
+    # carriers off: nothing is added and the mode is reported as listed
+    off = with_env("DS_CYCLE_CARRIER_RELEASE" => "reaction") do
+        solve_ring(net; obs = Dict("V" => 80.0), pinned = ("G", "Ph", "V"), carriers = "off")
+    end
+    @test off.diagnostics["cycle_carrier_release"] == "listed"
+    @test off.diagnostics["cycle_carrier_release_added"] == 0
+    for bad in ("", "Reaction", "stid")
+        with_env("DS_CYCLE_CARRIER_RELEASE" => bad) do
+            @test_throws ArgumentError DS.cycle_carrier_release()
+            @test_throws ArgumentError solve_ring(net)
+        end
+    end
+end
+
 @testset "label-independent" begin
     rl(u) = "zz_" * u
     r1 = solve(fixture(); obs = Dict("EF" => 3.0))

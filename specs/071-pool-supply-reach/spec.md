@@ -1,6 +1,6 @@
 # specs/071: a pool's supply reached only by regulation is still its supply
 
-**Status:** pre-registered 2026-10-18; arms not yet run.
+**Status:** pre-registered 2026-10-18; results in `research.md` (prediction 1 failed, 49 of 100).
 
 Adam, 2026-10-18, on specs/070 §5: fix the TP53/MDM2 mechanism first ("ok").
 

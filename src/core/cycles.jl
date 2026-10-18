@@ -77,6 +77,22 @@ function pool_supply_reach()::String
     return value
 end
 
+"""
+specs/072. Which producers of a carrier's free form count as its release
+steps under the carrier rule:
+- `listed` (default): the reaction nodes `pool_carriers.csv` names, as before.
+- `reaction`: also every other producer that is a copy of the same Reactome
+  reaction (same stable id). A variant copy that reads an intermediate
+  outside the pool (USP7 released from a second DAXX:PolyUb-MDM2:USP7
+  variant in TP53) otherwise feeds the carrier the pool's flux.
+"""
+function cycle_carrier_release()::String
+    value = get(ENV, "DS_CYCLE_CARRIER_RELEASE", "listed")
+    value in ("listed", "reaction") || throw(ArgumentError(
+        "DS_CYCLE_CARRIER_RELEASE must be listed or reaction; got $(repr(value))"))
+    return value
+end
+
 function cycle_phi()::Float64
     raw = strip(get(ENV, "DS_CYCLE_PHI", "0.1"))
     phi = tryparse(Float64, raw)
@@ -143,8 +159,14 @@ intermediate and step reaction has a node, every step reaction has an
 IndexedReaction, every path is at most CYCLE_MAX_STEPS long, and the state graph
 is connected; otherwise it is skipped and counted (reported as a fallback).
 Carriers whose node or release node is missing are dropped from the pool.
+With `release_keys` (node index => stable id; specs/072), a carrier's other
+producers that copy a listed release reaction are release steps too; the count
+added goes to `stats["cycle_carrier_release_added"]`.
 """
-function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float64)
+function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float64;
+                     release_keys::Union{Nothing, Dict{Int, String}} = nothing,
+                     stats::Union{Nothing, Dict{String, Any}} = nothing)
+    n_release_added = 0
     by_target = Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
     out = IndexedPool[]
     skipped = 0
@@ -248,12 +270,25 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             haskey(by_target, ci) || continue
             push!(get!(cmap, ci, Set{Int}()), uuid_to_idx[rel])
         end
+        if release_keys !== nothing
+            # specs/072: every copy of a listed release reaction is a release step
+            for (ci, rel) in cmap
+                keys_rel = Set(k for k in (get(release_keys, r, "") for r in rel) if !isempty(k))
+                isempty(keys_rel) && continue
+                for a in rxns_idx[by_target[ci]].activator_indices
+                    a in rel && continue
+                    get(release_keys, a, "") in keys_rel || continue
+                    push!(rel, a); n_release_added += 1
+                end
+            end
+        end
         for ci in sort!(collect(keys(cmap)))
             push!(cs, ci); push!(crx, by_target[ci]); push!(crel, cmap[ci])
         end
         push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
                                fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Int[], Int[]))
     end
+    stats === nothing || (stats["cycle_carrier_release_added"] = n_release_added)
     return out, skipped
 end
 

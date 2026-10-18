@@ -292,6 +292,7 @@ function solve_steady_state(
     node_keys = Dict{String, String}(u => something(nd.reactome_id, "") for (u, nd) in network.nodes)
     supply_reach = ymode == "balance" ? pool_supply_reach() : "all"
     signal_pairs = supply_reach == "material" ? pool_signal_edge_pairs(network) : nothing
+    crelease = ymode == "balance" && cycle_carriers() ? cycle_carrier_release() : "listed"
     penalty(os) = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                              self_shared = self_shared,
                                              own_entity = own_entity,
@@ -299,6 +300,7 @@ function solve_steady_state(
                                              cycle_pools = ypools,
                                              cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                              cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
+                                             carrier_release = crelease,
                                              node_keys = node_keys,
                                              pool_signal_pairs = signal_pairs)
     own_mode = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
@@ -315,6 +317,7 @@ function solve_steady_state(
                                                cycle_pools = ypools,
                                                cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                                cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
+                                               carrier_release = crelease,
                                                node_keys = node_keys,
                                                pool_signal_pairs = signal_pairs)
         first_pass = pfull(reactions)
@@ -344,6 +347,7 @@ function solve_steady_state(
     result.diagnostics["cycle_rule"] = cycle_rule
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["pool_supply_reach"] = supply_reach
+    result.diagnostics["cycle_carrier_release"] = crelease
     result.diagnostics["drug_rule"] = drug_rule
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["pathogen_rule"] = pathogen_rule
@@ -1856,6 +1860,7 @@ function solve_steady_state_penalty(
     cycle_pools = nothing,
     cycle_phi::Float64 = 0.1,
     cycle_carriers::Bool = true,
+    carrier_release::String = "listed",
     node_keys::Union{Nothing, Dict{String, String}} = nothing,
     pool_signal_pairs::Union{Nothing, Set{Tuple{String, String}}} = nothing,
 )::SolverResult
@@ -1955,7 +1960,11 @@ function solve_steady_state_penalty(
             baseline_vec[i] = get(baseline_activities, uuid, 0.01)
         end
         ipools, n_skipped = cycle_pools === nothing ? (IndexedPool[], 0) :
-                            index_pools(cycle_pools, uuid_to_idx, rxns_idx, cycle_phi)
+                            index_pools(cycle_pools, uuid_to_idx, rxns_idx, cycle_phi;
+                                        release_keys = carrier_release == "reaction" && node_keys !== nothing ?
+                                            Dict{Int, String}(uuid_to_idx[u] => k for (u, k) in node_keys
+                                                              if !isempty(k) && haskey(uuid_to_idx, u)) : nothing,
+                                        stats = index_stats)
         index_stats["cycle_pools_skipped"] = n_skipped
         # Component-entry values, for the final residual below: a held edge
         # (specs/018 closure, specs/040 self-fed) reads these, not the live state.
@@ -2104,6 +2113,7 @@ function solve_steady_state_penalty(
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
             "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
             "cycle_supply_regulated_kept" => get(index_stats, "cycle_supply_regulated_kept", 0),
+            "cycle_carrier_release_added" => get(index_stats, "cycle_carrier_release_added", 0),
             "cycle_self_fed_inputs" => get(index_stats, "cycle_self_fed_inputs", 0),
             # specs/040 rule A: nodes found self-fed and edges held at entry (0 when off).
             "self_fed_nodes" => get(index_stats, "self_fed_nodes", 0),

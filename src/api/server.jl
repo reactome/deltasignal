@@ -953,6 +953,8 @@ function solve_handler(req)
             "cycle_carriers" => get(solver_result.diagnostics, "cycle_carriers", "off"),
             "pool_supply_reach" => get(solver_result.diagnostics, "pool_supply_reach", "all"),
             "cycle_supply_regulated_kept" => get(solver_result.diagnostics, "cycle_supply_regulated_kept", 0),
+            "cycle_carrier_release" => get(solver_result.diagnostics, "cycle_carrier_release", "listed"),
+            "cycle_carrier_release_added" => get(solver_result.diagnostics, "cycle_carrier_release_added", 0),
             "cycle_carriers_held" => get(solver_result.diagnostics, "cycle_carriers_held", 0),
             # specs/049 (additive): intermediates and step copies two pools share,
             # written once from every pool through them.
