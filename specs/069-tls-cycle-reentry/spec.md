@@ -1,6 +1,6 @@
 # specs/069: terminal re-entry (rule T)
 
-**Status:** rule T as registered REFUTED 2026-10-17 (research.md: gate held-out −262, experimental −103, DNA Damage Bypass unmoved). Amendment 1 (below) pre-registered before its arm. Originally pre-registered 2026-10-17, after the variant catalog was built
+**Status:** rule T as registered REFUTED 2026-10-17 (gate held-out −262, experimental −103, DNA Damage Bypass unmoved). Amendment 1 FAILS the gate (held-out +12 outside DNA Damage Bypass and RAF, p 0.058; experimental −4). Neither adopted; research.md has both. Originally pre-registered 2026-10-17, after the variant catalog was built
 (structure only) and before any arm on it. Follows the diagnosis in
 `research.md`. Adam, 2026-10-17: derive the rule away from DNA Damage Bypass
 and test it before any question goes to Reactome curation.
