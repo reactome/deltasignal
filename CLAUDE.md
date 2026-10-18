@@ -815,7 +815,7 @@ other seven execute code and print output.
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
 | `test/test_solver_determinism.jl` | 126 | |
-| `test/test_and_curves.jl` | 71 | |
+| `test/test_and_curves.jl` | 93 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |

@@ -243,6 +243,21 @@ end
         @test sat([0.5, 2.0]) ≈ 1.0 rtol=1e-6
     end
 
+    @testset "exact and monotone just below the ceiling (specs/074)" begin
+        # The smooth-min branched on d + sqrt(d^2 + eps^2) > 0, d = raw - max.
+        # Below the cap d < 0 and that sum cancels: at eps = 1e-9 it was a few
+        # ulps of noise for products between 87.5 and 99.8, so 96.9 read 96.4,
+        # 97.1 or 97.6 depending on the last digit, off by up to 8.9.
+        for p in (87.0, 87.6, 90.0, 95.0, 96.876, 97.0, 99.0, 99.5, 99.8, 99.9)
+            @test sat([p, 1.0]) ≈ p rtol=1e-9
+            @test sat([p / 80.0, 80.0]) ≈ p rtol=1e-9
+        end
+        grid = range(87.0, 99.9; length=400)
+        vals = [sat([p, 1.0]) for p in grid]
+        @test all(diff(vals) .> 0)
+        @test maximum(abs.(vals .- grid)) < 1e-9 * 100
+    end
+
     @testset "closer to the product than hill_log everywhere" begin
         for folds in ([0.5,0.5], [0.1,0.1], [0.001,1.0], [10.0,10.0], [2.0,2.0])
             want = min(prod(folds), 100.0)
