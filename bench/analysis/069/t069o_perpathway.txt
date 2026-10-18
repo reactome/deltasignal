@@ -1,0 +1,18 @@
+== curator all valid-in-both cases (pin sets may differ): baseline 20663 arm 20746 net 83
+   -7    0/7    Signaling_by_PTK6
+   -1    0/1    DNA_Damage_Reversal
+   +2    2/0    Signaling_by_Insulin_receptor
+   +6    6/0    Fanconi_Anemia_Pathway
+   +6   19/13   Transcriptional_Regulation_by_TP53
+   +8   11/3    Signaling_by_ERBB2
+  +12   15/3    Signaling_by_EGFR
+  +12   12/0    RAF_MAP_kinase_cascade
+  +45   45/0    DNA_Damage_Bypass
+ pin set changed (cases): [('DNA_Double-Strand_Break_Repair', 1044), ('Transcriptional_Regulation_by_TP53', 408), ('Transcriptional_regulation_by_RUNX1', 168), ('Base_Excision_Repair', 112), ('HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_', 100), ('Signaling_by_PDGF', 78), ('Signaling_by_WNT', 74), ('Signaling_by_ROBO_receptors', 48), ('Mitotic_Prophase', 22), ('Mitotic_G2-G2_M_phases', 22), ('RHO_GTPases_Activate_ROCKs', 16), ('Costimulation_by_the_CD28_family', 16)]
+ top perturbations: [(('Transcriptional_Regulation_by_TP53', 'ATM', '0', 'fix'), 7), (('Transcriptional_Regulation_by_TP53', 'CHEK2', '0', 'fix'), 7), (('DNA_Damage_Bypass', 'USP43', '2', 'fix'), 6), (('RAF_MAP_kinase_cascade', 'NF1', '0', 'fix'), 6), (('RAF_MAP_kinase_cascade', 'NF1', '2', 'fix'), 6), (('DNA_Damage_Bypass', 'POLI', '2', 'fix'), 5), (('DNA_Damage_Bypass', 'POLK', '2', 'fix'), 5), (('Signaling_by_EGFR', 'EPS15', '2', 'fix'), 5), (('Signaling_by_EGFR', 'PLCG1', '0', 'fix'), 5), (('Signaling_by_EGFR', 'PLCG1', '2', 'fix'), 5)]
+== experimental all valid-in-both cases (pin sets may differ): baseline 606 arm 604 net -2
+   -5    1/6    Transcriptional_Regulation_by_TP53
+   -2    1/3    Signaling_by_ERBB2
+   +5    5/0    RAF_MAP_kinase_cascade
+ pin set changed (cases): [('Transcriptional_Regulation_by_TP53', 139), ('HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_', 19), ('RAF_MAP_kinase_cascade', 5), ('Mitotic_Prophase', 2), ('Signaling_by_WNT', 2)]
+ top perturbations: [(('RAF_MAP_kinase_cascade', 'NF1', '0', 'fix'), 5), (('Transcriptional_Regulation_by_TP53', 'CHEK2', '0', 'break'), 2), (('Transcriptional_Regulation_by_TP53', 'MDM4', '0', 'break'), 2), (('Signaling_by_ERBB2', 'ERBB3', '0', 'break'), 1), (('Signaling_by_ERBB2', 'PTK6', '0', 'break'), 1), (('Signaling_by_ERBB2', 'PTK6', '2', 'fix'), 1), (('Signaling_by_ERBB2', 'PTK6', '2', 'break'), 1), (('Transcriptional_Regulation_by_TP53', 'ATM', '0', 'break'), 1), (('Transcriptional_Regulation_by_TP53', 'BRCA1', '0', 'fix'), 1), (('Transcriptional_Regulation_by_TP53', 'MDM2', '2', 'break'), 1)]

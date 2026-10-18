@@ -70,3 +70,89 @@ A label-free definition of a cycle's re-entry point that takes exactly these
 two edges here is not found. Options: a curated-flag question to Reactome
 (is TLS completion meant to feed new loading?), which needs Adam's approval
 to raise; or a rule derived blind on other pathways and only then scored here.
+
+## Rule T as registered (spec.md): refuted, 2026-10-17
+
+Arm `t069`: `scripts/run_arm.sh t069 --catalog 20261017-1246_5e663d9_t069`
+at solver `5e2320e` (results under that build, `results/5e2320e/t069`),
+against `20261017-1246_5e663d9` / `results/6fb4329`.
+
+| reading | fixed | broken | net | p |
+|---|---|---|---|---|
+| curator held-out, DNA Damage Bypass / DNA Repair / RAF set aside (**gate**) | 36 | 298 | **−262** | < 1e-4 |
+| curator held-out, all | 36 | 298 | −262 | < 1e-4 |
+| curator tuning | 13 | 320 | −307 | < 1e-4 |
+| experimental | 1 | 104 | **−103** | < 1e-4 |
+
+Coverage: 86 curator cases valid in the baseline only. Per pathway
+(`bench/analysis/069/t069_perpathway.txt`): TP53 −274 (13 / 287), DSB
+Repair −93, PTK6 −91, Base Excision Repair −43, HDR −32, TGF-beta −14,
+KIT −8, PDGF −8, others ≥ −3; Fanconi +6. Experimental: TP53 −97, HDR −6.
+
+Predictions: 1 failed (DNA Damage Bypass 73 → 73, **no case moved**);
+2 failed (TP53, DSB, PTK6 moved by far more than 5); 3 had no sign. The gate
+fails on every term.
+
+**Why (traced).** The registered operation drops E's `input` edges into the
+earlier reaction S. When E is also the pathway's own supply of S (the usual
+case: the factor that starts the process is the one released at the end),
+that severs the start, not the re-entry. TP53: the TP53 tetramer
+(R-HSA-3209194), released by a terminal step, is cut as an input of five
+early reactions, so TP53, MDM2, MDM4 and AKT perturbations no longer reach
+their readouts. DNA Damage Bypass: cutting PCNA:POLD,POLE:RPA:RFC into
+5651992 is the probe's "recycle only" variant, which moved nothing; and
+Damaged dsDNA (5652135) is a set whose network nodes carry its MEMBERS'
+ids, so matching the set id cut no black-box edge at all. The probe that
+fixed 45 cut the terminal reaction's OUTPUT edges. Amendment 1 registers
+that operation.
+
+## Amendment 1 (cut the terminal output): fails the gate, 2026-10-17
+
+Arm `t069o`: `scripts/run_arm.sh t069o --catalog 20261017-1246_5e663d9_t069o`
+at `b14350a` (results under that build, `results/b14350a/t069o`), against
+`results/6fb4329`.
+
+| reading | fixed | broken | net | p |
+|---|---|---|---|---|
+| curator held-out, DNA Damage Bypass / DNA Repair / RAF set aside (**gate**) | 23 | 11 | **+12** | **0.058** |
+| curator held-out, all | 68 | 11 | +57 | < 1e-4 |
+| curator tuning | 30 | 8 | +22 | 0.0005 |
+| experimental, RAF set aside (**gate**) | 2 | 6 | −4 | 0.29 |
+| experimental, all | 2 | 6 | −4 | 0.29 |
+
+holdout_report pairs only cases whose pin set is unchanged; the cut changes
+which nodes are roots, so 2,174 curator and 167 experimental cases are
+unpaired (DSB Repair 1,044, TP53 408, RUNX1 168). Counting every case valid
+in both (`bench/analysis/069/t069o_perpathway.txt`): curator +83, the same
+held-out +12 outside DNA Damage Bypass and RAF (none of the 1,044 DSB cases
+changes class); experimental −2, and **−7 with RAF set aside** (TP53 −5,
+ERBB2 −2), which would also fail the −5 bound.
+
+Per pathway (curator): DNA Damage Bypass +45 (45 / 0, prediction 1 held:
+the probe's cases, as expected, so not evidence), RAF +12 (all NF1 knockout
+and overexpression; experimental NF1 KO +5), EGFR +12, ERBB2 +8, Fanconi +6,
+TP53 +6, Insulin receptor +2, DNA Damage Reversal −1, **PTK6 −7**.
+
+**Gate: fails** (p 0.058 ≥ 0.05). Not adopted.
+
+Traced loss, PTK6 −7 (ERBB2/3/4 knockout and overexpression at
+p-Y565-HIF1A, which reads exactly 1.0 in the arm): "PTPN1 dephosphorylates
+PTK6" (R-HSA-8849435) is the pathway's last step and returns free PTK6
+(R-HSA-8848000) to "Activated ERBB2 binds PTK6". The ERBB signal reaches
+the free PTK6 that phosphorylates HIF1A only through that return, so the cut
+disconnects it. That is a curated signalling cycle (phosphorylation and its
+reversal), the same kind as the RHO GTPase GDP returns the census already
+showed. `precedingEvent` order alone does not separate a signalling cycle
+from the TLS re-entry; the class is impure.
+
+## Where this leaves specs/069
+
+- DNA Damage Bypass: cutting the terminal output fixes 45 and breaks none,
+  now reproduced on the full catalog.
+- A rule derived away from that pathway is not supported: its first form was
+  harmful (−262), the corrected form gains +12 outside it at p 0.058, and
+  its one traced loss is a cycle the rule should not cut. A third definition
+  shaped on these results would be fitted to the SELECT split.
+- Not established: whether Release 97 means TLS completion to feed new
+  loading. That is a curation question (MP-BioPath's 2019 export had no
+  out-edges on 5653840).
