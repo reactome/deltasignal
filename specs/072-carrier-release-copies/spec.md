@@ -1,6 +1,6 @@
 # specs/072: every copy of a carrier's release reaction is a release step
 
-**Status:** pre-registered 2026-10-18; arms not yet run.
+**Status:** pre-registered 2026-10-18; results in `research.md` (predictions 1, 2, 4 hold; 3 fails).
 
 Adam, 2026-10-18: "ok" to fixing first the defect that specs/071 found.
 
@@ -74,3 +74,10 @@ faithful-network work and is not gated.
 5. Non-convergence is reported, not predicted. The CDKN2A knockout classes are
    decided by the iteration cap in `psrd` (specs/071), and this rule does not
    address that.
+
+## Amendment 1 (2026-10-18, after the arms; diagnostics only)
+
+`cycle_carrier_release_added` counted copies that another pool already lists
+for the same carrier (shared carriers, specs/049 amendment 7). The solver
+already left those out, so predictions are unaffected. The count now leaves
+them out too. See `research.md`.

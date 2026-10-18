@@ -161,12 +161,20 @@ is connected; otherwise it is skipped and counted (reported as a fallback).
 Carriers whose node or release node is missing are dropped from the pool.
 With `release_keys` (node index => stable id; specs/072), a carrier's other
 producers that copy a listed release reaction are release steps too; the count
-added goes to `stats["cycle_carrier_release_added"]`.
+of those no pool lists for that carrier goes to `stats["cycle_carrier_release_added"]`.
 """
 function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float64;
                      release_keys::Union{Nothing, Dict{Int, String}} = nothing,
                      stats::Union{Nothing, Dict{String, Any}} = nothing)
     n_release_added = 0
+    # specs/072 amendment 1: a copy another pool lists for the same carrier is
+    # already left out (specs/049 amendment 7), so it is not counted as added
+    listed_any = Dict{String, Set{String}}()
+    for p in pools, (c, rel) in p.carriers
+        push!(get!(listed_any, c, Set{String}()), rel)
+    end
+    listed_idx = Dict(uuid_to_idx[c] => Set(uuid_to_idx[r] for r in rs if haskey(uuid_to_idx, r))
+                      for (c, rs) in listed_any if haskey(uuid_to_idx, c))
     by_target = Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
     out = IndexedPool[]
     skipped = 0
@@ -278,7 +286,8 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
                 for a in rxns_idx[by_target[ci]].activator_indices
                     a in rel && continue
                     get(release_keys, a, "") in keys_rel || continue
-                    push!(rel, a); n_release_added += 1
+                    push!(rel, a)
+                    a in get(listed_idx, ci, Set{Int}()) || (n_release_added += 1)
                 end
             end
         end

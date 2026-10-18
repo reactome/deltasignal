@@ -291,6 +291,19 @@ end
     @test fold(r, "K") ≈ 80.0 atol = 1e-6
     @test fold(r, "a_Ss") ≈ fold(r, "b_Ss") atol = 1e-9
     @test r.diagnostics["cycle_carriers_held"] == 1      # one distinct carrier
+    # specs/072 amendment 1: the other pool's listed release (the same reaction,
+    # R-r1) is already left out, so `reaction` adds nothing and moves nothing
+    r2 = with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_CYCLE_CARRIERS" => "on",
+                  "DS_SELF_INHIBITOR_WEIGHT" => "off", "DS_CYCLE_CARRIER_RELEASE" => "reaction") do
+        o = Dict(k => (1.0, 1.0) for k in ("a_G", "a_Ph", "b_G", "b_Ph"))
+        o["KG"] = (80.0, 1.0)
+        DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    @test net.nodes["a_r1"].reactome_id == net.nodes["b_r1"].reactome_id
+    @test r2.diagnostics["cycle_carrier_release_added"] == 0
+    for (k, v) in r.node_activities
+        @test r2.node_activities[k] ≈ v atol = 1e-12
+    end
 end
 
 @testset "multi-step cycles (amendment 2)" begin
