@@ -1,6 +1,6 @@
 # specs/069: terminal re-entry (rule T)
 
-**Status:** pre-registered 2026-10-17, after the variant catalog was built
+**Status:** rule T as registered REFUTED 2026-10-17 (research.md: gate held-out −262, experimental −103, DNA Damage Bypass unmoved). Amendment 1 (below) pre-registered before its arm. Originally pre-registered 2026-10-17, after the variant catalog was built
 (structure only) and before any arm on it. Follows the diagnosis in
 `research.md`. Adam, 2026-10-17: derive the rule away from DNA Damage Bypass
 and test it before any question goes to Reactome curation.
@@ -79,3 +79,38 @@ with RAF kept, and DNA Damage Bypass on its own.
    PIP3/AKT loses 386 edges (PTEN and p-MAPK dimers returned to earlier
    steps), WNT 109, HDR 80, TP53 62, G2/M 15, Cell Cycle Checkpoints 13,
    RAF 4, S Phase 2, Prophase 1, ERBB2 0. The gate's −5 bound decides.
+
+## Amendment 1: cut the production, not the consumption (pre-registered 2026-10-17)
+
+Registered after rule T's arm and its trace (research.md), before any arm of
+this one. The edge class is unchanged (the same 291 (E, S, L) triples); the
+operation changes. The registered cut removed E's input into the earlier
+reaction S, which is also E's ordinary supply of S: it severed each
+pathway's start (TP53 tetramer) and, matching a set by its own id, missed
+set-valued outputs (Damaged dsDNA). Amendment 1 instead removes the
+terminal reaction L's `output` edges into E, matching E or any of its set
+members/candidates (`members.cypher`, `members_r97.tsv`). E keeps every
+other producer and every consumer; only the end of the curated sequence
+stops feeding it.
+
+Variant build `20261017-1246_5e663d9_t069o`
+(`terminal_reentry.py apply ... output members_r97.tsv`): **2,317 edges in
+45 pathways** (DNA Repair 508, Signaling by Rho GTPases 298, Rho GTPase
+cycle 277, DSB Repair 258, DNA Damage Bypass 203, HDR 96, WNT 95, RAF 55,
+ERBB2 52, EGFR 49, TP53 49, ..., PIP3/AKT 31).
+
+Known before this arm, so not evidence: in DNA Damage Bypass this cut
+contains the probe's "both" cut (45 fixed / 0 broken) plus the ubiquitin
+output of USP1 (5655466).
+
+Arm `t069o`, same gate as above (DNA_Damage_Bypass, DNA_Repair and
+RAF_MAP_kinase_cascade set aside: held-out net > 0 with p < 0.05,
+experimental net ≥ −5, no pathway below −10).
+
+Predictions:
+1. DNA Damage Bypass gains at least 35, at most 3 broken.
+2. A terminal reaction's output is often a curator readout. Where a readout
+   is E itself, the cut leaves it fed only by its other producers, so
+   perturbations upstream of L can no longer move it: expect losses there.
+   No sign is predicted for the gate.
+3. Experimental: no sign predicted; the −5 bound decides.
