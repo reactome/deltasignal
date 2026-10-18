@@ -156,3 +156,40 @@ from the TLS re-entry; the class is impure.
 - Not established: whether Release 97 means TLS completion to feed new
   loading. That is a curation question (MP-BioPath's 2019 export had no
   out-edges on 5653840).
+
+## What the diagram says (Adam: diagrams show intent; dashed lines are not in Neo4j), 2026-10-17
+
+Release 97 layout `~/reactome-diagrams/97/R-HSA-73893.json`:
+
+- The loop is DRAWN. Damaged dsDNA is one glyph (id 551): an output of
+  5653840 and the input of the black box 5652137. PCNA:POLD,POLE:RPA:RFC is
+  one glyph (id 71): an output of 5653840 and an input of loading 5651992.
+  The two steps sit side by side on the top row (x 543 and 234, y ≈ 117),
+  wired end to start.
+- `precedingEvent` does not draw it: 5652137 has no predecessor (a start;
+  followed by 5651992 and USP1 autocleavage 5655483), and 5653840 has no
+  follower (an end).
+- A dashed Interaction (link 552, "Activate") runs from Damaged dsDNA to the
+  encapsulated pathway node Base Excision Repair (R-HSA-73884). It is not in
+  Neo4j, and no BER reaction takes Damaged dsDNA as input: it marks where
+  the bypassed lesion is repaired, not a hand-off the networks can carry.
+  Interaction links are not read by the generator (LNG #41, deferred).
+
+Reading: Reactome draws both continuations of bypassed DNA, still damaged
+— another round of bypass (the drawn loop) and repair by BER (the dashed
+exit). The loop is intended curation, not an artefact. The 45 cases are
+then a disagreement between Reactome's model and the 2019 expert answers
+(which, like MP-BioPath's 2019 network with no out-edges on 5653840, treat
+completion as the end), i.e. a ground-truth question rather than a network
+error.
+
+Generalised over rule T's 291 pairs (`bench/analysis/069/diagram_check_r97.tsv`:
+does a diagram holding both reactions draw L's output and S's input as one
+glyph of E or a member?): **196 shared glyph, 82 separate glyphs, 13 on no
+common diagram.** Both DNA Damage Bypass re-entries are shared, and so are
+the cycles rule T should not cut (PTK6's PTPN1 return of free PTK6, every
+RHO GTPase GDP return, TP53's tetramer returns). A shared glyph marks a
+cycle the curators drew; it does not separate the TLS loop from signalling
+cycles. The 82 separate-glyph pairs (mostly Base Excision Repair: released
+enzymes drawn as fresh copies) are the curator-drawn NON-loops; they do not
+include the TLS re-entries, so they are not this pathway's lever.
