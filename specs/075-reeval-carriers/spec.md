@@ -1,6 +1,6 @@
 # specs/075: a carrier re-evaluated in another pool's drives reads by the carrier rule
 
-**Status:** pre-registered 2026-10-18, before the arms.
+**Status:** pre-registered 2026-10-18; results in `research.md`. Canonical identical (gate passes, trivially). Faithful build: TP53 curator +252, experimental +15, MDM2 overexpression 46/46 DOWN; predictions 1-2 hold, 3 fails (TP53 non-converged 102 -> 306). Adoption is Adam's call.
 
 Adam, 2026-10-18: "yes" to tracing why the faithful build reads MDM2
 overexpression UP after specs/073, and "ok" to this fix.
