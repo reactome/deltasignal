@@ -90,3 +90,79 @@ changed cases go through BAD.
 - **Not adopted as registered.** A candidate amendment (not run): exempt releases
   whose reaction has a second non-cofactor input. It is post hoc, motivated by this
   arm, and needs Adam's go-ahead and its own pre-registered arm.
+
+## Amendment 1: arms ocs and ocsd (`fed_single`)
+
+Solver `24e3c1f`, run 2026-10-19 with `scripts/run_arm.sh`. Post hoc: the rule was
+written after `ocf` failed, so the held-out figure below is selected on held-out.
+
+| arm | build | against | results |
+|---|---|---|---|
+| ocs | canonical `20261017-1246_5e663d9` | `results/bf4b688/rst` | `results/24e3c1f/ocs` |
+| ocsd | faithful `20261018-0815_ddbd828_dsub` (+ specs/071, 072 rules) | `results/bf4b688/rstd` | `results/24e3c1f/ocsd` |
+
+Dropped release edge-solves: 12,692 (ocs curator) against 13,160 under `fed`.
+
+### ocs: canonical (gated)
+
+| split | net | fixed / broken | p |
+|---|---|---|---|
+| curator held-out | **+65** | 84 / 19 | < 1e-4 |
+| curator tuning | +20 | 34 / 14 | 0.0055 |
+| experimental (RAF set aside; RAF does not move) | **−5** | 6 / 11 | 0.33 |
+
+| | accuracy | macro-F1 |
+|---|---|---|
+| held-out, in release | 89.91% → **90.26%** | 0.8706 → **0.8757** |
+| tuning, in release | 79.14% → 79.53% | 0.7789 → 0.7822 |
+| experimental | 71.38% → 70.79% | 0.6320 → 0.6355 |
+
+By pathway (curator, 17 moved): MET +20 (30 / 10; CBL −10), EGFR +16, IL-2 family +8,
+HDR +8, intrinsic apoptosis **+4** (against −26 under `fed`), worst VEGF −2.
+Against `ocf`, `ocs` is +34 (42 / 8): apoptosis +30 (every BAD, YWHAE and AKT1 case
+returns), Mitotic G1 +6, EGFR 0 (6 / 6), Cell Cycle Checkpoints −2 (MDM2 knockout).
+
+**The registered gate passes**: held-out +65 ≥ 0; experimental −5 ≥ −5, at its limit;
+no pathway below −10 (worst −2).
+
+### ocsd: faithful build
+
+- Curator net **+272** (311 / 39): held-out +257 (277 / 20), tuning +15.
+  Curator all pathways 85.01% → 86.14%, macro-F1 0.8210 → 0.8333.
+- DSB Repair **+182** (182 / 0), MET +20, IL-2 +16, EGFR +16.
+- RUNX2 **0** (−21 under `fed`): its CBFB and ESR1 losses were displacer releases too.
+- Losses: TP53 −5 (AKT1, AKT2, CHEK2 knockouts), VEGF −2.
+- Experimental −5, the same 17 cases as `ocs`.
+
+### Predictions
+
+1. `ocs`: intrinsic apoptosis within ±5 of `rst`: **holds**, +4.
+2. `ocsd`: DSB Repair gains at least 150: **holds**, +182.
+3. `ocs`: curator held-out at least +20: **holds**, +65.
+4. `ocsd`: RUNX2 −21 not predicted to change: **wrong**, it returns to 0. Not traced
+   beyond that; the exemption keeps whatever release cut it.
+
+### The experimental loss (partly traced)
+
+The 11 broken cases: Mitotic G1 6, S phase 2, ERBB2 3 (ERBB3 knockout, PTK6 knockout
+and overexpression). 6 fixed: Mitotic G1 MYC and RB1 knockouts (3), S phase CCNE1
+overexpression, ERBB2 PTK6 overexpression, HDR CHEK1 knockout.
+
+- Mitotic G1 knockouts of CCND1, CCNE1 and CDK4 at CCNA1/CCNA2 (4 cases) are a
+  threshold shift, not a lost route: `rst` reads 0.83–0.84× (DOWN), `ocs` 0.865–0.875×
+  (NORMAL). The same readouts read 14× (UP) under `fed`, so the amendment improves on `fed` here.
+- CCNE1 overexpression at CCNA1/CCNA2 (2 cases) is a lost route: 20× under `rst`,
+  1.08× under `ocs` and `fed`. `fed_single` drops two releases in Mitotic G1: the SCF(Skp2)
+  ligase released after p27/p21 degradation (R-HSA-187574) and Cyclin E:p-T160-CDK2
+  released after phosphorylating RB1 (R-HSA-188390, single non-cofactor input). The free
+  kinase keeps CAK phosphorylation (R-HSA-188350) as its outside producer. Why that
+  producer does not carry CCNE1 overexpression is **not traced**.
+- S phase and ERBB2 losses are not traced.
+
+### Reading
+
+- `fed_single` passes the registered gate, with two caveats. It is post hoc. Its
+  experimental net is −5, exactly the limit, with 2 cases a lost route that is not
+  fully traced.
+- On the faithful build it closes most of the DSB Repair gap and removes the RUNX2 loss.
+- Adoption is Adam's decision.
