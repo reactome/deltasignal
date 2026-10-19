@@ -214,8 +214,8 @@ Response:
 - **`nonconv_pools`**, **`nonconv_pool_components`**,
   **`nonconv_pool_improved`**, **`nonconv_pool_rescued`** (additive,
   specs/073): what the fallback does with such a component when it holds pool
-  nodes (`"skip"`, the default, or `"joint"`: re-solved with the pool update
-  as part of the least-squares problem); how many it re-solved, improved and
+  nodes (`"joint"`, the default since 2026-10-18: re-solved with the pool
+  update as part of the least-squares problem; or `"skip"`); how many it re-solved, improved and
   brought below tolerance.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):

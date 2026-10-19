@@ -1133,7 +1133,9 @@ Levenberg-Marquardt on the pure residual |F(x) - x|^2 (no baseline prior),
 started from the last iterate, for `DS_NONCONV_LM_ITERS` (default 400)
 iterations. The result is kept only if its residual is lower. Converged
 components are never touched. Components holding cycle-balance pool nodes are
-skipped: those nodes are solved by their pool (pi = piP), not by F.
+skipped here: those nodes are solved by their pool (pi = piP), not by F.
+`DS_NONCONV_POOLS=joint` (default, specs/073) re-solves them with the pool
+update in the residual.
 
 Why: some components are Goodwin rings (a chain of lags closed by a high-gain
 negative feedback, e.g. a complex depleting each of its own free subunits
@@ -1157,7 +1159,7 @@ function _nonconv_lm_iters()::Int
 end
 
 """
-`DS_NONCONV_POOLS` (specs/073): `skip` (default) | `joint`. What the specs/066
+`DS_NONCONV_POOLS` (specs/073): `joint` (default since 2026-10-18) | `skip`. What the specs/066
 fallback does with a non-converged component that holds cycle-balance pool
 nodes. Under `skip` it is left at the last iterate and counted
 (`nonconv_skipped_pools`). Under `joint` it is re-solved by
@@ -1171,7 +1173,7 @@ only if that residual is lower.
 const DS_VALID_NONCONV_POOLS = ("skip", "joint")
 
 function nonconv_pools_mode()::String
-    v = get(ENV, "DS_NONCONV_POOLS", "skip")
+    v = get(ENV, "DS_NONCONV_POOLS", "joint")
     v in DS_VALID_NONCONV_POOLS || throw(ArgumentError(
         "DS_NONCONV_POOLS=\"$v\" is not a recognised mode; expected \"skip\" or \"joint\"."))
     return v

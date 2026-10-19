@@ -599,7 +599,7 @@ end
         end
     end
     with_env("DS_NONCONV_POOLS" => nothing) do
-        @test DS.nonconv_pools_mode() == "skip"
+        @test DS.nonconv_pools_mode() == "joint"     # default since 2026-10-18
     end
     # A pool alone is solved exactly in one sweep; a loop from its readout D
     # back into one of its steps makes the component iterate.

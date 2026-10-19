@@ -505,7 +505,7 @@ env vars only override for benchmark sweeps:
   (no baseline prior; `DS_NONCONV_LM_ITERS`, default 400), started from the
   last iterate, and the result is kept only if its residual is lower.
   Converged components are never touched; components holding cycle-balance
-  pool nodes are skipped. Why: Goodwin rings (a complex depleting each of its
+  pool nodes are handled by `DS_NONCONV_POOLS` below. Why: Goodwin rings (a complex depleting each of its
   own free subunits across an AND, from the generator's ubiquitin pass, the
   specs/057 class) have a fixed point that repels any damped relaxation, so
   the iteration cycled and the cap chose the class. The solve reports
@@ -514,11 +514,11 @@ env vars only override for benchmark sweeps:
   component improves but still ends above tolerance (RNF8/RNF168). That is
   no longer the cap's choice: across caps 500–4000 none of the 638 cases
   still flagged non-converged changes class (specs/066 amendment 2).
-  `DS_NONCONV_POOLS=skip` (default) | `joint` (specs/073, pre-registered, not
-  yet measured): under `joint` a component holding pool nodes is re-solved too,
-  with each pool-written node's row G(x) − x (G the pool update). Reports
-  `nonconv_pools`, `nonconv_pool_components`, `nonconv_pool_improved`,
-  `nonconv_pool_rescued`.
+  `DS_NONCONV_POOLS=joint` (**default since 2026-10-18**, specs/073; canonical
+  identical, faithful build TP53 non-converged 663 → 102) | `skip`: a
+  component holding pool nodes is re-solved too, with each pool-written
+  node's row G(x) − x (G the pool update). Reports `nonconv_pools`,
+  `nonconv_pool_components`, `nonconv_pool_improved`, `nonconv_pool_rescued`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -797,6 +797,15 @@ for the last feature that touched it rather than re-deriving from the code.
   had reopened one loop, PLC-gamma's release of the generic PDGF receptor,
   so PLCG1 set the receptor's level. **Adopted as the default** (Adam,
   2026-10-17): held-out +18 (18 / 0, all PLCG1), experimental 0.
+- `specs/071-pool-supply-reach/`, `specs/072-carrier-release-copies/` — two
+  pool rules for the faithful build (`DS_POOL_SUPPLY_REACH=material`,
+  `DS_CYCLE_CARRIER_RELEASE=reaction`), both no-ops on canonical; kept off by
+  default until the faithful build is canonical (Adam, 2026-10-18).
+- `specs/073-pool-component-lm/` — `DS_NONCONV_POOLS=joint`: a non-converged
+  component holding pool nodes is re-solved by LM with the pool update in
+  the residual. **Adopted as the default** (Adam, 2026-10-18): canonical
+  identical; faithful build TP53 non-converged 663 → 102, and MDM2/MDM4
+  overexpression read UP at the fixed point (curators: DOWN).
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are

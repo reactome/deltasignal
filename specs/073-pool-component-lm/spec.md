@@ -4,7 +4,7 @@
 results in `research.md`. All five predictions hold. Canonical identical
 (gate passes trivially); faithful build: TP53 non-converged 663 → 102,
 tuning −11 (the cap's lucky answers removed), MDM2 overexpression reads UP
-at the fixed point. Adoption is Adam's call.
+at the fixed point. **Adopted as the default 2026-10-18 (Adam: "yes").**
 
 Adam, 2026-10-18: "ok" to #2 of specs/071 research ("LM fallback for pool
 components"), after the specs/072 report.
