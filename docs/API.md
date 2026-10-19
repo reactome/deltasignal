@@ -207,8 +207,9 @@ Response:
   release reaction), and how many copies `"reaction"` added.
 - **`cycle_reeval_carrier_rule`**, **`cycle_reeval_carriers`** (additive,
   specs/075): how a pool's drives re-evaluate a pool-fed input that is the
-  carrier of another pool in the same component (`"full"`, the default: its
-  whole reaction; or `"carrier"`: the carrier rule), and how many such
+  carrier of another pool in the same component (`"carrier"`, the default
+  since 2026-10-18: the carrier rule; `"full"`: its whole reaction; `"off"`
+  when the carrier rule itself is off), and how many such
   pool-carrier pairs the solve had (counted under both).
 - **`nonconv_fallback`**, **`nonconv_components`**, **`nonconv_improved`**,
   **`nonconv_rescued`**, **`nonconv_skipped_pools`** (additive, specs/066):

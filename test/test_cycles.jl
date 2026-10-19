@@ -672,7 +672,7 @@ end
     for mode in (nothing, "full", "carrier")
         r = rr(1.0, mode)
         @test r.converged
-        @test r.diagnostics["cycle_reeval_carrier_rule"] == something(mode, "full")
+        @test r.diagnostics["cycle_reeval_carrier_rule"] == something(mode, "carrier")   # default since 2026-10-18
         @test r.diagnostics["cycle_reeval_carriers"] == 1        # counted under both modes
         for k in ("A", "B", "K", "Ss"); @test fold(r, k) ≈ 1.0 atol = 1e-6; end
     end
@@ -693,11 +693,11 @@ end
     end
     # the ring alone has no other pool to re-evaluate its carriers
     @test solve_ring(ring()).diagnostics["cycle_reeval_carriers"] == 0
-    # carriers off: nothing is counted and the rule is reported as full
+    # carriers off: nothing is counted and the rule is reported as off
     off = with_env("DS_CYCLE_REEVAL_CARRIERS" => "carrier") do
         solve_ring(net; obs = Dict("G" => 80.0), pinned = ("G", "Ph", "EF2"), carriers = "off")
     end
-    @test off.diagnostics["cycle_reeval_carrier_rule"] == "full"
+    @test off.diagnostics["cycle_reeval_carrier_rule"] == "off"
     @test off.diagnostics["cycle_reeval_carriers"] == 0
     for bad in ("", "Carrier", "rule")
         with_env("DS_CYCLE_REEVAL_CARRIERS" => bad) do

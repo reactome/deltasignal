@@ -96,15 +96,15 @@ end
 """
 specs/075. How the drives re-evaluate a pool-fed input (specs/039 amendment 5)
 that is itself the carrier of a pool in the same component:
-- `full` (default): from its whole reaction, as any other pool-fed input.
-- `carrier`: by the carrier rule, the mean fold of its producers other than
+- `full`: from its whole reaction, as any other pool-fed input.
+- `carrier` (default since 2026-10-18, Adam): by the carrier rule, the mean fold of its producers other than
   the release steps of every pool listing it. Its whole reaction includes those
   release steps, which read the other pool's flux: USP7, a carrier of the MDM2
   pool in TP53, read 50.5x in the TP53 pool's deubiquitination drive under MDM2
   overexpression while its own value was 1x.
 """
 function cycle_reeval_carriers()::String
-    value = get(ENV, "DS_CYCLE_REEVAL_CARRIERS", "full")
+    value = get(ENV, "DS_CYCLE_REEVAL_CARRIERS", "carrier")
     value in ("full", "carrier") || throw(ArgumentError(
         "DS_CYCLE_REEVAL_CARRIERS must be full or carrier; got $(repr(value))"))
     return value

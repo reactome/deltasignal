@@ -296,7 +296,7 @@ function solve_steady_state(
     signal_pairs = supply_reach == "material" ? pool_signal_edge_pairs(network) : nothing
     crelease = ymode == "balance" && cycle_carriers() ? cycle_carrier_release() : "listed"
     # specs/075: resolved here so a misspelt mode fails before any solve.
-    rcarriers = ymode == "balance" && cycle_carriers() ? cycle_reeval_carriers() : "full"
+    rcarriers = ymode == "balance" && cycle_carriers() ? cycle_reeval_carriers() : "off"
     penalty(os) = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                              self_shared = self_shared,
                                              own_entity = own_entity,

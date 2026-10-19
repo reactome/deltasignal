@@ -427,8 +427,10 @@ env vars only override for benchmark sweeps:
   enzyme's free form read its producers other than the release steps of
   EVERY pool that lists it (specs/049 amendment 7: the RAS GAPs, carriers of
   four pools, were written from the other pools' release flux and RAF never
-  converged; fixing it is RAF tuning +21, experimental +14, nothing else). The
-  solve reports `cycle_rule`, `cycle_pools_solved`, `cycle_pools_multistep`,
+  converged; fixing it is RAF tuning +21, experimental +14, nothing else).
+  `DS_CYCLE_REEVAL_CARRIERS=carrier` (default since 2026-10-18, specs/075;
+  `full` restores the old drives) applies the same rule where another pool's
+  drives re-evaluate the carrier. The solve reports `cycle_rule`, `cycle_pools_solved`, `cycle_pools_multistep`,
   `cycle_carriers` and `cycle_carriers_held`; under any `DS_SCC_METHOD` other than
   `fixed_point`, or `DS_SCC_SOLVE=0`, pools are not solved and `cycle_rule`
   says `balance: inert under ...`. It needs the generator's pool
@@ -802,6 +804,13 @@ for the last feature that touched it rather than re-deriving from the code.
   pool rules for the faithful build (`DS_POOL_SUPPLY_REACH=material`,
   `DS_CYCLE_CARRIER_RELEASE=reaction`), both no-ops on canonical; kept off by
   default until the faithful build is canonical (Adam, 2026-10-18).
+- `specs/075-reeval-carriers/` — `DS_CYCLE_REEVAL_CARRIERS=carrier`: a
+  carrier that another pool's drives re-evaluate (specs/039 amendment 5)
+  reads by the carrier rule, not its whole reaction (USP7 read 50.5× in the
+  TP53 pool's drive under MDM2 overexpression). **Adopted as the default**
+  (Adam, 2026-10-18): canonical identical (0 pairs); faithful build TP53
+  curator +252, experimental +15, but four TP53 perturbations no longer
+  converge. `full` restores the old drives.
 - `specs/073-pool-component-lm/` — `DS_NONCONV_POOLS=joint`: a non-converged
   component holding pool nodes is re-solved by LM with the pool update in
   the residual. **Adopted as the default** (Adam, 2026-10-18): canonical

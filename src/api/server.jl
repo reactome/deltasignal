@@ -956,7 +956,7 @@ function solve_handler(req)
             "cycle_carrier_release" => get(solver_result.diagnostics, "cycle_carrier_release", "listed"),
             "cycle_carrier_release_added" => get(solver_result.diagnostics, "cycle_carrier_release_added", 0),
             # specs/075 (additive): how the drives re-evaluate a carrier.
-            "cycle_reeval_carrier_rule" => get(solver_result.diagnostics, "cycle_reeval_carrier_rule", "full"),
+            "cycle_reeval_carrier_rule" => get(solver_result.diagnostics, "cycle_reeval_carrier_rule", "unknown"),
             "cycle_reeval_carriers" => get(solver_result.diagnostics, "cycle_reeval_carriers", 0),
             "cycle_carriers_held" => get(solver_result.diagnostics, "cycle_carriers_held", 0),
             # specs/049 (additive): intermediates and step copies two pools share,
