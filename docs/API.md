@@ -201,6 +201,10 @@ Response:
   specs/071): which edges the pool supply test follows (`"all"`, the default,
   or `"material"`), and how many pool supply producers the solve kept because
   the pool reaches them only through catalyst or regulator edges.
+- **`cycle_carrier_release`**, **`cycle_carrier_release_added`** (additive,
+  specs/072): which producers of a carrier's free form count as its release
+  steps (`"listed"`, the default, or `"reaction"`: every copy of a listed
+  release reaction), and how many copies `"reaction"` added.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
   `"balance"` (default), `"off"`, `"balance: no pool table"`, or

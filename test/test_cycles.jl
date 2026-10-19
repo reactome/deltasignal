@@ -291,6 +291,19 @@ end
     @test fold(r, "K") ≈ 80.0 atol = 1e-6
     @test fold(r, "a_Ss") ≈ fold(r, "b_Ss") atol = 1e-9
     @test r.diagnostics["cycle_carriers_held"] == 1      # one distinct carrier
+    # specs/072 amendment 1: the other pool's listed release (the same reaction,
+    # R-r1) is already left out, so `reaction` adds nothing and moves nothing
+    r2 = with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_CYCLE_CARRIERS" => "on",
+                  "DS_SELF_INHIBITOR_WEIGHT" => "off", "DS_CYCLE_CARRIER_RELEASE" => "reaction") do
+        o = Dict(k => (1.0, 1.0) for k in ("a_G", "a_Ph", "b_G", "b_Ph"))
+        o["KG"] = (80.0, 1.0)
+        DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    @test net.nodes["a_r1"].reactome_id == net.nodes["b_r1"].reactome_id
+    @test r2.diagnostics["cycle_carrier_release_added"] == 0
+    for (k, v) in r.node_activities
+        @test r2.node_activities[k] ≈ v atol = 1e-12
+    end
 end
 
 @testset "multi-step cycles (amendment 2)" begin
@@ -521,6 +534,54 @@ end
     for bad in ("", "Material", "regulator")
         with_env("DS_POOL_SUPPLY_REACH" => bad) do
             @test_throws ArgumentError solve(net)
+        end
+    end
+end
+
+@testset "every copy of a listed release reaction is a release step (specs/072)" begin
+    # r1x is a second copy of the release reaction r1 (same stable id): it
+    # releases K from an intermediate SsEx that is not in the pool (USP7 from a
+    # second DAXX:PolyUb-MDM2:USP7 variant, specs/071). Only r1 is listed.
+    function ring_copy()
+        n = ring()
+        nodes = copy(n.nodes)
+        for k in ("V", "SsEx"); nodes[k] = DS.NetworkNode(k, "R-" * k, "protein", nothing, k, BL); end
+        nodes["r1x"] = DS.NetworkNode("r1x", "R-r1", "reaction", nothing, "r1x", BL)
+        edges = vcat(n.edges, [edge("V", "SsEx", "output"; and = false), edge("SsEx", "r1x", "input"),
+                               edge("r1x", "K", "output"; and = false)])
+        DS.ReactionNetwork(nodes, edges, n.set_mappings, n.cofactor_stids, n.containment, nothing, n.pools)
+    end
+    net = ring_copy()
+    rr(obs, mode) = with_env("DS_CYCLE_CARRIER_RELEASE" => mode) do
+        solve_ring(net; obs = obs, pinned = ("G", "Ph", "V"))
+    end
+    for mode in (nothing, "listed", "reaction")
+        r = rr(Dict{String,Float64}(), mode)
+        @test r.converged
+        @test fold(r, "K") ≈ 1.0 atol = 1e-6
+        @test r.diagnostics["cycle_carrier_release"] == something(mode, "listed")
+    end
+    listed = rr(Dict("V" => 80.0), "listed")
+    @test listed.diagnostics["cycle_carrier_release_added"] == 0
+    @test fold(listed, "K") > 2.0                    # the unlisted copy feeds the carrier
+    react = rr(Dict("V" => 80.0), "reaction")
+    @test react.converged
+    @test react.diagnostics["cycle_carrier_release_added"] == 1
+    @test fold(react, "K") ≈ 1.0 atol = 1e-6         # both copies left out: K reads KP only
+    @test fold(react, "Ss") ≈ 1.0 atol = 1e-6
+    # a producer with another stable id is still read
+    kg = rr(Dict("V" => 80.0, "KG" => 80.0), "reaction")
+    @test fold(kg, "K") ≈ 80.0 atol = 1e-6
+    # carriers off: nothing is added and the mode is reported as listed
+    off = with_env("DS_CYCLE_CARRIER_RELEASE" => "reaction") do
+        solve_ring(net; obs = Dict("V" => 80.0), pinned = ("G", "Ph", "V"), carriers = "off")
+    end
+    @test off.diagnostics["cycle_carrier_release"] == "listed"
+    @test off.diagnostics["cycle_carrier_release_added"] == 0
+    for bad in ("", "Reaction", "stid")
+        with_env("DS_CYCLE_CARRIER_RELEASE" => bad) do
+            @test_throws ArgumentError DS.cycle_carrier_release()
+            @test_throws ArgumentError solve_ring(net)
         end
     end
 end
