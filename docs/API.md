@@ -197,6 +197,10 @@ Response:
   table"`; how many proteins pinned to 0 were left with no unpinned source;
   and how many nodes built from them this solve held at 0.
 - **`self_inhibitor_rule`** (additive): `"on"`, `"off"`, or `"inert: no containment table"`. The last means the solve did NOT run the default model, because the network came without a containment table. `/api/parse` returns `containment`; send it back with a POSTed network to keep the rule active.
+- **`pool_supply_reach`**, **`cycle_supply_regulated_kept`** (additive,
+  specs/071): which edges the pool supply test follows (`"all"`, the default,
+  or `"material"`), and how many pool supply producers the solve kept because
+  the pool reaches them only through catalyst or regulator edges.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
   `"balance"` (default), `"off"`, `"balance: no pool table"`, or

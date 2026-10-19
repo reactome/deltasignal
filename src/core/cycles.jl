@@ -60,6 +60,23 @@ function cycle_carriers()::Bool
     return value == "on"
 end
 
+"""
+specs/071. Which edges the pool supply test (specs/039 review finding 6)
+follows when it drops producers the pool's own forms reach:
+- `all` (default): every activator edge, as before.
+- `material`: only edges that move material (not catalyst, not positive
+  regulator). A producer the pool reaches only by regulating or catalysing
+  it (TP53 inducing MDM2 translation) stays a supply: none of the pool's
+  protein flows back along that route. The supply chain's ancestry, which
+  decides the dropped depletion edges, is walked along the same edges.
+"""
+function pool_supply_reach()::String
+    value = get(ENV, "DS_POOL_SUPPLY_REACH", "all")
+    value in ("all", "material") || throw(ArgumentError(
+        "DS_POOL_SUPPLY_REACH must be all or material; got $(repr(value))"))
+    return value
+end
+
 function cycle_phi()::Float64
     raw = strip(get(ENV, "DS_CYCLE_PHI", "0.1"))
     phi = tryparse(Float64, raw)

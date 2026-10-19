@@ -477,6 +477,54 @@ end
     @test_throws ArgumentError DS.pools_from_json(DS.JSON3.read("""[{"id":"p","forms":["a"],"base":"a","intermediates":[],"carriers":[]}]"""))
 end
 
+@testset "supply reached only by regulation stays a supply (specs/071)" begin
+    # B (the modified form) induces P, the reaction that makes the protein: the
+    # pool reaches its own supply, but only through a regulator edge. Under the
+    # default the review-finding-6 test drops P from the supply, so knocking
+    # out the gene cannot move the pool (TP53 inducing MDM2, specs/070 §5).
+    net = fixture(extra = [("B", "P", "regulator", true)])
+    solve_r(obs, reach) = with_env("DS_POOL_SUPPLY_REACH" => reach) do
+        solve(net; obs = obs)
+    end
+    for reach in (nothing, "all", "material")
+        r = solve_r(Dict{String,Float64}(), reach)
+        @test r.converged
+        @test fold(r, "A") ≈ 1.0 atol = 1e-6
+        @test fold(r, "B") ≈ 1.0 atol = 1e-6
+        @test r.diagnostics["pool_supply_reach"] == something(reach, "all")
+    end
+    ko_all = solve_r(Dict("G" => 0.0), "all")
+    @test fold(ko_all, "A") ≈ 1.0 atol = 1e-6       # the gene cannot reach its own pool
+    @test fold(ko_all, "B") ≈ 1.0 atol = 1e-6
+    @test ko_all.diagnostics["cycle_supply_regulated_kept"] == 0
+    ko_mat = solve_r(Dict("G" => 0.0), "material")
+    @test ko_mat.converged
+    @test fold(ko_mat, "A") ≈ 0.0 atol = 1e-6       # no protein made, none in either form
+    @test fold(ko_mat, "B") ≈ 0.0 atol = 1e-6
+    @test fold(ko_mat, "D") ≈ 0.0 atol = 1e-6
+    @test ko_mat.diagnostics["cycle_supply_regulated_kept"] == 1
+    # a supply the pool feeds with MATERIAL is still dropped under `material`
+    netm = fixture(extra = [("B", "P", "input", true)])
+    r = with_env("DS_POOL_SUPPLY_REACH" => "material") do
+        solve(netm; obs = Dict("G" => 0.0))
+    end
+    @test r.diagnostics["cycle_supply_regulated_kept"] == 0
+    @test fold(r, "A") ≈ fold(with_env(() -> solve(netm; obs = Dict("G" => 0.0)), "DS_POOL_SUPPLY_REACH" => "all"), "A") atol = 1e-9
+    # the edge classifier: a pair that is also an input carries material
+    n2 = fixture(extra = [("B", "P", "regulator", true), ("EF", "F", "input", true), ("EB", "W", "regulator", false)])
+    sp = DS.pool_signal_edge_pairs(n2)
+    @test ("B", "P") in sp
+    @test ("EB", "R") in sp                         # catalyst only
+    @test !(("EF", "F") in sp)                      # catalyst AND input
+    @test !(("EB", "W") in sp)                      # negative regulators are not followed at all
+    @test !(("A", "F") in sp)
+    for bad in ("", "Material", "regulator")
+        with_env("DS_POOL_SUPPLY_REACH" => bad) do
+            @test_throws ArgumentError solve(net)
+        end
+    end
+end
+
 @testset "label-independent" begin
     rl(u) = "zz_" * u
     r1 = solve(fixture(); obs = Dict("EF" => 3.0))

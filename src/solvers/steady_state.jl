@@ -290,6 +290,8 @@ function solve_steady_state(
     cycle_rule = ymode == "off" ? "off" : network.pools === nothing ? "balance: no pool table" :
                  y_inert !== nothing ? "balance: inert under $y_inert" : "balance"
     node_keys = Dict{String, String}(u => something(nd.reactome_id, "") for (u, nd) in network.nodes)
+    supply_reach = ymode == "balance" ? pool_supply_reach() : "all"
+    signal_pairs = supply_reach == "material" ? pool_signal_edge_pairs(network) : nothing
     penalty(os) = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                              self_shared = self_shared,
                                              own_entity = own_entity,
@@ -297,7 +299,8 @@ function solve_steady_state(
                                              cycle_pools = ypools,
                                              cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                              cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
-                                             node_keys = node_keys)
+                                             node_keys = node_keys,
+                                             pool_signal_pairs = signal_pairs)
     own_mode = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
     if own_mode == "suppress_only_source"
         # specs/061 amendments 4-5: no cap is applied during an iteration. Pass 1
@@ -312,7 +315,8 @@ function solve_steady_state(
                                                cycle_pools = ypools,
                                                cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                                cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
-                                               node_keys = node_keys)
+                                               node_keys = node_keys,
+                                               pool_signal_pairs = signal_pairs)
         first_pass = pfull(reactions)
         down(u) = haskey(first_pass.node_activities, u) &&
                   first_pass.node_activities[u] < get(baseline_activities, u, 0.01) * (1 - 1e-6)
@@ -339,6 +343,7 @@ function solve_steady_state(
     result.diagnostics["self_inhibitor_rule"] = self_rule
     result.diagnostics["cycle_rule"] = cycle_rule
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
+    result.diagnostics["pool_supply_reach"] = supply_reach
     result.diagnostics["drug_rule"] = drug_rule
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["pathogen_rule"] = pathogen_rule
@@ -419,6 +424,23 @@ edge at 1 while any source reads below baseline. Pairs with no source are
 left out (not capped). Empty under any other value.
 """
 const OWN_SOURCE_SKIP_EDGES = ("depletion", "catalyst", "regulator")
+
+"""
+specs/071. The (source, target) pairs whose every positive edge is a catalyst
+or regulator edge: routes along which no material moves. Read by the pool
+supply test under `DS_POOL_SUPPLY_REACH=material`. A pair that is also an
+input (an entity that is both catalyst and substrate) carries material and
+is not listed.
+"""
+function pool_signal_edge_pairs(network::ReactionNetwork)::Set{Tuple{String, String}}
+    signal = Set{Tuple{String, String}}(); material = Set{Tuple{String, String}}()
+    for e in network.edges
+        e.is_positive || continue
+        e.edge_type == "depletion" && continue
+        push!(e.edge_type in ("catalyst", "regulator") ? signal : material, (e.parent_uuid, e.child_uuid))
+    end
+    return setdiff(signal, material)
+end
 
 """`network` without the depletion edges (depleter, target) in `pairs` (specs/061 amendment 4)."""
 function without_depletions(network::ReactionNetwork, pairs::Set{Tuple{String, String}})
@@ -1057,6 +1079,7 @@ function solve_scc_ordered!(
     pools::Vector{IndexedPool} = IndexedPool[],
     pool_stats::Dict{String, Any} = Dict{String, Any}(),
     pool_carriers::Bool = true,
+    pool_signal_pairs::Union{Nothing, Set{Tuple{Int, Int}}} = nothing,
     entry_supply::Union{Nothing, Vector{Float64}} = nothing,
     order_key::Union{Nothing, Vector{UInt64}} = nothing,
 )
@@ -1351,6 +1374,7 @@ function solve_scc_ordered!(
         union!(pool_written, p.forms, p.flux_nodes, p.copy_nodes)
     end
     n_carrier_conflicts = 0; n_pinned_fallback = 0; n_supply_depl = 0; n_held_inputs = 0
+    n_supply_kept = 0
     rxn_of = isempty(pools) ? Dict{Int, Int}() : Dict{Int, Int}(r.target_idx => ri for (ri, r) in enumerate(rxns_idx))
     n_carriers_held = 0; n_multistep = 0
     carriers_seen = Set{Int}()   # a carrier shared by k pools is counted once
@@ -1381,8 +1405,24 @@ function solve_scc_ordered!(
                     push!(reach, w); push!(stack, w)
                 end
             end
+            # specs/071: under DS_POOL_SUPPLY_REACH=material the supply test
+            # follows only material edges (pool_signal_pairs are the
+            # catalyst/regulator-only ones), so a producer the pool merely
+            # regulates stays a supply.
+            sreach = reach
+            if pool_signal_pairs !== nothing
+                sreach = Set{Int}(p.forms); stack = copy(p.forms)
+                while !isempty(stack)
+                    v = pop!(stack)
+                    for w in get(pool_out, v, Int[])
+                        (w in sreach || w in obs_set || comp_id[w] != c0 || (v, w) in pool_signal_pairs) && continue
+                        push!(sreach, w); push!(stack, w)
+                    end
+                end
+            end
             for prods in p.supply_rxns
-                filter!(a -> !(a in reach), prods)
+                filter!(a -> !(a in sreach), prods)
+                n_supply_kept += count(a -> a in reach && !(a in sreach), prods)
             end
             # The supply is exogenous to the pool. A DERIVED depletion edge from a
             # node the pool feeds onto the supply chain (the activator ancestry of
@@ -1402,6 +1442,7 @@ function solve_scc_ordered!(
                 ri == 0 && continue
                 for a in rxns_idx[ri].activator_indices
                     (a in anc || a in reach || a in obs_set || comp_id[a] != c0) && continue
+                    pool_signal_pairs !== nothing && (a, v) in pool_signal_pairs && continue
                     push!(anc, a); push!(stk, a)
                 end
             end
@@ -1487,6 +1528,7 @@ function solve_scc_ordered!(
     pool_stats["cycle_carrier_conflicts"] = n_carrier_conflicts
     pool_stats["cycle_pools_pinned_fallback"] = n_pinned_fallback
     pool_stats["cycle_supply_depletions_held"] = n_supply_depl
+    pool_stats["cycle_supply_regulated_kept"] = n_supply_kept
     pool_stats["cycle_self_fed_inputs"] = n_held_inputs
     # For the final consistency check: managed nodes are held by their pool, not
     # by the forward model (like pinned nodes), and are checked against it.
@@ -1815,6 +1857,7 @@ function solve_steady_state_penalty(
     cycle_phi::Float64 = 0.1,
     cycle_carriers::Bool = true,
     node_keys::Union{Nothing, Dict{String, String}} = nothing,
+    pool_signal_pairs::Union{Nothing, Set{Tuple{String, String}}} = nothing,
 )::SolverResult
 
     all_nodes = collect(keys(x0))
@@ -1922,6 +1965,9 @@ function solve_steady_state_penalty(
         iters, max_change, scc_stats = solve_scc_ordered!(
             x, rxns_idx, comp_id, n_comp, obs_set, params, eval_config, baseline_vec;
             pools = ipools, pool_stats = index_stats, pool_carriers = cycle_carriers,
+            pool_signal_pairs = pool_signal_pairs === nothing ? nothing :
+                Set{Tuple{Int, Int}}((uuid_to_idx[a], uuid_to_idx[b]) for (a, b) in pool_signal_pairs
+                                     if haskey(uuid_to_idx, a) && haskey(uuid_to_idx, b)),
             entry_supply = entry_supply, order_key = order_key)
         @inbounds for i in eachindex(entry_supply)
             isnan(entry_supply[i]) && (entry_supply[i] = x[i])
@@ -2057,6 +2103,7 @@ function solve_steady_state_penalty(
             "cycle_carrier_conflicts" => get(index_stats, "cycle_carrier_conflicts", 0),
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
             "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
+            "cycle_supply_regulated_kept" => get(index_stats, "cycle_supply_regulated_kept", 0),
             "cycle_self_fed_inputs" => get(index_stats, "cycle_self_fed_inputs", 0),
             # specs/040 rule A: nodes found self-fed and edges held at entry (0 when off).
             "self_fed_nodes" => get(index_stats, "self_fed_nodes", 0),
