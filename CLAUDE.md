@@ -522,8 +522,8 @@ env vars only override for benchmark sweeps:
   component holding pool nodes is re-solved too, with each pool-written
   node's row G(x) − x (G the pool update). Reports `nonconv_pools`,
   `nonconv_pool_components`, `nonconv_pool_improved`, `nonconv_pool_rescued`.
-  `DS_NONCONV_RESTARTS=0` (default; specs/076, pre-registered, not yet
-  measured) with `DS_NONCONV_RESTART_SWEEPS=250`: a component the fallback
+  `DS_NONCONV_RESTARTS=0` (default; specs/076: at 4, canonical no class
+  change and +167 converged; faithful TP53 all converge, not yet adopted) with `DS_NONCONV_RESTART_SWEEPS=250`: a component the fallback
   leaves above tolerance is iterated that many more sweeps from its last
   iterate and the fallback retried, up to N times; the best state is kept.
   Reports `nonconv_restarts_max`, `nonconv_restarts`, `nonconv_restart_rescued`.
