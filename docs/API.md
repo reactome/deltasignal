@@ -205,6 +205,18 @@ Response:
   specs/072): which producers of a carrier's free form count as its release
   steps (`"listed"`, the default, or `"reaction"`: every copy of a listed
   release reaction), and how many copies `"reaction"` added.
+- **`nonconv_fallback`**, **`nonconv_components`**, **`nonconv_improved`**,
+  **`nonconv_rescued`**, **`nonconv_skipped_pools`** (additive, specs/066):
+  the fallback for a cyclic component still above tolerance at the iteration
+  cap (`"lm"`, the default, or `"off"`); how many such components the solve
+  had, how many the fallback improved, how many it brought below tolerance,
+  and how many it skipped because they hold pool nodes.
+- **`nonconv_pools`**, **`nonconv_pool_components`**,
+  **`nonconv_pool_improved`**, **`nonconv_pool_rescued`** (additive,
+  specs/073): what the fallback does with such a component when it holds pool
+  nodes (`"joint"`, the default since 2026-10-18: re-solved with the pool
+  update as part of the least-squares problem; or `"skip"`); how many it re-solved, improved and
+  brought below tolerance.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
   `"balance"` (default), `"off"`, `"balance: no pool table"`, or

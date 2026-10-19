@@ -172,6 +172,8 @@ function solve_steady_state(
     sfmode = self_fed_mode()
     # specs/066: resolved here so a misspelt mode fails before any solve.
     ncmode = nonconv_fallback_mode()
+    # specs/073: reported as skip whenever the fallback itself is off.
+    ncpools = ncmode == "lm" ? nonconv_pools_mode() : "skip"
     
     # Initialize node activities
     all_nodes = collect(keys(network.nodes))
@@ -372,6 +374,7 @@ function solve_steady_state(
     # specs/040: which self-feedback rules ran. The counts come from the solve.
     result.diagnostics["self_fed_rule"] = sfmode
     result.diagnostics["nonconv_fallback"] = ncmode
+    result.diagnostics["nonconv_pools"] = ncpools
     result.diagnostics["self_inhibitor_leaves"] = self_inhibitor_leaves() ? "on" : "off"
     result.diagnostics["self_inhibitor_leaf_pairs"] = self_leaf_pairs
     return result
@@ -804,7 +807,7 @@ directly.
 
 Returns `(converged, iterations)`.
 """
-function lm_minimize!(z::Vector{Float64}, p::ComponentProblem;
+function lm_minimize!(z::Vector{Float64}, p;
                       max_iter::Int = 100, g_tol::Float64 = 1e-10,
                       step_tol::Float64 = 1e-12, gamma::Float64 = p.gamma)
     lambda = 1e-3
@@ -947,6 +950,155 @@ function _component_residual(x, rs, rxns_idx, obs_set, supply, config)::Float64
     return resid
 end
 
+"""
+Every node the pool update `update_pools!(x, pools, ...)` reads (specs/073):
+the pools' own nodes and carriers, the inputs of their step copies, of the
+re-evaluated drives, of the states' and carriers' own updates (their
+modifiers), and the states' supply producers.
+"""
+function pool_update_inputs(pools, rxns_idx)::Set{Int}
+    out = Set{Int}()
+    for p in pools
+        union!(out, p.forms, p.flux_nodes, p.copy_nodes, p.carriers, p.reeval)
+        rxs = Int[]
+        for st in p.path_steps, (ris, src) in st
+            append!(rxs, ris); push!(out, src)
+        end
+        append!(rxs, p.reeval_rxn, p.carrier_rxn)
+        append!(rxs, filter(!=(0), p.form_rxn))
+        for prods in p.supply_rxns; union!(out, prods); end
+        for ri in rxs
+            r = rxns_idx[ri]
+            union!(out, r.activator_indices, r.inhibitor_indices, r.depletion_indices, r.substrate_indices)
+        end
+    end
+    return out
+end
+
+"""
+A component holding pool-managed nodes, as a least-squares problem over all
+its free nodes (specs/073). A managed node's row is `G(x) - x`, `G` the pool
+update; any other node's row is `F(x) - x`, as in `ComponentProblem`. No prior.
+"""
+struct PoolComponentProblem
+    base::ComponentProblem
+    pools::Vector{IndexedPool}
+    shared::Set{Int}
+    managed::Set{Int}
+    obs_set::Set{Int}
+    carriers::Bool
+    gcols::Vector{Int}          # free nodes G reads, as node indices
+    gbuf::Vector{Float64}
+    gamma::Float64
+end
+
+function PoolComponentProblem(base::ComponentProblem, pools, shared, managed, obs_set, rxns_idx, carriers)
+    gcols = sort!([j for j in pool_update_inputs(pools, rxns_idx) if haskey(base.slot, j)])
+    PoolComponentProblem(base, pools, shared, managed, obs_set, carriers, gcols, copy(base.xbuf), 0.0)
+end
+
+# G(xbuf) into gbuf: a copy of xbuf with the pool update applied.
+function _pool_map!(p::PoolComponentProblem)
+    copyto!(p.gbuf, p.base.xbuf)
+    update_pools!(p.gbuf, p.pools, p.shared, p.base.rxns, p.base.baseline, p.obs_set, p.base.config;
+                  carriers = p.carriers)
+    return p.gbuf
+end
+
+function component_residual_jacobian(p::PoolComponentProblem, z::Vector{Float64}; gamma::Float64 = 0.0)
+    b = p.base
+    @inbounds for (k, t) in enumerate(b.free); b.xbuf[t] = z[k]; end
+    rows = Int[]            # rs positions with a free target, in order
+    @inbounds for (k, ri) in enumerate(b.rs)
+        haskey(b.slot, b.rxns[ri].target_idx) && push!(rows, k)
+    end
+    m = length(rows)
+    r = zeros(Float64, m)
+    I = Int[]; Jc = Int[]; V = Float64[]
+    g0 = copy(_pool_map!(p))
+    grow = Dict{Int, Int}()     # managed target -> row
+    @inbounds for (row, k) in enumerate(rows)
+        rx = b.rxns[b.rs[k]]
+        t = rx.target_idx
+        if t in p.managed
+            r[row] = g0[t] - b.xbuf[t]
+            grow[t] = row
+        else
+            d = b.deps[k]
+            r[row] = compute_reaction_output_vec(b.xbuf, rx; supply=b.supply, config=b.config) - b.xbuf[t]
+            if !isempty(d)
+                local_in = Float64[b.xbuf[i] for i in d]
+                fr = function (v)
+                    yy = OverlayVector{eltype(v), Float64}(b.xbuf, d, v)
+                    compute_reaction_output_vec(yy, rx; supply=b.supply, config=b.config)
+                end
+                gloc = ForwardDiff.gradient(fr, local_in)
+                for (mm, i) in enumerate(d)
+                    push!(I, row); push!(Jc, b.slot[i]); push!(V, gloc[mm])
+                end
+            end
+        end
+        push!(I, row); push!(Jc, b.slot[t]); push!(V, -1.0)
+    end
+    # G's columns by forward differences (backward at the upper bound).
+    if !isempty(grow)
+        @inbounds for j in p.gcols
+            xj = b.xbuf[j]
+            h = 1e-8 + 1e-6 * abs(xj)
+            xj + h > 1.0 && (h = -h)
+            b.xbuf[j] = xj + h
+            g1 = _pool_map!(p)
+            b.xbuf[j] = xj
+            for (t, row) in grow
+                dg = (g1[t] - g0[t]) / h
+                dg == 0.0 && continue
+                push!(I, row); push!(Jc, b.slot[j]); push!(V, dg)
+            end
+        end
+    end
+    return r, sparse(I, Jc, V, m, length(b.free))
+end
+
+"""Worst residual of a pool component: `|F(x) - x|` over its free unmanaged
+targets and `|G(x) - x|` over the nodes its pools write (specs/073), the two
+quantities the final convergence check reads."""
+function _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed, pools, shared,
+                                   baseline_vec, carriers)::Float64
+    resid = 0.0
+    @inbounds for ri in rs
+        r = rxns_idx[ri]
+        t = r.target_idx
+        (t in obs_set || t in managed) && continue
+        d = abs(compute_reaction_output_vec(x, r; supply=supply, config=config) - x[t])
+        d > resid && (resid = d)
+    end
+    d = update_pools!(copy(x), pools, shared, rxns_idx, baseline_vec, obs_set, config; carriers = carriers)
+    return isfinite(d) ? max(resid, d) : Inf
+end
+
+"""
+Levenberg-Marquardt over a pool component's free nodes (specs/073), from `x`.
+Writes the result into `x` and returns `_component_residual_pools`.
+"""
+function minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
+                                   pools, shared, managed, carriers; lm_cap::Int, tol::Float64)::Float64
+    base = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec, 1.0, 0.0, config, supply)
+    if !isempty(base.free)
+        prob = PoolComponentProblem(base, pools, shared, managed, obs_set, rxns_idx, carriers)
+        z = Float64[x[t] for t in base.free]
+        try
+            lm_minimize!(z, prob; max_iter=lm_cap, g_tol=tol * 1e-2, gamma=0.0)
+            @inbounds for (k, t) in enumerate(base.free)
+                x[t] = clamp(z[k], 0.0, 1.0)
+            end
+        catch err
+            @warn "pool component minimisation failed; keeping the iterate" exception=(err, catch_backtrace()) n_free=length(base.free)
+        end
+    end
+    return _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed, pools, shared,
+                                     baseline_vec, carriers)
+end
+
 
 """
 Decreasing gamma schedule ending at the target, for continuation.
@@ -981,7 +1133,9 @@ Levenberg-Marquardt on the pure residual |F(x) - x|^2 (no baseline prior),
 started from the last iterate, for `DS_NONCONV_LM_ITERS` (default 400)
 iterations. The result is kept only if its residual is lower. Converged
 components are never touched. Components holding cycle-balance pool nodes are
-skipped: those nodes are solved by their pool (pi = piP), not by F.
+skipped here: those nodes are solved by their pool (pi = piP), not by F.
+`DS_NONCONV_POOLS=joint` (default, specs/073) re-solves them with the pool
+update in the residual.
 
 Why: some components are Goodwin rings (a chain of lags closed by a high-gain
 negative feedback, e.g. a complex depleting each of its own free subunits
@@ -1002,6 +1156,27 @@ function _nonconv_lm_iters()::Int
     n = round(Int, _float_env("DS_NONCONV_LM_ITERS", 400.0))
     n < 1 && throw(ArgumentError("DS_NONCONV_LM_ITERS=$n must be at least 1."))
     n
+end
+
+"""
+`DS_NONCONV_POOLS` (specs/073): `joint` (default since 2026-10-18) | `skip`. What the specs/066
+fallback does with a non-converged component that holds cycle-balance pool
+nodes. Under `skip` it is left at the last iterate and counted
+(`nonconv_skipped_pools`). Under `joint` it is re-solved by
+Levenberg-Marquardt over all its free nodes at once: a node a pool writes
+contributes the row `G(x) - x`, where `G` is the pool update (`update_pools!`),
+and every other node the row `F(x) - x`. That is the residual the final
+convergence check reads. `G`'s Jacobian is taken by forward differences over
+the inputs the pool update reads (`pool_update_inputs`). The result is kept
+only if that residual is lower.
+"""
+const DS_VALID_NONCONV_POOLS = ("skip", "joint")
+
+function nonconv_pools_mode()::String
+    v = get(ENV, "DS_NONCONV_POOLS", "joint")
+    v in DS_VALID_NONCONV_POOLS || throw(ArgumentError(
+        "DS_NONCONV_POOLS=\"$v\" is not a recognised mode; expected \"skip\" or \"joint\"."))
+    return v
 end
 
 """
@@ -1188,6 +1363,7 @@ function solve_scc_ordered!(
     end
     minimize = scc_method == "minimize"
     nonconv_lm = nonconv_fallback_mode() == "lm"        # specs/066
+    nonconv_joint = nonconv_lm && nonconv_pools_mode() == "joint"   # specs/073
     pooling = scc_method in ("pool", "pool_parity", "pool_all")
     parity = scc_method == "pool_parity"
     pool_all = scc_method == "pool_all"
@@ -1686,7 +1862,24 @@ function solve_scc_ordered!(
             # A component bounded on purpose (DS_SCC_NEG_MODE) is left alone.
             if nonconv_lm && !minimize && !is_neg && comp_residual >= tol
                 pool_stats["nonconv_components"] = get(pool_stats, "nonconv_components", 0) + 1
-                if haskey(comp_pools, c) || any(u -> u in managed, comp_nodes[c])
+                if haskey(comp_pools, c) && nonconv_joint
+                    # specs/073: pool nodes join the least-squares problem as
+                    # rows G(x) - x
+                    pool_stats["nonconv_pool_components"] = get(pool_stats, "nonconv_pool_components", 0) + 1
+                    saved = x[comp_nodes[c]]
+                    r0 = _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed,
+                                                   comp_pools[c], comp_shared[c], baseline_vec, pool_carriers)
+                    r1 = minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
+                                                   comp_pools[c], comp_shared[c], managed, pool_carriers;
+                                                   lm_cap = _nonconv_lm_iters(), tol = tol)
+                    if r1 < r0
+                        comp_residual = r1
+                        pool_stats["nonconv_pool_improved"] = get(pool_stats, "nonconv_pool_improved", 0) + 1
+                        r1 < tol && (pool_stats["nonconv_pool_rescued"] = get(pool_stats, "nonconv_pool_rescued", 0) + 1)
+                    else
+                        x[comp_nodes[c]] = saved
+                    end
+                elseif haskey(comp_pools, c) || any(u -> u in managed, comp_nodes[c])
                     pool_stats["nonconv_skipped_pools"] = get(pool_stats, "nonconv_skipped_pools", 0) + 1
                 else
                     saved = x[comp_nodes[c]]
@@ -2127,6 +2320,10 @@ function solve_steady_state_penalty(
             "nonconv_improved" => get(index_stats, "nonconv_improved", 0),
             "nonconv_rescued" => get(index_stats, "nonconv_rescued", 0),
             "nonconv_skipped_pools" => get(index_stats, "nonconv_skipped_pools", 0),
+            # specs/073: pool components re-solved jointly (0 under skip).
+            "nonconv_pool_components" => get(index_stats, "nonconv_pool_components", 0),
+            "nonconv_pool_improved" => get(index_stats, "nonconv_pool_improved", 0),
+            "nonconv_pool_rescued" => get(index_stats, "nonconv_pool_rescued", 0),
         ),
     )
 end
