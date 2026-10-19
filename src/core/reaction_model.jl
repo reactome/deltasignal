@@ -1816,12 +1816,21 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 #     = max + (d - sqrt(d^2+e^2))/2
                 #     = max - e^2 / (2*(d + sqrt(d^2+e^2)))
                 # The last form has no subtraction of nearby large numbers.
+                #
+                # Below the cap the same trap runs the other way (specs/074):
+                # d < 0, so d + sqrt(d^2+e^2) cancels. With e = 1e-9 it was
+                # exactly 0 for raw below ~0.875 (d^2 + e^2 rounds to d^2) and
+                # the other form ran, but for raw in [0.875, 0.998] it was a
+                # few ulps of noise, so the output was off by up to 0.089 and
+                # not monotone. Branch on the sign of d instead, and below the
+                # cap use the mirror form
+                #     = raw - e^2 / (2*(sqrt(d^2+e^2) - d))
+                # which has no cancellation either.
                 diff_hi = raw - max_internal
                 root_hi = sqrt(diff_hi * diff_hi + sat_eps * sat_eps)
-                denom_hi = diff_hi + root_hi
-                hi = denom_hi > zero(T) ?
-                    max_internal - (sat_eps * sat_eps) / (T(2.0) * denom_hi) :
-                    (raw + max_internal - root_hi) / T(2.0)
+                hi = diff_hi > zero(T) ?
+                    max_internal - (sat_eps * sat_eps) / (T(2.0) * (diff_hi + root_hi)) :
+                    raw - (sat_eps * sat_eps) / (T(2.0) * (root_hi - diff_hi))
                 # Smooth-max with 0 (floors at 0). hi is bounded by
                 # max_internal here, so this form cannot cancel.
                 lo = (hi + sqrt(hi * hi + sat_eps * sat_eps)) / T(2.0)
