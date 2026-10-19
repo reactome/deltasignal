@@ -295,6 +295,8 @@ function solve_steady_state(
     supply_reach = ymode == "balance" ? pool_supply_reach() : "all"
     signal_pairs = supply_reach == "material" ? pool_signal_edge_pairs(network) : nothing
     crelease = ymode == "balance" && cycle_carriers() ? cycle_carrier_release() : "listed"
+    # specs/075: resolved here so a misspelt mode fails before any solve.
+    rcarriers = ymode == "balance" && cycle_carriers() ? cycle_reeval_carriers() : "full"
     penalty(os) = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                              self_shared = self_shared,
                                              own_entity = own_entity,
@@ -350,6 +352,7 @@ function solve_steady_state(
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["pool_supply_reach"] = supply_reach
     result.diagnostics["cycle_carrier_release"] = crelease
+    result.diagnostics["cycle_reeval_carrier_rule"] = rcarriers
     result.diagnostics["drug_rule"] = drug_rule
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["pathogen_rule"] = pathogen_rule
@@ -1699,6 +1702,28 @@ function solve_scc_ordered!(
     # specs/049: nodes two pools of one component both write are written once,
     # from both
     comp_shared = Dict(c => shared_pool_nodes(ps) for (c, ps) in comp_pools)
+    # specs/075: a pool-fed input the drives re-evaluate that is the carrier of a
+    # pool in the same component reads by the carrier rule under `carrier`.
+    # Counted under both modes, so `full` reports what `carrier` would change.
+    reeval_carrier_mode = isempty(comp_pools) ? "full" : cycle_reeval_carriers()
+    n_reeval_carriers = 0
+    for ps in values(comp_pools)
+        crel_c = Dict{Int, Set{Int}}()
+        if pool_carriers
+            for q in ps, (c, rel) in zip(q.carriers, q.carrier_release)
+                union!(get!(crel_c, c, Set{Int}()), rel)
+            end
+        end
+        for p in ps
+            empty!(p.reeval_excl)
+            for v in p.reeval
+                ex = get(crel_c, v, nothing)
+                ex === nothing || (n_reeval_carriers += 1)
+                push!(p.reeval_excl, reeval_carrier_mode == "carrier" ? ex : nothing)
+            end
+        end
+    end
+    pool_stats["cycle_reeval_carriers"] = n_reeval_carriers
     pool_stats["cycle_shared_nodes"] = sum(length(v) for v in values(comp_shared); init = 0)
     pool_stats["cycle_pools_solved"] = sum(length(v) for v in values(comp_pools); init = 0)
     pool_stats["cycle_pools_unmanaged"] = n_pool_unmanaged
@@ -2307,6 +2332,8 @@ function solve_steady_state_penalty(
             "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
             "cycle_supply_regulated_kept" => get(index_stats, "cycle_supply_regulated_kept", 0),
             "cycle_carrier_release_added" => get(index_stats, "cycle_carrier_release_added", 0),
+            # specs/075: re-evaluated pool-fed inputs that are carriers (pairs).
+            "cycle_reeval_carriers" => get(index_stats, "cycle_reeval_carriers", 0),
             "cycle_self_fed_inputs" => get(index_stats, "cycle_self_fed_inputs", 0),
             # specs/040 rule A: nodes found self-fed and edges held at entry (0 when off).
             "self_fed_nodes" => get(index_stats, "self_fed_nodes", 0),

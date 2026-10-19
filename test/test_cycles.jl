@@ -646,6 +646,67 @@ end
     end
 end
 
+@testset "a carrier re-evaluated in another pool's drives reads by the carrier rule (specs/075)" begin
+    # pool2 (A <-> B) returns B to A through R2x, catalysed by K, the carrier of
+    # the ring's pool. B feeds the ring's binding step, so K is pool-fed for
+    # pool2 and its drives re-evaluate it (specs/039 amendment 5). K's whole
+    # reaction reads its release step r1, which carries the ring's flux; the
+    # carrier rule leaves r1 out (USP7 in the TP53 pool, read 50.5x).
+    function two()
+        n = ring()
+        nodes = copy(n.nodes)
+        for k in ("A", "B", "EF2", "F2x", "R2x")
+            nodes[k] = DS.NetworkNode(k, "R-" * k, k in ("F2x", "R2x") ? "reaction" : "protein", nothing, k, BL)
+        end
+        E = [edge("A", "F2x", "input"), edge("EF2", "F2x", "catalyst"), edge("F2x", "B", "output"; and = false),
+             edge("B", "R2x", "input"), edge("K", "R2x", "catalyst"), edge("R2x", "A", "output"; and = false),
+             edge("B", "b1", "input")]
+        p2 = DS.CyclePool("pool2", sort(["A", "B"]), "A", [("A", "B", "F2x"), ("B", "A", "R2x")])
+        DS.ReactionNetwork(nodes, vcat(n.edges, E), n.set_mappings, n.cofactor_stids, n.containment, nothing,
+                           vcat(n.pools, [p2]))
+    end
+    net = two()
+    rr(g, mode) = with_env("DS_CYCLE_REEVAL_CARRIERS" => mode) do
+        solve_ring(net; obs = Dict("G" => g), pinned = ("G", "Ph", "EF2"))
+    end
+    for mode in (nothing, "full", "carrier")
+        r = rr(1.0, mode)
+        @test r.converged
+        @test r.diagnostics["cycle_reeval_carrier_rule"] == something(mode, "full")
+        @test r.diagnostics["cycle_reeval_carriers"] == 1        # counted under both modes
+        for k in ("A", "B", "K", "Ss"); @test fold(r, k) ≈ 1.0 atol = 1e-6; end
+    end
+    for g in (80.0, 0.2)
+        full = rr(g, "full")
+        car = rr(g, "carrier")
+        @test full.converged && car.converged
+        @test fold(full, "K") ≈ 1.0 atol = 1e-6
+        @test fold(car, "K") ≈ 1.0 atol = 1e-6
+        # full: pool2's drive reads K's release flux, so B moves with G
+        @test abs(log(fold(full, "B"))) > 0.3
+        @test abs(log(fold(full, "Ss") / g)) > 0.3
+        # carrier: K is 1 wherever it is read, so pool2 stays at rest and the
+        # ring follows its supply
+        @test fold(car, "A") ≈ 1.0 atol = 1e-6
+        @test fold(car, "B") ≈ 1.0 atol = 1e-6
+        @test fold(car, "Ss") ≈ g rtol = 1e-6
+    end
+    # the ring alone has no other pool to re-evaluate its carriers
+    @test solve_ring(ring()).diagnostics["cycle_reeval_carriers"] == 0
+    # carriers off: nothing is counted and the rule is reported as full
+    off = with_env("DS_CYCLE_REEVAL_CARRIERS" => "carrier") do
+        solve_ring(net; obs = Dict("G" => 80.0), pinned = ("G", "Ph", "EF2"), carriers = "off")
+    end
+    @test off.diagnostics["cycle_reeval_carrier_rule"] == "full"
+    @test off.diagnostics["cycle_reeval_carriers"] == 0
+    for bad in ("", "Carrier", "rule")
+        with_env("DS_CYCLE_REEVAL_CARRIERS" => bad) do
+            @test_throws ArgumentError DS.cycle_reeval_carriers()
+            @test_throws ArgumentError solve_ring(net)
+        end
+    end
+end
+
 @testset "label-independent" begin
     rl(u) = "zz_" * u
     r1 = solve(fixture(); obs = Dict("EF" => 3.0))
