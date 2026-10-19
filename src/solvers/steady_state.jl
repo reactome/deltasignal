@@ -174,6 +174,9 @@ function solve_steady_state(
     ncmode = nonconv_fallback_mode()
     # specs/073: reported as skip whenever the fallback itself is off.
     ncpools = ncmode == "lm" ? nonconv_pools_mode() : "skip"
+    # specs/076: resolved here so a bad value fails before any solve.
+    ncrestarts = ncmode == "lm" ? _nonconv_restarts() : 0
+    _nonconv_restart_sweeps()
     
     # Initialize node activities
     all_nodes = collect(keys(network.nodes))
@@ -378,6 +381,7 @@ function solve_steady_state(
     result.diagnostics["self_fed_rule"] = sfmode
     result.diagnostics["nonconv_fallback"] = ncmode
     result.diagnostics["nonconv_pools"] = ncpools
+    result.diagnostics["nonconv_restarts_max"] = ncrestarts
     result.diagnostics["self_inhibitor_leaves"] = self_inhibitor_leaves() ? "on" : "off"
     result.diagnostics["self_inhibitor_leaf_pairs"] = self_leaf_pairs
     return result
@@ -1175,6 +1179,28 @@ only if that residual is lower.
 """
 const DS_VALID_NONCONV_POOLS = ("skip", "joint")
 
+"""
+`DS_NONCONV_RESTARTS` (specs/076): how many times a component the specs/066
+fallback leaves above tolerance is iterated `DS_NONCONV_RESTART_SWEEPS`
+(default 250) more sweeps from its last iterate and the fallback retried.
+Default 4 since 2026-10-19 (specs/076, adopted by Adam; 0 restores the
+previous solver). LM's result depends on where it starts: in TP53 on
+the faithful build it stalls from the cap-500 iterate of MDM4 overexpression
+and converges, to one state, from the iterates at 750 to 2,000. The best state
+over all attempts is kept.
+"""
+function _nonconv_restarts()::Int
+    n = round(Int, _float_env("DS_NONCONV_RESTARTS", 4.0))
+    n < 0 && throw(ArgumentError("DS_NONCONV_RESTARTS=$n must be at least 0."))
+    n
+end
+
+function _nonconv_restart_sweeps()::Int
+    n = round(Int, _float_env("DS_NONCONV_RESTART_SWEEPS", 250.0))
+    n < 1 && throw(ArgumentError("DS_NONCONV_RESTART_SWEEPS=$n must be at least 1."))
+    n
+end
+
 function nonconv_pools_mode()::String
     v = get(ENV, "DS_NONCONV_POOLS", "joint")
     v in DS_VALID_NONCONV_POOLS || throw(ArgumentError(
@@ -1367,6 +1393,8 @@ function solve_scc_ordered!(
     minimize = scc_method == "minimize"
     nonconv_lm = nonconv_fallback_mode() == "lm"        # specs/066
     nonconv_joint = nonconv_lm && nonconv_pools_mode() == "joint"   # specs/073
+    nonconv_restarts = nonconv_lm ? _nonconv_restarts() : 0          # specs/076
+    nonconv_restart_sweeps = _nonconv_restart_sweeps()
     pooling = scc_method in ("pool", "pool_parity", "pool_all")
     parity = scc_method == "pool_parity"
     pool_all = scc_method == "pool_all"
@@ -1839,87 +1867,121 @@ function solve_scc_ordered!(
                 resize!(stage_idx, length(rs))
                 resize!(stage_val, length(rs))
             end
-            for it in 1:cap
-                total_iters += 1
-                maxch = 0.0
-                n_staged = 0
-                for ri in rs
-                    r = rxns_idx[ri]
-                    t = r.target_idx
-                    t in obs_set && continue
-                    t in managed && continue       # specs/039: solved by its pool below
-                    fwd = compute_reaction_output_vec(x, r; supply=supply, config=config)
-                    nv = (1.0 - λ) * x[t] + λ * fwd
-                    # Measure the UNDAMPED model residual |F(x) - x|, not the
-                    # damped step |nv - x|. The damped step is λ·|F(x) - x|, so
-                    # with the default λ = 0.5 a component could break at a true
-                    # residual of up to 2·tolerance and then be reported
-                    # non-converged by the |F(x) - x| < tolerance test below —
-                    # the stopping rule and the convergence verdict were on
-                    # different scales.
-                    ch = abs(fwd - x[t])
-                    ch > maxch && (maxch = ch)
+            # specs/076: under DS_NONCONV_RESTARTS=k, a component the fallback
+            # leaves above tolerance is iterated `DS_NONCONV_RESTART_SWEEPS` more
+            # sweeps from the last ITERATE (not the LM state) and the fallback
+            # retried, up to k times. LM's answer depends on where it starts; the
+            # best state over all attempts is kept.
+            budget = cap
+            restarts_left = nonconv_restarts
+            best_res = Inf; best_x = Float64[]; iterate_x = Float64[]
+            attempted = false
+            while true
+                for it in 1:budget
+                    total_iters += 1
+                    maxch = 0.0
+                    n_staged = 0
+                    for ri in rs
+                        r = rxns_idx[ri]
+                        t = r.target_idx
+                        t in obs_set && continue
+                        t in managed && continue       # specs/039: solved by its pool below
+                        fwd = compute_reaction_output_vec(x, r; supply=supply, config=config)
+                        nv = (1.0 - λ) * x[t] + λ * fwd
+                        # Measure the UNDAMPED model residual |F(x) - x|, not the
+                        # damped step |nv - x|. The damped step is λ·|F(x) - x|, so
+                        # with the default λ = 0.5 a component could break at a true
+                        # residual of up to 2·tolerance and then be reported
+                        # non-converged by the |F(x) - x| < tolerance test below —
+                        # the stopping rule and the convergence verdict were on
+                        # different scales.
+                        ch = abs(fwd - x[t])
+                        ch > maxch && (maxch = ch)
+                        if jacobi
+                            n_staged += 1
+                            stage_idx[n_staged] = t
+                            stage_val[n_staged] = nv
+                        else
+                            x[t] = nv
+                        end
+                    end
                     if jacobi
-                        n_staged += 1
-                        stage_idx[n_staged] = t
-                        stage_val[n_staged] = nv
+                        for s in 1:n_staged
+                            x[stage_idx[s]] = stage_val[s]
+                        end
+                    end
+                    if haskey(comp_pools, c)
+                        ch = update_pools!(x, comp_pools[c], comp_shared[c], rxns_idx, baseline_vec, obs_set, config;
+                                           carriers = pool_carriers)
+                        ch > maxch && (maxch = ch)
+                    end
+                    comp_residual = maxch
+                    maxch < tol && break
+                end
+                # specs/066: a component still above tolerance after the cap is
+                # usually a limit cycle (a Goodwin ring), whose fixed point exists
+                # but repels damped relaxation. Find it by least squares on the
+                # residual instead, and keep it only if it is closer to F(x) = x.
+                # A component bounded on purpose (DS_SCC_NEG_MODE) is left alone.
+                if nonconv_lm && !minimize && !is_neg && comp_residual >= tol
+                    # specs/076: the specs/066 and 073 counters describe the first
+                    # attempt; restarts are counted separately
+                    first = restarts_left == nonconv_restarts
+                    first && (pool_stats["nonconv_components"] = get(pool_stats, "nonconv_components", 0) + 1)
+                    iterate_x = x[comp_nodes[c]]
+                    attempted = true
+                    if haskey(comp_pools, c) && nonconv_joint
+                        # specs/073: pool nodes join the least-squares problem as
+                        # rows G(x) - x
+                        first && (pool_stats["nonconv_pool_components"] = get(pool_stats, "nonconv_pool_components", 0) + 1)
+                        saved = x[comp_nodes[c]]
+                        r0 = _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed,
+                                                       comp_pools[c], comp_shared[c], baseline_vec, pool_carriers)
+                        r1 = minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
+                                                       comp_pools[c], comp_shared[c], managed, pool_carriers;
+                                                       lm_cap = _nonconv_lm_iters(), tol = tol)
+                        if r1 < r0
+                            comp_residual = r1
+                            first && (pool_stats["nonconv_pool_improved"] = get(pool_stats, "nonconv_pool_improved", 0) + 1)
+                            first && r1 < tol && (pool_stats["nonconv_pool_rescued"] = get(pool_stats, "nonconv_pool_rescued", 0) + 1)
+                        else
+                            x[comp_nodes[c]] = saved
+                        end
+                    elseif haskey(comp_pools, c) || any(u -> u in managed, comp_nodes[c])
+                        pool_stats["nonconv_skipped_pools"] = get(pool_stats, "nonconv_skipped_pools", 0) + 1
+                        attempted = false
                     else
-                        x[t] = nv
+                        saved = x[comp_nodes[c]]
+                        r0 = _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+                        pz = SteadyStateParams(1.0, 0.0, params.max_iters, tol, params.method)
+                        r1 = minimize_component!(x, rs, rxns_idx, obs_set, baseline_vec, pz, config, supply;
+                                                 lm_cap = _nonconv_lm_iters())
+                        if r1 < r0
+                            comp_residual = r1
+                            first && (pool_stats["nonconv_improved"] = get(pool_stats, "nonconv_improved", 0) + 1)
+                            first && r1 < tol && (pool_stats["nonconv_rescued"] = get(pool_stats, "nonconv_rescued", 0) + 1)
+                        else
+                            x[comp_nodes[c]] = saved
+                        end
                     end
                 end
-                if jacobi
-                    for s in 1:n_staged
-                        x[stage_idx[s]] = stage_val[s]
+                # specs/076: keep the best state; restart from the iterate.
+                if attempted && comp_residual >= tol && nonconv_restarts > 0
+                    if comp_residual < best_res
+                        best_res = comp_residual; best_x = x[comp_nodes[c]]
                     end
-                end
-                if haskey(comp_pools, c)
-                    ch = update_pools!(x, comp_pools[c], comp_shared[c], rxns_idx, baseline_vec, obs_set, config;
-                                       carriers = pool_carriers)
-                    ch > maxch && (maxch = ch)
-                end
-                comp_residual = maxch
-                maxch < tol && break
-            end
-            # specs/066: a component still above tolerance after the cap is
-            # usually a limit cycle (a Goodwin ring), whose fixed point exists
-            # but repels damped relaxation. Find it by least squares on the
-            # residual instead, and keep it only if it is closer to F(x) = x.
-            # A component bounded on purpose (DS_SCC_NEG_MODE) is left alone.
-            if nonconv_lm && !minimize && !is_neg && comp_residual >= tol
-                pool_stats["nonconv_components"] = get(pool_stats, "nonconv_components", 0) + 1
-                if haskey(comp_pools, c) && nonconv_joint
-                    # specs/073: pool nodes join the least-squares problem as
-                    # rows G(x) - x
-                    pool_stats["nonconv_pool_components"] = get(pool_stats, "nonconv_pool_components", 0) + 1
-                    saved = x[comp_nodes[c]]
-                    r0 = _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed,
-                                                   comp_pools[c], comp_shared[c], baseline_vec, pool_carriers)
-                    r1 = minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
-                                                   comp_pools[c], comp_shared[c], managed, pool_carriers;
-                                                   lm_cap = _nonconv_lm_iters(), tol = tol)
-                    if r1 < r0
-                        comp_residual = r1
-                        pool_stats["nonconv_pool_improved"] = get(pool_stats, "nonconv_pool_improved", 0) + 1
-                        r1 < tol && (pool_stats["nonconv_pool_rescued"] = get(pool_stats, "nonconv_pool_rescued", 0) + 1)
-                    else
-                        x[comp_nodes[c]] = saved
+                    if restarts_left > 0
+                        restarts_left -= 1
+                        pool_stats["nonconv_restarts"] = get(pool_stats, "nonconv_restarts", 0) + 1
+                        x[comp_nodes[c]] = iterate_x
+                        budget = nonconv_restart_sweeps
+                        continue
                     end
-                elseif haskey(comp_pools, c) || any(u -> u in managed, comp_nodes[c])
-                    pool_stats["nonconv_skipped_pools"] = get(pool_stats, "nonconv_skipped_pools", 0) + 1
-                else
-                    saved = x[comp_nodes[c]]
-                    r0 = _component_residual(x, rs, rxns_idx, obs_set, supply, config)
-                    pz = SteadyStateParams(1.0, 0.0, params.max_iters, tol, params.method)
-                    r1 = minimize_component!(x, rs, rxns_idx, obs_set, baseline_vec, pz, config, supply;
-                                             lm_cap = _nonconv_lm_iters())
-                    if r1 < r0
-                        comp_residual = r1
-                        pool_stats["nonconv_improved"] = get(pool_stats, "nonconv_improved", 0) + 1
-                        r1 < tol && (pool_stats["nonconv_rescued"] = get(pool_stats, "nonconv_rescued", 0) + 1)
-                    else
-                        x[comp_nodes[c]] = saved
-                    end
+                    x[comp_nodes[c]] = best_x; comp_residual = best_res
+                elseif nonconv_restarts > 0 && restarts_left < nonconv_restarts && comp_residual < tol
+                    pool_stats["nonconv_restart_rescued"] = get(pool_stats, "nonconv_restart_rescued", 0) + 1
                 end
+                break
             end
             # Warm-started minimisation of the specified objective. The
             # fixed-point sweep above produced the starting point; this moves
@@ -2349,6 +2411,9 @@ function solve_steady_state_penalty(
             "nonconv_skipped_pools" => get(index_stats, "nonconv_skipped_pools", 0),
             # specs/073: pool components re-solved jointly (0 under skip).
             "nonconv_pool_components" => get(index_stats, "nonconv_pool_components", 0),
+            # specs/076: restarts used, and components brought below tolerance on one.
+            "nonconv_restarts" => get(index_stats, "nonconv_restarts", 0),
+            "nonconv_restart_rescued" => get(index_stats, "nonconv_restart_rescued", 0),
             "nonconv_pool_improved" => get(index_stats, "nonconv_pool_improved", 0),
             "nonconv_pool_rescued" => get(index_stats, "nonconv_pool_rescued", 0),
         ),

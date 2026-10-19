@@ -94,12 +94,22 @@ end
         # Exactly at baseline the loop holds; that is the only U where it does.
         @test isapprox(solveA(net, 1.0, 5000, "1.0").node_activities["A"] * 100, 1.0; atol=1e-9)
         # A 1% nudge rails the loop given enough sweeps, and the value depends
-        # on the budget. Both are the defect.
+        # on the budget. Both are the defect. Below the rail the specs/066
+        # fallback (with specs/076's restarts, default since 2026-10-19) pulls
+        # the loop to near zero, where the absolute tolerance accepts it, so
+        # the budget now chooses between collapse and rail.
         a50   = solveA(net, 1.01, 50,   "1.0").node_activities["A"] * 100
         a500  = solveA(net, 1.01, 500,  "1.0").node_activities["A"] * 100
         a5000 = solveA(net, 1.01, 5000, "1.0").node_activities["A"] * 100
-        @test a50 < a500 < a5000
+        @test a50 < 0.1
+        @test a500 < 0.1
         @test a5000 > 99.0
+        # without restarts, the raw climb: the iterate grows with the budget
+        b50, b500 = withenv("DS_NONCONV_RESTARTS" => "0") do
+            (solveA(net, 1.01, 50, "1.0").node_activities["A"] * 100,
+             solveA(net, 1.01, 500, "1.0").node_activities["A"] * 100)
+        end
+        @test b50 < b500 < a5000
         @test_broken isapprox(a5000, 1.01; rtol=0.05)   # what a stable loop would give
         # A 10% drop collapses it and calls that converged.
         r = solveA(net, 0.9, 500, "1.0")

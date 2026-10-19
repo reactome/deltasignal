@@ -221,8 +221,14 @@ Response:
   **`nonconv_pool_improved`**, **`nonconv_pool_rescued`** (additive,
   specs/073): what the fallback does with such a component when it holds pool
   nodes (`"joint"`, the default since 2026-10-18: re-solved with the pool
-  update as part of the least-squares problem; or `"skip"`); how many it re-solved, improved and
-  brought below tolerance.
+  update as part of the least-squares problem; or `"skip"`); how many it
+  re-solved, improved and brought below tolerance.
+- **`nonconv_restarts_max`**, **`nonconv_restarts`**,
+  **`nonconv_restart_rescued`** (additive, specs/076): how many times the
+  fallback may be retried from later iterates (`DS_NONCONV_RESTARTS`, default
+  4 since 2026-10-19), how many retries the solve used, and how many components a retry
+  brought below tolerance. The specs/066 and 073 counts describe the first
+  attempt only.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,
   **`cycle_carriers`**, **`cycle_carriers_held`** (additive, specs/039):
   `"balance"` (default), `"off"`, `"balance: no pool table"`, or
