@@ -522,6 +522,11 @@ env vars only override for benchmark sweeps:
   component holding pool nodes is re-solved too, with each pool-written
   node's row G(x) − x (G the pool update). Reports `nonconv_pools`,
   `nonconv_pool_components`, `nonconv_pool_improved`, `nonconv_pool_rescued`.
+  `DS_NONCONV_RESTARTS=0` (default; specs/076, pre-registered, not yet
+  measured) with `DS_NONCONV_RESTART_SWEEPS=250`: a component the fallback
+  leaves above tolerance is iterated that many more sweeps from its last
+  iterate and the fallback retried, up to N times; the best state is kept.
+  Reports `nonconv_restarts_max`, `nonconv_restarts`, `nonconv_restart_rescued`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -857,7 +862,7 @@ other seven execute code and print output.
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
-| `test/test_limit_cycles.jl` | 31 | specs/066, added 2026-10-16 |
+| `test/test_limit_cycles.jl` | 51 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

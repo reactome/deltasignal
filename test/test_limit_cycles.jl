@@ -107,4 +107,55 @@ end
     @test c.diagnostics["nonconv_components"] == 0
 end
 
+
+@testset "restarts: LM retried from later iterates (specs/076)" begin
+    # With an 8-iteration LM budget, LM from the ring's cap-500 iterate stalls
+    # just above tolerance; from the cap-750 iterate it converges. One restart
+    # of 250 sweeps is the cap-750 start.
+    rs(n; lmi = "8", sweeps = nothing, iters = 500) =
+        with_env("DS_NONCONV_FALLBACK" => "lm", "DS_DEPLETION_OWN_PRODUCT" => "full",
+                 "DS_NONCONV_LM_ITERS" => lmi, "DS_NONCONV_RESTARTS" => n,
+                 "DS_NONCONV_RESTART_SWEEPS" => sweeps) do
+            DS.solve_steady_state(ring(), Dict("P" => (80.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, iters, 1e-6, "penalty"))
+        end
+    with_env("DS_NONCONV_RESTARTS" => nothing) do
+        @test DS._nonconv_restarts() == 0
+    end
+    none = rs(nothing)
+    zero = rs("0")
+    @test !none.converged
+    @test none.node_activities == zero.node_activities        # 0 is the default, bit for bit
+    @test none.diagnostics["nonconv_restarts"] == 0
+    @test none.diagnostics["nonconv_restarts_max"] == 0
+    one = rs("1")
+    @test one.converged
+    @test one.diagnostics["nonconv_restarts"] == 1
+    @test one.diagnostics["nonconv_restart_rescued"] == 1
+    @test one.diagnostics["nonconv_components"] == 1         # counted once
+    @test isapprox(fold(one, "D"), 80.0^(1 / 10); rtol = 1e-4)
+    # it stops at the first rescue
+    three = rs("3")
+    @test three.diagnostics["nonconv_restarts"] == 1
+    @test three.node_activities == one.node_activities
+    # when no attempt converges, every restart is used and the best state kept
+    weak0 = rs("0"; lmi = "2")
+    weak = rs("2"; lmi = "2")
+    @test !weak.converged
+    @test weak.diagnostics["nonconv_restarts"] == 2
+    @test weak.diagnostics["nonconv_restart_rescued"] == 0
+    @test weak.final_residual <= weak0.final_residual + 1e-12
+    # converged solves are untouched
+    a = with_env("DS_NONCONV_RESTARTS" => "3") do
+        DS.solve_steady_state(ring(ring = false), Dict("P" => (80.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    b = DS.solve_steady_state(ring(ring = false), Dict("P" => (80.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    @test a.node_activities == b.node_activities
+    @test a.diagnostics["nonconv_restarts"] == 0
+    for (k, bad) in (("DS_NONCONV_RESTARTS", "-1"), ("DS_NONCONV_RESTART_SWEEPS", "0"))
+        with_env(k => bad) do
+            @test_throws ArgumentError DS.solve_steady_state(ring(), Dict("P" => (80.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+        end
+    end
+end
+
 end

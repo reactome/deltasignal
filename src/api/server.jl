@@ -984,6 +984,10 @@ function solve_handler(req)
             "nonconv_pool_components" => get(solver_result.diagnostics, "nonconv_pool_components", 0),
             "nonconv_pool_improved" => get(solver_result.diagnostics, "nonconv_pool_improved", 0),
             "nonconv_pool_rescued" => get(solver_result.diagnostics, "nonconv_pool_rescued", 0),
+            # specs/076 (additive): restarts allowed, used, and rescues on a restart.
+            "nonconv_restarts_max" => get(solver_result.diagnostics, "nonconv_restarts_max", 0),
+            "nonconv_restarts" => get(solver_result.diagnostics, "nonconv_restarts", 0),
+            "nonconv_restart_rescued" => get(solver_result.diagnostics, "nonconv_restart_rescued", 0),
             "scc" => Dict(
                 "method" => get(solver_result.diagnostics, "scc_method", "unknown"),
                 "pooled" => get(solver_result.diagnostics, "scc_pooled", 0),
