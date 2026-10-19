@@ -472,8 +472,9 @@ env vars only override for benchmark sweeps:
   `carrier_loop_twin_edges`.
   A bundle without the table reports `<mode>: no carrier table` and solves as
   `off`, and the bench refuses it.
-  `DS_CARRIER_LOOP_OPEN=off` (default; specs/077, pre-registered, not yet
-  measured) | `fed`: an OPEN loop's free form that keeps a producer outside
+  `DS_CARRIER_LOOP_OPEN=off` (default; specs/077) | `fed` (measured, fails
+  its gate: intrinsic apoptosis −26) | `fed_single` (amendment 1, pre-registered;
+  `fed` that keeps a release with a second non-cofactor input, a displacer): an OPEN loop's free form that keeps a producer outside
   its loops stops reading its own release (RBBP8 released by MMEJ in DSB
   Repair on the faithful build); a form fed only by loop steps (the IFN α/β
   receptor scaffold, which `all` cut) keeps them. Reports
@@ -872,7 +873,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 497 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 179 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
+| `test/test_carrier_loops.jl` | 194 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |

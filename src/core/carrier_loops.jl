@@ -43,14 +43,16 @@ keeps an activating producer outside every loop listing it (RBBP8 released by
 MMEJ is not new RBBP8; SIRT6 still makes it). A listed form whose every
 activating producer is a loop step keeps them: there the "loop" is a scaffold
 passing a signal along (the IFN alpha/beta receptor recruiting and releasing
-STAT2), and `all` cut it.
+STAT2), and `all` cut it. `fed_single` (specs/077 amendment 1) is `fed` that
+keeps a release whose reaction has two or more non-cofactor `input` parents: a
+displacement (BAD freeing tBID from BCL-2), where the bound share is what moves.
 
 An observation still wins: a pinned free form keeps its pin. A bundle without
 `carrier_loops.csv` reports "<mode>: no carrier table" and solves as `off`.
 """
 
 const DS_VALID_CARRIER_LOOP_MODES = Set(["off", "closed", "closed_supply", "closed_twin", "all"])
-const DS_VALID_CARRIER_LOOP_OPEN = Set(["off", "fed"])
+const DS_VALID_CARRIER_LOOP_OPEN = Set(["off", "fed", "fed_single"])
 
 function carrier_loop_open()::String
     value = get(ENV, "DS_CARRIER_LOOP_OPEN", "off")
@@ -84,7 +86,7 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
         mode in ("closed_supply", "closed_twin") && closed && push!(undrained, free)
     end
     open_drop = Set{Tuple{String, String}}()
-    if open == "fed" && mode != "all"
+    if open in ("fed", "fed_single") && mode != "all"
         # specs/077: an open free form keeps an activating producer that no loop lists
         listed = Dict{String, Set{String}}()
         for (free, src, _) in network.carrier_loops
@@ -95,8 +97,22 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
             e.is_positive && haskey(listed, e.child_uuid) && !(e.parent_uuid in listed[e.child_uuid]) &&
                 push!(outside, e.child_uuid)
         end
+        # fed_single: a release driven by a second non-cofactor input is a displacement
+        displaced = Set{String}()
+        if open == "fed_single"
+            cof = cofactor_uuids(network)
+            ins = Dict{String, Set{String}}()
+            for e in network.edges
+                e.is_positive && e.edge_type == "input" && !(e.parent_uuid in cof) &&
+                    push!(get!(ins, e.child_uuid, Set{String}()), e.parent_uuid)
+            end
+            for (k, v) in ins
+                length(v) >= 2 && push!(displaced, k)
+            end
+        end
         for (free, src, closed) in network.carrier_loops
-            !closed && free in outside && !((src, free) in drop) && push!(open_drop, (src, free))
+            !closed && free in outside && !(src in displaced) && !((src, free) in drop) &&
+                push!(open_drop, (src, free))
         end
         union!(drop, open_drop)
     end

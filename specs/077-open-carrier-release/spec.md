@@ -1,6 +1,6 @@
 # specs/077: an open carrier loop's release is not supply when the form has another producer
 
-**Status:** pre-registered 2026-10-19, before the arms; results in `research.md`. Canonical held-out +35 (p 0.0026) and experimental −5, but intrinsic apoptosis −26: **the gate fails** (no pathway below −10). Faithful build DSB +182, IFN α/β 0. Predictions 1–3 hold. Traced: the apoptosis loss is a displacement (BAD frees tBID from BCL-2), not a carrier release. Not adopted.
+**Status:** pre-registered 2026-10-19, before the arms; results in `research.md`. Canonical held-out +35 (p 0.0026) and experimental −5, but intrinsic apoptosis −26: **the gate fails** (no pathway below −10). Faithful build DSB +182, IFN α/β 0. Predictions 1–3 hold. Traced: the apoptosis loss is a displacement (BAD frees tBID from BCL-2), not a carrier release. Not adopted.  Amendment 1 (`fed_single`, keep displacer releases) pre-registered 2026-10-19; post hoc.
 
 Adam, 2026-10-19: "ok" to tracing the DSB Repair loss on the faithful build
 and pre-registering a targeted rule.
@@ -118,3 +118,38 @@ and is not gated.
    IFN α/β, intrinsic apoptosis and G2/M. No prediction is made for the
    apoptosis and FGFR losses, because they have not been traced to fed or
    scaffold forms.
+
+## Amendment 1: a release with a displacer stays (pre-registered 2026-10-19, before its arms)
+
+Adam, 2026-10-19: "ok" to amendment 1. **Post hoc:** this rule was written after
+seeing `ocf` fail the gate, so any held-out gain it shows is selected on the
+held-out set and is reported with that caveat.
+
+**Why.** `fed` cut R-HSA-139897 ("BAD displaces tBID from BCL-2 sequestration";
+`research.md`), and every BAD, YWHAE and AKT1 perturbation in intrinsic apoptosis
+went to 1.0×. That reaction is a displacement, not the return of a carrier: the
+bound share is what changes, and a second input (BAD) drives it. The conservation
+argument behind `fed` (bound forms negligible, so free = total) does not hold there.
+
+**Rule.** New value `DS_CARRIER_LOOP_OPEN=fed_single`. As `fed`, except that a
+listed release is kept when its source reaction has two or more distinct
+non-cofactor `input` parents (activating edges of type `input`; cofactors are
+`cofactor_uuids(network)`). `fed` is unchanged and still reproduces `ocf`.
+Structural count (`count_displacers.py`): this keeps 23 of the 705 canonical edges
+and 49 of the 1,018 faithful ones (24 in R-HSA-170834); the RBBP8 release
+(R-HSA-5687675) and every other DSB release are single-input and are still dropped.
+
+**Arms** (solver = the commit that adds `fed_single`):
+- `ocs`: canonical, `--server DS_CARRIER_LOOP_OPEN=fed_single`, against `results/bf4b688/rst`.
+- `ocsd`: faithful build, `--server DS_POOL_SUPPLY_REACH=material --server
+  DS_CYCLE_CARRIER_RELEASE=reaction --server DS_CARRIER_LOOP_OPEN=fed_single`,
+  against `results/bf4b688/rstd`.
+
+**Gate:** unchanged. `ocs` against canonical: curator held-out net ≥ 0,
+experimental net ≥ −5, no pathway below −10 (RAF set aside). `ocsd` is not gated.
+
+**Predictions:**
+1. `ocs`: intrinsic apoptosis net within ±5 of `rst` (the 30 BAD/YWHAE/AKT1 cases return).
+2. `ocsd`: DSB Repair still gains at least 150.
+3. `ocs`: curator held-out net at least +20 (most of `ocf`'s +35, which is MET, EGFR and IL-2).
+4. `ocsd`: RUNX2's −21 (CBFB, ESR1 knockouts) is not predicted to change; it is not traced.
