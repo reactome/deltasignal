@@ -1,9 +1,10 @@
 # specs/073: re-solve a non-converged pool component jointly
 
-**Status:** pre-registered 2026-10-18, before the arms, on a solver that
-includes the specs/074 fix (a numerical defect in the default AND that this
-spec's probe found; measured separately, no class changes). Prediction 5 is
-revised from one probed case and says so.
+**Status:** pre-registered 2026-10-18 on a solver with the specs/074 fix;
+results in `research.md`. All five predictions hold. Canonical identical
+(gate passes trivially); faithful build: TP53 non-converged 663 → 102,
+tuning −11 (the cap's lucky answers removed), MDM2 overexpression reads UP
+at the fixed point. Adoption is Adam's call.
 
 Adam, 2026-10-18: "ok" to #2 of specs/071 research ("LM fallback for pool
 components"), after the specs/072 report.
