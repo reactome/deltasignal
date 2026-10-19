@@ -125,8 +125,9 @@ function solve_steady_state(
                     network.pathogen_stids === nothing ? "inert: no pathogen table" : "inert"
     # specs/049: a carrier loop's free form reads its supply, not its own release.
     # First, so every rule resolved on the network below sees the same edges.
-    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges, carrier_loop_twins =
-        apply_carrier_loops(network, carrier_loop_mode())
+    carrier_open = carrier_loop_open()   # specs/077
+    network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges, carrier_loop_twins, carrier_open_edges =
+        apply_carrier_loops(network, carrier_loop_mode(); open = carrier_open)
     # specs/059: a recycled copy of an entity also reads its root copies.
     network, recycled_twin_rule, recycled_twin_edges = apply_recycled_twins(network, recycled_twin_mode())
     # specs/063: a dead-end binding complex depletes its free partner.
@@ -364,6 +365,8 @@ function solve_steady_state(
     result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
     result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges
     result.diagnostics["carrier_loop_twin_edges"] = carrier_loop_twins
+    result.diagnostics["carrier_loop_open_rule"] = carrier_open
+    result.diagnostics["carrier_loop_open_edges"] = carrier_open_edges
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
     result.diagnostics["sequestration_rule"] = sequestration_rule

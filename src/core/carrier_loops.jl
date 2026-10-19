@@ -37,11 +37,27 @@ carrier loops outside pools. Bound forms are not touched.
                                fed free form reads only its producers outside
                                the loop.
 
+`DS_CARRIER_LOOP_OPEN=fed` (specs/077; default `off`) adds, under any mode but
+`off` and `all`: a free form of an OPEN loop loses its loop in-edges when it
+keeps an activating producer outside every loop listing it (RBBP8 released by
+MMEJ is not new RBBP8; SIRT6 still makes it). A listed form whose every
+activating producer is a loop step keeps them: there the "loop" is a scaffold
+passing a signal along (the IFN alpha/beta receptor recruiting and releasing
+STAT2), and `all` cut it.
+
 An observation still wins: a pinned free form keeps its pin. A bundle without
 `carrier_loops.csv` reports "<mode>: no carrier table" and solves as `off`.
 """
 
 const DS_VALID_CARRIER_LOOP_MODES = Set(["off", "closed", "closed_supply", "closed_twin", "all"])
+const DS_VALID_CARRIER_LOOP_OPEN = Set(["off", "fed"])
+
+function carrier_loop_open()::String
+    value = get(ENV, "DS_CARRIER_LOOP_OPEN", "off")
+    value in DS_VALID_CARRIER_LOOP_OPEN || throw(ArgumentError(
+        "DS_CARRIER_LOOP_OPEN must be one of $(join(sort(collect(DS_VALID_CARRIER_LOOP_OPEN)), ", ")); got $(repr(value))"))
+    return value
+end
 
 function carrier_loop_mode()::String
     value = get(ENV, "DS_CARRIER_LOOP_MODE", "closed_twin")
@@ -51,22 +67,40 @@ function carrier_loop_mode()::String
 end
 
 """
-`(network, rule, forms, dropped, twins)`: `network` with the listed loop
-in-edges removed under `mode`, the rule to report, how many distinct free
-forms lost an edge, how many edges were removed, and how many root-copy
-supply edges were added (`closed_twin` only). Under `off`, or with no table,
-the network is returned as given.
+`(network, rule, forms, dropped, twins, open_dropped)`: `network` with the
+listed loop in-edges removed under `mode`, the rule to report, how many
+distinct free forms lost an edge, how many edges were removed, how many
+root-copy supply edges were added (`closed_twin` only), and how many of the
+removed edges were open-loop releases (`open = "fed"`, specs/077). Under
+`off`, or with no table, the network is returned as given.
 """
-function apply_carrier_loops(network::ReactionNetwork, mode::String)
-    mode == "off" && return network, "off", 0, 0, 0
-    network.carrier_loops === nothing && return network, "$mode: no carrier table", 0, 0, 0
+function apply_carrier_loops(network::ReactionNetwork, mode::String; open::String = carrier_loop_open())
+    mode == "off" && return network, "off", 0, 0, 0, 0
+    network.carrier_loops === nothing && return network, "$mode: no carrier table", 0, 0, 0, 0
     drop = Set{Tuple{String, String}}()
     undrained = Set{String}()   # closed_supply: closed free forms that lose their depletion in-edges
     for (free, src, closed) in network.carrier_loops
         (mode == "all" || closed) && push!(drop, (src, free))
         mode in ("closed_supply", "closed_twin") && closed && push!(undrained, free)
     end
-    isempty(drop) && isempty(undrained) && return network, mode, 0, 0, 0
+    open_drop = Set{Tuple{String, String}}()
+    if open == "fed" && mode != "all"
+        # specs/077: an open free form keeps an activating producer that no loop lists
+        listed = Dict{String, Set{String}}()
+        for (free, src, _) in network.carrier_loops
+            push!(get!(listed, free, Set{String}()), src)
+        end
+        outside = Set{String}()
+        for e in network.edges
+            e.is_positive && haskey(listed, e.child_uuid) && !(e.parent_uuid in listed[e.child_uuid]) &&
+                push!(outside, e.child_uuid)
+        end
+        for (free, src, closed) in network.carrier_loops
+            !closed && free in outside && !((src, free) in drop) && push!(open_drop, (src, free))
+        end
+        union!(drop, open_drop)
+    end
+    isempty(drop) && isempty(undrained) && return network, mode, 0, 0, 0, 0
     kept = LogicNetworkEdge[]
     hit = Set{String}()
     for e in network.edges
@@ -81,6 +115,7 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String)
         end
     end
     n = length(network.edges) - length(kept)
+    nopen = count(e -> e.is_positive && (e.parent_uuid, e.child_uuid) in open_drop, network.edges)
     twins = 0
     if mode == "closed_twin"
         # roots of the network as given; a free form's twin is never another free form
@@ -104,11 +139,11 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String)
             end
         end
     end
-    n == 0 && twins == 0 && return network, mode, 0, 0, 0
+    n == 0 && twins == 0 && return network, mode, 0, 0, 0, 0
     out = ReactionNetwork(network.nodes, kept, network.set_mappings, network.cofactor_stids,
                           network.containment, network.drug_stids, network.pools,
                           network.pathogen_stids, network.carrier_loops, network.node_leaves)
-    return out, mode, length(hit), n, twins
+    return out, mode, length(hit), n, twins, nopen
 end
 
 """

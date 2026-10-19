@@ -246,6 +246,62 @@ end
     end
 end
 
+@testset "open loops: a fed free form stops reading its release; a scaffold keeps its steps (specs/077)" begin
+    # R is made by r0 (from S) and released by r2; r1 binds R and A into RA,
+    # which r3 turns into the readout T. The generator lists both R (released by
+    # r2) and RA (made by r1) as free forms of one open loop, as it does for the
+    # IFN alpha/beta receptor. Producers into an entity are OR edges.
+    out(s, t) = DS.LogicNetworkEdge(s, t, false, true, 1.0, "output")
+    ids = ["S", "r0", "R", "A", "r1", "RA", "r2", "r3", "T"]
+    edges = [edge("S", "r0"), out("r0", "R"), edge("R", "r1"), edge("A", "r1"), out("r1", "RA"),
+             edge("RA", "r2"), out("r2", "R"), edge("RA", "r3"), out("r3", "T")]
+    tbl = DS.CarrierLoopEdge[("R", "r2", false), ("RA", "r1", false)]
+    net = DS.ReactionNetwork(Dict(node.(ids)), edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict{String, Set{String}}(), nothing, nothing, nothing, tbl)
+    run(mode, open; a = 2.0) = with_env("DS_CARRIER_LOOP_MODE" => mode, "DS_CARRIER_LOOP_OPEN" => open) do
+        DS.solve_steady_state(net, Dict("S" => (3.0, 1.0), "A" => (a, 1.0)),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    with_env("DS_CARRIER_LOOP_OPEN" => nothing) do
+        @test DS.carrier_loop_open() == "off"
+    end
+    # off is the default, bit for bit, and reports itself
+    d = run("closed_twin", nothing)
+    o = run("closed_twin", "off")
+    @test d.node_activities == o.node_activities
+    @test d.diagnostics["carrier_loop_open_rule"] == "off"
+    @test d.diagnostics["carrier_loop_open_edges"] == 0
+    # fed: R reads S only; RA keeps r1, its one producer, so A still reaches T
+    f = run("closed_twin", "fed")
+    @test f.converged
+    @test fold(f, "R") ≈ 3.0 rtol = 1e-6
+    @test fold(f, "RA") ≈ 6.0 rtol = 1e-6
+    @test fold(f, "T") ≈ 6.0 rtol = 1e-6
+    @test fold(run("closed_twin", "fed"; a = 0.5), "T") ≈ 1.5 rtol = 1e-6
+    @test f.diagnostics["carrier_loop_open_rule"] == "fed"
+    @test f.diagnostics["carrier_loop_open_edges"] == 1
+    @test f.diagnostics["carrier_loop_edges_dropped"] == 1
+    # all cuts the scaffold: RA has no producer left and T no longer sees A
+    a = run("all", "off")
+    @test fold(a, "T") ≈ 1.0 rtol = 1e-9
+    @test fold(run("all", "off"; a = 0.5), "T") ≈ 1.0 rtol = 1e-9
+    # under all and off, fed adds nothing
+    @test run("all", "fed").node_activities == a.node_activities
+    @test run("off", "fed").node_activities == run("off", "off").node_activities
+    @test run("off", "fed").diagnostics["carrier_loop_open_edges"] == 0
+    # the influence network is the one the solve ran
+    with_env("DS_CARRIER_LOOP_OPEN" => "fed") do
+        sn = DS.solved_carrier_network(net)
+        @test !any(e -> e.parent_uuid == "r2" && e.child_uuid == "R", sn.edges)
+        @test any(e -> e.parent_uuid == "r1" && e.child_uuid == "RA", sn.edges)
+    end
+    for bad in ("Fed", "on", "all", "")
+        with_env("DS_CARRIER_LOOP_OPEN" => bad) do
+            @test_throws ArgumentError DS.carrier_loop_open()
+        end
+    end
+end
+
 @testset "carrier_loops.csv: parse, both parse return paths, silo-bridge rebuild, JSON round trip" begin
     mktempdir() do dir
         write(joinpath(dir, "logic_network.csv"),

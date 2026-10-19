@@ -926,6 +926,8 @@ function solve_handler(req)
             "carrier_loop_forms" => get(solver_result.diagnostics, "carrier_loop_forms", 0),
             "carrier_loop_edges_dropped" => get(solver_result.diagnostics, "carrier_loop_edges_dropped", 0),
             "carrier_loop_twin_edges" => get(solver_result.diagnostics, "carrier_loop_twin_edges", 0),
+            "carrier_loop_open_rule" => get(solver_result.diagnostics, "carrier_loop_open_rule", "unknown"),
+            "carrier_loop_open_edges" => get(solver_result.diagnostics, "carrier_loop_open_edges", 0),
             # specs/059: "off" or "on", and how many recycled_supply edges were added.
             "recycled_twin_rule" => get(solver_result.diagnostics, "recycled_twin_rule", "unknown"),
             "recycled_twin_edges" => get(solver_result.diagnostics, "recycled_twin_edges", 0),
