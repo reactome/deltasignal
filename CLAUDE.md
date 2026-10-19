@@ -283,7 +283,8 @@ env vars only override for benchmark sweeps:
   at most as hard as it may de-repress — it was previously floored at ZERO and
   could suppress without limit; +28 held-out at p<0.0001, and it costs PIP3
   93.75%→90.63%. `specs/011` has the record),
-  `DS_HILL_LOG_ZMAX=10.0`. Behaviour is pinned by `test/test_and_curves.jl`.
+  `DS_HILL_LOG_ZMAX=10.0`. Behaviour is pinned by `test/test_and_curves.jl`,
+  including the band just below the 100× cap (specs/074).
   Re-measured 2026-09-16 on 23,022 wide-curator cases, one variable at a time:
   `specs/009-solver-defaults/research.md`. That supersedes the `hill_sat` /
   `assembly_limiting=0` choice in `specs/002`, which was made on 564
@@ -792,6 +793,12 @@ for the last feature that touched it rather than re-deriving from the code.
   had reopened one loop, PLC-gamma's release of the generic PDGF receptor,
   so PLCG1 set the receptor's level. **Adopted as the default** (Adam,
   2026-10-17): held-out +18 (18 / 0, all PLCG1), experimental 0.
+- `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
+  cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
+  were off by up to 8.9 and not monotone. The form is now chosen by the sign
+  of raw − cap. **Adopted** (Adam, 2026-10-18): no class changes on either
+  axis or build; converged curator cases 22,930 → 23,117 and experimental
+  804 → 824 on canonical.
 - `specs/009-solver-defaults/` — the one-variable-at-a-time re-measurement
   behind the `DS_*` defaults above (cited in that section too).
 - `.specify/memory/constitution.md` — project principles the specs are
