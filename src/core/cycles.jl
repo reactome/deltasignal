@@ -93,6 +93,23 @@ function cycle_carrier_release()::String
     return value
 end
 
+"""
+specs/075. How the drives re-evaluate a pool-fed input (specs/039 amendment 5)
+that is itself the carrier of a pool in the same component:
+- `full`: from its whole reaction, as any other pool-fed input.
+- `carrier` (default since 2026-10-18, Adam): by the carrier rule, the mean fold of its producers other than
+  the release steps of every pool listing it. Its whole reaction includes those
+  release steps, which read the other pool's flux: USP7, a carrier of the MDM2
+  pool in TP53, read 50.5x in the TP53 pool's deubiquitination drive under MDM2
+  overexpression while its own value was 1x.
+"""
+function cycle_reeval_carriers()::String
+    value = get(ENV, "DS_CYCLE_REEVAL_CARRIERS", "carrier")
+    value in ("full", "carrier") || throw(ArgumentError(
+        "DS_CYCLE_REEVAL_CARRIERS must be full or carrier; got $(repr(value))"))
+    return value
+end
+
 function cycle_phi()::Float64
     raw = strip(get(ENV, "DS_CYCLE_PHI", "0.1"))
     phi = tryparse(Float64, raw)
@@ -122,6 +139,8 @@ struct IndexedPool
     reeval::Vector{Int}                 # pool-fed nodes the drives re-evaluate with the pool at
                                         # baseline, in a fixed order (amendment 5; filled per solve)
     reeval_rxn::Vector{Int}             # rxns_idx of each
+    reeval_excl::Vector{Union{Nothing, Set{Int}}}   # per reeval node: the release steps to leave
+                                        # out when it is a carrier (specs/075), else nothing
 end
 
 """Drive regulariser: rates are k·(u + ε), so with every drive of a pool at zero
@@ -295,7 +314,8 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             push!(cs, ci); push!(crx, by_target[ci]); push!(crel, cmap[ci])
         end
         push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
-                               fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Int[], Int[]))
+                               fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Int[], Int[],
+                               Union{Nothing, Set{Int}}[]))
     end
     stats === nothing || (stats["cycle_carrier_release_added"] = n_release_added)
     return out, skipped
@@ -316,8 +336,10 @@ function path_drives(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, basel
     hv = vcat(pool_nodes, p.reeval)
     hkeep = [x[h] for h in hv]
     for v in pool_nodes; x[v] = baseline_vec[v]; end
-    for (v, ri) in zip(p.reeval, p.reeval_rxn)
-        x[v] = compute_reaction_output_vec(x, rxns_idx[ri]; config = config)
+    for (j, (v, ri)) in enumerate(zip(p.reeval, p.reeval_rxn))
+        excl = j <= length(p.reeval_excl) ? p.reeval_excl[j] : nothing
+        x[v] = excl === nothing ? compute_reaction_output_vec(x, rxns_idx[ri]; config = config) :
+               carrier_value(x, v, ri, excl, rxns_idx, baseline_vec, config)   # specs/075
     end
     u = Vector{Float64}(undef, length(p.path_from))
     cu = Vector{Vector{Vector{Float64}}}(undef, length(p.path_from))
@@ -377,6 +399,24 @@ function _modifier(x::AbstractVector{Float64}, ri::Int, rxns_idx, baseline_vec, 
     for (j, a) in enumerate(held); x[a] = keep[j]; end
     bl = baseline_vec[r.target_idx]
     return bl > 0 ? out / bl : 1.0
+end
+
+"""
+The carrier rule (specs/039, specs/049 amendment 7): carrier `c` reads the mean
+fold of its producers (activators of its update `ri`) other than `excl`, the
+release steps; 1 if none. Times its modifier. On the internal scale.
+"""
+function carrier_value(x::AbstractVector{Float64}, c::Int, ri::Int, excl, rxns_idx, baseline_vec, config)::Float64
+    tot = 0.0; cnt = 0
+    for a in rxns_idx[ri].activator_indices
+        a in excl && continue
+        bl = baseline_vec[a]
+        bl > 0 || continue
+        tot += x[a] / bl; cnt += 1
+    end
+    sc = cnt == 0 ? 1.0 : tot / cnt
+    m = _modifier(x, ri, rxns_idx, baseline_vec, config, Set{Int}())
+    return clamp(baseline_vec[c] * sc * m, 0.0, 1.0)
 end
 
 """
@@ -479,16 +519,7 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
             # specs/049 amendment 7: a carrier listed by several pools leaves
             # out every pool's release steps, not only this pool's.
             excl = carrier_rel === nothing ? rel : get(carrier_rel, c, rel)
-            tot = 0.0; cnt = 0
-            for a in rxns_idx[ri].activator_indices
-                a in excl && continue
-                bl = baseline_vec[a]
-                bl > 0 || continue
-                tot += x[a] / bl; cnt += 1
-            end
-            sc = cnt == 0 ? 1.0 : tot / cnt
-            m = _modifier(x, ri, rxns_idx, baseline_vec, config, Set{Int}())
-            val = clamp(baseline_vec[c] * sc * m, 0.0, 1.0)
+            val = carrier_value(x, c, ri, excl, rxns_idx, baseline_vec, config)
             maxch = max(maxch, abs(val - x[c])); x[c] = val
         end
     end
