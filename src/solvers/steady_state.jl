@@ -1183,13 +1183,14 @@ const DS_VALID_NONCONV_POOLS = ("skip", "joint")
 `DS_NONCONV_RESTARTS` (specs/076): how many times a component the specs/066
 fallback leaves above tolerance is iterated `DS_NONCONV_RESTART_SWEEPS`
 (default 250) more sweeps from its last iterate and the fallback retried.
-Default 0 (no restarts). LM's result depends on where it starts: in TP53 on
+Default 4 since 2026-10-19 (specs/076, adopted by Adam; 0 restores the
+previous solver). LM's result depends on where it starts: in TP53 on
 the faithful build it stalls from the cap-500 iterate of MDM4 overexpression
 and converges, to one state, from the iterates at 750 to 2,000. The best state
 over all attempts is kept.
 """
 function _nonconv_restarts()::Int
-    n = round(Int, _float_env("DS_NONCONV_RESTARTS", 0.0))
+    n = round(Int, _float_env("DS_NONCONV_RESTARTS", 4.0))
     n < 0 && throw(ArgumentError("DS_NONCONV_RESTARTS=$n must be at least 0."))
     n
 end

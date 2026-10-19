@@ -226,7 +226,7 @@ Response:
 - **`nonconv_restarts_max`**, **`nonconv_restarts`**,
   **`nonconv_restart_rescued`** (additive, specs/076): how many times the
   fallback may be retried from later iterates (`DS_NONCONV_RESTARTS`, default
-  0), how many retries the solve used, and how many components a retry
+  4 since 2026-10-19), how many retries the solve used, and how many components a retry
   brought below tolerance. The specs/066 and 073 counts describe the first
   attempt only.
 - **`cycle_rule`**, **`cycle_pools_solved`**, **`cycle_pools_multistep`**,

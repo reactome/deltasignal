@@ -119,14 +119,16 @@ end
             DS.solve_steady_state(ring(), Dict("P" => (80.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, iters, 1e-6, "penalty"))
         end
     with_env("DS_NONCONV_RESTARTS" => nothing) do
-        @test DS._nonconv_restarts() == 0
+        @test DS._nonconv_restarts() == 4
     end
-    none = rs(nothing)
-    zero = rs("0")
-    @test !none.converged
-    @test none.node_activities == zero.node_activities        # 0 is the default, bit for bit
-    @test none.diagnostics["nonconv_restarts"] == 0
-    @test none.diagnostics["nonconv_restarts_max"] == 0
+    dflt = rs(nothing)
+    @test dflt.node_activities == rs("4").node_activities     # 4 is the default, bit for bit
+    @test dflt.diagnostics["nonconv_restarts_max"] == 4
+    @test dflt.converged
+    zero = rs("0")                                            # 0 restores the previous solver
+    @test !zero.converged
+    @test zero.diagnostics["nonconv_restarts"] == 0
+    @test zero.diagnostics["nonconv_restarts_max"] == 0
     one = rs("1")
     @test one.converged
     @test one.diagnostics["nonconv_restarts"] == 1

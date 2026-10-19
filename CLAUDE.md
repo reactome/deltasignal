@@ -522,10 +522,12 @@ env vars only override for benchmark sweeps:
   component holding pool nodes is re-solved too, with each pool-written
   node's row G(x) − x (G the pool update). Reports `nonconv_pools`,
   `nonconv_pool_components`, `nonconv_pool_improved`, `nonconv_pool_rescued`.
-  `DS_NONCONV_RESTARTS=0` (default; specs/076: at 4, canonical no class
-  change and +167 converged; faithful TP53 all converge, not yet adopted) with `DS_NONCONV_RESTART_SWEEPS=250`: a component the fallback
-  leaves above tolerance is iterated that many more sweeps from its last
-  iterate and the fallback retried, up to N times; the best state is kept.
+  `DS_NONCONV_RESTARTS=4` (**default since 2026-10-19**, specs/076; canonical
+  no class change, converged curator 23,117 → 23,284; faithful build every
+  TP53 case converges; `0` restores the previous solver) with
+  `DS_NONCONV_RESTART_SWEEPS=250`: a component the fallback leaves above
+  tolerance is iterated that many more sweeps from its last iterate and the
+  fallback retried, up to N times; the best state is kept.
   Reports `nonconv_restarts_max`, `nonconv_restarts`, `nonconv_restart_rescued`.
 - Export aggregation default: `stoichiometry_weighted`.
 
@@ -821,6 +823,12 @@ for the last feature that touched it rather than re-deriving from the code.
   the residual. **Adopted as the default** (Adam, 2026-10-18): canonical
   identical; faithful build TP53 non-converged 663 → 102, and MDM2/MDM4
   overexpression read UP at the fixed point (curators: DOWN).
+- `specs/076-lm-restarts/` — `DS_NONCONV_RESTARTS=4`: the non-converged
+  fallback retried from later iterates (LM's answer depended on where it
+  started). **Adopted as the default** (Adam, 2026-10-19): canonical no class
+  change, +167 converged; faithful build TP53 non-converged 306 → 0, curator
+  −82 because the fixed point reads AKT1/AKT2/MDM4 knockout NORMAL as
+  canonical does (specs/075's gains there were the cap's answer).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -862,7 +870,7 @@ other seven execute code and print output.
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
-| `test/test_limit_cycles.jl` | 51 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
+| `test/test_limit_cycles.jl` | 53 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

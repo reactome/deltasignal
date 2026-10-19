@@ -1,6 +1,6 @@
 # specs/076: retry the non-converged fallback from later iterates
 
-**Status:** pre-registered 2026-10-19, before the arms; results in `research.md`. Canonical: no class changes (gate passes, trivially), converged curator cases +167. Faithful build: every TP53 case converges (306 -> 0) and TP53 curator net −82, the fixed point reading AKT1/AKT2/MDM4 knockout NORMAL as canonical does. Predictions 1-3 hold. Adoption is Adam's call.
+**Status:** pre-registered 2026-10-19, before the arms; results in `research.md`. Canonical: no class changes (gate passes, trivially), converged curator cases +167. Faithful build: every TP53 case converges (306 -> 0) and TP53 curator net −82, the fixed point reading AKT1/AKT2/MDM4 knockout NORMAL as canonical does. Predictions 1-3 hold. **Adopted as the default 2026-10-19 (Adam: "ook").**
 
 Adam, 2026-10-18: "ok" to this, after the specs/075 report.
 
