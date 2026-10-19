@@ -88,3 +88,23 @@ Restarts add no measurable time.
   correct), so specs/075's carrier rule is what moves it. These are the two
   TP53 differences left to trace.
 - Faithful TP53: 1,384 of 1,836 correct (canonical 1,607).
+
+## Adoption note (2026-10-19)
+
+When the default became 4, `test/test_loop_elasticity.jl` failed. Its "knife-edge
+at eps = 1" test pins the specs/014 defect, where the iteration budget picks the
+answer, as a climb with the budget (`a50 < a500 < a5000`). The fixture is a
+positive AND loop driven by U = 1.01. Probed values of A (UI):
+
+| cap | 50 | 500 | 750 | 1,000 | 5,000 |
+|---|---|---|---|---|---|
+| restarts 0 | 0.058, no | 0.141, no | 0.015, yes | 0.025, yes | 100, yes |
+| restarts 4 | 0.017, yes | 0.015, yes | 0.015, yes | 0.025, yes | 100, yes |
+
+The specs/066 fallback already drew this loop to near zero from the cap-750
+iterate, where the absolute tolerance (1e-6 on the 0.01 baseline) accepts a
+state that is not a fixed point (the loop's only fixed points are 0 and the
+cap). Restarts bring the same answer to caps 50 and 500. The defect stands,
+with a new shape: the budget now chooses between collapse and rail. The test
+pins both shapes, the restart-free climb under `DS_NONCONV_RESTARTS=0`
+(175 assertions).
