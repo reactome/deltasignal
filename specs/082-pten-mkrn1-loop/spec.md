@@ -62,3 +62,15 @@ Wrong cases by gene:
 
 Each is a candidate for the same trace: find the loop, check it is curated, and see whether
 its gain is 1.
+
+**Rails vs U-shapes.** The census mixes two things:
+
+- **Rails: the same value both ways** (PTEN 83.5 / 83.5). 28 wrong curator cases, of
+  which PTEN 14, RAF1 4, ACVR2A 3, SH3GL1 3, TP53 in Cell Cycle Checkpoints 2. And 12 wrong
+  experimental cases: PTEN 8, RAF1 3, MDM2 1. These are knife-edge loops.
+- **U-shapes: two different values in the same direction.**
+  - CBFB in RUNX2: knockout frees RUNX2, so RUNX2:SOX9, RUNX2:SATB2 and RUNX2:RBM14
+    read 5.6×; overexpression reads 1.9×. Curators: NORMAL. Partner competition, not a loop.
+  - ATM and CHEK2 in TP53: knockout reads 0.56× and overexpression 0.23× at TP53 targets,
+    both converged. Curators: NORMAL.
+  - Not traced here.

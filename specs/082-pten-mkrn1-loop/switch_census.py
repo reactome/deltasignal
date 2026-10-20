@@ -21,3 +21,8 @@ for ax in ("curator", "experimental"):
           f"{len(cases)} cases, {len(wrong)} wrong (of {allwrong} wrong in all)")
     print("   by pathway (wrong):", Counter(r["pathway"] for r in wrong).most_common(8))
     print("   by gene (wrong):", Counter((r["pathway"][:20], r["gene"]) for r in wrong).most_common(8))
+    # a rail reads the SAME value both ways (PTEN 83.5 / 83.5); a U-shape reads two values
+    rail = [(k, d) for k, d in sw if abs(float(d["0"]["pred_ui"]) - float(d["2"]["pred_ui"])) < 1e-3]
+    rw = [x for _, d in rail for x in d.values() if x["predicted"] != x["expected"]]
+    print(f"   of these, identical value both ways (a rail): {len(rail)} triples, {len(rw)} wrong;",
+          Counter((r["pathway"][:20], r["gene"]) for r in rw).most_common(6))
