@@ -14,8 +14,9 @@ defaults: main `3e96e7c`, canonical `20261017-1246_5e663d9`, `results/3e96e7c/df
 | curator | 23,511 | 2,763 (88.2% right) | 1,316 | 1,447 (790 false change, 657 missed) |
 | experimental | 845 | 244 (71.1% right) | 124 | 120 (36 false change, 84 missed) |
 
-About half of all errors have no route from the perturbed gene to the readout in the
-pathway's network. No solver rule can fix those: the most any propagator can score on
+About half of all errors have no route from the perturbed gene to the readout **in the
+network of the pathway being scored**, the one the benchmark solves. That is not a
+claim about Reactome as a whole (below). No solver rule can fix those: the most any propagator can score on
 these networks is **94.4% curator** and **85.3% experimental**. The solver work since
 specs/039 has been spent on the other half.
 
@@ -70,7 +71,16 @@ What is left where the curators and the experiment agree is **101 cases**: 53 mi
    headline, and it separates model error from curation-versus-experiment disagreement.
 2. **Aim rule work at the 101 agreed experimental errors**, starting with PTEN
    overexpression in PIP3. They are the only errors that every reference says are ours.
-3. **The `no_path` half is a curation question** (missing routes in Reactome). The model
-   cannot fix it. It is a list for Reactome curators (needs Adam's approval to raise).
+3. **The `no_path` half is mostly not missing biology.** A 2026-07-16 check, on an older
+   catalog and not re-run here, found the mechanism in Reactome for nearly all such cases:
+   - Of 229 experimental failures, 99% were reachable in the full human reaction graph
+     when complex and set membership are followed both ways. Following reactions alone,
+     62% were.
+   - Most curator `no_path` cases were co-descendants of one hub (gene and readout both
+     downstream of it), not gene → readout.
+   - Importing neighbouring pathways' networks (specs/056) cost held-out −164.
+
+   So this half needs either a wider network that does not over-couple, or a
+   non-directed (co-regulation) reading. Neither is a curation request.
 4. **Hold an untouched test.** Release 98, when published, scored once with frozen rules
    (specs/051, 062), is the only clean estimate of whether these six weeks generalise.
