@@ -1,6 +1,6 @@
 # specs/081: a modified protein returns to the complex it starts in (p130, p107)
 
-**Status:** pre-registered 2026-10-20, before any build or arm. Amendment 1 (the `recycle` edge), before the catalog build and the gated arm. The diagnostic probe and the
+**Status:** pre-registered 2026-10-20, before any build or arm; amendment 1 (the `recycle` edge) before the catalog build and the gated arm. **Gate passes** (arm `rcp`): held-out 0, tuning +70 (70 / 0), experimental +8 (10 / 2, p 0.039), only Mitotic G1 moves. Results in `research.md`. Adoption is Adam's.
 structural count are in `probe.md`.
 
 Adam, 2026-10-20: "we need to make things that are biologically correct. I say A",
