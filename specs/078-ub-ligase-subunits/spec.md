@@ -1,6 +1,6 @@
 # specs/078: a ubiquitination does not deplete the ligase that carries it, re-measured under specs/077
 
-**Status:** pre-registered 2026-10-20, before the build and the arms.
+**Status:** pre-registered 2026-10-20, before the build and the arms. Amendment 1 (after the structural count, before any arm): `ubx` is the gated arm.
 
 Adam, 2026-10-19: "I would check the generator first", and "ok" to rebasing the specs/057
 branch and running the arm against the new defaults.
@@ -72,3 +72,32 @@ generator default and a rebuilt canonical is the adoption step. Adam decides.
 - The faithful build: its generator is on another branch (`diagram-subpathways`).
   Combining them is a later step if `ubc` is worth it.
 - A rule for the CBL class (specs/057 R1, not registered there either).
+
+## Structural count (`count_depletion.py`, after the builds, before any arm)
+
+Builds `20261020-0717_9770d28_ubc` and `20261020-0756_9770d28_ubx` (LNG `9770d28`),
+compared with canonical `20261017-1246_5e663d9` by entity id:
+
+| build | depletion edges | removed | pathways | other edges |
+|---|---|---|---|---|
+| canonical | 727 | — | — | — |
+| `ubc` | 420 | 307 | 32 | −356 `variant_pool` (depleter pools no longer needed), −56 `assembly` (EGFR) |
+| `ubx` | 441 | 286 | 32 | −349 `variant_pool`, −56 `assembly` (EGFR) |
+
+The 56 assembly edges are the knock-on specs/057 recorded: CBL-containing EGFR complexes
+are no longer decomposed as roots. Nothing is added.
+
+Mitotic G1 has three such depletion edges on canonical. Two drain free CKS1B (from
+R-HSA-187565 and from R-HSA-1363326), and one drains p-RBL2 (from R-HSA-1363326), the
+real p130 substrate.
+- `ubc` removes all three. p-RBL2 is the substrate, but Ub-p-RBL2 keeps its stId, the
+  case specs/057 amendment 1 fixed.
+- `ubx` removes the two CKS1B drains and keeps the p-RBL2 one. **The spec above was wrong
+  on this:** CKS1B is not a direct component of the ubiquitinated output R-HSA-187568,
+  whose direct components are R-HSA-187565 and Ub. So `ubx` treats CKS1B as carried there too.
+
+## Amendment 1 (2026-10-20, from the structural count only, before any arm)
+
+`ubx` removes exactly the ligase drains this spec targets and keeps the real substrate's.
+`ubc` also removes real substrates' drains. **The gated arm is `ubx`**, with the same
+gate; `ubc` is reported. Predictions 1 and 2 apply to `ubx` as written for `ubc`.
