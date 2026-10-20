@@ -23,3 +23,23 @@ versions, and the baseline network reproduces `results/3e96e7c/dflt` on every ca
 
 Conclusion: the return step needs its own edge type, handled differently by the solver
 and ignored by root detection (Adam, 2026-10-20). A plain supply edge is not enough.
+
+## Structural count (`count_recycle.py`, 2026-10-20, before any registration)
+
+Candidates: a produced protein copy that leads nowhere, a starting copy of the same
+entity feeding a root complex, and a reaction route from that complex back to the
+produced copy (at most 4 reactions, through forms carrying the protein, by reference
+entity from Neo4j).
+
+| filter | canonical | faithful (`dsub`) |
+|---|---|---|
+| any such route, proteins only, ≥ 2 reactions | 20 entity pairs, 10 pathways | — |
+| + the protein is present only in a **modified** form somewhere on the route (a modification cycle, not a partner released unchanged) | **2: p130 and p107, both Mitotic G1** | 4: the same two, plus R-HSA-418996 in R-HSA-446728 |
+
+The other 18 are partners released unchanged after a multi-step event: SMURF1/2 and
+NEDD4L, BRAF from p-SPRY2, CK1α and AMER1 from the destruction complex, TLS polymerases,
+and nuclear envelope proteins. That is the carrier-release class (specs/077), not a
+modification cycle.
+
+Mitotic G1 is a tuning pathway (one of the paper's ten), so on the canonical build this
+rule cannot move the held-out split. It can move tuning and experimental.
