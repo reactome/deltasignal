@@ -43,3 +43,22 @@ in the model, so its readouts are a switch. RAF was set aside from rule decision
 is a tuning pathway, and these are 9 of the 101 experimental errors on which every
 reference agrees. Any fix is a loop-gain question (specs/014's sigmoid-elasticity arms), not a
 network defect. The network is faithful here. Not pursued further in this spec.
+
+## How common (`switch_census.py results/3e96e7c/dflt`)
+
+These are (pathway, gene, readout) triples whose knockout and overexpression read the same
+direction off baseline (|fold − 1| > 0.15 both), so the readout is a switch rather than a
+response:
+
+| axis | triples | cases | wrong | share of all errors |
+|---|---|---|---|---|
+| curator | 79 | 158 | 107 | 3.9% of 2,763 |
+| experimental | 13 | 26 | 13 | 5.3% of 244 |
+
+Wrong cases by gene:
+- **curator:** CBFB in RUNX2 23, PTEN 14, ATM 12 and CHEK2 12 in TP53, SH3GL1 in EGFR 6,
+  RAF1 5, SRC 4, RBL2 4;
+- **experimental:** PTEN 8, RAF1 3, MDM2 in Cell Cycle Checkpoints 2.
+
+Each is a candidate for the same trace: find the loop, check it is curated, and see whether
+its gain is 1.
