@@ -146,3 +146,12 @@ Fixed perturbations:
 
 CDKN1B does not move. The gate, the arm and predictions 1–4 are unchanged. The check is
 not the arm, and its figures are not the result.
+
+## Build check (before the arm)
+
+Variant build `20261020-1517_55b0f1b_rcp` (LNG `55b0f1b`, `--env LNG_RECYCLE_POOLS=1`),
+compared by stable id with canonical `20261017-1246_5e663d9` (`compare_build.py`):
+
+- **3 tables differ, all in R-HSA-453279:** 2 `recycle` edges added, 8 pool state rows added
+  (p130: 4 resting copies + p-p130; p107: 2 + p-p107), and 228 transition rows added.
+- **Nothing is removed**, and no other pathway differs. 91 pathways log 0 recycle pools.
