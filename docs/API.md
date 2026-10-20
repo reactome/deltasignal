@@ -251,6 +251,11 @@ Response:
   `"suppress_only"`, `"suppress_only_entity"`) and how many depletion edges
   were gated on their source copies. **`recycled_twin_rule`** /
   **`recycled_twin_edges`** (specs/059): `"on"` by default since 2026-10-15.
+- **`carrier_loop_open_rule`**, **`carrier_loop_open_edges`** (additive,
+  specs/077): `"fed_single"` (default since 2026-10-19), `"fed"` or `"off"` (`DS_CARRIER_LOOP_OPEN`), and how
+  many open-loop release edges were dropped: a free form of an open carrier
+  loop that keeps a producer outside its loops no longer reads its own
+  release. Those edges are also counted in `carrier_loop_edges_dropped`.
 - **`carrier_loop_rule`**, **`carrier_loop_forms`**,
   **`carrier_loop_edges_dropped`**, **`carrier_loop_twin_edges`** (additive,
   specs/049): `"closed_twin"` (default since amendment 6), `"off"`,

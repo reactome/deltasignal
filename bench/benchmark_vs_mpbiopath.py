@@ -1219,6 +1219,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY[f"carrier_loop_rule={ds_result.get('carrier_loop_rule', 'unknown')}"] += 1
             SOLVE_TALLY["carrier_loop_forms"] += int(ds_result.get("carrier_loop_forms") or 0)
             SOLVE_TALLY["carrier_loop_twin_edges"] += int(ds_result.get("carrier_loop_twin_edges") or 0)
+            SOLVE_TALLY[f"carrier_loop_open_rule={ds_result.get('carrier_loop_open_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["carrier_loop_open_edges"] += int(ds_result.get("carrier_loop_open_edges") or 0)
             SOLVE_TALLY["cycle_shared_nodes"] += int(ds_result.get("cycle_shared_nodes") or 0)
             SOLVE_TALLY["converged"] += bool(ds_result.get("converged"))
             # specs/059-061, defaults since 2026-10-15 (week review): record which
@@ -1625,6 +1627,11 @@ def main():
                          f"solves added {SOLVE_TALLY['carrier_loop_twin_edges']} twin edges.")
     if lrules and not SOLVE_TALLY["carrier_closed_listed"]:
         print("  (no pathway in this run lists a closed carrier loop)")
+    orules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_loop_open_rule="))
+    print(f"Open carrier loops: rule {'/'.join(orules) or 'unknown'}, "
+          f"{SOLVE_TALLY['carrier_loop_open_edges']} release edge-solves dropped (specs/077)")
+    if any(r in ("fed", "fed_single") for r in orules) and SOLVE_TALLY["carrier_loop_open_edges"] == 0:
+        raise SystemExit(f"DS_CARRIER_LOOP_OPEN={'/'.join(orules)} but no solve dropped an open-loop release; the arm is the control.")
     yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
     yc = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carriers="))
     print(f"\nCycles: rule {'/'.join(yrules) or 'unknown'}, {SOLVE_TALLY['cycle_pools_solved']} pool-solves, "
