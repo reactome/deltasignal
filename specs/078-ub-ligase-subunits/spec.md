@@ -1,6 +1,6 @@
 # specs/078: a ubiquitination does not deplete the ligase that carries it, re-measured under specs/077
 
-**Status:** pre-registered 2026-10-20, before the build and the arms. Amendment 1 (after the structural count, before any arm): `ubx` is the gated arm.
+**Status:** pre-registered 2026-10-20, before the build and the arms; amendment 1 (structure only, before any arm) gates `ubx`. **Gate fails**: held-out −44 (12 / 56), EGFR −29, RUNX2 −11; experimental +5 (all four CCNE1 cases). `ubc` the same. Not adopted; results in `research.md`.
 
 Adam, 2026-10-19: "I would check the generator first", and "ok" to rebasing the specs/057
 branch and running the arm against the new defaults.
