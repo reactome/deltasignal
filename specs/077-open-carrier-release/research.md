@@ -188,9 +188,32 @@ exactly: CCNA1 reads 20.06× under `off` and 1.0807× under `fed_single`.
   complex. These are complexes that contain CKS1B depleting free CKS1B. Under `off`, CKS1B is
   drained to the 0.1× floor too, but the release masked it.
 - The edges are depletion edges the generator derived, not a curated reaction: R-HSA-187565 is formed
-  from SCF(Skp2):Cks1, not from free CKS1B. Which generator pass emits them is not
-  confirmed here; it looks like the specs/057 class (a complex depleting its own free
-  subunits).
+  from SCF(Skp2):Cks1, not from free CKS1B.
+
+**The generator's ubiquitin pass emits them** (`_emit_substrate_depletion_edges`,
+LNG `5e663d9`; the specs/057 class, confirmed against Neo4j Release 97). The pass treats
+any input leaf whose gene is also in the output as the "substrate", and adds a depletion edge from the
+reaction's catalyst to every network copy of that leaf. Two Mitotic G1
+ubiquitinations hit CKS1B:
+
+| reaction | catalyst (= its own input) | output | CKS1B in the output |
+|---|---|---|---|
+| R-HSA-187575 "Ubiquitination of phospho-p27/p21" | R-HSA-187565 (cyclin E/A:CDK2:p27/p21:SCF(Skp2):CKS1B) | the same complex + 3xubiquitin | unchanged, inside the Ub complex |
+| R-HSA-1363331 "Ubiquitination of p130 (RBL2) by SCF (Skp2)" | R-HSA-1363326 (p-RBL2:SCF(Skp2):Cks1) | CUL1:SKP1:SKP2:CKS1B + Ub-p-RBL2 | unchanged, the ligase released |
+
+The real substrates are p27/p21 and p130. CKS1B, SKP2, CUL1 and SKP1 are the ligase,
+carried through unchanged. The rules of specs/057 (LNG PR #113, closed, not adopted)
+treat the two reactions differently:
+- `LNG_UB_SUBSTRATE_CHANGED`: a leaf whose own stId is in the output is carried. That
+  drops both drains.
+- With `LNG_UB_SUBSTRATE_UBX` (amendment 1): such a leaf is still the substrate if it sits
+  inside an output complex that has Ub as a direct component. That drops the p130 drain
+  (R-HSA-1363331) and keeps the p27/p21 one (R-HSA-187575), where CKS1B sits inside
+  the Ub complex.
+
+specs/057 measured these rules before `fed_single` existed, when released carriers
+still read their release as supply and so masked the drain. Its result
+(held-out −39 / −15, not adopted) does not say how they behave together with `fed_single`.
 
 So `fed_single` is right about the ligase. Conservation says free SCF ≈ total SCF, which
 cyclin E does not set. The lost case comes from removing a wrong route that happened
