@@ -437,6 +437,10 @@ env vars only override for benchmark sweeps:
   tables; a bundle without them reports `balance: no pool table` (loops then
   iterate as under `off`), and the bench refuses such a build. φ₀ refers to
   the pool's ACTIVE form, which the generator marks (`LNG_POOL_ACTIVE_VIA`).
+  A pool may mark several base (resting) states (specs/081); a `recycle` edge
+  (generator `LNG_RECYCLE_POOLS`, default off) joins a modification cycle into one
+  component and is never an input. The solve reports `recycle_edges`
+  (`src/core/recycle.jl`); the bench never counts it against a root.
 - `DS_SELF_FED_MODE=off` (default; `entry` measured and **refuted**: TP53 −190,
   PIP3 −126, experimental −66) | `entry` (specs/040 rule A): in an
   iterated cyclic component, an input fed by nothing except what it feeds
@@ -847,6 +851,18 @@ for the last feature that touched it rather than re-deriving from the code.
   worst pathway −2; faithful DSB +182. `fed` failed (apoptosis −26). Open: the
   generator's ubiquitin pass drains a ligase's own subunits (CKS1B), the
   specs/057 class.
+- `specs/079-error-census/`, `specs/080-no-path-audit/` — analysis. Half of all
+  errors have no route in the scored pathway's network. Curators agree with the
+  experiments on only 82% of experimental cases, and 134 of 244 experimental errors
+  give the curators' answer. Checked against Neo4j itself, 392 of 1,316 curator
+  `no_path` errors have a route in the pathway's own reactions that our network loses
+  (`db_reach.py`, `breaks.py`).
+- `specs/081-recycle-edges/` — p130/p107 return to their E2F4 root complexes, which
+  Reactome does not curate as a reaction. Generator `LNG_RECYCLE_POOLS` writes the cycle
+  as a pool with several resting states plus a structural `recycle` edge.
+  **Adopted** (Adam, 2026-10-20): tuning +70 (70 / 0, all Mitotic G1), experimental
+  +8 (10 / 2), held-out 0. The p27 (CDKN1B) inversion is the curated assembly-factor role
+  of p21/p27 in the CDK4/6 catalyst set.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -882,7 +898,7 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 497 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18 |
+| `test/test_cycles.jl` | 516 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 195 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |

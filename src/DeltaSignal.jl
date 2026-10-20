@@ -28,6 +28,7 @@ include("core/cycles.jl")
 include("core/self_fed.jl")
 include("core/carrier_loops.jl")
 include("core/recycled_twin.jl")
+include("core/recycle.jl")
 include("core/sequestration.jl")
 include("core/zero_supply.jl")
 

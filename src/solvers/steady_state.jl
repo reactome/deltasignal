@@ -103,7 +103,9 @@ function solve_steady_state(
 )::SolverResult
     
     start_time = time()
-    
+    # specs/081: recycle edges are structural only; no rule below reads them
+    network, recycle_pairs = split_recycle_edges(network)
+
     # Cofactor handling is a MODELLING choice made here, not upstream: the
     # networks stay faithful to the curated data and this decides whether a
     # small molecule may carry a perturbation. See src/core/cofactors.jl.
@@ -310,7 +312,8 @@ function solve_steady_state(
                                              cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
                                              carrier_release = crelease,
                                              node_keys = node_keys,
-                                             pool_signal_pairs = signal_pairs)
+                                             pool_signal_pairs = signal_pairs,
+                                             structural = recycle_pairs)
     own_mode = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
     if own_mode == "suppress_only_source"
         # specs/061 amendments 4-5: no cap is applied during an iteration. Pass 1
@@ -327,7 +330,8 @@ function solve_steady_state(
                                                cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
                                                carrier_release = crelease,
                                                node_keys = node_keys,
-                                               pool_signal_pairs = signal_pairs)
+                                               pool_signal_pairs = signal_pairs,
+                                               structural = recycle_pairs)
         first_pass = pfull(reactions)
         down(u) = haskey(first_pass.node_activities, u) &&
                   first_pass.node_activities[u] < get(baseline_activities, u, 0.01) * (1 - 1e-6)
@@ -2146,6 +2150,7 @@ function solve_steady_state_penalty(
     carrier_release::String = "listed",
     node_keys::Union{Nothing, Dict{String, String}} = nothing,
     pool_signal_pairs::Union{Nothing, Set{Tuple{String, String}}} = nothing,
+    structural::Vector{Tuple{String, String}} = Tuple{String, String}[],
 )::SolverResult
 
     all_nodes = collect(keys(x0))
@@ -2154,7 +2159,9 @@ function solve_steady_state_penalty(
     index_stats = Dict{String, Any}()
     rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids;
                                                stats = index_stats, self_shared = self_shared,
-                                               own_entity = own_entity, own_source = own_source)
+                                               own_entity = own_entity, own_source = own_source,
+                                               structural = structural)
+    index_stats["recycle_edges"] = length(structural)
     order_mode = scc_order_mode()
     index_stats["scc_order"] = order_mode
     order_key = nothing
@@ -2386,6 +2393,7 @@ function solve_steady_state_penalty(
             # specs/039: interconversion pools solved in closed form, left to the
             # iteration (not within one cyclic component), or skipped at indexing.
             "cycle_pools_solved" => get(index_stats, "cycle_pools_solved", 0),
+            "recycle_edges" => get(index_stats, "recycle_edges", 0),   # specs/081
             "cycle_pools_unmanaged" => get(index_stats, "cycle_pools_unmanaged", 0),
             "cycle_pools_skipped" => get(index_stats, "cycle_pools_skipped", 0),
             "cycle_pools_multistep" => get(index_stats, "cycle_pools_multistep", 0),

@@ -238,6 +238,10 @@ Response:
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores
   iterated loops.
+- **`recycle_edges`** (additive, specs/081): how many `recycle` edges the network
+  carried. They join a modification cycle (a protein returning to the complex it
+  starts in) into one component for its pool, and are never read as inputs. 0 for
+  networks built without the generator's `LNG_RECYCLE_POOLS`.
 - **`cycle_shared_nodes`** (additive, specs/049): intermediates and step
   reaction nodes that more than one pool passes through. Each is written once,
   from the flux of every pool through it. It is 0 unless the bundle was built

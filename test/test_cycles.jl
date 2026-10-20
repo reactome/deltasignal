@@ -453,6 +453,84 @@ end
     end
 end
 
+@testset "several base states: a protein resting in two copies of its starting complex (specs/081)" begin
+    # p130 rests in two copies of its E2F complex, C1 and C2, assembled from roots S1, S2.
+    # The kinase K moves it to M (F1, F2); PP2A (PP) returns it by R, which the pool
+    # lists for both return paths (as the generator does for p130). D reads C1.
+    ids = ["S1", "S2", "C1", "C2", "M", "K", "PP", "F1", "F2", "R", "X", "W", "D"]
+    nodes = Dict(k => DS.NetworkNode(k, "R-" * k, "protein", nothing, k, BL) for k in ids)
+    E = [("S1", "C1", "assembly", true), ("S2", "C2", "assembly", true),
+         ("C1", "F1", "input", true), ("K", "F1", "catalyst", true), ("F1", "M", "output", false),
+         ("C2", "F2", "input", true), ("K", "F2", "catalyst", true), ("F2", "M", "output", false),
+         ("M", "R", "input", true), ("PP", "R", "catalyst", true), ("R", "X", "output", false),
+         ("C1", "W", "input", true), ("W", "D", "output", false),
+         # the recycle edges close the cycle structurally: free X is the starting copies' entity
+         ("X", "S1", "recycle", false), ("X", "S2", "recycle", false)]
+    edges = [edge(s, t, et; and = a) for (s, t, et, a) in E]
+    paths = [DS.PoolPath("C1", "M", [("C1", "M", ["F1"])], true), DS.PoolPath("C2", "M", [("C2", "M", ["F2"])], true),
+             DS.PoolPath("M", "C1", [("M", "C1", ["R"])], true), DS.PoolPath("M", "C2", [("M", "C2", ["R"])], true)]
+    pool = DS.CyclePool("recycle1", ["C1", "C2", "M"], "C1", paths, String[], Tuple{String, String}[], ["C1", "C2"])
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict{String, Set{String}}(), nothing, [pool])
+    go(obs) = with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        o = Dict(k => (1.0, 1.0) for k in ("S1", "S2", "K", "PP"))
+        for (k, v) in obs; o[k] = (v, 1.0); end
+        DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    rho = 0.1 / 0.9
+    r0 = go(Dict{String, Float64}())
+    @test r0.converged && r0.diagnostics["cycle_pools_solved"] == 1
+    @test r0.diagnostics["recycle_edges"] == 2
+    # a recycle edge is never an input: the starting copies have no update of their own
+    @test !any(r -> r.target_uuid in ("S1", "S2"), DS.convert_to_reaction_network(net))
+    # without the recycle edges the pool's nodes are not one component, so it is not solved
+    norec = DS.ReactionNetwork(nodes, [e for e in edges if e.edge_type != "recycle"],
+                               Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                               Dict{String, Set{String}}(), nothing, [pool])
+    nr = with_env("DS_CYCLE_MODE" => "balance", "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        DS.solve_steady_state(norec, Dict(k => (1.0, 1.0) for k in ("S1", "S2", "K", "PP")),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    @test nr.diagnostics["cycle_pools_solved"] == 0 && nr.diagnostics["recycle_edges"] == 0
+    # unpinned starting copies stay at their own (baseline) value whatever X reads
+    up2 = with_env("DS_CYCLE_MODE" => "balance", "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        DS.solve_steady_state(net, Dict("K" => (80.0, 1.0), "PP" => (1.0, 1.0)),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    @test fold(up2, "S1") ≈ 1.0 atol = 1e-12
+    @test fold(up2, "S2") ≈ 1.0 atol = 1e-12
+    for k in ("C1", "C2", "M", "D")
+        @test fold(r0, k) ≈ 1.0 atol = 1e-9          # both resting copies start at full weight
+    end
+    up = go(Dict("K" => 80.0))                       # more kinase: p130 leaves both complexes
+    @test fold(up, "C1") ≈ fold(up, "C2") atol = 1e-9
+    @test fold(up, "C1") < 0.25 && fold(up, "M") > 1.5 && fold(up, "D") < 0.25
+    @test fold(go(Dict("PP" => 0.0)), "C1") < 0.01   # no phosphatase: none returns
+    ko = go(Dict("K" => 0.0))                        # no kinase: all of it rests, (2 + ρ)/2
+    @test fold(ko, "C1") ≈ (2 + rho) / 2 atol = 1e-6
+    @test fold(ko, "M") < 0.01
+    # the table reads several bases, and they survive a JSON round trip
+    mktempdir() do dir
+        write(joinpath(dir, "logic_network.csv"), "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n")
+        write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,role,is_base\n" *
+              "recycle1,C1,R-C1,state,True\nrecycle1,C2,R-C2,state,True\nrecycle1,M,R-M,state,False\n")
+        write(joinpath(dir, "pool_transitions.csv"),
+              "pool_id,path_id,step,source_uuid,target_uuid,reaction_uuid,reaction_stid,enzyme_driven\n" *
+              "recycle1,f1,1,C1,M,F1,R-F,True\nrecycle1,r1,1,M,C1,R,R-R,True\n")
+        p = DS.parse_pools(joinpath(dir, "logic_network.csv"))
+        @test length(p) == 1 && p[1].base == "C1" && p[1].bases == ["C1", "C2"]
+        write(joinpath(dir, "pools.csv"), "pool_id,node_uuid,stable_id,role,is_base\n" *
+              "recycle1,C1,R-C1,state,True\nrecycle1,Z,R-Z,intermediate,True\nrecycle1,M,R-M,state,False\n")
+        @test_throws ArgumentError DS.parse_pools(joinpath(dir, "logic_network.csv"))
+    end
+    back = DS.pools_from_json(DS.JSON3.read(DS.JSON3.write(DS.pools_json(net))))
+    @test back[1].bases == ["C1", "C2"] && back[1].base == "C1"
+    old = DS.JSON3.read(DS.JSON3.write([Dict("id" => "p", "forms" => ["A", "B"], "base" => "A",
+        "intermediates" => String[], "carriers" => [], "paths" => [Dict("from" => "A", "to" => "B", "enzyme" => true,
+        "steps" => [["A", "B", ["F"]]])])]))
+    @test DS.pools_from_json(old)[1].bases == ["A"]   # a table written before specs/081
+end
+
 @testset "configuration: DS_CYCLE_CARRIERS" begin
     for bad in ("On", "yes", "")
         with_env("DS_CYCLE_CARRIERS" => bad) do

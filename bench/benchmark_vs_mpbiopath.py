@@ -845,7 +845,8 @@ def carrier_loop_capacity(network: dict) -> tuple[int, int]:
     closed = {str(r["free_uuid"]) for r in table if r.get("closed")}
     if not closed:
         return 0, 0
-    has_in = {str(e["child_uuid"]) for e in network["edges"]}
+    # the solver strips recycle edges before closed_twin looks for roots (specs/081)
+    has_in = {str(e["child_uuid"]) for e in network["edges"] if e.get("edge_type") != RECYCLE_EDGE}
     rid = {str(n["uuid"]): n.get("reactome_id") or None for n in network["nodes"]}
     roots: dict[str, int] = {}
     for u, r in rid.items():
@@ -901,6 +902,9 @@ PIN_NETWORK_ROOT = os.environ.get("DS_PIN_NETWORK_ROOT", "")   # specs/051; empt
 
 
 CONTEXT_BRIDGE = "context_bridge"   # specs/056, bench/context_build.py
+# specs/081: a recycle edge closes a modification cycle for the solver's pool and
+# carries no value, so it never makes a node a non-root.
+RECYCLE_EDGE = "recycle"
 
 
 def context_label() -> str:
@@ -961,6 +965,8 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
     ignored_in, has_out = set(), set()
     with open_network(pathway_dir) as f:
         for row in csv.DictReader(f):
+            if row.get("edge_type") == RECYCLE_EDGE:
+                continue
             has_out.add(row["source_id"])
             # specs/056: a context bridge feeds a root copy from another
             # pathway's producer. Roots are read without them, so a gene is
@@ -989,7 +995,7 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
             inc, fwd, ident = defaultdict(list), defaultdict(list), {}
             with open_network(pathway_dir) as f:
                 for row in csv.DictReader(f):
-                    if row.get("edge_type") == CONTEXT_BRIDGE:
+                    if row.get("edge_type") in (CONTEXT_BRIDGE, RECYCLE_EDGE):
                         continue
                     inc[row["target_id"]].append((row["source_id"], row.get("edge_type", "")))
                     fwd[row["source_id"]].append(row["target_id"])
@@ -1250,6 +1256,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY[f"conserved_rule={ds_result.get('conserved_rule', 'unknown')}"] += 1
             SOLVE_TALLY[f"cycle_rule={ds_result.get('cycle_rule', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_pools_solved"] += int(ds_result.get("cycle_pools_solved") or 0)
+            SOLVE_TALLY["recycle_edges"] += int(ds_result.get("recycle_edges") or 0)   # specs/081
             SOLVE_TALLY["cycle_pools_multistep"] += int(ds_result.get("cycle_pools_multistep") or 0)
             SOLVE_TALLY[f"cycle_carriers={ds_result.get('cycle_carriers', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_carriers_held"] += int(ds_result.get("cycle_carriers_held") or 0)
@@ -1648,6 +1655,7 @@ def main():
           f"{SOLVE_TALLY['cycle_reeval_carriers']} pool-carrier pairs (specs/075)")
     if "balance" in yrules and SOLVE_TALLY["cycle_pools_solved"] == 0:
         raise SystemExit("DS_CYCLE_MODE=balance but no solve used a pool; the arm is the control.")
+    print(f"Recycle edges: {SOLVE_TALLY['recycle_edges']} edge-solves (specs/081)")
     zrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("zero_supply_rule="))
     print(f"\nZero supply: rule {'/'.join(zrules) or 'unknown'}, {SOLVE_TALLY['zero_supply_held']} node-solves held, "
           f"{SOLVE_TALLY['zero_supply_leaves']} leaf-solves without supply (specs/052)")
