@@ -256,3 +256,10 @@ pinned uuids, readout uuids) reproduces every arm value.
   Each one's right answer came through a released carrier read as new supply.
 - 5 are threshold shifts across the DOWN boundary: Mitotic G1 4, ERBB2 ERBB3 1. None of them loses a route.
 - None is a correct curated route that the rule cut.
+
+## Adoption (2026-10-19)
+
+Adam, 2026-10-19: "ok" to adopting `fed_single` after the eleven experimental losses were
+traced. `DS_CARRIER_LOOP_OPEN=fed_single` is the code default; `off` restores the earlier
+solver. Next, as specs/078: the generator's ubiquitin pass (the CKS1B drain) on top of
+these defaults.

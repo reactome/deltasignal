@@ -472,9 +472,12 @@ env vars only override for benchmark sweeps:
   `carrier_loop_twin_edges`.
   A bundle without the table reports `<mode>: no carrier table` and solves as
   `off`, and the bench refuses it.
-  `DS_CARRIER_LOOP_OPEN=off` (default; specs/077) | `fed` (measured, fails
-  its gate: intrinsic apoptosis −26) | `fed_single` (amendment 1, pre-registered;
-  `fed` that keeps a release with a second non-cofactor input, a displacer): an OPEN loop's free form that keeps a producer outside
+  `DS_CARRIER_LOOP_OPEN=fed_single` (**default since 2026-10-19**, specs/077
+  amendment 1, post hoc; held-out +65 (84 / 19), experimental −5 (every loss
+  traced: release artefacts or threshold shifts), faithful build +272) | `off`
+  (the earlier solver) | `fed` (fails its gate: intrinsic apoptosis −26).
+  `fed_single` is `fed` that keeps a release with a second non-cofactor input
+  (a displacer, BAD freeing tBID). The rule: an OPEN loop's free form that keeps a producer outside
   its loops stops reading its own release (RBBP8 released by MMEJ in DSB
   Repair on the faithful build); a form fed only by loop steps (the IFN α/β
   receptor scaffold, which `all` cut) keeps them. Reports
@@ -836,6 +839,14 @@ for the last feature that touched it rather than re-deriving from the code.
   change, +167 converged; faithful build TP53 non-converged 306 → 0, curator
   −82 because the fixed point reads AKT1/AKT2/MDM4 knockout NORMAL as
   canonical does (specs/075's gains there were the cap's answer).
+- `specs/077-open-carrier-release/` — `DS_CARRIER_LOOP_OPEN=fed_single`: an
+  open carrier loop's free form with another producer stops reading its own
+  release (RBBP8 released by MMEJ; the SCF(Skp2) ligase, PTK6's ERBB2
+  heterodimers), unless a displacer drives the release. **Adopted as the
+  default** (Adam, 2026-10-19): canonical held-out +65, experimental −5,
+  worst pathway −2; faithful DSB +182. `fed` failed (apoptosis −26). Open: the
+  generator's ubiquitin pass drains a ligase's own subunits (CKS1B), the
+  specs/057 class.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -873,7 +884,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 497 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 194 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
+| `test/test_carrier_loops.jl` | 195 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |

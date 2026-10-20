@@ -37,7 +37,7 @@ carrier loops outside pools. Bound forms are not touched.
                                fed free form reads only its producers outside
                                the loop.
 
-`DS_CARRIER_LOOP_OPEN=fed` (specs/077; default `off`) adds, under any mode but
+`DS_CARRIER_LOOP_OPEN=fed` (specs/077; `off` restores the earlier solver) adds, under any mode but
 `off` and `all`: a free form of an OPEN loop loses its loop in-edges when it
 keeps an activating producer outside every loop listing it (RBBP8 released by
 MMEJ is not new RBBP8; SIRT6 still makes it). A listed form whose every
@@ -46,6 +46,7 @@ passing a signal along (the IFN alpha/beta receptor recruiting and releasing
 STAT2), and `all` cut it. `fed_single` (specs/077 amendment 1) is `fed` that
 keeps a release whose reaction has two or more non-cofactor `input` parents: a
 displacement (BAD freeing tBID from BCL-2), where the bound share is what moves.
+`fed_single` is the default since 2026-10-19 (specs/077, adopted by Adam).
 
 An observation still wins: a pinned free form keeps its pin. A bundle without
 `carrier_loops.csv` reports "<mode>: no carrier table" and solves as `off`.
@@ -55,7 +56,7 @@ const DS_VALID_CARRIER_LOOP_MODES = Set(["off", "closed", "closed_supply", "clos
 const DS_VALID_CARRIER_LOOP_OPEN = Set(["off", "fed", "fed_single"])
 
 function carrier_loop_open()::String
-    value = get(ENV, "DS_CARRIER_LOOP_OPEN", "off")
+    value = get(ENV, "DS_CARRIER_LOOP_OPEN", "fed_single")
     value in DS_VALID_CARRIER_LOOP_OPEN || throw(ArgumentError(
         "DS_CARRIER_LOOP_OPEN must be one of $(join(sort(collect(DS_VALID_CARRIER_LOOP_OPEN)), ", ")); got $(repr(value))"))
     return value

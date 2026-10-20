@@ -1,6 +1,6 @@
 # specs/077: an open carrier loop's release is not supply when the form has another producer
 
-**Status:** pre-registered 2026-10-19, before the arms; results in `research.md`. Canonical held-out +35 (p 0.0026) and experimental −5, but intrinsic apoptosis −26: **the gate fails** (no pathway below −10). Faithful build DSB +182, IFN α/β 0. Predictions 1–3 hold. Traced: the apoptosis loss is a displacement (BAD frees tBID from BCL-2), not a carrier release. Not adopted.  Amendment 1 (`fed_single`, keep displacer releases), pre-registered 2026-10-19 and post hoc: **gate passes**: held-out +65 (84/19), experimental −5 (at the limit), worst pathway −2; faithful +272, DSB +182. Awaiting Adam.
+**Status:** pre-registered 2026-10-19, before the arms; results in `research.md`. Canonical held-out +35 (p 0.0026) and experimental −5, but intrinsic apoptosis −26: **the gate fails** (no pathway below −10). Faithful build DSB +182, IFN α/β 0. Predictions 1–3 hold. Traced: the apoptosis loss is a displacement (BAD frees tBID from BCL-2), not a carrier release. Not adopted.  Amendment 1 (`fed_single`, keep displacer releases), pre-registered 2026-10-19 and post hoc: **gate passes**: held-out +65 (84/19), experimental −5 (at the limit), worst pathway −2; faithful +272, DSB +182. Every experimental loss traced. **Adopted as the default** (Adam, 2026-10-19: "ok").
 
 Adam, 2026-10-19: "ok" to tracing the DSB Repair loss on the faithful build
 and pre-registering a targeted rule.

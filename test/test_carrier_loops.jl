@@ -263,14 +263,15 @@ end
                               DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
     end
     with_env("DS_CARRIER_LOOP_OPEN" => nothing) do
-        @test DS.carrier_loop_open() == "off"
+        @test DS.carrier_loop_open() == "fed_single"
     end
-    # off is the default, bit for bit, and reports itself
+    # fed_single is the default since specs/077's adoption, bit for bit; off reports itself
     d = run("closed_twin", nothing)
     o = run("closed_twin", "off")
-    @test d.node_activities == o.node_activities
-    @test d.diagnostics["carrier_loop_open_rule"] == "off"
-    @test d.diagnostics["carrier_loop_open_edges"] == 0
+    @test d.node_activities == run("closed_twin", "fed_single").node_activities
+    @test d.diagnostics["carrier_loop_open_rule"] == "fed_single"
+    @test o.diagnostics["carrier_loop_open_rule"] == "off"
+    @test o.diagnostics["carrier_loop_open_edges"] == 0
     # fed: R reads S only; RA keeps r1, its one producer, so A still reaches T
     f = run("closed_twin", "fed")
     @test f.converged
