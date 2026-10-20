@@ -72,3 +72,15 @@ of the paper's ten. The gain is concentrated in one pathway and two cycles, the 
 the rule finds on canonical (`count_recycle.py`). Adoption is Adam's. Adopting means the
 generator default `LNG_RECYCLE_POOLS=1` and a rebuilt canonical; the solver and bench
 changes are inert without recycle pools.
+
+## Adoption (2026-10-20)
+
+Adam, 2026-10-20: "go for it and continue". The adoption steps:
+1. merge DeltaSignal (solver and bench changes, inert without recycle pools);
+2. make `LNG_RECYCLE_POOLS=1` the generator default;
+3. rebuild canonical and check it reproduces `rcp` prediction for prediction.
+
+Reported with three caveats:
+- the curator gain is on a tuning pathway, and the rule was traced from it;
+- about half of the 187 cases still fail on the φ₀ asymmetry (a separate question);
+- CDKN1B reads inverted through the curated p21/p27 assembly-factor role.

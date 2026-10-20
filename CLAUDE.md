@@ -851,6 +851,18 @@ for the last feature that touched it rather than re-deriving from the code.
   worst pathway −2; faithful DSB +182. `fed` failed (apoptosis −26). Open: the
   generator's ubiquitin pass drains a ligase's own subunits (CKS1B), the
   specs/057 class.
+- `specs/079-error-census/`, `specs/080-no-path-audit/` — analysis. Half of all
+  errors have no route in the scored pathway's network. Curators agree with the
+  experiments on only 82% of experimental cases, and 134 of 244 experimental errors
+  give the curators' answer. Checked against Neo4j itself, 392 of 1,316 curator
+  `no_path` errors have a route in the pathway's own reactions that our network loses
+  (`db_reach.py`, `breaks.py`).
+- `specs/081-recycle-edges/` — p130/p107 return to their E2F4 root complexes, which
+  Reactome does not curate as a reaction. Generator `LNG_RECYCLE_POOLS` writes the cycle
+  as a pool with several resting states plus a structural `recycle` edge.
+  **Adopted** (Adam, 2026-10-20): tuning +70 (70 / 0, all Mitotic G1), experimental
+  +8 (10 / 2), held-out 0. The p27 (CDKN1B) inversion is the curated assembly-factor role
+  of p21/p27 in the CDK4/6 catalyst set.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
