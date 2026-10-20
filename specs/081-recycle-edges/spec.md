@@ -155,3 +155,16 @@ compared by stable id with canonical `20261017-1246_5e663d9` (`compare_build.py`
 - **3 tables differ, all in R-HSA-453279:** 2 `recycle` edges added, 8 pool state rows added
   (p130: 4 resting copies + p-p130; p107: 2 + p-p107), and 228 transition rows added.
 - **Nothing is removed**, and no other pathway differs. 91 pathways log 0 recycle pools.
+
+## Faithful build (registered 2026-10-20, before its build; reported, not gated)
+
+- **Generator:** LNG branch `dsub-recycle-081` (`diagram-subpathways` `ddbd828` + `recycle-pools-081`).
+- **Variant build:** `--env LNG_DIAGRAM_SUBPATHWAYS=1`, with recycle pools on by default.
+- **Arms** (both `--server DS_POOL_SUPPLY_REACH=material --server DS_CYCLE_CARRIER_RELEASE=reaction`,
+  solver main `cdc72ae`, which is inert without recycle pools):
+  - `fdflt`: on `20261018-0815_ddbd828_dsub`, the faithful baseline under today's defaults;
+  - `rcpd`: on the new variant.
+- **Predictions:**
+  - Mitotic G1 moves as on canonical: curator at least +40, nothing broken elsewhere
+    by more than 5.
+  - No prediction for the faithful build's extra candidate (R-HSA-418996 in R-HSA-446728).
