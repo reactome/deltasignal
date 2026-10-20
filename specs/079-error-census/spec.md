@@ -82,5 +82,9 @@ What is left where the curators and the experiment agree is **101 cases**: 53 mi
 
    So this half needs either a wider network that does not over-couple, or a
    non-directed (co-regulation) reading. Neither is a curation request.
+   **specs/080 re-checked this against the database itself:** 392 of the 1,316 curator
+   `no_path` errors (30%) have a directed route in the pathway's own reactions that our
+   network loses. The largest single break is p130/p107 returning to E2F4 in Mitotic G1
+   (181 wrong).
 4. **Hold an untouched test.** Release 98, when published, scored once with frozen rules
    (specs/051, 062), is the only clean estimate of whether these six weeks generalise.
