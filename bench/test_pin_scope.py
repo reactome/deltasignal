@@ -221,3 +221,21 @@ def test_pin_root_ignore_default_is_depletion_and_none_restores_specs024():
                            capture_output=True, text=True, env=e)
         assert r.returncode == 0, r.stderr
         assert r.stdout.strip().splitlines()[-1] == want
+
+
+def test_a_recycle_in_edge_does_not_stop_a_root(tmp_path, monkeypatch):
+    # specs/081: free p130 (f) -> starting copy (s) by a recycle edge; s builds the
+    # complex c. s is still the root a p130 knockout pins, under root and root_cycle.
+    import benchmark_vs_mpbiopath as bm
+    d = tmp_path / "R-HSA-1"
+    d.mkdir()
+    (d / "nodes.csv").write_text("uuid,node_kind,diagram_entity_id\nf,simple_entity,R-P\n"
+                                 "s,simple_entity,R-P\nc,simple_complex,R-C\nr,reaction,R-R\n")
+    rows = [("s", "c", "assembly"), ("c", "r", "input"), ("r", "f", "output"), ("f", "s", "recycle")]
+    (d / "logic_network.csv").write_text(
+        "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n"
+        + "".join(f"{a},{b},pos,and,{t},1,\n" for a, b, t in rows))
+    monkeypatch.setattr(bm, "PIN_NETWORK_ROOT", "")
+    for scope in ("root", "root_cycle"):
+        monkeypatch.setattr(bm, "PIN_SCOPE", scope)
+        assert bm.pin_occurrences(d, {"P": ["f", "s"]}, {})[0] == {"P": ["s"]}

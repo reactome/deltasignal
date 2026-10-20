@@ -55,7 +55,12 @@ struct CyclePool
     paths::Vector{PoolPath}
     intermediates::Vector{String}
     carriers::Vector{Tuple{String, String}}
+    bases::Vector{String}                       # every resting state, `base` first (specs/081)
 end
+
+# One base, as every pool had before specs/081.
+CyclePool(id, forms, base::AbstractString, paths::AbstractVector{PoolPath}, intermediates, carriers) =
+    CyclePool(id, forms, base, paths, intermediates, carriers, [String(base)])
 
 """Amendment 1 form: one-step transitions (from, to, reaction) between two or
 more forms, none of them intermediates. `uncatalysed` lists intrinsic steps."""
@@ -519,7 +524,7 @@ function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePoo
     pf, tf, cf = (joinpath(dir, f) for f in ("pools.csv", "pool_transitions.csv", "pool_carriers.csv"))
     isfile(pf) || return nothing
     states = Dict{String, Vector{String}}(); inter = Dict{String, Vector{String}}()
-    base = Dict{String, String}()
+    bases = Dict{String, Vector{String}}()
     df = CSV.read(pf, DataFrame; types = String)
     for c in ("pool_id", "node_uuid", "is_base")
         c in names(df) || throw(ArgumentError("$pf has no `$c` column"))
@@ -530,7 +535,10 @@ function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePoo
         role = hasrole && !ismissing(r.role) ? lowercase(r.role) : "state"
         role in ("state", "intermediate") || throw(ArgumentError("$pf: unknown role $(repr(role))"))
         push!(get!(role == "state" ? states : inter, r.pool_id, String[]), r.node_uuid)
-        !ismissing(r.is_base) && lowercase(r.is_base) in ("true", "1") && (base[r.pool_id] = r.node_uuid)
+        # specs/081: a pool may mark several resting states (a recycle pool's
+        # starting-complex copies); earlier tables mark exactly one
+        !ismissing(r.is_base) && lowercase(r.is_base) in ("true", "1") &&
+            push!(get!(bases, r.pool_id, String[]), r.node_uuid)
     end
     paths = Dict{String, Vector{PoolPath}}()
     if isfile(tf)
@@ -585,10 +593,12 @@ function parse_pools(logic_network_path::String)::Union{Nothing, Vector{CyclePoo
     end
     out = CyclePool[]
     for id in sort!(collect(keys(states)))
-        haskey(base, id) || throw(ArgumentError("$pf: pool $id has no base form"))
+        haskey(bases, id) || throw(ArgumentError("$pf: pool $id has no base form"))
+        bs = sort!(unique(bases[id]))
+        all(b -> b in states[id], bs) || throw(ArgumentError("$pf: pool $id marks a base that is not a state"))
         ps = sort!(get(paths, id, PoolPath[]); by = p -> (p.from, p.to, p.steps))
-        push!(out, CyclePool(id, sort!(states[id]), base[id], ps, sort!(get(inter, id, String[])),
-                             sort!(get(carriers, id, Tuple{String, String}[]))))
+        push!(out, CyclePool(id, sort!(states[id]), bs[1], ps, sort!(get(inter, id, String[])),
+                             sort!(get(carriers, id, Tuple{String, String}[])), bs))
     end
     return out
 end
@@ -687,7 +697,7 @@ survives a round trip, and a parse -> POSTed (or CLI) solve runs the same model
 as a solve by network_id (code review 2026-10-02: the table was dropped)."""
 function pools_json(network::ReactionNetwork)
     network.pools === nothing && return nothing
-    return [Dict("id" => p.id, "forms" => p.forms, "base" => p.base,
+    return [Dict("id" => p.id, "forms" => p.forms, "base" => p.base, "bases" => p.bases,
                  "intermediates" => p.intermediates,
                  "carriers" => [[c, r] for (c, r) in p.carriers],
                  "paths" => [Dict("from" => q.from, "to" => q.to, "enzyme" => q.enzyme,
@@ -723,9 +733,13 @@ function _pools_from_json(raw)::Vector{CyclePool}
             push!(paths, PoolPath(String(q[:from]), String(q[:to]), steps, Bool(q[:enzyme])))
         end
         forms = String.(collect(p[:forms]))
-        push!(out, CyclePool(String(p[:id]), forms, String(p[:base]), paths,
+        base = String(p[:base])
+        # `bases` is optional (specs/081), so a table written before it still reads
+        bs = haskey(p, :bases) ? String.(collect(p[:bases])) : [base]
+        (!isempty(bs) && bs[1] == base) || throw(ArgumentError("pools: `bases` must start with `base`"))
+        push!(out, CyclePool(String(p[:id]), forms, base, paths,
                              String.(collect(p[:intermediates])),
-                             Tuple{String, String}[(String(c[1]), String(c[2])) for c in p[:carriers]]))
+                             Tuple{String, String}[(String(c[1]), String(c[2])) for c in p[:carriers]], bs))
     end
     return out
 end

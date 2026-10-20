@@ -437,6 +437,10 @@ env vars only override for benchmark sweeps:
   tables; a bundle without them reports `balance: no pool table` (loops then
   iterate as under `off`), and the bench refuses such a build. φ₀ refers to
   the pool's ACTIVE form, which the generator marks (`LNG_POOL_ACTIVE_VIA`).
+  A pool may mark several base (resting) states (specs/081); a `recycle` edge
+  (generator `LNG_RECYCLE_POOLS`, default off) joins a modification cycle into one
+  component and is never an input. The solve reports `recycle_edges`
+  (`src/core/recycle.jl`); the bench never counts it against a root.
 - `DS_SELF_FED_MODE=off` (default; `entry` measured and **refuted**: TP53 −190,
   PIP3 −126, experimental −66) | `entry` (specs/040 rule A): in an
   iterated cyclic component, an input fed by nothing except what it feeds
@@ -882,7 +886,7 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 497 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18 |
+| `test/test_cycles.jl` | 516 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 195 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |

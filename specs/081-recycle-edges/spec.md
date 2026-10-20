@@ -1,6 +1,6 @@
 # specs/081: a modified protein returns to the complex it starts in (p130, p107)
 
-**Status:** pre-registered 2026-10-20, before any build or arm. The diagnostic probe and the
+**Status:** pre-registered 2026-10-20, before any build or arm. Amendment 1 (the `recycle` edge), before the catalog build and the gated arm. The diagnostic probe and the
 structural count are in `probe.md`.
 
 Adam, 2026-10-20: "we need to make things that are biologically correct. I say A",
@@ -98,3 +98,51 @@ move. Its result is read on tuning and experimental, and reported as such.
 - The 18 partner-release candidates (carrier class).
 - The φ₀ asymmetry in (2).
 - The faithful build (one more candidate, R-HSA-418996 in R-HSA-446728) is reported, not gated.
+
+## Amendment 1 (2026-10-20, before the catalog build and the gated arm): the `recycle` edge
+
+Implementing the rule showed that the registered design ("the logic network is
+unchanged") cannot work. The solver solves a pool only when all its nodes are in one
+cyclic component of the network. This cycle exists only in the pool table: free p130
+leads nowhere. Adam's suggestion is the fix: "a special type of edge in the logic
+networks so that deltasignal can handle them differently… we would still know what the
+root node is."
+
+- **Generator:** with the pool, `LNG_RECYCLE_POOLS` writes an edge `free copy → starting
+  copy` of type `recycle` to `boundary_edges.csv`. It is a derived edge, like assembly.
+- **DeltaSignal** (`src/core/recycle.jl`): a `recycle` edge is structural only.
+  - It joins the cycle into one component (`index_reactions`, keyword `structural`).
+  - It is never an input: `convert_to_reaction_network` drops it, and the solve removes
+    it before any other rule reads the network.
+  - The solve reports `recycle_edges`.
+- **Benchmark:** a `recycle` in-edge never makes a node a non-root
+  (`bench/test_pin_scope.py`), so a p130 knockout still pins the starting copy.
+- **Tests:**
+  - `test_cycles.jl`: two-base pool with recycle edges; no recycle edges means no pool
+    solved; starting copies keep their own value.
+  - `bench/test_pin_scope.py`.
+  - LNG `tests/test_recycle_pools.py`: the p130 shape; a partner released unchanged; a
+    free copy that leads on; a claimed node; flag default off.
+
+**Disclosed: a correctness check on Mitotic G1 only** (`g1_check.jl`, after this
+implementation, before the catalog build). A single-pathway test build of R-HSA-453279
+with `LNG_RECYCLE_POOLS=1` (LNG branch `recycle-pools-081`) gives 2 recycle pools:
+p130 with 4 resting copies and p-p130, and p107 with 2 and p-p107. It was solved for
+every Mitotic G1 case with pins and readouts mapped by stable id:
+
+| | right → right | wrong → right | right → wrong | wrong → wrong |
+|---|---|---|---|---|
+| curator (850) | 387 | **70** | **0** | 393 |
+| experimental (88) | 24 | **10** | **2** | 52 |
+
+The unchanged network reproduces `results/3e96e7c/dflt` on every case, and the new one
+stays at baseline at rest (4 pools solved, 2 recycle edges, no node off baseline).
+
+Fixed perturbations:
+- CCND1 overexpression 17 and CDK4 overexpression 17;
+- PPP2R1A knockout 10 and overexpression 8;
+- CDKN2A knockout 10;
+- RBL2 overexpression 3, CCND1 and CDK4 knockout 2 each, RBL1 knockout 1.
+
+CDKN1B does not move. The gate, the arm and predictions 1–4 are unchanged. The check is
+not the arm, and its figures are not the result.

@@ -132,6 +132,8 @@ function convert_to_reaction_network(network::ReactionNetwork)::Vector{Reaction}
     target_groups = Dict{String, Vector{LogicNetworkEdge}}()
 
     for edge in network.edges
+        # specs/081: a recycle edge is structural (component detection), never an input
+        edge.edge_type == "recycle" && continue
         if drop_pt && edge.edge_type == "output" &&
            (edge.child_uuid, edge.parent_uuid) in edge_pairs
             continue  # R→E is a pass-through recycle of E; not a net producer
@@ -528,6 +530,7 @@ function index_reactions(
     own_entity::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
     own_source::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
+    structural::Vector{Tuple{String, String}} = Tuple{String, String}[],
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # Node indices that are gene entities (inputs to transcription/expression
     # reactions). Used to detect transcriptional autoregulation loops.
@@ -661,6 +664,10 @@ function index_reactions(
     # backbone inside our cycles and essentially never carry these classes.
     break_roles = _break_roles_env()
     roles_on = !isempty(break_roles)
+    # specs/081: recycle edges join a cycle into one component without feeding a value
+    struct_pairs = [(uuid_to_idx[a], uuid_to_idx[b]) for (a, b) in structural
+                    if haskey(uuid_to_idx, a) && haskey(uuid_to_idx, b)]
+    for (a, b) in struct_pairs; push!(fwd_adj[a], b); end
     comp_id, n_comp = (scc_solve || break_catalyst || elastic || roles_on || _float_env("DS_LOOP_GAIN", 1.0) < 1.0) ?
         tarjan_scc_components(fwd_adj) : (Int[], 0)
     n_comp_pass1 = n_comp
@@ -706,6 +713,7 @@ function index_reactions(
             end
             for sb in rec.sub_indices; push!(fwd_adj2[sb], t); end
         end
+        for (a, b) in struct_pairs; push!(fwd_adj2[a], b); end
         comp_id, n_comp = tarjan_scc_components(fwd_adj2)
         if stats !== nothing
             sz = zeros(Int, n_comp); for c in comp_id; c >= 1 && (sz[c] += 1); end

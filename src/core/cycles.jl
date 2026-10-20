@@ -23,7 +23,9 @@ s × u_ij × π_i / π0_i.
 modified form at rest. It uses detailed balance, with each step away from the base
 (resting) form holding φ₀ / (1 − φ₀) of its predecessor's share. The baseline
 rates are k_ij = sqrt(π0_j / π0_i), which satisfy detailed balance, so π = π0 when
-nothing is perturbed.
+nothing is perturbed. A pool may mark several base states (specs/081: a protein
+that rests in several copies of its starting complex); distances are then taken
+from the nearest base, so each resting copy has full weight.
 
 **Multi-step cycles (amendment 2).** Reactome usually curates a modification in
 steps (S + E → S:E → S*:E → S* + E). The chain's states are the least-bound form
@@ -200,18 +202,19 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
     ratio = phi / (1.0 - phi)
     for p in pools
         nodes_ok = all(f -> haskey(uuid_to_idx, f), p.forms) && all(f -> haskey(uuid_to_idx, f), p.intermediates)
-        if !nodes_ok || isempty(p.paths) || !(p.base in p.forms)
+        if !nodes_ok || isempty(p.paths) || !all(b -> b in p.forms, p.bases)
             skipped += 1; continue
         end
         pos = Dict(f => i for (i, f) in enumerate(p.forms))
         n = length(p.forms)
-        # π0 over states: ρ^(distance from the base state) on the state graph
+        # π0 over states: ρ^(distance from the nearest base state) on the state
+        # graph; several bases are several resting states (specs/081)
         adj = Dict(f => Set{String}() for f in p.forms)
         for q in p.paths
             (haskey(adj, q.from) && haskey(adj, q.to)) || continue
             push!(adj[q.from], q.to); push!(adj[q.to], q.from)
         end
-        dist = Dict(p.base => 0); frontier = [p.base]
+        dist = Dict(b => 0 for b in p.bases); frontier = copy(p.bases)
         while !isempty(frontier)
             nxt = String[]
             for f in frontier, g in sort!(collect(adj[f]))
