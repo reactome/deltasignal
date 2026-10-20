@@ -156,7 +156,7 @@ overexpression, ERBB2 PTK6 overexpression, HDR CHEK1 knockout.
   ligase released after p27/p21 degradation (R-HSA-187574) and Cyclin E:p-T160-CDK2
   released after phosphorylating RB1 (R-HSA-188390, single non-cofactor input). The free
   kinase keeps CAK phosphorylation (R-HSA-188350) as its outside producer. Why that
-  producer does not carry CCNE1 overexpression is **not traced**.
+  producer does not carry CCNE1 overexpression is traced below.
 - S phase and ERBB2 losses are not traced.
 
 ### Reading
@@ -166,3 +166,35 @@ overexpression, ERBB2 PTK6 overexpression, HDR CHEK1 knockout.
   fully traced.
 - On the faithful build it closes most of the DSB Repair gap and removes the RUNX2 loss.
 - Adoption is Adam's decision.
+
+### CCNE1 overexpression in Mitotic G1 (traced)
+
+`g1trace.jl` and `g1c.jl` (this directory) solve R-HSA-453279 on the canonical build
+with both CCNE1 roots pinned at 80, as the benchmark does. They reproduce the arms
+exactly: CCNA1 reads 20.06× under `off` and 1.0807× under `fed_single`.
+
+- **Under `off`, the 20× is the artefact the rule removes.** CCNE1 overexpression
+  fills Cyclin E/A:CDK2:p-p27/p21:SCF(Skp2):CKS1B (R-HSA-187565). Degrading the p27/p21
+  (R-HSA-187574) releases the SCF(Skp2):Cks1 ligase (R-HSA-187547), and that release is
+  read as new ligase: free SCF reads **88.9×**. The ligase then multiplies back into the
+  binding step (R-HSA-187552). Cyclin A:p-T160-CDK2 (R-HSA-187952) reads 100×, and so do
+  the CCNA-containing forms that make up most of the CCNA1 readout set. The curated answer (UP) was
+  reached through a cyclin E overexpression making 89× of a ubiquitin ligase.
+- **Under `fed_single`, the free ligase reads 0.273×, not baseline.** Its two remaining
+  producers are Cks1 association (R-HSA-187545) and the p130 ubiquitination release
+  (R-HSA-1363331, a separate cycle the table does not list). Cks1 association reads
+  0.273× because free CKS1B (R-HSA-187533) is drained. It has two depletion in-edges, from the
+  substrate complex R-HSA-187565 (7.0× under `fed_single`) and from the p130
+  complex. These are complexes that contain CKS1B depleting free CKS1B. Under `off`, CKS1B is
+  drained to the 0.1× floor too, but the release masked it.
+- The edges are depletion edges the generator derived, not a curated reaction: R-HSA-187565 is formed
+  from SCF(Skp2):Cks1, not from free CKS1B. Which generator pass emits them is not
+  confirmed here; it looks like the specs/057 class (a complex depleting its own free
+  subunits).
+
+So `fed_single` is right about the ligase. Conservation says free SCF ≈ total SCF, which
+cyclin E does not set. The lost case comes from removing a wrong route that happened
+to give the right answer. What it exposes is a second defect: a derived drain on a
+subunit by the complex that contains it. `closed_supply` drops such drains into
+closed free forms (specs/049 amendment 4). `fed_single` drops releases into open free
+forms but not the drains on their supply. No rule is proposed here.
