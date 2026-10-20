@@ -157,7 +157,7 @@ overexpression, ERBB2 PTK6 overexpression, HDR CHEK1 knockout.
   released after phosphorylating RB1 (R-HSA-188390, single non-cofactor input). The free
   kinase keeps CAK phosphorylation (R-HSA-188350) as its outside producer. Why that
   producer does not carry CCNE1 overexpression is traced below.
-- S phase and ERBB2 losses are not traced.
+- S phase and ERBB2 losses are traced below.
 
 ### Reading
 
@@ -221,3 +221,38 @@ to give the right answer. What it exposes is a second defect: a derived drain on
 subunit by the complex that contains it. `closed_supply` drops such drains into
 closed free forms (specs/049 amendment 4). `fed_single` drops releases into open free
 forms but not the drains on their supply. No rule is proposed here.
+
+### The other five experimental losses (traced)
+
+`trace5.jl` (this directory; one line per case: pathway, gene, direction, readout, …,
+pinned uuids, readout uuids) reproduces every arm value.
+
+| case | readout | `off` | `fed_single` | mechanism |
+|---|---|---|---|---|
+| S phase CCNE1 KO | R-HSA-187568 (p27/p21 complex with SCF + 3xUb) | 0.014× | 1.004× | SCF release |
+| S phase CCNE1 KO | R-HSA-187920 (p-FZR1, p-RB1) | 0.346× | 1.226× | SCF release |
+| ERBB2 ERBB3 KO | R-HSA-1306951 (NRG:ERBB3:ERBB2:GRB7) | 0.807× | 0.915× | threshold shift |
+| ERBB2 PTK6 KO | R-HSA-109783 (RAS:GTP) | 0.681× | 1.000× | PTK6 release |
+| ERBB2 PTK6 OE | R-HSA-109783 (RAS:GTP) | 55.5× | 1.000× | PTK6 release |
+
+- **S phase** is the Mitotic G1 mechanism again. Under `off`, the CCNE1 knockout drops the
+  SCF(Skp2) ligase's release, so free ligase reads 0.39× and the p27/p21 degradation
+  chain falls to 0.019×. Under `fed_single` the free ligase reads 1.155×. That is above
+  baseline, plausibly because the knockout empties the complex that drains CKS1B (the
+  generator's ubiquitin pass, above). DOWN was reached by a cyclin E knockout setting the
+  ligase's level.
+- **PTK6** (2 cases): "ERBB2 promotes PTK6 autophosphorylation" (R-HSA-8848005) releases
+  the p-ERBB2 heterodimers that PTK6 bound. Under `off` that release made PTK6 set the
+  receptor's level: heterodimers at 67× under PTK6 overexpression, SHC1 complexes 100×,
+  RAS:GTP 55×. In Reactome PTK6 is downstream of ERBB2. This is the same class as
+  PLC-gamma setting the PDGF receptor's level, which specs/068 removed (adopted, +18).
+  The measured direction may well be real biology, but this network has no curated
+  route for it.
+- **ERBB3 KO** is a threshold shift (0.81× → 0.92×). The releases from PTK6 and PLCG1
+  steps into the ERBB2 heterodimers no longer carry the knockout.
+
+**Summary of all 11 experimental losses:**
+- 6 are the release artefact the rule removes: Mitotic G1 2, S phase 2, ERBB2 PTK6 2.
+  Each one's right answer came through a released carrier read as new supply.
+- 5 are threshold shifts across the DOWN boundary: Mitotic G1 4, ERBB2 ERBB3 1. None of them loses a route.
+- None is a correct curated route that the rule cut.
