@@ -1,6 +1,6 @@
 # specs/086: a substrate released from the complex that degrades it (analysis, design pending)
 
-**Status:** analysis, 2026-10-21. No rule registered yet; the design needs Adam's approval.
+**Status:** analysis 2026-10-21; rule pre-registered the same day. Arm `rlp`: gate passes on its face (held-out 0, tuning −5, experimental +2) but **predictions 1–2 fail**: the pool captured 1 of the 20 destruction-complex variant chains, so APC is diluted, not fixed. Not adopted. Candidate amendment in `research.md`.
 
 Adam, 2026-10-21: "yes" to counting the pattern behind the APC inversion.
 
