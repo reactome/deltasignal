@@ -1,6 +1,6 @@
 # specs/084: a complex the pathway only regenerates follows its components' starting copies
 
-**Status:** pre-registered 2026-10-21, before the implementation and the arm.
+**Status:** pre-registered 2026-10-21, before the implementation and the arm. Arm `cct`: **gate fails** (held-out −8, all PDGFRB knockout through specialization-bridged copies); ATM fixed as predicted (+6 curator, +4 experimental). Not adopted. Candidate amendment in `research.md`.
 
 Adam, 2026-10-21: "ok" to the regenerated-complex rule as specs/084.
 
