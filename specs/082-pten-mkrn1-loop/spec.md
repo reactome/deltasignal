@@ -74,3 +74,61 @@ its gain is 1.
   - ATM and CHEK2 in TP53: knockout reads 0.56× and overexpression 0.23× at TP53 targets,
     both converged. Curators: NORMAL.
   - Not traced here.
+
+## The other rails, traced (2026-10-21; `rails.jl`, `sh3.jl`, canonical `20261020-2038_23ef3e1`, current defaults)
+
+Readout fold under the gene's pins at a range of levels:
+
+| case | 0 | 0.5 | 0.9 | 0.99 | 1.0 | 1.01 | 1.1 | 2 | 80 | shape |
+|---|---|---|---|---|---|---|---|---|---|---|
+| EGFR, SH3GL1 at R-HSA-180523 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | **knife-edge** |
+| RAF, RAF1 at R-HSA-1268261 | 100 | 100 | 100 | 100 | 1 | 0.003 | 0.003 | 0.002 | 100 | **knife-edge** (RAF, set aside) |
+| Activin, ACVR2A at R-HSA-173511 | 50 | 2.14 | 1.03 | 1.001 | 1 | 0.999 | 1.007 | 1.87 | 50 | U-shape |
+| Cell Cycle Checkpoints, TP53 at R-HSA-6804937 | 100 | 1.55 | 1.05 | 1.003 | 1 | 0.997 | 0.98 | 100 | 100 | U-shape |
+
+**Two different things:**
+- **Knife-edges: PTEN, SH3GL1, RAF1.** Any change rails the readout.
+  - SH3GL1: a 1% rise drops the EGF:p-EGFR dimer to 0.05×. Through the curated
+    PIP3 → GAB1:PI3K → PIP3 amplification loop (R-HSA-177927 / R-HSA-177939, catalyst on
+    PIP3's own production), the route collapses to 0.
+  - Each is a curated positive loop of gain 1 at baseline (specs/014). In PTEN's and EGFR's,
+    depletion edges close the loop, which specs/014's elasticity (activator edges only)
+    does not reach.
+- **U-shapes: ACVR2A, TP53 in Cell Cycle Checkpoints, and CBFB, ATM/CHEK2 above.** These
+  are graded near baseline, so not a knife-edge, but both directions move the readout the
+  same way. A different mechanism (partner competition is one case), not traced here.
+
+**How much each is worth** (from the census, wrong cases):
+- knife-edges: about 28 curator and 12 experimental, PTEN the bulk; RAF is set aside;
+- U-shapes: about 79 curator and 1 experimental.
+
+## The U-shapes, traced (2026-10-21; `cbfb.jl`, `atm.jl`)
+
+**CBFB in RUNX2: curated negative autoregulation.** Under a CBFB knockout, free RUNX2
+reaches 6.7× and its other partner complexes rise with it (RUNX2:SOX9, RUNX2:SATB2,
+RUNX2:RBM14). Two loops cause it:
+- The RUNX2-P1:CBFB repressor on the RUNX2 gene (R-HSA-9008361) falls to 0. RUNX2
+  transcription (R-HSA-9007686) is de-repressed to the 10× ceiling.
+- RUNX2:CBFB induces SMURF1, which degrades RUNX2. RUNX2:SMURF1 falls to 0.03×, so the
+  depletion on RUNX2 is lifted.
+
+Both are curated in Release 97 (e.g. "RUNX2-P1 binds RUNX2 gene promoter", R-HSA-9008345;
+"RUNX2 binds SMURF1 gene", R-HSA-9009451). The curators expect NORMAL for these readouts.
+This is curated feedback propagating, with the magnitude set by the 10× ceiling. It is not a
+missing reaction.
+
+**ATM in TP53: the pool rule meets the curation of TP53's targets.** ATM overexpression lowers
+RRM2B, a TP53 target, to 0.23×, and ATM knockout to 0.56×. The chain is RRM2B ← "TP53 binds
+the RRM2B gene" ← TP53 Tetramer at 0.23× ← unmodified TP53 (R-HSA-69488) at 0.23×.
+- TP53's forms are solved as a conserved pool (specs/039). More ATM moves TP53 into its
+  phosphorylated forms, so the unmodified share falls.
+- Reactome curates many target genes as bound by the unmodified "TP53 Tetramer". So under
+  conservation, stronger activation reads as less of those targets.
+
+The curators expect NORMAL. Again not a missing reaction: the conservation rule and the
+granularity of target curation together.
+
+**Reading.** Neither U-shape has a clean network defect to fix; both are the model
+following curated structure. They are not pursued with a rule. CBFB is a question of
+magnitude or ground truth; ATM is a question about pool states versus the target curation,
+for the curators or for a later study of which TP53 forms bind which genes.
