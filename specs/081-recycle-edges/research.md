@@ -84,3 +84,23 @@ Reported with three caveats:
 - the curator gain is on a tuning pathway, and the rule was traced from it;
 - about half of the 187 cases still fail on the φ₀ asymmetry (a separate question);
 - CDKN1B reads inverted through the curated p21/p27 assembly-factor role.
+
+## Faithful build (reported, not gated)
+
+- **Baseline** `fdflt`: `20261018-0815_ddbd828_dsub`, results `274c327/fdflt`.
+- **Arm** `rcpd`: `20261020-1823_45183e8_dsubrcp` (LNG `dsub-recycle-081`), results `274c327/rcpd`.
+- Both use `DS_POOL_SUPPLY_REACH=material` and `DS_CYCLE_CARRIER_RELEASE=reaction`. The solver
+  source is main `cdc72ae`, with spec commits only on top.
+
+`compare_build.py` finds the builds identical except:
+- Mitotic G1: as on canonical;
+- R-HSA-446728: one recycle pool (3 states, 6 transition rows, 1 recycle edge).
+
+| split | net (fixed / broken) | p |
+|---|---|---|
+| curator held-out | 0 | 1 |
+| curator tuning | **+70** (70 / 0), all Mitotic G1 | < 1e-4 |
+| experimental | **+8** (10 / 2), all Mitotic G1 | 0.039 |
+
+The prediction holds: Mitotic G1 is +70, and nothing else moves. R-HSA-446728's pool moves no
+scored case. The result is identical to canonical's.
