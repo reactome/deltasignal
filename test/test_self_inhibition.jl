@@ -261,10 +261,13 @@ end
     end
     tf(r) = r.node_activities["T"] / BL
     net = anet()
-    off = asolve(net; g = 2.0)
+    off = asolve(net; g = 2.0, w = "off")
     @test tf(off) ≈ 8.0 rtol = 1e-6                       # G counted three times: 2^3
     @test off.diagnostics["self_activator_rule"] == "off"
     @test off.diagnostics["self_activators"] == 0
+    dflt = asolve(net; g = 2.0)                           # default 0.1 since specs/083 was adopted
+    @test tf(dflt) ≈ 2.0^1.1 rtol = 1e-6
+    @test dflt.diagnostics["self_activator_rule"] == "on"
     w0 = asolve(net; g = 2.0, w = "0")
     @test tf(w0) ≈ 2.0 rtol = 1e-6                        # once
     @test w0.diagnostics["self_activator_rule"] == "on"
@@ -273,10 +276,10 @@ end
     @test tf(asolve(net; g = 0.5, w = "0.1")) ≈ 0.5^1.1 rtol = 1e-6   # and below baseline
     # the TF's own change keeps full strength
     @test tf(asolve(net; g = 1.0, tf1 = 3.0, w = "0.1")) ≈ 3.0 rtol = 1e-6
-    @test tf(asolve(net; g = 1.0, tf1 = 3.0)) ≈ 3.0 rtol = 1e-6
+    @test tf(asolve(net; g = 1.0, tf1 = 3.0, w = "off")) ≈ 3.0 rtol = 1e-6
     # contained but not computed from G: untouched
     nc = anet(; computed = false)
-    @test tf(asolve(nc; g = 2.0, w = "0")) ≈ tf(asolve(nc; g = 2.0)) rtol = 1e-9
+    @test tf(asolve(nc; g = 2.0, w = "0")) ≈ tf(asolve(nc; g = 2.0, w = "off")) rtol = 1e-9
     # no containment table: inert, and the solve says so
     ni = asolve(anet(; containment = Dict{String, Set{String}}()); g = 2.0, w = "0.1")
     @test ni.diagnostics["self_activator_rule"] == "inert: no containment table"

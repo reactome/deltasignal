@@ -40,3 +40,9 @@ but nothing the 3-class benchmark scores moves. Like specs/048's homodimer fix, 
 correctness change with no measured accuracy effect. It matters for magnitude claims
 (specs/021) and for any later fit to graded data. Adopting it is Adam's call, on
 faithfulness.
+
+## Adoption (2026-10-20)
+
+Adam: "ok". `DS_SELF_ACTIVATOR_WEIGHT=0.1` is the default, as measured in `sa`; `off`
+restores the old product. Because `sa` changed no class, the scored predictions of main
+under the new default equal `results/8190d83/dflt`.

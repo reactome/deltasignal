@@ -1402,7 +1402,7 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # specs/083. The mirror of specs/022 for a positive regulator or catalyst
         # that contains its reaction's own input (a TF:gene complex regulating the
         # gene's transcription): under the AND product the input is otherwise
-        # counted once per such activator. Off by default.
+        # counted once per such activator. Default 0.1 (specs/083 adopted).
         _self_activator_weight_env(),
     )
     if cfg.loop_gain < 1.0 && cfg.loop_elasticity < 1.0
@@ -1426,9 +1426,14 @@ end
 const SELF_INHIBITOR_WEIGHT_DEFAULT = 0.1
 const SELF_INHIBITOR_FOLD_FLOOR = 1e-3
 
+# Default 0.1 since 2026-10-20 (specs/083, adopted by Adam on faithfulness: no class
+# change on either axis, 322 curator values move >5%). "off" restores the old product.
+const SELF_ACTIVATOR_WEIGHT_DEFAULT = 0.1
+
 function _self_activator_weight_env()::Float64
     raw = strip(get(ENV, "DS_SELF_ACTIVATOR_WEIGHT", ""))
-    (isempty(raw) || lowercase(raw) == "off") && return -1.0
+    isempty(raw) && return SELF_ACTIVATOR_WEIGHT_DEFAULT
+    lowercase(raw) == "off" && return -1.0
     w = _float_env("DS_SELF_ACTIVATOR_WEIGHT", -1.0)
     0.0 <= w <= 1.0 || throw(ArgumentError(
         "DS_SELF_ACTIVATOR_WEIGHT=$raw must be in [0, 1] or \"off\"; above 1 would " *

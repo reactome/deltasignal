@@ -238,8 +238,8 @@ Response:
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores
   iterated loops.
-- **`self_activator_rule`**, **`self_activators`** (additive, specs/083): `"off"`
-  (default), `"on"`, or `"inert: no containment table"` (`DS_SELF_ACTIVATOR_WEIGHT`), and
+- **`self_activator_rule`**, **`self_activators`** (additive, specs/083): `"on"`
+  (default since specs/083), `"off"`, or `"inert: no containment table"` (`DS_SELF_ACTIVATOR_WEIGHT`), and
   how many activator slots it flagged: positive regulators or catalysts that contain
   their reaction's own input.
 - **`recycle_edges`** (additive, specs/081): how many `recycle` edges the network
