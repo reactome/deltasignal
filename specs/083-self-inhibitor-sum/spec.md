@@ -1,6 +1,6 @@
 # specs/083: an activator built from its own reaction's input counts that input once
 
-**Status:** pre-registered 2026-10-20, before the implementation and the arm. Analysis
+**Status:** pre-registered 2026-10-20, before the implementation and the arm. Arm `sa`: no class change on either axis (gate passes trivially); 322 curator values move >5%. Adoption is Adam's, on faithfulness. Analysis
 from specs/082 and this directory's counts.
 
 Adam, 2026-10-20: "done. continue", after specs/082 (PTEN overexpression in PIP3).
