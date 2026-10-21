@@ -69,3 +69,8 @@ Predictions:
 
 Only Cell Cycle Checkpoints moves, and only ATM, on both axes. The other 14 fed entities
 (Base Excision Repair, NOTCH, MHC class I and the rest) change no scored case.
+
+## Adoption (2026-10-21)
+
+Adam: "ok". `DS_CARRIER_COMPONENT_TWIN=on` (with amendment 1) is the default; `off` restores
+the earlier solver. Main's scored predictions under the new default equal `cct2`.

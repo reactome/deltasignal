@@ -37,7 +37,7 @@ carrier loops outside pools. Bound forms are not touched.
                                fed free form reads only its producers outside
                                the loop.
 
-`DS_CARRIER_COMPONENT_TWIN=on` (specs/084; default `off`) adds, under
+`DS_CARRIER_COMPONENT_TWIN=on` (specs/084; default since 2026-10-21; `off` restores the earlier solver) adds, under
 `closed_twin`: a closed free form with no starting copy of its own entity (a complex
 the pathway only regenerates, such as the ATM-carrying DSB complex in Cell Cycle
 Checkpoints) gains AND in-edges (`carrier_component`) from the starting copies of
@@ -73,9 +73,9 @@ end
 const CARRIER_COMPONENT_EDGE = "carrier_component"
 const DS_VALID_CARRIER_COMPONENT_TWIN = Set(["off", "on"])
 
-"""specs/084: `DS_CARRIER_COMPONENT_TWIN` (default "off")."""
+"""specs/084: `DS_CARRIER_COMPONENT_TWIN` (default "on" since 2026-10-21, adopted by Adam; "off" restores the earlier solver)."""
 function carrier_component_twin()::Bool
-    value = get(ENV, "DS_CARRIER_COMPONENT_TWIN", "off")
+    value = get(ENV, "DS_CARRIER_COMPONENT_TWIN", "on")
     value in DS_VALID_CARRIER_COMPONENT_TWIN || throw(ArgumentError(
         "DS_CARRIER_COMPONENT_TWIN must be one of off, on; got $(repr(value))"))
     return value == "on"

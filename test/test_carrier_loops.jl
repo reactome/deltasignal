@@ -345,9 +345,10 @@ end
             DS.solve_steady_state(net, obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
         end
     with_env("DS_CARRIER_COMPONENT_TWIN" => nothing) do
-        @test !DS.carrier_component_twin()
+        @test DS.carrier_component_twin()                 # default since specs/084 was adopted
     end
-    off = run(cnet(), nothing; k1 = 0.0)
+    @test run(cnet(), nothing; k1 = 0.0).diagnostics["carrier_component_edges"] == 2
+    off = run(cnet(), "off"; k1 = 0.0)
     @test fold(off, "E") ≈ 1.0 rtol = 1e-6               # closed and unfed: baseline, K1 unseen
     @test fold(off, "T") ≈ 2.0 rtol = 1e-6
     @test off.diagnostics["carrier_component_rule"] == "off"

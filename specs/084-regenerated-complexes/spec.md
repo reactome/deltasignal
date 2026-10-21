@@ -1,6 +1,6 @@
 # specs/084: a complex the pathway only regenerates follows its components' starting copies
 
-**Status:** pre-registered 2026-10-21, before the implementation and the arm. Arm `cct` failed its gate (PDGF −8). Amendment 1 (post hoc: only unsupplied forms), arm `cct2`: **gate passes**, held-out 0, tuning +6 (6 / 0), experimental +4 (4 / 0), all ATM. Adoption is Adam's.
+**Status:** pre-registered 2026-10-21, before the implementation and the arm. Arm `cct` failed its gate (PDGF −8). Amendment 1 (post hoc: only unsupplied forms), arm `cct2`: **gate passes**, held-out 0, tuning +6 (6 / 0), experimental +4 (4 / 0), all ATM. **Adopted** (Adam, 2026-10-21: "ok"); default on.
 
 Adam, 2026-10-21: "ok" to the regenerated-complex rule as specs/084.
 
