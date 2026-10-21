@@ -89,3 +89,26 @@ supplies the root complex that contains it. That means the generator's boundary 
 or a one-way supply edge like `DS_RECYCLED_TWIN`. It covers 430 cases (244 wrong), 181
 of the wrong ones in Mitotic G1. It closes cycles, as the p130 one does, so it has to be
 pre-registered with the usual gate. It is not measured here.
+
+## Correction (2026-10-20): what the readout-form breaks are (`classify_readout_form.py`)
+
+The benchmark scores a readout at its curated entity and that entity's variant copies, as
+MP-BioPath defines key outputs. A complex that merely contains the readout is not scored.
+The database check above counted a readout as reached when a reached entity *contains* it,
+which is more generous. For the 103 wrong readout-form cases:
+
+| class | wrong | what it is |
+|---|---|---|
+| no gene-containing node reaches the scored copies | 74 | **an artefact of this check.** The database route ends in a complex containing the readout (e.g. XIAP:apoptosome containing cleaved caspase-9), and no reaction makes the readout itself from it. The benchmark is right to call these no-path. |
+| regenerated | 20 | **a real defect.** The gene sits in a complex that the pathway only regenerates (its every in-edge comes from its own downstream), so it acts as a starting complex, but the gene's root copy never feeds it. |
+
+Examples of the regenerated class:
+- Cell Cycle Checkpoints: ATM knockout and overexpression at p-CHEK2 and p-CDC25C. The
+  ATM-containing DSB signalling complex (R-HSA-5683605) recruits CHEK2, phosphorylates it
+  and is released, and nothing in the pathway makes it. It comes from DNA Double-Strand
+  Break Response.
+- RAF: NF1 at five readouts.
+- MHC class I: CALR.
+
+So the "392 of 1,316 no_path errors have a database route" figure above is an
+over-estimate: some of those routes end in a complex that contains the readout.
