@@ -239,6 +239,58 @@ end
     @test DS.compute_influence_scores(r, rx; network = net)["X"] ≈ slope atol = 1e-3
 end
 
+# specs/083: the mirror for activators. Transcription T reads the gene G (input)
+# and two positive regulators A1 = G + TF1 and A2 = G + TF2 (TF:gene complexes,
+# assembled from G), so under the AND product G is counted three times.
+@testset "an activator built from its own reaction's input counts it once (specs/083)" begin
+    acont = Dict("R-A1" => Set(["R-G", "R-TF1"]), "R-A2" => Set(["R-G", "R-TF2"]))
+    function anet(; computed = true, containment = acont)
+        nodes = Dict(node.(["T", "G", "TF1", "TF2", "A1", "A2", "Z"]))
+        edges = [edge("G", "T", true, "input"), edge("A1", "T", true, "regulator"), edge("A2", "T", true, "regulator")]
+        append!(edges, computed ?
+            [edge("G", "A1", true, "assembly"), edge("TF1", "A1", true, "assembly"),
+             edge("G", "A2", true, "assembly"), edge("TF2", "A2", true, "assembly")] :
+            [edge("Z", "A1", true, "assembly"), edge("Z", "A2", true, "assembly")])
+        DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(), containment)
+    end
+    function asolve(net; g, tf1 = 1.0, w = nothing)
+        with_env("DS_SELF_ACTIVATOR_WEIGHT" => w, "DS_ASSEMBLY_LIMITING" => nothing) do
+            obs = Dict("G" => (g, 1.0), "TF1" => (tf1, 1.0), "TF2" => (1.0, 1.0), "Z" => (1.0, 1.0))
+            DS.solve_steady_state(net, obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+        end
+    end
+    tf(r) = r.node_activities["T"] / BL
+    net = anet()
+    off = asolve(net; g = 2.0, w = "off")
+    @test tf(off) ≈ 8.0 rtol = 1e-6                       # G counted three times: 2^3
+    @test off.diagnostics["self_activator_rule"] == "off"
+    @test off.diagnostics["self_activators"] == 0
+    dflt = asolve(net; g = 2.0)                           # default 0.1 since specs/083 was adopted
+    @test tf(dflt) ≈ 2.0^1.1 rtol = 1e-6
+    @test dflt.diagnostics["self_activator_rule"] == "on"
+    w0 = asolve(net; g = 2.0, w = "0")
+    @test tf(w0) ≈ 2.0 rtol = 1e-6                        # once
+    @test w0.diagnostics["self_activator_rule"] == "on"
+    @test w0.diagnostics["self_activators"] == 2
+    @test tf(asolve(net; g = 2.0, w = "0.1")) ≈ 2.0^1.1 rtol = 1e-6   # shared part at w in total
+    @test tf(asolve(net; g = 0.5, w = "0.1")) ≈ 0.5^1.1 rtol = 1e-6   # and below baseline
+    # the TF's own change keeps full strength
+    @test tf(asolve(net; g = 1.0, tf1 = 3.0, w = "0.1")) ≈ 3.0 rtol = 1e-6
+    @test tf(asolve(net; g = 1.0, tf1 = 3.0, w = "off")) ≈ 3.0 rtol = 1e-6
+    # contained but not computed from G: untouched
+    nc = anet(; computed = false)
+    @test tf(asolve(nc; g = 2.0, w = "0")) ≈ tf(asolve(nc; g = 2.0, w = "off")) rtol = 1e-9
+    # no containment table: inert, and the solve says so
+    ni = asolve(anet(; containment = Dict{String, Set{String}}()); g = 2.0, w = "0.1")
+    @test ni.diagnostics["self_activator_rule"] == "inert: no containment table"
+    @test tf(ni) ≈ 8.0 rtol = 1e-6
+    for bad in ("1.5", "-0.1", "half")
+        with_env("DS_SELF_ACTIVATOR_WEIGHT" => bad) do
+            @test_throws ArgumentError DS.resolve_reaction_eval_config()
+        end
+    end
+end
+
 @testset "influence scores use the same model when given the network" begin
     net = fixture()
     r = solve(net; x = 0.5, w = "0.1")

@@ -460,6 +460,11 @@ struct IndexedReaction
                                             # substrate via de-repression).
     substrate_indices::Vector{Int}
     params::ReactionParams
+    activator_shared::Vector{Vector{Int}}   # per-activator (specs/083): node indices of
+                                            # this reaction's `input` activators that the
+                                            # activator (a regulator or catalyst) CONTAINS
+                                            # and is computed from. Empty when
+                                            # DS_SELF_ACTIVATOR_WEIGHT=off.
 end
 
 """
@@ -531,6 +536,7 @@ function index_reactions(
     own_source::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
     structural::Vector{Tuple{String, String}} = Tuple{String, String}[],
+    self_act::Dict{Tuple{String, String}, Vector{String}} = Dict{Tuple{String, String}, Vector{String}}(),
 )::Tuple{Vector{IndexedReaction}, Vector{Int}, Int}
     # Node indices that are gene entities (inputs to transcription/expression
     # reactions). Used to detect transcriptional autoregulation loops.
@@ -580,6 +586,9 @@ function index_reactions(
             push!(act_group, k <= length(r.activator_group) ? r.activator_group[k] : 0)
             push!(act_orig, k)
         end
+        # specs/083: per activator, the inputs it contains and is computed from
+        act_shared = [Int[uuid_to_idx[a] for a in get(self_act, (r.activator_uuids[k], r.target_uuid), String[])
+                          if haskey(uuid_to_idx, a)] for k in act_orig]
         inh_orig = [k for (k, u) in enumerate(r.inhibitor_uuids) if haskey(uuid_to_idx, u)]
         sub_orig = [k for (k, u) in enumerate(r.substrate_uuids) if haskey(uuid_to_idx, u)]
         inh_indices = [uuid_to_idx[u] for u in r.inhibitor_uuids if haskey(uuid_to_idx, u)]
@@ -636,7 +645,7 @@ function index_reactions(
             act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
             act_group=act_group,
             inh_indices=inh_indices, inh_is_and=inh_is_and, inh_shared=inh_shared,
-            dep_indices=dep_indices,
+            dep_indices=dep_indices, act_shared=act_shared,
             sub_indices=sub_indices, params=params,
         ))
     end
@@ -887,11 +896,12 @@ function index_reactions(
             rec.act_is_assembly, comp_redundant, rec.act_group,
             rec.inh_indices, rec.inh_is_and, in_loop, in_transcription, rec.inh_shared,
             rec.dep_indices, closure_dep[ri], dep_own, dep_src,
-            rec.sub_indices, rec.params,
+            rec.sub_indices, rec.params, rec.act_shared,
         ))
     end
     if stats !== nothing
         stats["self_inhibitors"] = sum((count(!isempty, r.inhibitor_shared) for r in indexed); init = 0)
+        stats["self_activators"] = sum((count(!isempty, r.activator_shared) for r in indexed); init = 0)
         # specs/061 amendment 4: the node-copy own-product pairs, by uuid
         inv = Dict(i => u for (u, i) in uuid_to_idx)
         stats["own_node_pairs"] = Tuple{String, String}[(inv[r.depletion_indices[k]], inv[r.target_idx])
@@ -1006,6 +1016,7 @@ struct ReactionEvalConfig
     self_inhibitor_weight::Float64   # < 0 = off. Default 0.1. specs/022.
     loop_gain::Float64               # 1.0 = off. specs/028.
     set_pool_mode::String            # specs/033: how a set pool combines its members.
+    self_activator_weight::Float64   # < 0 = off (default). specs/083.
 end
 
 """
@@ -1388,6 +1399,11 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # meant to be tiny (g close to 1). 1.0 = off, byte-identical.
         _loop_gain_env(),
         _mode_env("DS_SET_POOL_MODE", "product"),
+        # specs/083. The mirror of specs/022 for a positive regulator or catalyst
+        # that contains its reaction's own input (a TF:gene complex regulating the
+        # gene's transcription): under the AND product the input is otherwise
+        # counted once per such activator. Default 0.1 (specs/083 adopted).
+        _self_activator_weight_env(),
     )
     if cfg.loop_gain < 1.0 && cfg.loop_elasticity < 1.0
         throw(ArgumentError("DS_LOOP_GAIN and DS_LOOP_ELASTICITY are two ways to pull a loop " *
@@ -1409,6 +1425,21 @@ end
 # product, where a self-contained inhibitor counts its input twice.
 const SELF_INHIBITOR_WEIGHT_DEFAULT = 0.1
 const SELF_INHIBITOR_FOLD_FLOOR = 1e-3
+
+# Default 0.1 since 2026-10-20 (specs/083, adopted by Adam on faithfulness: no class
+# change on either axis, 322 curator values move >5%). "off" restores the old product.
+const SELF_ACTIVATOR_WEIGHT_DEFAULT = 0.1
+
+function _self_activator_weight_env()::Float64
+    raw = strip(get(ENV, "DS_SELF_ACTIVATOR_WEIGHT", ""))
+    isempty(raw) && return SELF_ACTIVATOR_WEIGHT_DEFAULT
+    lowercase(raw) == "off" && return -1.0
+    w = _float_env("DS_SELF_ACTIVATOR_WEIGHT", -1.0)
+    0.0 <= w <= 1.0 || throw(ArgumentError(
+        "DS_SELF_ACTIVATOR_WEIGHT=$raw must be in [0, 1] or \"off\"; above 1 would " *
+        "amplify the double count, below 0 would invert the input."))
+    return w
+end
 
 function _loop_gain_env()::Float64
     g = _float_env("DS_LOOP_GAIN", 1.0)
@@ -1629,6 +1660,25 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 eps_lo
             end
             src_val = bl * fold^eps
+        end
+        # specs/083: an activator built from this reaction's own input counts
+        # that input once. In log-fold, its overlap with the shared inputs is
+        # kept at weight w/n (n = the reaction's such activators), as specs/022
+        # does for inhibitors; weaken-only.
+        if config.self_activator_weight >= 0.0 && k <= length(rxn.activator_shared) &&
+           !isempty(rxn.activator_shared[k])
+            n_sa = count(!isempty, rxn.activator_shared)
+            fl = T(SELF_INHIBITOR_FOLD_FLOOR)
+            f_s = one(T)
+            for a in rxn.activator_shared[k]
+                f_s *= clamp(x[a], zero(T), one(T)) / bl
+            end
+            l_s = log(max(f_s, fl))
+            l_a = log(max(src_val / bl, fl))
+            e = (l_s * l_a > 0) ? sign(l_a) * min(abs(l_a), abs(l_s)) : zero(T)
+            l_eff = (l_a - e) + (T(config.self_activator_weight) / n_sa) * e
+            v = clamp(bl * exp(l_eff), zero(T), one(T))
+            src_val = clamp(v, min(src_val, bl), max(src_val, bl))
         end
         transformed = apply_sensitivity_transform(
             src_val;

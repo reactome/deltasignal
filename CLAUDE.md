@@ -381,6 +381,13 @@ env vars only override for benchmark sweeps:
   `containment.csv`; the solve reports `self_inhibitor_rule` (on / off /
   inert) and how many inhibitor slots were flagged. Measured numbers are in
   specs/023. specs/022 has the rule; specs/023 has the adoption.
+- `DS_SELF_ACTIVATOR_WEIGHT=0.1` (**default since 2026-10-20**, specs/083,
+  adopted on faithfulness: no class change on either axis, 322 curator values
+  move >5%) | `off` (the old product) | w in [0, 1]: the mirror of specs/022 for a positive regulator or
+  catalyst that contains its reaction's own `input` and is computed from it (a
+  TF:gene complex regulating that gene's transcription). Its overlap with the
+  input is kept at w/n, so the input is counted once rather than once per such
+  activator. Reports `self_activator_rule` and `self_activators`.
 - `DS_DRUG_MODE=inert` (**default since 2026-10-13**, specs/055; curator
   held-out +8, 8 fixed / 0 broken, experimental +2 with RAF set aside) |
   `propagate` (specs/032): drug-derived nodes (a Reactome `Drug`, a complex
@@ -863,6 +870,13 @@ for the last feature that touched it rather than re-deriving from the code.
   **Adopted** (Adam, 2026-10-20): tuning +70 (70 / 0, all Mitotic G1), experimental
   +8 (10 / 2), held-out 0. The p27 (CDKN1B) inversion is the curated assembly-factor role
   of p21/p27 in the CDK4/6 catalyst set.
+- `specs/082-pten-mkrn1-loop/` — analysis: PTEN overexpression in PIP3 reads 83.5×
+  UP because the curated AKT → MKRN1 ⊣ PTEN ⊣ PIP3 → AKT loop has gain 1 and rails;
+  switch census (28 curator / 12 experimental wrong cases are rails).
+- `specs/083-self-inhibitor-sum/` — `DS_SELF_ACTIVATOR_WEIGHT`: a positive regulator
+  or catalyst built from its reaction's own input (TF:gene) counts it once (251
+  reactions, 36 pathways). **Adopted** (Adam, 2026-10-20) on faithfulness: no class
+  change. PTEN stays railed (two-copy mRNA, the MKRN1 loop).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -894,7 +908,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 93 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 82 | specs/022, added 2026-09-25 |
+| `test/test_self_inhibition.jl` | 100 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |

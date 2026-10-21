@@ -167,6 +167,8 @@ function solve_steady_state(
     # DS_SELF_INHIBITOR_WEIGHT=off. specs/040 rule B widens the pair test to
     # shared leaves; `self_leaf_pairs` counts the slots only that clause flags.
     self_shared, self_rule, self_leaf_pairs = self_inhibitor_setup(network)
+    # specs/083: activators built from their own reaction's input
+    self_act, self_act_rule = self_activator_setup(network)
     # specs/060 amendment 1: depleters whose entity contains their target's.
     own_entity = own_entity_depletion_pairs(network)
     # specs/061: entity-own pairs gated at solve time on their source copies.
@@ -305,6 +307,7 @@ function solve_steady_state(
     rcarriers = ymode == "balance" && cycle_carriers() ? cycle_reeval_carriers() : "off"
     penalty(os) = solve_steady_state_penalty(reactions, observations, x0, baseline_activities, params, start_time, gene_uuids;
                                              self_shared = self_shared,
+                                             self_act = self_act,
                                              own_entity = own_entity,
                                              own_source = os,
                                              cycle_pools = ypools,
@@ -324,7 +327,7 @@ function solve_steady_state(
         # `min(factor, 1)` cap and the source switch made TP53 and TGF-beta
         # oscillate (R5).
         pfull(rx) = solve_steady_state_penalty(rx, observations, x0, baseline_activities, params, start_time, gene_uuids;
-                                               self_shared = self_shared, own_override = "full",
+                                               self_shared = self_shared, self_act = self_act, own_override = "full",
                                                cycle_pools = ypools,
                                                cycle_phi = ymode == "balance" ? cycle_phi() : 0.1,
                                                cycle_carriers = ymode == "balance" ? cycle_carriers() : true,
@@ -356,6 +359,7 @@ function solve_steady_state(
     # Say which model ran: "on", "off", or inert because nothing told the solver
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
+    result.diagnostics["self_activator_rule"] = self_act_rule   # specs/083
     result.diagnostics["cycle_rule"] = cycle_rule
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["pool_supply_reach"] = supply_reach
@@ -410,6 +414,47 @@ function self_inhibitor_setup(network::ReactionNetwork)
     # specs/040 rule B: slots the leaf clause flags that stId containment did not.
     n_leaf = count(k -> !haskey(strict, k), keys(full))
     return full, "on", n_leaf
+end
+
+"""
+specs/083. `(map, rule)`: (activator uuid, target uuid) -> the target's `input`
+activators that a positive `regulator` or `catalyst` of that target CONTAINS
+(containment table) and is computed from (reachable from the input) -- a TF:gene
+complex regulating that gene's transcription. The propagator counts the shared
+input once (`DS_SELF_ACTIVATOR_WEIGHT`). Rule "off", "on" or "inert: no
+containment table".
+"""
+function self_activator_setup(network::ReactionNetwork)
+    out = Dict{Tuple{String, String}, Vector{String}}()
+    _self_activator_weight_env() < 0 && return out, "off"
+    isempty(network.containment) && return out, "inert: no containment table"
+    sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
+    inputs = Dict{String, Vector{String}}()
+    fwd = Dict{String, Vector{String}}()
+    for e in network.edges
+        push!(get!(fwd, e.parent_uuid, String[]), e.child_uuid)
+        e.is_positive && e.edge_type == "input" && push!(get!(inputs, e.child_uuid, String[]), e.parent_uuid)
+    end
+    reach_cache = Dict{String, Set{String}}()
+    reaches(a) = get!(reach_cache, a) do
+        seen = Set{String}(); stack = copy(get(fwd, a, String[]))
+        while !isempty(stack)
+            n = pop!(stack); n in seen && continue
+            push!(seen, n); append!(stack, get(fwd, n, String[]))
+        end
+        seen
+    end
+    for e in network.edges
+        (e.is_positive && e.edge_type in ("regulator", "catalyst")) || continue
+        A = e.parent_uuid; s = sid(A)
+        s === nothing && continue
+        inside = get(network.containment, s, nothing)
+        inside === nothing && continue
+        shared = String[a for a in unique(get(inputs, e.child_uuid, String[]))
+                        if a != A && (as = sid(a)) !== nothing && as != s && as in inside && A in reaches(a)]
+        isempty(shared) || (out[(A, e.child_uuid)] = sort(shared))
+    end
+    return out, "on"
 end
 
 """
@@ -2138,6 +2183,7 @@ function solve_steady_state_penalty(
     params::SteadyStateParams,
     start_time::Float64,
     gene_uuids::Set{String} = Set{String}();
+    self_act::Dict{Tuple{String, String}, Vector{String}} = Dict{Tuple{String, String}, Vector{String}}(),
     self_shared::Dict{Tuple{String, String}, Vector{String}} =
         Dict{Tuple{String, String}, Vector{String}}(),
     own_entity::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
@@ -2158,7 +2204,7 @@ function solve_steady_state_penalty(
     uuid_to_idx = Dict(uuid => i for (i, uuid) in enumerate(all_nodes))
     index_stats = Dict{String, Any}()
     rxns_idx, comp_id, n_comp = index_reactions(reactions, uuid_to_idx, baseline_activities, gene_uuids;
-                                               stats = index_stats, self_shared = self_shared,
+                                               stats = index_stats, self_shared = self_shared, self_act = self_act,
                                                own_entity = own_entity, own_source = own_source,
                                                structural = structural)
     index_stats["recycle_edges"] = length(structural)
@@ -2383,6 +2429,7 @@ function solve_steady_state_penalty(
             # specs/022: inhibitor slots damped by DS_SELF_INHIBITOR_WEIGHT
             # (0 when off), so an arm cannot silently measure the old model.
             "self_inhibitors" => get(index_stats, "self_inhibitors", 0),
+            "self_activators" => get(index_stats, "self_activators", 0),   # specs/083
             # specs/061: entity-own depletion edges gated on their source copies
             "own_source_depletions" => get(index_stats, "own_source_depletions", 0),
             # specs/061 amendment 4: node-copy own-product pairs (uuid), read by
@@ -2465,6 +2512,8 @@ function compute_influence_scores(
     # (specs/049) are not a limit: callers pass `solved_carrier_network`.
     self_shared = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
                   first(self_inhibitor_setup(network))
+    self_act = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
+               first(self_activator_setup(network))   # specs/083
     baselines = Dict{String, Float64}()
     gene_uuids = Set{String}()
     if network !== nothing
@@ -2484,7 +2533,7 @@ function compute_influence_scores(
         reactions = convert_to_reaction_network(without_depletions(network, Set{Tuple{String, String}}(removed)))
     end
     indexed, _, _ = index_reactions(reactions, uuid_to_idx, baselines, gene_uuids;
-                                    self_shared = self_shared,
+                                    self_shared = self_shared, self_act = self_act,
                                     own_entity = network === nothing || two_pass ? Set{Tuple{String, String}}() :
                                                  own_entity_depletion_pairs(network),
                                     own_source = network === nothing || two_pass ? Dict{Tuple{String, String}, Vector{String}}() :

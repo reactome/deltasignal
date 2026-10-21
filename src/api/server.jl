@@ -912,6 +912,8 @@ function solve_handler(req)
             # client can tell a pooled solve from an iterated one.
             # specs/022 (additive): inhibitor slots damped as self-contained.
             "self_inhibitors" => get(solver_result.diagnostics, "self_inhibitors", 0),
+            "self_activator_rule" => get(solver_result.diagnostics, "self_activator_rule", "unknown"),   # specs/083
+            "self_activators" => get(solver_result.diagnostics, "self_activators", 0),
             "self_inhibitor_rule" => get(solver_result.diagnostics, "self_inhibitor_rule", "unknown"),
             # specs/032 (additive): "propagate", "inert", or "inert: no drug table".
             "drug_rule" => get(solver_result.diagnostics, "drug_rule", "unknown"),
