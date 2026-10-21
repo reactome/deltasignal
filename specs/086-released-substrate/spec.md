@@ -62,3 +62,58 @@ The pattern is rare, and β-catenin is by far the longest and best-curated case.
 rule would touch 9 entities, most in pathways the benchmark scores little. The
 alternative is a rule written for this one cycle, which would be fitted to one case. Not
 registered until Adam chooses.
+
+## The rule (pre-registered 2026-10-21, before the implementation and the arm)
+
+Adam, 2026-10-21: "ok" to a general rule for the pattern.
+
+**Generator `LNG_RELEASE_POOLS` (default off; LNG branch from main `43d7919`).** A
+*release pool* is found when all of these hold:
+- **S:** a starting copy (no in-edge) of a single protein R, which is an `input` or
+  `catalyst` of a reaction.
+- **P:** another copy of the same entity, made by a reaction, which has an out-edge (it
+  carries on; this is what separates it from specs/081, where P leads nowhere).
+- **Route:** S reaches P through at most 10 reactions, via forms that carry R by reference
+  entity.
+- **Modified on the way:** some form on the route carries R with a different modification
+  signature from S. A partner released unchanged is a carrier (specs/077) and is excluded.
+
+What it writes:
+- **States:** M, the form the release reaction consumes, is the base (at rest the protein is
+  mostly bound). S is the second state.
+- **Intermediates:** the forms between S and M.
+- **Paths:** forward S → … → M through the route's reaction copies; return M → S through
+  the release reaction.
+- **Carrier:** P is listed as the pool's carrier, with the release reaction copies as its
+  release steps. Under `DS_CYCLE_CARRIERS=on` P then reads its other producers, not the
+  release traffic.
+- **Edges:**
+  - a `released_twin` OR edge S → P, so P's other producer is S and P reads the pool's free
+    state;
+  - a structural `recycle` edge P → S (specs/081), so the cycle is one component.
+- A candidate any of whose nodes an existing pool already claims is skipped and counted.
+
+**DeltaSignal:** `CYCLE_MAX_STEPS` goes from 6 to 10 (the forward path for β-catenin is 7
+steps). The generator caps ordinary pools at 6, so no existing pool table has a longer path
+and canonical is unaffected; this is checked by the arm's baseline. No other solver change.
+
+## Arm
+
+| arm | build | solver | against |
+|---|---|---|---|
+| `rlp` | variant `--env LNG_RELEASE_POOLS=1` | main plus the `CYCLE_MAX_STEPS` change | that solver on canonical (`dflt086`) |
+
+The variant must equal canonical except in the pathways the count lists; checked by
+`compare_build.py` before the arm.
+
+**Gate (as specs/077):** curator held-out net ≥ 0, experimental net ≥ −5, and no pathway
+below −10 (RAF set aside).
+
+## Predictions
+
+1. APC in WNT: at least 5 of the 7 experimental cases fixed (knockout UP, overexpression
+   DOWN at β-catenin and the canonical targets).
+2. Signaling by WNT curator net at least +15.
+3. No pathway other than the 7 counted moves.
+4. No prediction for the held-out net: the other 8 entities include held-out pathways
+   whose cases we have not traced.
