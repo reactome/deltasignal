@@ -74,3 +74,30 @@ its gain is 1.
   - ATM and CHEK2 in TP53: knockout reads 0.56× and overexpression 0.23× at TP53 targets,
     both converged. Curators: NORMAL.
   - Not traced here.
+
+## The other rails, traced (2026-10-21; `rails.jl`, `sh3.jl`, canonical `20261020-2038_23ef3e1`, current defaults)
+
+Readout fold under the gene's pins at a range of levels:
+
+| case | 0 | 0.5 | 0.9 | 0.99 | 1.0 | 1.01 | 1.1 | 2 | 80 | shape |
+|---|---|---|---|---|---|---|---|---|---|---|
+| EGFR, SH3GL1 at R-HSA-180523 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | **knife-edge** |
+| RAF, RAF1 at R-HSA-1268261 | 100 | 100 | 100 | 100 | 1 | 0.003 | 0.003 | 0.002 | 100 | **knife-edge** (RAF, set aside) |
+| Activin, ACVR2A at R-HSA-173511 | 50 | 2.14 | 1.03 | 1.001 | 1 | 0.999 | 1.007 | 1.87 | 50 | U-shape |
+| Cell Cycle Checkpoints, TP53 at R-HSA-6804937 | 100 | 1.55 | 1.05 | 1.003 | 1 | 0.997 | 0.98 | 100 | 100 | U-shape |
+
+**Two different things:**
+- **Knife-edges: PTEN, SH3GL1, RAF1.** Any change rails the readout.
+  - SH3GL1: a 1% rise drops the EGF:p-EGFR dimer to 0.05×. Through the curated
+    PIP3 → GAB1:PI3K → PIP3 amplification loop (R-HSA-177927 / R-HSA-177939, catalyst on
+    PIP3's own production), the route collapses to 0.
+  - Each is a curated positive loop of gain 1 at baseline (specs/014). In PTEN's and EGFR's,
+    depletion edges close the loop, which specs/014's elasticity (activator edges only)
+    does not reach.
+- **U-shapes: ACVR2A, TP53 in Cell Cycle Checkpoints, and CBFB, ATM/CHEK2 above.** These
+  are graded near baseline, so not a knife-edge, but both directions move the readout the
+  same way. A different mechanism (partner competition is one case), not traced here.
+
+**How much each is worth** (from the census, wrong cases):
+- knife-edges: about 28 curator and 12 experimental, PTEN the bulk; RAF is set aside;
+- U-shapes: about 79 curator and 1 experimental.
