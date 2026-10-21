@@ -47,3 +47,25 @@ where the pathway gives the form no supply at all.
 **Candidate amendment 1 (post hoc, not run):** skip a closed free form that keeps any
 activating in-edge after its loop edges are dropped, such as a specialization bridge. The
 ATM complex has none, so it would still be fed.
+
+## Amendment 1: arm cct2
+
+Solver `1b52a97` (amendment 1), same build and baseline, results `results/1b52a97/cct2`.
+Logs: 2,780 curator and 2,496 experimental component edge-solves (80 fewer curator than
+`cct`: the bridged PDGF copies are skipped).
+
+| split | net (fixed / broken) | p |
+|---|---|---|
+| curator held-out | **0** (0 / 0) | 1 |
+| curator tuning | **+6** (6 / 0), all ATM in Cell Cycle Checkpoints | 0.031 |
+| experimental (RAF set aside) | **+4** (4 / 0), all ATM | 0.125 |
+
+**The gate passes:** held-out 0 ≥ 0, experimental +4, no pathway below −10. Post hoc.
+
+Predictions:
+1. ATM as in `cct`: **holds**, +6 / +4.
+2. PDGF moves by at most 2: **holds**, 0.
+3. Held-out ≥ 0: **holds**, 0.
+
+Only Cell Cycle Checkpoints moves, and only ATM, on both axes. The other 14 fed entities
+(Base Excision Repair, NOTCH, MHC class I and the rest) change no scored case.
