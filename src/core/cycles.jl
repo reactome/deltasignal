@@ -158,8 +158,10 @@ than the enzyme's. Weighed per exit, so RAS's intrinsic hydrolysis competes
 with the GAP path. Declared, not fitted."""
 const CYCLE_INTRINSIC_WEIGHT = 1e-3
 
-"""Paths longer than this are not resolved (the generator already caps at 6)."""
-const CYCLE_MAX_STEPS = 6
+"""Paths longer than this are not resolved. The generator caps ordinary pools at 6 steps;
+a release pool (specs/086, beta-catenin bound, phosphorylated and dephosphorylated in the
+destruction complex) needs 7, so the limit is 10."""
+const CYCLE_MAX_STEPS = 10
 
 """
 Stationary distribution of an n-state chain with rate matrix Q (rows sum to 0),
