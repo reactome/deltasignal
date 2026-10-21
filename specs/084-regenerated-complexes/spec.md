@@ -64,3 +64,18 @@ below −10 (RAF set aside).
 2. Fewer than 2 pathways lose more than 5 curator cases.
 3. No prediction for the held-out net. 7 pathways move at most, and Cell Cycle Checkpoints
    is a tuning pathway.
+
+## Amendment 1 (2026-10-21, after arm `cct`, before its arm): only an unsupplied form
+
+Adam, 2026-10-21: "ok". **Post hoc:** written after `cct` failed on PDGF (`research.md`), so
+any gain it shows is reported with that caveat.
+
+- **Rule.** As registered, and the closed free form must also have no activating in-edge
+  left once its loop edges are dropped (a specialization bridge, specs/067, is such an
+  in-edge). A form the pathway already supplies is left as it is.
+- **Arm `cct2`:** the same build, baseline and gate as `cct`, on the commit that adds the
+  amendment.
+- **Predictions:**
+  1. ATM in Cell Cycle Checkpoints as in `cct`: curator +6, experimental +4.
+  2. Signaling by PDGF moves by at most 2 cases.
+  3. Held-out net ≥ 0.
