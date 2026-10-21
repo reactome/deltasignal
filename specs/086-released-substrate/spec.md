@@ -117,3 +117,21 @@ below −10 (RAF set aside).
 3. No pathway other than the 7 counted moves.
 4. No prediction for the held-out net: the other 8 entities include held-out pathways
    whose cases we have not traced.
+
+## Amendment 1 (2026-10-21, after arm `rlp`, before its arm): every variant chain in one pool
+
+Adam, 2026-10-21: "ok". **Post hoc:** written after `rlp` showed the pool captured 1 of the
+20 destruction-complex variant chains (`research.md`).
+
+- **Rule.** As registered, but for each (S, P) the pool holds every release copy of the
+  release reaction that makes P:
+  - each copy's consumed complex M_v is a base state, as specs/081 keeps p130's four resting copies;
+  - each M_v gets its own shortest route from S (forward path) and its own release (return path);
+  - intermediates are the union of the routes' forms;
+  - P is the carrier, with all the release copies as its release steps.
+- **Arm `rlp2`:** a variant rebuilt from the amended generator, against `dflt086`, with the
+  same gate.
+- **Predictions:**
+  1. APC: at least 5 of the 7 experimental cases fixed.
+  2. Signaling by WNT curator net at least +10.
+  3. Nothing outside WNT and L1CAM moves.
