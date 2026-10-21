@@ -483,6 +483,14 @@ env vars only override for benchmark sweeps:
   `carrier_loop_twin_edges`.
   A bundle without the table reports `<mode>: no carrier table` and solves as
   `off`, and the bench refuses it.
+  `DS_CARRIER_COMPONENT_TWIN=on` (**default since 2026-10-21**, specs/084
+  amendment 1, post hoc; tuning +6, experimental +4, held-out 0, nothing broken)
+  | `off`: under `closed_twin`, a closed free form with no starting copy of its
+  own entity and no activating in-edge left after the drop (a complex the
+  pathway only regenerates, e.g. the ATM-carrying DSB complex in Cell Cycle
+  Checkpoints) gains AND in-edges (`carrier_component`) from the starting
+  copies of the maximal entities it contains. Reports
+  `carrier_component_rule` and `carrier_component_edges`.
   `DS_CARRIER_LOOP_OPEN=fed_single` (**default since 2026-10-19**, specs/077
   amendment 1, post hoc; held-out +65 (84 / 19), experimental −5 (every loss
   traced: release artefacts or threshold shifts), faithful build +272) | `off`
@@ -877,6 +885,11 @@ for the last feature that touched it rather than re-deriving from the code.
   or catalyst built from its reaction's own input (TF:gene) counts it once (251
   reactions, 36 pathways). **Adopted** (Adam, 2026-10-20) on faithfulness: no class
   change. PTEN stays railed (two-copy mRNA, the MKRN1 loop).
+- `specs/084-regenerated-complexes/` — `DS_CARRIER_COMPONENT_TWIN`: a closed complex
+  the pathway only regenerates follows its components' starting copies. The first
+  arm failed (PDGF −8: it fed copies a specialization bridge already supplies).
+  Amendment 1 (only unsupplied forms) is **adopted** (Adam, 2026-10-21): ATM in Cell
+  Cycle Checkpoints +6 curator, +4 experimental, nothing broken.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -914,7 +927,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 516 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 195 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
+| `test/test_carrier_loops.jl` | 217 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |

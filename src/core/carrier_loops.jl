@@ -37,6 +37,14 @@ carrier loops outside pools. Bound forms are not touched.
                                fed free form reads only its producers outside
                                the loop.
 
+`DS_CARRIER_COMPONENT_TWIN=on` (specs/084; default since 2026-10-21; `off` restores the earlier solver) adds, under
+`closed_twin`: a closed free form with no starting copy of its own entity (a complex
+the pathway only regenerates, such as the ATM-carrying DSB complex in Cell Cycle
+Checkpoints) gains AND in-edges (`carrier_component`) from the starting copies of
+the maximal entities it contains, so it follows its components. One way only.
+Amendment 1: only when the form has no activating in-edge left after its loop
+edges are dropped; a form a specialization bridge still feeds is left alone.
+
 `DS_CARRIER_LOOP_OPEN=fed` (specs/077; `off` restores the earlier solver) adds, under any mode but
 `off` and `all`: a free form of an OPEN loop loses its loop in-edges when it
 keeps an activating producer outside every loop listing it (RBBP8 released by
@@ -60,6 +68,17 @@ function carrier_loop_open()::String
     value in DS_VALID_CARRIER_LOOP_OPEN || throw(ArgumentError(
         "DS_CARRIER_LOOP_OPEN must be one of $(join(sort(collect(DS_VALID_CARRIER_LOOP_OPEN)), ", ")); got $(repr(value))"))
     return value
+end
+
+const CARRIER_COMPONENT_EDGE = "carrier_component"
+const DS_VALID_CARRIER_COMPONENT_TWIN = Set(["off", "on"])
+
+"""specs/084: `DS_CARRIER_COMPONENT_TWIN` (default "on" since 2026-10-21, adopted by Adam; "off" restores the earlier solver)."""
+function carrier_component_twin()::Bool
+    value = get(ENV, "DS_CARRIER_COMPONENT_TWIN", "on")
+    value in DS_VALID_CARRIER_COMPONENT_TWIN || throw(ArgumentError(
+        "DS_CARRIER_COMPONENT_TWIN must be one of off, on; got $(repr(value))"))
+    return value == "on"
 end
 
 function carrier_loop_mode()::String
@@ -147,6 +166,11 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
             (entity(nd) === nothing || u in hasin || u in listed) && continue
             push!(get!(roots, entity(nd), String[]), u)
         end
+        component = carrier_component_twin()   # specs/084
+        cof = isempty(network.cofactor_stids) ? COFACTOR_STIDS : network.cofactor_stids
+        # amendment 1: only a form left with no activating in-edge after the drop
+        # (a specialization bridge, specs/067, is still a supply)
+        supplied = Set(e.child_uuid for e in kept if e.is_positive && e.edge_type != "depletion")
         for free in sort!(collect(undrained))
             rid = entity(get(network.nodes, free, nothing))
             rid === nothing && continue
@@ -154,9 +178,21 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
                 push!(kept, LogicNetworkEdge(r, free, false, true, 1.0, "carrier_supply"))
                 twins += 1
             end
+            # specs/084: no starting copy of its own entity, so the closed form (a
+            # complex the pathway only regenerates) follows the starting copies of
+            # the maximal entities it contains, ANDed as a complex follows its parts
+            (component && isempty(get(roots, rid, String[])) && !(free in supplied)) || continue
+            inside = Set(c for c in get(network.containment, rid, Set{String}())
+                         if c != rid && !(c in cof) && !isempty(get(roots, c, String[])))
+            for c in sort!(collect(inside))
+                any(o -> o != c && c in get(network.containment, o, Set{String}()), inside) && continue
+                for r in sort(roots[c])
+                    push!(kept, LogicNetworkEdge(r, free, true, true, 1.0, CARRIER_COMPONENT_EDGE))
+                end
+            end
         end
     end
-    n == 0 && twins == 0 && return network, mode, 0, 0, 0, 0
+    n == 0 && twins == 0 && length(kept) == length(network.edges) - n && return network, mode, 0, 0, 0, 0
     out = ReactionNetwork(network.nodes, kept, network.set_mappings, network.cofactor_stids,
                           network.containment, network.drug_stids, network.pools,
                           network.pathogen_stids, network.carrier_loops, network.node_leaves)

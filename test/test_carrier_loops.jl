@@ -326,6 +326,70 @@ end
     end
 end
 
+@testset "a closed complex with no starting copy follows its components' starting copies (specs/084)" begin
+    # E is a complex the pathway only regenerates (E + P -> EP -> E + readout T); it
+    # contains K1 (which contains S) and K2, each with a starting copy here.
+    cont = Dict("R-E" => Set(["R-K1", "R-K2", "R-S"]), "R-K1" => Set(["R-S"]))
+    function cnet(; twin = false)
+        ids = ["E", "P", "EP", "T", "K1", "K2", "S"]
+        twin && push!(ids, "E2")
+        nodes = Dict(node.(ids))
+        twin && (nodes["E2"] = DS.NetworkNode("E2", "R-E", "protein", nothing, "E2", BL))
+        edges = [edge("E", "EP"), edge("P", "EP"), edge("EP", "E"), edge("EP", "T")]
+        DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                           cont, nothing, nothing, nothing, closed_table())
+    end
+    run(net, flag; mode = "closed_twin", k1 = 1.0, s = 1.0) =
+        with_env("DS_CARRIER_LOOP_MODE" => mode, "DS_CARRIER_COMPONENT_TWIN" => flag) do
+            obs = Dict("P" => (2.0, 1.0), "K1" => (k1, 1.0), "K2" => (1.0, 1.0), "S" => (s, 1.0))
+            DS.solve_steady_state(net, obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+        end
+    with_env("DS_CARRIER_COMPONENT_TWIN" => nothing) do
+        @test DS.carrier_component_twin()                 # default since specs/084 was adopted
+    end
+    @test run(cnet(), nothing; k1 = 0.0).diagnostics["carrier_component_edges"] == 2
+    off = run(cnet(), "off"; k1 = 0.0)
+    @test fold(off, "E") ≈ 1.0 rtol = 1e-6               # closed and unfed: baseline, K1 unseen
+    @test fold(off, "T") ≈ 2.0 rtol = 1e-6
+    @test off.diagnostics["carrier_component_rule"] == "off"
+    @test off.diagnostics["carrier_component_edges"] == 0
+    ko = run(cnet(), "on"; k1 = 0.0)
+    @test fold(ko, "E") ≈ 0.0 atol = 1e-9                # a component knocked out: no complex
+    @test fold(ko, "T") ≈ 0.0 atol = 1e-9
+    @test ko.diagnostics["carrier_component_rule"] == "on"
+    @test ko.diagnostics["carrier_component_edges"] == 2  # K1 and K2; S is inside K1
+    up = run(cnet(), "on"; k1 = 2.0)
+    @test fold(up, "E") ≈ 2.0 rtol = 1e-6
+    @test fold(up, "T") ≈ 4.0 rtol = 1e-6
+    @test fold(run(cnet(), "on"; s = 3.0), "E") ≈ 1.0 rtol = 1e-6   # a non-maximal component is not read
+    # a starting copy of its own entity: closed_twin feeds it, no component edges
+    tw = run(cnet(; twin = true), "on"; k1 = 0.0)
+    @test tw.diagnostics["carrier_component_edges"] == 0
+    @test tw.diagnostics["carrier_loop_twin_edges"] == 1
+    # amendment 1: a form something else still feeds (here a bridge B -> E) is left alone
+    bnet = let n = cnet()
+        nodes = copy(n.nodes); nodes["B"] = DS.NetworkNode("B", "R-B", "protein", nothing, "B", BL)
+        DS.ReactionNetwork(nodes, vcat(n.edges, [DS.LogicNetworkEdge("B", "E", false, true, 1.0, "specialization")]),
+                           n.set_mappings, n.cofactor_stids, n.containment, nothing, nothing, nothing, n.carrier_loops)
+    end
+    br = with_env("DS_CARRIER_LOOP_MODE" => "closed_twin", "DS_CARRIER_COMPONENT_TWIN" => "on") do
+        DS.solve_steady_state(bnet, Dict("P" => (2.0, 1.0), "K1" => (0.0, 1.0), "K2" => (1.0, 1.0),
+                                          "S" => (1.0, 1.0), "B" => (0.25, 1.0)),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    @test br.diagnostics["carrier_component_edges"] == 0
+    @test fold(br, "E") ≈ 0.25 rtol = 1e-6               # it keeps reading its bridge
+    # only under closed_twin
+    cl = run(cnet(), "on"; mode = "closed", k1 = 0.0)
+    @test cl.diagnostics["carrier_component_rule"] == "on: inert under DS_CARRIER_LOOP_MODE=closed"
+    @test cl.diagnostics["carrier_component_edges"] == 0
+    for bad in ("On", "1", "yes")
+        with_env("DS_CARRIER_COMPONENT_TWIN" => bad) do
+            @test_throws ArgumentError DS.carrier_component_twin()
+        end
+    end
+end
+
 @testset "carrier_loops.csv: parse, both parse return paths, silo-bridge rebuild, JSON round trip" begin
     mktempdir() do dir
         write(joinpath(dir, "logic_network.csv"),

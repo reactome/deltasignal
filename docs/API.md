@@ -238,6 +238,10 @@ Response:
   them multi-step; the carrier rule (`"on"`/`"off"`) and how many enzyme free
   forms it held. `balance` is the default (specs/039); `off` restores
   iterated loops.
+- **`carrier_component_rule`**, **`carrier_component_edges`** (additive, specs/084):
+  `"on"` (default since specs/084), `"off"`, or `"on: inert under DS_CARRIER_LOOP_MODE=…"`
+  (`DS_CARRIER_COMPONENT_TWIN`), and how many component edges fed closed free forms
+  that have no starting copy of their own entity.
 - **`self_activator_rule`**, **`self_activators`** (additive, specs/083): `"on"`
   (default since specs/083), `"off"`, or `"inert: no containment table"` (`DS_SELF_ACTIVATOR_WEIGHT`), and
   how many activator slots it flagged: positive regulators or catalysts that contain
