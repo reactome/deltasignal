@@ -365,6 +365,19 @@ end
     tw = run(cnet(; twin = true), "on"; k1 = 0.0)
     @test tw.diagnostics["carrier_component_edges"] == 0
     @test tw.diagnostics["carrier_loop_twin_edges"] == 1
+    # amendment 1: a form something else still feeds (here a bridge B -> E) is left alone
+    bnet = let n = cnet()
+        nodes = copy(n.nodes); nodes["B"] = DS.NetworkNode("B", "R-B", "protein", nothing, "B", BL)
+        DS.ReactionNetwork(nodes, vcat(n.edges, [DS.LogicNetworkEdge("B", "E", false, true, 1.0, "specialization")]),
+                           n.set_mappings, n.cofactor_stids, n.containment, nothing, nothing, nothing, n.carrier_loops)
+    end
+    br = with_env("DS_CARRIER_LOOP_MODE" => "closed_twin", "DS_CARRIER_COMPONENT_TWIN" => "on") do
+        DS.solve_steady_state(bnet, Dict("P" => (2.0, 1.0), "K1" => (0.0, 1.0), "K2" => (1.0, 1.0),
+                                          "S" => (1.0, 1.0), "B" => (0.25, 1.0)),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    @test br.diagnostics["carrier_component_edges"] == 0
+    @test fold(br, "E") ≈ 0.25 rtol = 1e-6               # it keeps reading its bridge
     # only under closed_twin
     cl = run(cnet(), "on"; mode = "closed", k1 = 0.0)
     @test cl.diagnostics["carrier_component_rule"] == "on: inert under DS_CARRIER_LOOP_MODE=closed"

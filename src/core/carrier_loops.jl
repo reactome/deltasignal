@@ -42,6 +42,8 @@ carrier loops outside pools. Bound forms are not touched.
 the pathway only regenerates, such as the ATM-carrying DSB complex in Cell Cycle
 Checkpoints) gains AND in-edges (`carrier_component`) from the starting copies of
 the maximal entities it contains, so it follows its components. One way only.
+Amendment 1: only when the form has no activating in-edge left after its loop
+edges are dropped; a form a specialization bridge still feeds is left alone.
 
 `DS_CARRIER_LOOP_OPEN=fed` (specs/077; `off` restores the earlier solver) adds, under any mode but
 `off` and `all`: a free form of an OPEN loop loses its loop in-edges when it
@@ -166,6 +168,9 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
         end
         component = carrier_component_twin()   # specs/084
         cof = isempty(network.cofactor_stids) ? COFACTOR_STIDS : network.cofactor_stids
+        # amendment 1: only a form left with no activating in-edge after the drop
+        # (a specialization bridge, specs/067, is still a supply)
+        supplied = Set(e.child_uuid for e in kept if e.is_positive && e.edge_type != "depletion")
         for free in sort!(collect(undrained))
             rid = entity(get(network.nodes, free, nothing))
             rid === nothing && continue
@@ -176,7 +181,7 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
             # specs/084: no starting copy of its own entity, so the closed form (a
             # complex the pathway only regenerates) follows the starting copies of
             # the maximal entities it contains, ANDed as a complex follows its parts
-            (component && isempty(get(roots, rid, String[]))) || continue
+            (component && isempty(get(roots, rid, String[])) && !(free in supplied)) || continue
             inside = Set(c for c in get(network.containment, rid, Set{String}())
                          if c != rid && !(c in cof) && !isempty(get(roots, c, String[])))
             for c in sort!(collect(inside))
