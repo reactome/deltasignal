@@ -101,3 +101,34 @@ Readout fold under the gene's pins at a range of levels:
 **How much each is worth** (from the census, wrong cases):
 - knife-edges: about 28 curator and 12 experimental, PTEN the bulk; RAF is set aside;
 - U-shapes: about 79 curator and 1 experimental.
+
+## The U-shapes, traced (2026-10-21; `cbfb.jl`, `atm.jl`)
+
+**CBFB in RUNX2: curated negative autoregulation.** Under a CBFB knockout, free RUNX2
+reaches 6.7× and its other partner complexes rise with it (RUNX2:SOX9, RUNX2:SATB2,
+RUNX2:RBM14). Two loops cause it:
+- The RUNX2-P1:CBFB repressor on the RUNX2 gene (R-HSA-9008361) falls to 0. RUNX2
+  transcription (R-HSA-9007686) is de-repressed to the 10× ceiling.
+- RUNX2:CBFB induces SMURF1, which degrades RUNX2. RUNX2:SMURF1 falls to 0.03×, so the
+  depletion on RUNX2 is lifted.
+
+Both are curated in Release 97 (e.g. "RUNX2-P1 binds RUNX2 gene promoter", R-HSA-9008345;
+"RUNX2 binds SMURF1 gene", R-HSA-9009451). The curators expect NORMAL for these readouts.
+This is curated feedback propagating, with the magnitude set by the 10× ceiling. It is not a
+missing reaction.
+
+**ATM in TP53: the pool rule meets the curation of TP53's targets.** ATM overexpression lowers
+RRM2B, a TP53 target, to 0.23×, and ATM knockout to 0.56×. The chain is RRM2B ← "TP53 binds
+the RRM2B gene" ← TP53 Tetramer at 0.23× ← unmodified TP53 (R-HSA-69488) at 0.23×.
+- TP53's forms are solved as a conserved pool (specs/039). More ATM moves TP53 into its
+  phosphorylated forms, so the unmodified share falls.
+- Reactome curates many target genes as bound by the unmodified "TP53 Tetramer". So under
+  conservation, stronger activation reads as less of those targets.
+
+The curators expect NORMAL. Again not a missing reaction: the conservation rule and the
+granularity of target curation together.
+
+**Reading.** Neither U-shape has a clean network defect to fix; both are the model
+following curated structure. They are not pursued with a rule. CBFB is a question of
+magnitude or ground truth; ATM is a question about pool states versus the target curation,
+for the curators or for a later study of which TP53 forms bind which genes.
