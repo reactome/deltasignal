@@ -59,3 +59,52 @@ form the release consumes", and there are 20 such forms.
   four resting copies.
 - Paths: S → … → each M along its own variant route, and each M → S through its release.
 - Carrier: P, with all release copies as its release steps.
+
+## Amendment 1: arm rlp2
+
+- **Variant build** `20261021-1334_b751de4_rlp2` (LNG `b751de4`). `compare_build.py`: WNT
+  release pool now 141 state and intermediate rows and 220 transitions (all 20 variant
+  chains); L1CAM 7 and 9; the same two edges each; nothing removed, no other pathway differs.
+- Solver `b30acdd` (`e1ba794` plus spec commits), against `results/e1ba794/dflt086`, results
+  `results/b30acdd/rlp2`.
+
+| split | net (fixed / broken) | p |
+|---|---|---|
+| curator held-out | **0** | 1 |
+| curator tuning | **+73** (84 / 11), all Signaling by WNT | < 1e-4 |
+| experimental (RAF set aside) | **+8** (10 / 2), all WNT | 0.039 |
+
+By perturbation:
+- **Curator:** APC +28, AMER1 +28, TCF7L2 +24, against losses at WNT1 (−3), WNT5A (−3) and WIF1 (−1).
+- **Experimental fixed:** APC 5, AMER1 knockout 2, TCF7L2 overexpression 2, WIF1 overexpression 1.
+- **Experimental broken:** APC overexpression at the ubiquitinated phospho-β-catenin:SCF
+  complex (UP, right before, now DOWN), and AMER1 overexpression 1.
+
+APC experimental cases:
+- **Fixed:** knockout at nuclear β-catenin, cytosolic β-catenin and the canonical targets
+  (DOWN → UP); overexpression at nuclear β-catenin and the targets (UP → DOWN).
+- **Still wrong:** overexpression at cytosolic β-catenin (now NORMAL, 0.91×; expected DOWN);
+  knockout at p-TCF/LEF:CTNNB1 (DOWN → UP, expected NORMAL).
+- **Broken:** overexpression at the degradation complex. The pool holds β-catenin bound or
+  free; the ubiquitination branch reads the bound phospho form, whose share the pool now sets.
+
+**The gate passes** (held-out 0 ≥ 0, experimental +8, no pathway below −10). Post hoc.
+
+Predictions:
+1. APC at least 5 of 7: **holds**, 5.
+2. WNT at least +10: **holds**, +73.
+3. Nothing outside WNT and L1CAM moves: **holds**. L1CAM moves no scored case.
+
+## Reading
+
+β-catenin treated as a conserved free/bound pool, with the released copy reading the free
+state, gets the destruction complex's sign right for APC, AMER1 and TCF7L2: +73 curator
+and +8 experimental, nothing broken outside WNT.
+
+Caveats:
+- WNT is a tuning pathway, so held-out cannot move.
+- The amendment was written after the first arm.
+- The rule fires for 2 entities on canonical, and only β-catenin moves a scored case.
+
+Adoption is Adam's: generator default `LNG_RELEASE_POOLS=1`, a canonical rebuild, and
+DeltaSignal PR #154 (`CYCLE_MAX_STEPS` 10, inert without release pools).
