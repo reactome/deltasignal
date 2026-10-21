@@ -1257,6 +1257,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY[f"cycle_rule={ds_result.get('cycle_rule', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_pools_solved"] += int(ds_result.get("cycle_pools_solved") or 0)
             SOLVE_TALLY["recycle_edges"] += int(ds_result.get("recycle_edges") or 0)   # specs/081
+            SOLVE_TALLY["self_activators"] += int(ds_result.get("self_activators") or 0)   # specs/083
+            SOLVE_TALLY[f"self_activator_rule={ds_result.get('self_activator_rule', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_pools_multistep"] += int(ds_result.get("cycle_pools_multistep") or 0)
             SOLVE_TALLY[f"cycle_carriers={ds_result.get('cycle_carriers', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_carriers_held"] += int(ds_result.get("cycle_carriers_held") or 0)
@@ -1656,6 +1658,11 @@ def main():
     if "balance" in yrules and SOLVE_TALLY["cycle_pools_solved"] == 0:
         raise SystemExit("DS_CYCLE_MODE=balance but no solve used a pool; the arm is the control.")
     print(f"Recycle edges: {SOLVE_TALLY['recycle_edges']} edge-solves (specs/081)")
+    arules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_activator_rule="))
+    print(f"Self-contained activators: rule {'/'.join(arules) or 'unknown'}, "
+          f"{SOLVE_TALLY['self_activators']} slot-solves (specs/083)")
+    if "on" in arules and SOLVE_TALLY["self_activators"] == 0:
+        raise SystemExit("DS_SELF_ACTIVATOR_WEIGHT is on but no solve found a self-contained activator; the arm is the control.")
     zrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("zero_supply_rule="))
     print(f"\nZero supply: rule {'/'.join(zrules) or 'unknown'}, {SOLVE_TALLY['zero_supply_held']} node-solves held, "
           f"{SOLVE_TALLY['zero_supply_leaves']} leaf-solves without supply (specs/052)")

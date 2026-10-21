@@ -69,3 +69,35 @@ below −10 (RAF set aside).
 2. PTEN knockout in PIP3 stays UP (9 experimental, currently right).
 3. No prediction for the held-out net. It is a 36-pathway change, and specs/012's related
    de-duplication lost.
+
+## Implementation and a disclosed check (before the arm)
+
+**Implementation:**
+- `self_activator_setup` (`src/solvers/steady_state.jl`);
+- the activator damping in `compute_reaction_output_vec`;
+- `IndexedReaction.activator_shared`;
+- `ReactionEvalConfig.self_activator_weight`;
+- reporting (solve, API, bench; the bench refuses an "on" run that flags nothing).
+
+Tests: `test_self_inhibition.jl`, 98 (+16 for this rule):
+- G counted three times: 8× at 2×;
+- once at w = 0;
+- 2^1.1 at w = 0.1, and 0.5^1.1 below baseline;
+- the TF's own change keeps full strength;
+- not computed from the input: untouched;
+- no containment table: inert;
+- invalid values are errors.
+
+Other suites are unchanged (config 217, invariants 121, determinism 126, cycles 516,
+loop elasticity 175 + 1).
+
+**Check on PIP3 (`pten_keys.jl`), not the arm.** With w = 0.1, PTEN transcription follows
+the gene (1.01× gives 1.01×, 2× gives 2×; before, 1.06× and 59.7×). PTEN overexpression
+still reads p-AKT 50.5× / 83.5× because of two other defects:
+- **PTEN mRNA exists as two copies.** The starting copy, pinned by the benchmark, feeds
+  translation. The transcribed copy builds the 12 miRNA silencing complexes. The silencers
+  are not computed from the copy translation reads, so specs/022 does not treat them as
+  self-inhibitors, and they inhibit at full strength (translation 0.896× at 1.01×).
+- **The AKT–MKRN1–PTEN loop is railed** (specs/082).
+
+So prediction 1 is now expected to fail. The prediction stands as registered.
