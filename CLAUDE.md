@@ -448,7 +448,7 @@ env vars only override for benchmark sweeps:
   (generator `LNG_RECYCLE_POOLS`, default off) joins a modification cycle into one
   component and is never an input. The solve reports `recycle_edges`
   (`src/core/recycle.jl`); the bench never counts it against a root.
-  A release pool (generator `LNG_RELEASE_POOLS`, default off; specs/086) lists
+  A release pool (generator `LNG_RELEASE_POOLS`, default on since specs/086) lists
   the released copy as its carrier, reading the free state through a
   `released_twin` edge; paths may be up to 10 steps (`CYCLE_MAX_STEPS`).
 - `DS_SELF_FED_MODE=off` (default; `entry` measured and **refuted**: TP53 −190,
@@ -893,6 +893,15 @@ for the last feature that touched it rather than re-deriving from the code.
   arm failed (PDGF −8: it fed copies a specialization bridge already supplies).
   Amendment 1 (only unsupplied forms) is **adopted** (Adam, 2026-10-21): ATM in Cell
   Cycle Checkpoints +6 curator, +4 experimental, nothing broken.
+- `specs/085-silo-replication/` — silo bridges re-measured on today's networks:
+  held-out −90, 73% of losses NORMAL turned into a change call. The positional silo
+  ("two copies") is closed as an accuracy lever.
+- `specs/086-released-substrate/` — a protein bound, modified and released by a
+  complex, whose released copy carries on (β-catenin and the destruction complex),
+  as a free/bound pool whose released copy reads the free state (generator
+  `LNG_RELEASE_POOLS`). The first arm captured 1 of 20 variant chains; amendment 1
+  (all chains) is **adopted** (Adam, 2026-10-21): WNT tuning +73 (APC, AMER1,
+  TCF7L2), experimental +8, held-out 0.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

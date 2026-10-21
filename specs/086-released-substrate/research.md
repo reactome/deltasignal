@@ -108,3 +108,9 @@ Caveats:
 
 Adoption is Adam's: generator default `LNG_RELEASE_POOLS=1`, a canonical rebuild, and
 DeltaSignal PR #154 (`CYCLE_MAX_STEPS` 10, inert without release pools).
+
+## Adoption (2026-10-21)
+
+Adam: "ok". The generator default is `LNG_RELEASE_POOLS=1` (LNG PR #121; merging it needs
+Adam's review). DeltaSignal's `CYCLE_MAX_STEPS=10` merges with this spec. The canonical
+rebuild follows the generator merge, and it must reproduce `rlp2` on every prediction.

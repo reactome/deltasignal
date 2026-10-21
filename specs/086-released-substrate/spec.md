@@ -1,6 +1,6 @@
 # specs/086: a substrate released from the complex that degrades it (analysis, design pending)
 
-**Status:** analysis and rule 2026-10-21. Arm `rlp` failed its predictions (1 of 20 variant chains). Amendment 1 (all chains, post hoc), arm `rlp2`: **gate passes**, held-out 0, tuning +73 (84 / 11), experimental +8 (10 / 2); APC 5 of 7 fixed. Adoption is Adam's.
+**Status:** analysis and rule 2026-10-21. Arm `rlp` failed its predictions (1 of 20 variant chains). Amendment 1 (all chains, post hoc), arm `rlp2`: **gate passes**, held-out 0, tuning +73 (84 / 11), experimental +8 (10 / 2); APC 5 of 7 fixed. **Adopted** (Adam, 2026-10-21: "ok").
 
 Adam, 2026-10-21: "yes" to counting the pattern behind the APC inversion.
 
