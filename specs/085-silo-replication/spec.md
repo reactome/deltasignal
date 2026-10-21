@@ -1,6 +1,6 @@
 # specs/085: silo bridges re-measured on today's networks (replication)
 
-**Status:** pre-registered 2026-10-21, before the arm. No code change.
+**Status:** pre-registered 2026-10-21, before the arm. **Gate fails as predicted**: held-out −90 (44 / 134), tuning +48, experimental +1; 73% of losses are NORMAL turned into a change call. The two-copy direction is closed. Results in `research.md`.
 
 Adam, 2026-10-21: "continue", on replicating before closing the two-copy direction.
 
