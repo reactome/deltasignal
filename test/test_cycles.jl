@@ -531,6 +531,43 @@ end
     @test DS.pools_from_json(old)[1].bases == ["A"]   # a table written before specs/081
 end
 
+@testset "a release pool: the released copy reads the free state (specs/086)" begin
+    # beta-catenin S binds the destruction complex DC (v1 -> C1), a kinase phosphorylates it
+    # (v2 -> C2), a phosphatase dephosphorylates it (v3 -> C3), the release v4 makes P,
+    # which goes to the nucleus (vt -> N). The pool: C3 (base) and S; P is its carrier with
+    # release v4, reading S through released_twin; recycle P -> S closes the component.
+    ids = ["S", "DC", "v1", "C1", "K", "v2", "C2", "PP", "v3", "C3", "v4", "P", "vt", "N"]
+    nodes = Dict(k => DS.NetworkNode(k, "R-" * k, "protein", nothing, k, BL) for k in ids)
+    E = [("S", "v1", "input", true), ("DC", "v1", "input", true), ("v1", "C1", "output", false),
+         ("C1", "v2", "input", true), ("K", "v2", "catalyst", true), ("v2", "C2", "output", false),
+         ("C2", "v3", "input", true), ("PP", "v3", "catalyst", true), ("v3", "C3", "output", false),
+         ("C3", "v4", "input", true), ("v4", "P", "output", false), ("P", "vt", "input", true),
+         ("vt", "N", "output", false), ("S", "P", "released_twin", false), ("P", "S", "recycle", false)]
+    edges = [edge(s, t, et; and = a) for (s, t, et, a) in E]
+    paths = [DS.PoolPath("S", "C3", [("S", "C1", ["v1"]), ("C1", "C2", ["v2"]), ("C2", "C3", ["v3"])], true),
+             DS.PoolPath("C3", "S", [("C3", "S", ["v4"])], false)]
+    pool = DS.CyclePool("release1", ["C3", "S"], "C3", paths, ["C1", "C2"], [("P", "v4")])
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict{String, Set{String}}(), nothing, [pool])
+    go(obs) = with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        o = Dict(k => (1.0, 1.0) for k in ("DC", "K", "PP"))
+        for (k, v) in obs; o[k] = (v, 1.0); end
+        DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    r0 = go(Dict{String, Float64}())
+    @test r0.converged && r0.diagnostics["cycle_pools_solved"] == 1
+    @test fold(r0, "N") ≈ 1.0 atol = 1e-9
+    ko = go(Dict("DC" => 0.0))               # no destruction complex: all of it free, ×1/φ₀
+    @test fold(ko, "S") ≈ 10.0 rtol = 1e-6
+    @test fold(ko, "P") ≈ 10.0 rtol = 1e-6   # the released copy follows the free state
+    @test fold(ko, "N") ≈ 10.0 rtol = 1e-6
+    oe = go(Dict("DC" => 80.0))              # more destruction complex: less free
+    @test fold(oe, "N") < 0.2
+    @test fold(go(Dict("K" => 0.0)), "N") > 5.0    # no kinase: binding stalls, free rises
+    # the 4-step path is within the limit (it is 7 for beta-catenin)
+    @test DS.CYCLE_MAX_STEPS == 10
+end
+
 @testset "configuration: DS_CYCLE_CARRIERS" begin
     for bad in ("On", "yes", "")
         with_env("DS_CYCLE_CARRIERS" => bad) do

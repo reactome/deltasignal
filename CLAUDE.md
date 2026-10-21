@@ -448,6 +448,9 @@ env vars only override for benchmark sweeps:
   (generator `LNG_RECYCLE_POOLS`, default off) joins a modification cycle into one
   component and is never an input. The solve reports `recycle_edges`
   (`src/core/recycle.jl`); the bench never counts it against a root.
+  A release pool (generator `LNG_RELEASE_POOLS`, default on since specs/086) lists
+  the released copy as its carrier, reading the free state through a
+  `released_twin` edge; paths may be up to 10 steps (`CYCLE_MAX_STEPS`).
 - `DS_SELF_FED_MODE=off` (default; `entry` measured and **refuted**: TP53 −190,
   PIP3 −126, experimental −66) | `entry` (specs/040 rule A): in an
   iterated cyclic component, an input fed by nothing except what it feeds
@@ -890,6 +893,15 @@ for the last feature that touched it rather than re-deriving from the code.
   arm failed (PDGF −8: it fed copies a specialization bridge already supplies).
   Amendment 1 (only unsupplied forms) is **adopted** (Adam, 2026-10-21): ATM in Cell
   Cycle Checkpoints +6 curator, +4 experimental, nothing broken.
+- `specs/085-silo-replication/` — silo bridges re-measured on today's networks:
+  held-out −90, 73% of losses NORMAL turned into a change call. The positional silo
+  ("two copies") is closed as an accuracy lever.
+- `specs/086-released-substrate/` — a protein bound, modified and released by a
+  complex, whose released copy carries on (β-catenin and the destruction complex),
+  as a free/bound pool whose released copy reads the free state (generator
+  `LNG_RELEASE_POOLS`). The first arm captured 1 of 20 variant chains; amendment 1
+  (all chains) is **adopted** (Adam, 2026-10-21): WNT tuning +73 (APC, AMER1,
+  TCF7L2), experimental +8, held-out 0.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -925,7 +937,7 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 516 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
+| `test/test_cycles.jl` | 524 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 217 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
