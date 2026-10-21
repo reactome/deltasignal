@@ -1258,6 +1258,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["cycle_pools_solved"] += int(ds_result.get("cycle_pools_solved") or 0)
             SOLVE_TALLY["recycle_edges"] += int(ds_result.get("recycle_edges") or 0)   # specs/081
             SOLVE_TALLY["self_activators"] += int(ds_result.get("self_activators") or 0)   # specs/083
+            SOLVE_TALLY["carrier_component_edges"] += int(ds_result.get("carrier_component_edges") or 0)   # specs/084
+            SOLVE_TALLY[f"carrier_component_rule={ds_result.get('carrier_component_rule', 'unknown')}"] += 1
             SOLVE_TALLY[f"self_activator_rule={ds_result.get('self_activator_rule', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_pools_multistep"] += int(ds_result.get("cycle_pools_multistep") or 0)
             SOLVE_TALLY[f"cycle_carriers={ds_result.get('cycle_carriers', 'unknown')}"] += 1
@@ -1658,6 +1660,11 @@ def main():
     if "balance" in yrules and SOLVE_TALLY["cycle_pools_solved"] == 0:
         raise SystemExit("DS_CYCLE_MODE=balance but no solve used a pool; the arm is the control.")
     print(f"Recycle edges: {SOLVE_TALLY['recycle_edges']} edge-solves (specs/081)")
+    crules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_component_rule="))
+    print(f"Carrier component twins: rule {'/'.join(crules) or 'unknown'}, "
+          f"{SOLVE_TALLY['carrier_component_edges']} edge-solves (specs/084)")
+    if "on" in crules and SOLVE_TALLY["carrier_component_edges"] == 0:
+        raise SystemExit("DS_CARRIER_COMPONENT_TWIN=on but no solve added a component edge; the arm is the control.")
     arules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_activator_rule="))
     print(f"Self-contained activators: rule {'/'.join(arules) or 'unknown'}, "
           f"{SOLVE_TALLY['self_activators']} slot-solves (specs/083)")

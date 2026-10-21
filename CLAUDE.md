@@ -483,6 +483,12 @@ env vars only override for benchmark sweeps:
   `carrier_loop_twin_edges`.
   A bundle without the table reports `<mode>: no carrier table` and solves as
   `off`, and the bench refuses it.
+  `DS_CARRIER_COMPONENT_TWIN=off` (default; specs/084, pre-registered) | `on`:
+  under `closed_twin`, a closed free form with no starting copy of its own
+  entity (a complex the pathway only regenerates, e.g. the ATM-carrying DSB
+  complex in Cell Cycle Checkpoints) gains AND in-edges (`carrier_component`)
+  from the starting copies of the maximal entities it contains. Reports
+  `carrier_component_rule` and `carrier_component_edges`.
   `DS_CARRIER_LOOP_OPEN=fed_single` (**default since 2026-10-19**, specs/077
   amendment 1, post hoc; held-out +65 (84 / 19), experimental −5 (every loss
   traced: release artefacts or threshold shifts), faithful build +272) | `off`
@@ -914,7 +920,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 516 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 195 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19 |
+| `test/test_carrier_loops.jl` | 214 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |

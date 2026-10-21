@@ -130,6 +130,10 @@ function solve_steady_state(
     carrier_open = carrier_loop_open()   # specs/077
     network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges, carrier_loop_twins, carrier_open_edges =
         apply_carrier_loops(network, carrier_loop_mode(); open = carrier_open)
+    # specs/084: closed regenerated complexes fed by their components' starting copies
+    carrier_component_rule = carrier_component_twin() ? (carrier_loop_mode() == "closed_twin" ? "on" :
+                             "on: inert under DS_CARRIER_LOOP_MODE=$(carrier_loop_mode())") : "off"
+    carrier_component_edges = count(e -> e.edge_type == CARRIER_COMPONENT_EDGE, network.edges)
     # specs/059: a recycled copy of an entity also reads its root copies.
     network, recycled_twin_rule, recycled_twin_edges = apply_recycled_twins(network, recycled_twin_mode())
     # specs/063: a dead-end binding complex depletes its free partner.
@@ -373,6 +377,8 @@ function solve_steady_state(
     result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
     result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges
     result.diagnostics["carrier_loop_twin_edges"] = carrier_loop_twins
+    result.diagnostics["carrier_component_rule"] = carrier_component_rule   # specs/084
+    result.diagnostics["carrier_component_edges"] = carrier_component_edges
     result.diagnostics["carrier_loop_open_rule"] = carrier_open
     result.diagnostics["carrier_loop_open_edges"] = carrier_open_edges
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule

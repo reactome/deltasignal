@@ -56,7 +56,7 @@ export parse_logic_network, parse_uuid_mapping, parse_set_mappings, parse_comple
 export parse_containment, network_containment_json, containment_from_json
 export parse_drug_list, drug_stids_json, drug_stids_from_json, drug_mode, drug_uuids, pools_json, pools_from_json
 export parse_pathogen_list, pathogen_stids_json, pathogen_stids_from_json, pathogen_mode, pathogen_uuids
-export parse_carrier_loops, carrier_loops_json, carrier_loops_from_json, carrier_loop_mode, carrier_loop_open, apply_carrier_loops, solved_carrier_network
+export parse_carrier_loops, carrier_loops_json, carrier_loops_from_json, carrier_loop_mode, carrier_loop_open, carrier_component_twin, apply_carrier_loops, solved_carrier_network
 export recycled_twin_mode, apply_recycled_twins
 export sequestration_mode, apply_sequestration
 export parse_pools, cycle_mode, cycle_carriers, PoolPath
