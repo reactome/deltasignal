@@ -1,0 +1,103 @@
+reaction	name	pathways	substrate_leaves	drop_A	drop_B
+R-HSA-5674022	BRAP autoubiquitinates	R-HSA-5673001	5		
+R-HSA-5658424	KBTBD7:CUL3:RBX1 ubiquitinates NF1	R-HSA-5673001	4		
+R-HSA-1358792	RNF41 ubiquitinates activated ERBB3	R-HSA-1227986	3		RNF41 [cytosol]
+R-HSA-1358790	RNF41 ubiquitinates ERBB3	R-HSA-1227986	2		RNF41 [cytosol]
+R-HSA-1358789	Self-ubiquitination of RNF41	R-HSA-1227986	1		
+R-HSA-1918095	CUL5 mediates ubiquitination of ERBB2	R-HSA-1227986	4		
+R-HSA-1918092	CHIP (STUB1) mediates ubiquitination of ERBB2	R-HSA-1227986	4		
+R-HSA-9974238	CRL4A-DCAF8L1 polyubiquitinates BRCA1	R-HSA-5693606,R-HSA-5693532,R-HSA-73894	1		
+R-HSA-9974220	CRL4A-DCAF8L1,CRL4-DCAF8L2 polyubiquitinates BARD1	R-HSA-5693606,R-HSA-5693532,R-HSA-73894	1		
+R-HSA-5683077	RNF8 and RNF168 ubiquitinate KDM4A,B	R-HSA-5693606,R-HSA-5693532,R-HSA-73894	8		
+R-HSA-5682858	RNF8 and RNF168 ubiquitinate H2AFX	R-HSA-5693606,R-HSA-5693532,R-HSA-73894	2		
+R-HSA-5684071	RNF4 ubiquitinates MDC1	R-HSA-5693567,R-HSA-5693532,R-HSA-73894	8		
+R-HSA-6785361	Monoubiquitination of FANCD2:FANCI	R-HSA-6783310,R-HSA-73894	12		
+R-HSA-6782943	UV-DDB ubiquitinates XPC	R-HSA-5696398,R-HSA-73894	9	CUL4A [nucleoplasm]; CUL4B [nucleoplasm]; DDB1 [nucleoplasm]; DDB2 [nucleoplasm]; RBX1 [nucleoplasm]	
+R-HSA-6781867	ERCC8:DDB1:CUL4:RBX1 ubiquitinates ERCC6 and RNA Pol II	R-HSA-5696398,R-HSA-73894	6	CUL4A [nucleoplasm]; CUL4B [nucleoplasm]; DDB1 [nucleoplasm]; ERCC8 [nucleoplasm]; RBX1 [nucleoplasm]	
+R-HSA-5652009	RAD18:UBE2B or RBX1:CUL4:DDB1:DTL monoubiquitinates PCNA	R-HSA-73893,R-HSA-73894	4	UBE2B [nucleoplasm]	
+R-HSA-5655193	KIAA0101 double monoubiquitination	R-HSA-73893,R-HSA-73894	1		
+R-HSA-5655170	RCHY1 monoubiquitinates POLH	R-HSA-73893,R-HSA-73894	2	RCHY1 [nucleoplasm]	
+R-HSA-6804879	MDM2 ubiquitinates TP53	R-HSA-2559583,R-HSA-69620,R-HSA-3700989	3		MDM4 [nucleoplasm]; p-S166,S188-MDM2 [nucleoplasm]
+R-HSA-3788724	Cdh1:APC/C ubiquitinates EHMT1 and EHMT2	R-HSA-2559583	20		
+R-HSA-1977296	NEDD4 ubiquitinates ERBB4jmAcyt1s80 dimer	R-HSA-1236394	2		
+R-HSA-1253282	ERBB4 ubiquitination by WWP1/ITCH	R-HSA-1236394	3		
+R-HSA-3322429	XIAP monoubiquinates TLE	R-HSA-195721	5	XIAP [nucleoplasm]	
+R-HSA-4641246	ZNRF3 autoubiquitinates to promote its internalization	R-HSA-195721	9		
+R-HSA-4641253	ZNRF3 ubiquitinates FZD to promote its downregulation	R-HSA-195721	9		
+R-HSA-1504190	DVL is ubiquitinated by CUL3:KLHL12:RBX1	R-HSA-195721	6	RBX1 [cytosol]	
+R-HSA-4641159	DVL1 is ubiquitinated by HECW1	R-HSA-195721	2	HECW1 [cytosol]	
+R-HSA-4641129	AXIN is ubiquitinated by SMURF2	R-HSA-195721	3	SMURF2 [cytosol]	
+R-HSA-3640861	RNF146 ubiquitinates ADP-ribosylated AXIN	R-HSA-195721	5	RNF146 [cytosol]	
+R-HSA-4608852	SMURF1/2 ubiquitinates PRICKLE1	R-HSA-195721	1		
+R-HSA-2130286	Multi-ubiquitination of phospho-beta-catenin by RBX1:SCF(beta-TrCP1)	R-HSA-195721	10		
+R-HSA-8848829	CBL autoubiquitinates	R-HSA-8848021	1		
+R-HSA-6804724	MDM2 ubiquitinates phosphorylated MDM4	R-HSA-69620,R-HSA-3700989	2		
+R-HSA-264444	Autoubiquitination of phospho-COP1(Ser-387 )	R-HSA-69620	1		
+R-HSA-69598	Ubiquitination of phosphorylated CDC25A	R-HSA-69620	6		
+R-HSA-1363331	Ubiquitination of p130 (RBL2) by SCF (Skp2)	R-HSA-453279	5		CKS1B [nucleoplasm]; CUL1 [nucleoplasm]; SKP1 [nucleoplasm]; SKP2 [nucleoplasm]
+R-HSA-187575	Ubiquitination of phospho-p27/p21	R-HSA-453279,R-HSA-69242	1	CKS1B [nucleoplasm]	
+R-HSA-3000335	SCF-beta-TrCp1/2 ubiquitinates phosphorylated BORA	R-HSA-453274	5	BTRC [cytosol]; CUL1 [cytosol]; FBXW11 [cytosol]; SKP1 [cytosol]	
+R-HSA-8854041	SCF-FBXL7 ubiquitinates AURKA	R-HSA-453274	5	CUL1 [cytosol]; FBXL7 [cytosol]; RBX1 [cytosol]; SKP1 [cytosol]	
+R-HSA-8854051	SCF-FBXL18 ubiquitinates FBXL7	R-HSA-453274	1		
+R-HSA-6804253	MDM2 ubiquitinates JMY	R-HSA-3700989	1		
+R-HSA-6804942	MDM2 homodimers auto-ubiquitinate	R-HSA-3700989	1		
+R-HSA-6804441	RNF34 or RFFL ubiquitinates phosphorylated TP53	R-HSA-3700989	1		
+R-HSA-6798373	MDM2 ubiquitinates DYRK2	R-HSA-3700989	1		
+R-HSA-2186785	RNF111 ubiquitinates SMAD7	R-HSA-170834	2	RNF111 [nucleoplasm]	
+R-HSA-2176502	NEDD4L ubiquitinates SMAD2/3	R-HSA-170834	4		NEDD4L [nucleoplasm]
+R-HSA-2186747	Ubiquitination of SKI/SKIL by RNF111/SMURF2	R-HSA-170834	6	RNF111 [nucleoplasm]; SMURF2 [nucleoplasm]	
+R-HSA-2179276	SMURF2 monoubiquitinates SMAD3	R-HSA-170834	4	SMURF2 [nucleoplasm]	
+R-HSA-870449	TRIM33 monoubiquitinates SMAD4	R-HSA-170834	4	TRIM33 [nucleoplasm]	
+R-HSA-2187368	STUB1 (CHIP) ubiquitinates SMAD3	R-HSA-170834	2	STUB1 [cytosol]	
+R-HSA-173542	SMURF2 ubiquitinates SMAD2	R-HSA-170834	2	SMURF2 [cytosol]	
+R-HSA-2169050	SMURFs/NEDD4L ubiquitinate phosphorylated TGFBR1 and SMAD7	R-HSA-170834	4	SMURF1 [cytosol]; SMURF2 [cytosol]	
+R-HSA-2160935	SMURF1 ubiquitinates RHOA	R-HSA-170834	1		
+R-HSA-5362412	SYVN1 ubiquitinates Hh C-terminal fragments	R-HSA-5358351	9	SYVN1(1-617) [endoplasmic reticulum membrane]	
+R-HSA-5632648	SMURF1/2 ubiquitinates PTCH1	R-HSA-5358351	3	SMURF1 [cytosol]; SMURF2 [cytosol]	
+R-HSA-5635864	NUMB:ITCH ubiquitinates GLI1	R-HSA-5358351	3	ITCH [cytosol]	
+R-HSA-5635856	SPOP:CUL3:RBX1 ubiquitinates GLI2,3	R-HSA-5358351	4	RBX1 [nucleoplasm]	
+R-HSA-5610746	SCF(beta-TrCP) ubiquitinates p-GLI3	R-HSA-5358351	2		
+R-HSA-5610745	SCF(beta-TrCP) ubiquitinates p-GLI2	R-HSA-5358351	2		
+R-HSA-5610742	SCF(beta-TrCP) ubiquitinates p-GLI1	R-HSA-5358351	2		
+R-HSA-9934753	CBLL1 ubiquitinates CDH1	R-HSA-446728	2	CBLL1 [cytosol]	
+R-HSA-9958873	Cell-to-cell contact through homophilic cadherin interactions inhibits RAC1/CDC42 ubiquitination	R-HSA-446728	2		
+R-HSA-9766227	MDM2 mediates CDH1 ubiquitination	R-HSA-446728	2	MDM2 [cytosol]	
+R-HSA-9011300	ZSWIM8 ubiquitinates ROBO3.1	R-HSA-376176	6	CUL2 [cytosol]; ELOB [cytosol]; ELOC [cytosol]; RBX1 [cytosol]; ZSWIM8 [cytosol]	
+R-HSA-6807106	PTEN undergoes monoubiquitination	R-HSA-1257604	1		
+R-HSA-6807134	NEDD4, WWP2, CHIP and XIAP polyubiquitinate PTEN	R-HSA-1257604	1		
+R-HSA-8948775	MKRN1 polyubiquitinates PTEN	R-HSA-1257604	1		
+R-HSA-8948832	RNF146 polyubiquitinates PARylated PTEN	R-HSA-1257604	1		
+R-HSA-8851011	TRIM27 polyubiquitinates PTEN	R-HSA-1257604	2	TRIM27 [cytosol]	
+R-HSA-934604	Phosphorylated SPRY2 is ubiquitinated by CBL	R-HSA-5654736,R-HSA-5654738,R-HSA-5654741,R-HSA-5654743	2	CBL [cytosol]	
+R-HSA-5654672	CBL ubiquitinates FRS2 and FGFR1	R-HSA-5654736	3		
+R-HSA-5654677	CBL ubiquitinates FRS2 and FGFR2	R-HSA-5654738	3		
+R-HSA-5654679	CBL ubiquitinates FRS2 and FGFR3	R-HSA-5654741	3		
+R-HSA-5654684	CBL ubiquitinates FRS2 and FGFR4	R-HSA-5654743	3		
+R-HSA-1852623	Ubiquitination of NICD1 by FBWX7	R-HSA-1980143	6		CUL1 [nucleoplasm]; FBXW7alpha [nucleoplasm]; FBXW7gamma [nucleoplasm]; RBX1 [nucleoplasm]; SKP1 [nucleoplasm]
+R-HSA-1980118	ARRB mediates NOTCH1 ubiquitination	R-HSA-1980143	2		
+R-HSA-1980074	Ubiquitination of DLL/JAG ligands upon binding to NOTCH1	R-HSA-1980143	4		
+R-HSA-1912357	ITCH ubiquitinates DTX	R-HSA-1980143	4		
+R-HSA-1912386	Ubiquitination of NOTCH1 by ITCH in the absence of ligand	R-HSA-1980143	4		
+R-HSA-2172172	Ubiquitination of DLL/JAG ligands upon binding to NOTCH2	R-HSA-1980145	4		
+R-HSA-8875183	CBL monoubiquitinates activated MET	R-HSA-6806834	2	p-Y-CBL [cytosol]	
+R-HSA-8875431	LRIG1 undergoes ubiquitination	R-HSA-6806834	2		
+R-HSA-8952419	SMURFs ubiquitinate RUNX3	R-HSA-8878159	1		
+R-HSA-8952382	MDM2 polyubiquitinates RUNX3	R-HSA-8878159	2	p-S166,S188-MDM2 [nucleoplasm]	
+R-HSA-8956684	ITCH polyubiquitinates TP73	R-HSA-8878171	1		
+R-HSA-9929350	Ubiquitination of CD274 by BTRC-SCF E3-ligase complex	R-HSA-388841	5		
+R-HSA-9929490	CD274 ubiquitination by SPOP:CUL3:RBX1 complex	R-HSA-388841	3	CUL3 [cytosol]; RBX1 [cytosol]	
+R-HSA-182986	CBL-mediated ubiquitination of CIN85	R-HSA-177929	16		
+R-HSA-183051	CBL ubiquitinates Sprouty	R-HSA-177929	4		
+R-HSA-183084	CBL escapes CDC42-mediated inhibition by down-regulating the adaptor molecule Beta-Pix	R-HSA-177929	12		
+R-HSA-183089	CBL binds and ubiquitinates phosphorylated Sprouty	R-HSA-177929	4		
+R-HSA-182993	Ubiquitination of stimulated EGFR (CBL)	R-HSA-177929	9		
+R-HSA-183036	Ubiquitination of stimulated EGFR (CBL:GRB2)	R-HSA-177929	10		
+R-HSA-9008076	WWP1 polyubiquitinates RUNX2	R-HSA-8878166	4	WWP1 [cytosol]	
+R-HSA-9009308	STUB1 polyubiquitinates RUNX2	R-HSA-8878166	3	STUB1 [cytosol]	
+R-HSA-9009403	SMURF1 polyubiquitinates RUNX2	R-HSA-8878166	3	SMURF1 [cytosol]	
+R-HSA-8939706	SCF(SKP2) polyubiquitinates RUNX2	R-HSA-8878166	6	CUL1 [nucleoplasm]; RBX1 [nucleoplasm]; SKP1 [nucleoplasm]; SKP2 [nucleoplasm]	
+R-HSA-75824	Ubiquitination of Cyclin D1	R-HSA-69242	1		
+R-HSA-69015	Cytoplasmic phosphorylated Cdc6 is ubiquitinated by the anaphase-promoting complex	R-HSA-69242	1		
+R-HSA-68946	Phosphorylated Orc1 is ubiquitinated while still associated with chromatin	R-HSA-69242	1		
+R-HSA-5684250	SCF betaTrCP ubiquitinates NFKB p105 within p-S927, S932-NFkB p105:TPL2:ABIN2 	R-HSA-450294	7	BTRC [cytosol]; CUL1 [cytosol]; FBXW11 [cytosol]; SKP1 [cytosol]	
+R-HSA-983153	E1 mediated ubiquitin activation	R-HSA-983169	6		
