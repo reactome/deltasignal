@@ -25,7 +25,7 @@ By pathway:
 2. Only EGFR, Cell Cycle Checkpoints and Mitotic G1 move: **holds**.
 3. No prediction for EGFR or held-out: EGFR 0, held-out 0.
 
-## The Mitotic G1 loss (traced)
+## The Mitotic G1 loss (localised, not traced end to end)
 
 All 8 changed G1 cases are at CCNA1 and CCNA2, the readouts that run through the
 SCF(Skp2):Cks1 ligase:
@@ -35,7 +35,7 @@ SCF(Skp2):Cks1 ligase:
 The rule drops SCF(Skp2)'s release after "Ubiquitination of p130 (RBL2) by SCF (Skp2)"
 (R-HSA-1363331), so the ligase reads its supply. That supply is drained by the ubiquitin
 pass's edges on free CKS1B, the defect specs/077 traced. specs/078's generator fix for it
-lost the CBL-class cases. So the G1 loss is a second, known defect exposed, not this rule
+lost the CBL-class cases. So the G1 loss is most likely a second, known defect exposed, not this rule
 being wrong. specs/077 saw the same interaction.
 
 ## Reading
