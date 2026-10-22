@@ -497,6 +497,7 @@ env vars only override for benchmark sweeps:
   `DS_CARRIER_LOOP_OPEN=fed_single` (**default since 2026-10-19**, specs/077
   amendment 1, post hoc; held-out +65 (84 / 19), experimental −5 (every loss
   traced: release artefacts or threshold shifts), faithful build +272) | `off`
+  | `fed_single_ub` (specs/088, pre-registered: ubiquitin is not a displacer)
   (the earlier solver) | `fed` (fails its gate: intrinsic apoptosis −26).
   `fed_single` is `fed` that keeps a release with a second non-cofactor input
   (a displacer, BAD freeing tBID). The rule: an OPEN loop's free form that keeps a producer outside
@@ -902,6 +903,12 @@ for the last feature that touched it rather than re-deriving from the code.
   `LNG_RELEASE_POOLS`). The first arm captured 1 of 20 variant chains; amendment 1
   (all chains) is **adopted** (Adam, 2026-10-21): WNT tuning +73 (APC, AMER1,
   TCF7L2), experimental +8, held-out 0.
+- `specs/088-ub-not-displacer/` — `DS_CARRIER_LOOP_OPEN=fed_single_ub`: ubiquitin
+  does not count as a release's displacer, so a ligase released after ubiquitinating its
+  target (MDM2:MDM4) stops reading its own release. Gate passes, net 0 (held-out 0, tuning
+  −4, experimental 0): MDM2 knockout fixed in Cell Cycle Checkpoints, Mitotic G1 −6 / −2
+  through the SCF(Skp2) release exposing the CKS1B drain. **Not adopted** (Adam,
+  2026-10-22); to revisit with a fix for that drain.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -939,7 +946,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 524 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 217 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
+| `test/test_carrier_loops.jl` | 235 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |

@@ -300,24 +300,28 @@ end
     # displacement and stays; a cofactor beside it does not make it one
     @test fold(run("closed_twin", "fed_single"), "R") ≈ 3.0 rtol = 1e-6
     @test run("closed_twin", "fed_single").diagnostics["carrier_loop_open_edges"] == 1
-    for (extra, rid, kept) in (("D", "R-D", true), ("ATP", "R-ALL-113592", false))
+    for (extra, rid, kept) in (("D", "R-D", true), ("ATP", "R-ALL-113592", false), ("Ub", "R-HSA-68524", :ub))
         ids2 = [ids; extra]
         nodes2 = Dict(node.(ids2))
         nodes2[extra] = DS.NetworkNode(extra, rid, "protein", nothing, extra, BL)
         net2 = DS.ReactionNetwork(nodes2, [edges; edge(extra, "r2")], Dict{String, DS.SetExpansionMapping}(),
                                   Set{String}(), Dict{String, Set{String}}(), nothing, nothing, nothing, tbl)
-        for open in ("fed", "fed_single")
+        # specs/088: ubiquitin beside the release is a displacer under fed_single only
+        keeps(open) = open == "fed" ? false : (kept === :ub ? open == "fed_single" : kept)
+        for open in ("fed", "fed_single", "fed_single_ub")
             n2, _, _, _, _, nopen = DS.apply_carrier_loops(net2, "closed_twin"; open = open)
             has = any(e -> e.parent_uuid == "r2" && e.child_uuid == "R", n2.edges)
-            @test has == (open == "fed_single" && kept)
+            @test has == keeps(open)
             @test nopen == (has ? 0 : 1)
         end
-        r2 = with_env("DS_CARRIER_LOOP_MODE" => "closed_twin", "DS_CARRIER_LOOP_OPEN" => "fed_single") do
-            DS.solve_steady_state(net2, Dict("S" => (3.0, 1.0), "A" => (2.0, 1.0)),
-                                  DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+        for open in ("fed_single", "fed_single_ub")
+            r2 = with_env("DS_CARRIER_LOOP_MODE" => "closed_twin", "DS_CARRIER_LOOP_OPEN" => open) do
+                DS.solve_steady_state(net2, Dict("S" => (3.0, 1.0), "A" => (2.0, 1.0)),
+                                      DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+            end
+            @test r2.diagnostics["carrier_loop_open_rule"] == open
+            @test r2.diagnostics["carrier_loop_open_edges"] == (keeps(open) ? 0 : 1)
         end
-        @test r2.diagnostics["carrier_loop_open_rule"] == "fed_single"
-        @test r2.diagnostics["carrier_loop_open_edges"] == (kept ? 0 : 1)
     end
     for bad in ("Fed", "on", "all", "", "single")
         with_env("DS_CARRIER_LOOP_OPEN" => bad) do

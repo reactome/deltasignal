@@ -1641,7 +1641,7 @@ def main():
     orules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_loop_open_rule="))
     print(f"Open carrier loops: rule {'/'.join(orules) or 'unknown'}, "
           f"{SOLVE_TALLY['carrier_loop_open_edges']} release edge-solves dropped (specs/077)")
-    if any(r in ("fed", "fed_single") for r in orules) and SOLVE_TALLY["carrier_loop_open_edges"] == 0:
+    if any(r in ("fed", "fed_single", "fed_single_ub") for r in orules) and SOLVE_TALLY["carrier_loop_open_edges"] == 0:
         raise SystemExit(f"DS_CARRIER_LOOP_OPEN={'/'.join(orules)} but no solve dropped an open-loop release; the arm is the control.")
     yrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_rule="))
     yc = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carriers="))
