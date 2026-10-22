@@ -44,3 +44,9 @@ Correct where it acts (MDM2), net zero overall, because the SCF(Skp2) release it
 hiding the CKS1B drain. **Not recommended for adoption now.** It is worth revisiting together with a
 fix for the CKS1B drain. That drain needs the ligase's own subunits excluded from the
 ubiquitin pass without losing the CBL class (specs/078), and is not designed here.
+
+## Decision
+
+Adam, 2026-10-22: "go with your recommendation. we could revisit later as it has positive
+attributes". **Not adopted.** `fed_single` stays the default; `fed_single_ub` stays reachable as
+an opt-in, to re-measure once the CKS1B drain (ubiquitin pass on a ligase's own subunits) is fixed.

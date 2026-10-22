@@ -903,6 +903,12 @@ for the last feature that touched it rather than re-deriving from the code.
   `LNG_RELEASE_POOLS`). The first arm captured 1 of 20 variant chains; amendment 1
   (all chains) is **adopted** (Adam, 2026-10-21): WNT tuning +73 (APC, AMER1,
   TCF7L2), experimental +8, held-out 0.
+- `specs/088-ub-not-displacer/` — `DS_CARRIER_LOOP_OPEN=fed_single_ub`: ubiquitin
+  does not count as a release's displacer, so a ligase released after ubiquitinating its
+  target (MDM2:MDM4) stops reading its own release. Gate passes, net 0 (held-out 0, tuning
+  −4, experimental 0): MDM2 knockout fixed in Cell Cycle Checkpoints, Mitotic G1 −6 / −2
+  through the SCF(Skp2) release exposing the CKS1B drain. **Not adopted** (Adam,
+  2026-10-22); to revisit with a fix for that drain.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
