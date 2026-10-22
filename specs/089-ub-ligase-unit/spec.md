@@ -1,6 +1,6 @@
 # specs/089: a ubiquitination does not deplete its own ligase (curated active unit)
 
-**Status:** pre-registered 2026-10-22, before the implementation, the build and the arms. **Gate fails on both arms by 2 held-out cases** (`ulu`: held-out −2 (1 / 3, p 0.63), tuning +22 (p 0.0001), experimental +3; `ulu88` the same totals, plus MDM2). Every loss is traced in `research.md`. Adoption is Adam's decision.
+**Status:** pre-registered 2026-10-22, before the implementation, the build and the arms. **Gate fails on both arms by 2 held-out cases** (`ulu`: held-out −2 (1 / 3, p 0.63), tuning +22 (p 0.0001), experimental +3; `ulu88` the same totals, plus MDM2). Every loss is traced in `research.md`. **Adopted** (Adam, 2026-10-22: "ok Lets go with your recommendation"), `ulu` without specs/088: generator `LNG_UB_LIGASE_UNIT` default on (LNG PR #122); the canonical rebuild follows its merge.
 
 Adam, 2026-10-22: "yes" to a spec for the CKS1B drain, after specs/088 was not adopted
 ("we could revisit later as it has positive attributes").

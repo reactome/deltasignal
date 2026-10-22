@@ -69,3 +69,10 @@ churns EGFR (0, 9 / 9), and loses CCND1 and CDK4 knockout at CCNA1 by a threshol
 equal `ulu`'s.
 
 Adoption is Adam's decision; the gate as registered fails.
+
+## Decision
+
+Adam, 2026-10-22: "ok Lets go with your recommendation", i.e. adopt `ulu` (the generator rule
+alone, not with specs/088) despite the 2-case held-out shortfall. `LNG_UB_LIGASE_UNIT` is on
+by default in LNG PR #122. Once it is merged, the canonical catalog is rebuilt from generator
+main and checked to reproduce `ulu` on every prediction.
