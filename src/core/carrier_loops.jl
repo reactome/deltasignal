@@ -54,6 +54,9 @@ passing a signal along (the IFN alpha/beta receptor recruiting and releasing
 STAT2), and `all` cut it. `fed_single` (specs/077 amendment 1) is `fed` that
 keeps a release whose reaction has two or more non-cofactor `input` parents: a
 displacement (BAD freeing tBID from BCL-2), where the bound share is what moves.
+`fed_single_ub` (specs/088) is `fed_single` that does not count ubiquitin as that
+second input: a ligase released after ubiquitinating its target (MDM2:MDM4, CBL) is a
+carrier release, not a displacement.
 `fed_single` is the default since 2026-10-19 (specs/077, adopted by Adam).
 
 An observation still wins: a pinned free form keeps its pin. A bundle without
@@ -61,7 +64,11 @@ An observation still wins: a pinned free form keeps its pin. A bundle without
 """
 
 const DS_VALID_CARRIER_LOOP_MODES = Set(["off", "closed", "closed_supply", "closed_twin", "all"])
-const DS_VALID_CARRIER_LOOP_OPEN = Set(["off", "fed", "fed_single"])
+const DS_VALID_CARRIER_LOOP_OPEN = Set(["off", "fed", "fed_single", "fed_single_ub"])
+
+# specs/088: ubiquitin is a donor co-substrate, never a displacer (the generator's
+# `_UBIQUITIN_STIDS`, Release 97)
+const UBIQUITIN_STIDS = Set(["R-HSA-68524", "R-HSA-113595", "R-HSA-9660007"])
 
 function carrier_loop_open()::String
     value = get(ENV, "DS_CARRIER_LOOP_OPEN", "fed_single")
@@ -106,7 +113,7 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
         mode in ("closed_supply", "closed_twin") && closed && push!(undrained, free)
     end
     open_drop = Set{Tuple{String, String}}()
-    if open in ("fed", "fed_single") && mode != "all"
+    if open in ("fed", "fed_single", "fed_single_ub") && mode != "all"
         # specs/077: an open free form keeps an activating producer that no loop lists
         listed = Dict{String, Set{String}}()
         for (free, src, _) in network.carrier_loops
@@ -119,8 +126,13 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
         end
         # fed_single: a release driven by a second non-cofactor input is a displacement
         displaced = Set{String}()
-        if open == "fed_single"
+        if open in ("fed_single", "fed_single_ub")
             cof = cofactor_uuids(network)
+            if open == "fed_single_ub"
+                for (u, nd) in network.nodes
+                    nd.reactome_id !== nothing && nd.reactome_id in UBIQUITIN_STIDS && push!(cof, u)
+                end
+            end
             ins = Dict{String, Set{String}}()
             for e in network.edges
                 e.is_positive && e.edge_type == "input" && !(e.parent_uuid in cof) &&

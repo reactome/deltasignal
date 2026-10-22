@@ -497,6 +497,7 @@ env vars only override for benchmark sweeps:
   `DS_CARRIER_LOOP_OPEN=fed_single` (**default since 2026-10-19**, specs/077
   amendment 1, post hoc; held-out +65 (84 / 19), experimental −5 (every loss
   traced: release artefacts or threshold shifts), faithful build +272) | `off`
+  | `fed_single_ub` (specs/088, pre-registered: ubiquitin is not a displacer)
   (the earlier solver) | `fed` (fails its gate: intrinsic apoptosis −26).
   `fed_single` is `fed` that keeps a release with a second non-cofactor input
   (a displacer, BAD freeing tBID). The rule: an OPEN loop's free form that keeps a producer outside
@@ -939,7 +940,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 524 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 217 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
+| `test/test_carrier_loops.jl` | 235 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
