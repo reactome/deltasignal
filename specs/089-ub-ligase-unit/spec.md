@@ -74,3 +74,15 @@ Both against `results/e4e7192/dflt086b` on canonical `20261021-2218_f99c4ab`, re
 3. `ulu88`: Mitotic G1 does not lose the 6 curator / 2 experimental cases specs/088 lost,
    and both MDM2-knockout experimental cases stay fixed.
 4. No prediction for the held-out net (RUNX2, TGF-beta and WNT move in ways not traced).
+
+## Network count (after the build, before any arm)
+
+Variant build `20261022-1541_d31f95e_ulu` (LNG `d31f95e`, branch `ub-ligase-unit-089`)
+against canonical `20261021-2218_f99c4ab`, by entity
+(`specs/078-ub-ligase-subunits/count_depletion.py`):
+- depletion edges 727 → 654: **73 removed**, none added, in 18 pathways (TGF-beta 27, WNT 9,
+  NOTCH 6, RUNX2 6, Hedgehog 5, ERBB2 2, PIP3 2, TP53 2, others);
+- every free CKS1B drain is removed: Mitotic G1 (from R-HSA-1363326 and R-HSA-187565) and
+  S phase (from R-HSA-187565);
+- the only other change is 24 `variant_pool` edges removed (ERBB2 6, Mitotic G1 8, S phase 8,
+  Cell Cycle Checkpoints 2): depleter pools no longer needed. Nothing else moves.
