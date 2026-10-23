@@ -77,6 +77,22 @@ function carrier_loop_open()::String
     return value
 end
 
+"""
+specs/093. A carrier-loop release the generator marks `moves` (it carries the
+free form across compartments: MET recycled from the endosome to the plasma
+membrane, L1CAM reinserted) is a return of material, not a partner letting go.
+- `drop` (default): the table is read as before, so `fed_single` may drop it.
+- `keep`: `parse_carrier_loops` leaves such OPEN-loop rows out of the loop table, so the
+  release is an ordinary producer that no carrier-loop rule drops. A table
+  without the column has no moving rows.
+"""
+function carrier_loop_moves()::String
+    value = get(ENV, "DS_CARRIER_LOOP_MOVES", "drop")
+    value in ("drop", "keep") || throw(ArgumentError(
+        "DS_CARRIER_LOOP_MOVES must be drop or keep; got $(repr(value))"))
+    return value
+end
+
 const CARRIER_COMPONENT_EDGE = "carrier_component"
 const DS_VALID_CARRIER_COMPONENT_TWIN = Set(["off", "on"])
 

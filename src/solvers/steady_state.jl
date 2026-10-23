@@ -393,6 +393,7 @@ function solve_steady_state(
     result.diagnostics["carrier_component_rule"] = carrier_component_rule   # specs/084
     result.diagnostics["carrier_component_edges"] = carrier_component_edges
     result.diagnostics["carrier_loop_open_rule"] = carrier_open
+    result.diagnostics["carrier_loop_moves"] = carrier_loop_moves()   # specs/093
     result.diagnostics["carrier_loop_open_edges"] = carrier_open_edges
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
