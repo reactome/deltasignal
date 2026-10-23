@@ -41,7 +41,9 @@ commit.
 > +0.005), curator all +1.05pp, experimental +2.12pp (606 → 624 of 849). Each
 > step is measured in its spec's research.md.
 >
-> Converged: 1,706 / 1,725 curator and 234 / 244 experimental solves.
+> Converged: 1,706 / 1,725 curator and 234 / 244 experimental solves. With the
+> 2026-10-22 review fixes (solver `c3e5898`, `results/c3e5898/rev1022`): no class
+> changes, 1,724 / 1,725 and 244 / 244 (docs/reviews/2026-10-22-review.md).
 >
 > **Against MP-BioPath's published figures:**
 > - Curator: 88.07% / 0.8558 against 83.34% / 0.8063, **+4.73pp**.
