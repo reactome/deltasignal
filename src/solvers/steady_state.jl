@@ -378,6 +378,7 @@ function solve_steady_state(
     result.diagnostics["cycle_rule"] = cycle_rule
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["pool_supply_reach"] = supply_reach
+    result.diagnostics["pool_supply_and"] = ymode == "balance" ? pool_supply_and() : "off"   # specs/090
     result.diagnostics["cycle_carrier_release"] = crelease
     result.diagnostics["cycle_reeval_carrier_rule"] = rcarriers
     result.diagnostics["drug_rule"] = drug_rule
@@ -1831,6 +1832,20 @@ function solve_scc_ordered!(
     pool_stats["cycle_pools_pinned_fallback"] = n_pinned_fallback
     pool_stats["cycle_supply_depletions_held"] = n_supply_depl
     pool_stats["cycle_supply_regulated_kept"] = n_supply_kept
+    # specs/090: mark each state's AND-joined producers, after the supply test
+    # above has filtered them, so the flags align with what the pool reads
+    n_and_groups = 0
+    if pool_supply_and() == "on"
+        for p in pools, (k, prods) in enumerate(p.supply_rxns)
+            ri = p.form_rxn[k]
+            ri == 0 && (p.supply_and[k] = Bool[]; continue)
+            r = rxns_idx[ri]
+            slot = Dict(a => r.activator_is_and[j] for (j, a) in enumerate(r.activator_indices))
+            p.supply_and[k] = Bool[get(slot, a, false) for a in prods]
+            count(p.supply_and[k]) >= 2 && (n_and_groups += 1)
+        end
+    end
+    pool_stats["cycle_supply_and_groups"] = n_and_groups
     pool_stats["cycle_self_fed_inputs"] = n_held_inputs
     # For the final consistency check: managed nodes are held by their pool, not
     # by the forward model (like pinned nodes), and are checked against it.
@@ -2485,6 +2500,7 @@ function solve_steady_state_penalty(
             "cycle_pools_pinned_fallback" => get(index_stats, "cycle_pools_pinned_fallback", 0),
             "cycle_supply_depletions_held" => get(index_stats, "cycle_supply_depletions_held", 0),
             "cycle_supply_regulated_kept" => get(index_stats, "cycle_supply_regulated_kept", 0),
+            "cycle_supply_and_groups" => get(index_stats, "cycle_supply_and_groups", 0),   # specs/090
             "cycle_carrier_release_added" => get(index_stats, "cycle_carrier_release_added", 0),
             # specs/075: re-evaluated pool-fed inputs that are carriers (pairs).
             "cycle_reeval_carriers" => get(index_stats, "cycle_reeval_carriers", 0),

@@ -63,6 +63,24 @@ function cycle_carriers()::Bool
 end
 
 """
+specs/090. How a pool state's producers enter the supply:
+- `off` (default): every producer is its own term of the mean, as before.
+- `on`: a state's AND-joined producers (a complex assembled from the protein
+  and its partners, specs/081's recycle bases) are ONE term, their product
+  capped at 100x as the `hill_sat` AND is; OR producers stay separate terms. A
+  pool whose states have only OR producers is unchanged bit for bit.
+"""
+function pool_supply_and()::String
+    value = get(ENV, "DS_POOL_SUPPLY_AND", "off")
+    value in ("off", "on") || throw(ArgumentError(
+        "DS_POOL_SUPPLY_AND must be off or on; got $(repr(value))"))
+    return value
+end
+
+"""The 100x cap of a fold product in the pool supply (specs/090), as `hill_sat`."""
+const POOL_SUPPLY_AND_CAP = 100.0
+
+"""
 specs/071. Which edges the pool supply test (specs/039 review finding 6)
 follows when it drops producers the pool's own forms reach:
 - `all` (default): every activator edge, as before.
@@ -143,6 +161,8 @@ struct IndexedPool
     reeval_rxn::Vector{Int}             # rxns_idx of each
     reeval_excl::Vector{Union{Nothing, Set{Int}}}   # per reeval node: the release steps to leave
                                         # out when it is a carrier (specs/075), else nothing
+    supply_and::Vector{Vector{Bool}}    # per state, aligned with supply_rxns: the producer is
+                                        # AND-joined (specs/090; filled per solve, empty = off)
 end
 
 """Drive regulariser: rates are k·(u + ε), so with every drive of a pool at zero
@@ -320,7 +340,7 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
         end
         push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
                                fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Int[], Int[],
-                               Union{Nothing, Set{Int}}[]))
+                               Union{Nothing, Set{Int}}[], [Bool[] for _ in p.forms]))
     end
     stats === nothing || (stats["cycle_carrier_release_added"] = n_release_added)
     return out, skipped
@@ -463,10 +483,19 @@ function update_pool!(x::Vector{Float64}, p::IndexedPool, rxns_idx, baseline_vec
     end
     if isnan(s)
         tot = 0.0; cnt = 0
-        for prods in p.supply_rxns, a in prods
-            bl = baseline_vec[a]
-            bl > 0 || continue
-            tot += x[a] / bl; cnt += 1
+        for (k, prods) in enumerate(p.supply_rxns)
+            fl = k <= length(p.supply_and) ? p.supply_and[k] : Bool[]
+            prod_and = 1.0; n_and = 0
+            for (j, a) in enumerate(prods)
+                bl = baseline_vec[a]
+                bl > 0 || continue
+                if j <= length(fl) && fl[j]
+                    prod_and *= x[a] / bl; n_and += 1   # specs/090: one term per state
+                else
+                    tot += x[a] / bl; cnt += 1
+                end
+            end
+            n_and > 0 && (tot += min(prod_and, POOL_SUPPLY_AND_CAP); cnt += 1)
         end
         s = cnt == 0 ? 1.0 : tot / cnt
     end
