@@ -1,0 +1,5 @@
+R-HSA-373760	R-HSA-191465	L1CAM [plasma membrane]	|	R-HSA-445071	Reinsertion of L1 into the plasma membrane	|	['cytosol']	->	['plasma membrane']
+R-HSA-453274	R-HSA-8852332	p-S435-GTSE1 [nucleoplasm]	|	R-HSA-8852331	GTSE1 translocates to the nucleus	|	['cytosol']	->	['nucleoplasm']
+R-HSA-6806834	R-HSA-6806977	HGF:p-Y1234,Y1235,Y1349,Y1356-MET dimer [plasma membrane]	|	R-HSA-8875659	RAB4:GTP promotes recycling of activated MET receptor to the plasma me	|	['recycling endosome membrane']	->	['plasma membrane']
+{'same compartment': 91, 'translocation': 3} of 94 distinct (pathway, free form, release) pairs
+{'R-HSA-373760': 1, 'R-HSA-453274': 1, 'R-HSA-6806834': 1}
