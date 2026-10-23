@@ -1274,6 +1274,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["cycle_supply_regulated_kept"] += int(ds_result.get("cycle_supply_regulated_kept") or 0)
             SOLVE_TALLY[f"pool_supply_and={ds_result.get('pool_supply_and', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_supply_and_groups"] += int(ds_result.get("cycle_supply_and_groups") or 0)
+            SOLVE_TALLY[f"pool_base_weight={ds_result.get('pool_base_weight', 'unknown')}"] += 1
+            SOLVE_TALLY["cycle_bases_split"] += int(ds_result.get("cycle_bases_split") or 0)
             # specs/072: which producers count as a carrier's release steps.
             SOLVE_TALLY[f"cycle_carrier_release={ds_result.get('cycle_carrier_release', 'unknown')}"] += 1
             SOLVE_TALLY["cycle_carrier_release_added"] += int(ds_result.get("cycle_carrier_release_added") or 0)
@@ -1665,6 +1667,11 @@ def main():
           f"{SOLVE_TALLY['cycle_supply_and_groups']} state-solves with AND-joined producers (specs/090)")
     if "on" in ya and args.limit is None and SOLVE_TALLY["cycle_supply_and_groups"] == 0:
         raise SystemExit("DS_POOL_SUPPLY_AND=on but no solve found an AND-joined pool supply; the arm is the control.")
+    yb = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("pool_base_weight="))
+    print(f"Pool base weight: {'/'.join(yb) or 'unknown'}, {SOLVE_TALLY['cycle_bases_split']} "
+          f"multi-base pool-solves split (specs/091)")
+    if "split" in yb and args.limit is None and SOLVE_TALLY["cycle_bases_split"] == 0:
+        raise SystemExit("DS_POOL_BASE_WEIGHT=split but no solve had a multi-base pool; the arm is the control.")
     ycr = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carrier_release="))
     print(f"Carrier release: {'/'.join(ycr) or 'unknown'}, "
           f"{SOLVE_TALLY['cycle_carrier_release_added']} release copies added (specs/072)")

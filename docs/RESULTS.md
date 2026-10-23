@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-22. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-23. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,32 @@ commit.
 
 ---
 
+
+> **2026-10-23: canonical numbers with shared base weights (specs/091).**
+> - Build `20261022-2011_233665c` (unchanged).
+> - Solver `8162f5f`: `DS_POOL_BASE_WEIGHT=split` by default, plus the 2026-10-22 review
+>   fixes (`c3e5898`, no class change).
+> - Results: `results/8162f5f/dflt091`. They reproduce the measured arm (`pbw`) on every
+>   case and value, both axes.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **90.25%** | **0.8755** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.61% | 0.8668 |
+> | curator, all pathways, in release (81) | 23,625 | 88.83% | 0.8653 |
+> | curator, all pathways, every case | 24,100 | 88.22% | 0.8576 |
+> | experimental, every case (10 pathways) | 849 | **73.62%** | **0.6543** |
+>
+> **What moved:** curator tuning +35 (40 fixed / 5 broken, p < 1e-4; Mitotic G1 +37, WNT −2),
+> held-out 0, experimental +1 (624 → 625 of 849).
+>
+> Converged: 1,724 / 1,725 curator and 244 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 88.22% / 0.8576 against 83.34% / 0.8063, **+4.88pp**.
+> - Experimental: 73.62% (625/849) against 75.74% (643/849), **−2.12pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-22: canonical numbers with every default adopted since 2026-10-17.**
 > - Build `20261022-2011_233665c`: generator `233665c` (LNG #119–#122:
