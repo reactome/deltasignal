@@ -909,6 +909,14 @@ for the last feature that touched it rather than re-deriving from the code.
   −4, experimental 0): MDM2 knockout fixed in Cell Cycle Checkpoints, Mitotic G1 −6 / −2
   through the SCF(Skp2) release exposing the CKS1B drain. **Not adopted** (Adam,
   2026-10-22); to revisit with a fix for that drain.
+- `specs/089-ub-ligase-unit/` — the generator's ubiquitin pass no longer drains a
+  ligase's own subunits (`LNG_UB_LIGASE_UNIT`, LNG #122): a leaf of the catalyst's curated
+  `activeUnit`, or of a complex released unchanged, that leaves the reaction unmodified is not
+  the substrate (CKS1B under SCF(Skp2)); the substrate's partners keep their drains, so CBL
+  does not move (specs/078 lost 39 there). 73 of 727 depletion edges removed. **Adopted**
+  (Adam, 2026-10-22) despite a failed gate: tuning +22 (p 0.0001), experimental +3, held-out
+  −2 (p 0.63; SMAD7 right only through a removed drain, SHH where the arm reads GLI3R UP, a
+  threshold pair). Not combined with specs/088.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
