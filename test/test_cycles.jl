@@ -565,6 +565,27 @@ end
     with_env("DS_POOL_SUPPLY_AND" => "yes") do
         @test_throws ArgumentError DS.pool_supply_and()
     end
+    # specs/091: the two resting copies share one base weight under split, so M
+    # rests at phi0 and a kinase knockout returns the pool to the bases by 1 + rho
+    gob(obs, m) = with_env("DS_POOL_BASE_WEIGHT" => m) do
+        go(obs)
+    end
+    @test gob(Dict{String, Float64}(), nothing).diagnostics["pool_base_weight"] == "full"
+    @test gob(Dict{String, Float64}(), "full").node_activities == r0.node_activities
+    ks = gob(Dict("K" => 0.0), "split")
+    @test ks.diagnostics["pool_base_weight"] == "split" && ks.diagnostics["cycle_bases_split"] == 1
+    @test fold(ks, "C1") ≈ 1 + rho atol = 1e-6
+    @test fold(gob(Dict("K" => 0.0), "full"), "C1") ≈ (2 + rho) / 2 atol = 1e-6
+    # more kinase moves more of the pool: M's fold is bounded by 1/phi0 = 10 under split
+    @test fold(gob(Dict("K" => 80.0), "split"), "M") <= 10.0 + 1e-9
+    @test fold(gob(Dict("K" => 80.0), "full"), "M") > 10.0
+    # rest is rest
+    for k in ("C1", "C2", "M")
+        @test fold(gob(Dict{String, Float64}(), "split"), k) ≈ 1.0 atol = 1e-9
+    end
+    with_env("DS_POOL_BASE_WEIGHT" => "half") do
+        @test_throws ArgumentError DS.pool_base_weight()
+    end
 end
 
 @testset "a release pool: the released copy reads the free state (specs/086)" begin

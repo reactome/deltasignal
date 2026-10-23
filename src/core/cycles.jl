@@ -63,6 +63,20 @@ function cycle_carriers()::Bool
 end
 
 """
+specs/091. The baseline weight of a pool's resting (base) copies:
+- `full` (default, specs/081): every base weighs 1, so with k bases the form one
+  step away rests at ρ/(k + ρ) and its largest fold grows with k.
+- `split`: each of k bases weighs 1/k, so they hold what one base holds and the
+  next form rests at φ₀ whatever k is. One-base pools are unchanged bit for bit.
+"""
+function pool_base_weight()::String
+    value = get(ENV, "DS_POOL_BASE_WEIGHT", "full")
+    value in ("full", "split") || throw(ArgumentError(
+        "DS_POOL_BASE_WEIGHT must be full or split; got $(repr(value))"))
+    return value
+end
+
+"""
 specs/090. How a pool state's producers enter the supply:
 - `off` (default): every producer is its own term of the mean, as before.
 - `on`: a state's AND-joined producers (a complex assembled from the protein
@@ -222,6 +236,8 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
     out = IndexedPool[]
     skipped = 0
     ratio = phi / (1.0 - phi)
+    split_bases = pool_base_weight() == "split"   # specs/091
+    n_split = 0
     for p in pools
         nodes_ok = all(f -> haskey(uuid_to_idx, f), p.forms) && all(f -> haskey(uuid_to_idx, f), p.intermediates)
         if !nodes_ok || isempty(p.paths) || !all(b -> b in p.forms, p.bases)
@@ -249,6 +265,14 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
             skipped += 1; continue
         end
         w0 = [ratio ^ dist[f] for f in p.forms]
+        if split_bases && length(p.bases) > 1
+            # specs/091: k resting copies share the weight of one
+            kb = length(p.bases)
+            for (i, f) in enumerate(p.forms)
+                dist[f] == 0 && (w0[i] /= kb)
+            end
+            n_split += 1
+        end
         pi0 = w0 ./ sum(w0)
         # paths
         pf = Int[]; pt = Int[]; psteps = Vector{Tuple{Vector{Int}, Int}}[]; penz = Bool[]
@@ -343,6 +367,7 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
                                Union{Nothing, Set{Int}}[], [Bool[] for _ in p.forms]))
     end
     stats === nothing || (stats["cycle_carrier_release_added"] = n_release_added)
+    stats === nothing || (stats["cycle_bases_split"] = n_split)
     return out, skipped
 end
 
