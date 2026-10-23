@@ -1,0 +1,14 @@
+pool	pools	122
+pool	pools with such a state	16
+pool	states	274
+pool	states >1 producer	17
+recycle	pools	2
+recycle	pools with such a state	2
+recycle	states	8
+recycle	states >1 producer	6
+release	pools	2
+release	states	25
+producer edges of those states (kind, edge_type, and_or):
+  	pool	output	or	62
+  	recycle	assembly	and	18
+pools: [('R-HSA-3247509', 'pool5', 1), ('R-HSA-3247509', 'pool6', 1), ('R-HSA-453279', 'recycle1', 4), ('R-HSA-453279', 'recycle2', 2), ('R-HSA-8848021', 'pool1', 2), ('R-HSA-909733', 'pool1', 1), ('R-HSA-909733', 'pool2', 1), ('R-HSA-909733', 'pool3', 1), ('R-HSA-909733', 'pool4', 1), ('R-HSA-909733', 'pool5', 1), ('R-HSA-909733', 'pool6', 1), ('R-HSA-909733', 'pool7', 1), ('R-HSA-909733', 'pool8', 1), ('R-HSA-909733', 'pool9', 1), ('R-HSA-909733', 'pool10', 1), ('R-HSA-909733', 'pool11', 1), ('R-HSA-909733', 'pool12', 1), ('R-HSA-909733', 'pool13', 1)]
