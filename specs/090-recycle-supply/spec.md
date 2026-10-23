@@ -1,6 +1,6 @@
 # specs/090: a recycle pool reads its protein's supply, not its partners' mean
 
-**Status:** pre-registered 2026-10-22, before the implementation and the arm.
+**Status:** pre-registered 2026-10-22, before the implementation and the arm. Arm `psa`: gate passes (held-out 0, experimental 0), but tuning −6 (0 / 6, p 0.03, all Mitotic G1) and prediction 3 refuted (RBL2 overexpression reads UP through DREAM repressing RBL1). Not recommended for adoption.
 
 Adam, 2026-10-22: "ok" to candidate I1 of the 2026-10-22 review
 (docs/reviews/2026-10-22-review.md, finding 2).
