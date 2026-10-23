@@ -30,6 +30,7 @@ using DeltaSignal, CSV, DataFrames, Statistics
 const DS = DeltaSignal
 
 build, prefix = ARGS[1], ARGS[2]
+const UB = Set(["R-HSA-68524", "R-HSA-113595", "R-HSA-9660007"])   # ubiquitin, as DS.UBIQUITIN_STIDS
 cases_dir = length(ARGS) >= 3 ? ARGS[3] : ""
 
 function sccs(nodes::Vector{String}, adj::Dict{String, Vector{String}})
@@ -85,7 +86,7 @@ pw_rows = DataFrame(pathway = String[], nodes = Int[], cyclic_nodes = Int[], cyc
                     handled_pool_edges = Int[], handled_self_edges = Int[],
                     unhandled_components = Int[], unhandled_nodes = Int[],
                     positive = Int[], self_depleting = Int[], negative = Int[])
-loop_rows = DataFrame(pathway = String[], size = Int[], label = String[], neg_edges = Int[],
+loop_rows = DataFrame(pathway = String[], size = Int[], label = String[], closed_by = String[], neg_edges = Int[],
                       edge_types = String[], example = String[])
 case_types = Dict{Tuple{String, String, String, String}, String}()   # (pathway dir, gene, dir, readout) -> types
 
@@ -147,9 +148,22 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
         selfdep = any(((a, b),) -> etype[(a, b)] == "depletion" &&
                       sid(b) in get(cont, sid(a), Set{String}()), inner)
         lab = nneg == 0 ? "positive" : selfdep ? "self_depleting" : "negative"
+        # what closes a positive loop: without catalyst and positive-regulator edges,
+        # does a cycle remain? and does the remaining material cycle run through ubiquitin?
+        sub = ""
+        if lab == "positive"
+            madj = Dict{String, Vector{String}}()
+            for (a, b) in inner
+                etype[(a, b)] in ("catalyst", "regulator") && continue
+                push!(get!(madj, a, String[]), b)
+            end
+            mc = sccs(sort(c), madj)
+            sub = isempty(mc) ? "catalyst" :
+                  any(u -> sid(u) in UB, reduce(vcat, mc)) ? "ubiquitin" : "material"
+        end
         push!(labels, lab)
         types = join(sort(unique([etype[x] for x in inner])), "|")
-        push!(loop_rows, (pw, length(c), lab, nneg, types, sid(first(sort(c)))))
+        push!(loop_rows, (pw, length(c), lab, sub, nneg, types, sid(first(sort(c)))))
     end
     push!(pw_rows, (pw, length(nodes), sum(length, comps_all; init = 0), length(comps_all), handled_pool, handled_self,
                     length(comps), sum(length, comps; init = 0),
@@ -181,6 +195,12 @@ println("pathways ", nrow(pw_rows), "; cyclic components ", sum(pw_rows.cyclic_c
 println("pathways with any unhandled loop: ", count(>(0), pw_rows.unhandled_components), " of ", nrow(pw_rows))
 for lab in ("positive", "self_depleting", "negative")
     println("  pathways with a $lab unhandled loop: ", count(>(0), pw_rows[!, Symbol(lab)]), " of ", nrow(pw_rows))
+end
+pos = loop_rows[loop_rows.label .== "positive", :]
+for cb in ("catalyst", "ubiquitin", "material")
+    x = pos[pos.closed_by .== cb, :]
+    println("  positive closed by $cb: ", nrow(x), " components, ", sum(x.size; init = 0), " nodes, ",
+            length(unique(x.pathway)), " pathways")
 end
 if cases !== nothing
     cases.loop = [get(case_types, (r.pid, r.gene, r.direction, r.key_output), "unscored") for r in eachrow(cases)]
