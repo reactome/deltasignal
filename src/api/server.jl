@@ -963,6 +963,7 @@ function solve_handler(req)
             "pool_supply_and" => get(solver_result.diagnostics, "pool_supply_and", "off"),   # specs/090
             "cycle_supply_and_groups" => get(solver_result.diagnostics, "cycle_supply_and_groups", 0),
             "pool_base_weight" => get(solver_result.diagnostics, "pool_base_weight", "split"),   # specs/091
+            "carrier_loop_moves" => get(solver_result.diagnostics, "carrier_loop_moves", "drop"),   # specs/093
             "cycle_bases_split" => get(solver_result.diagnostics, "cycle_bases_split", 0),
             "cycle_carrier_release" => get(solver_result.diagnostics, "cycle_carrier_release", "listed"),
             "cycle_carrier_release_added" => get(solver_result.diagnostics, "cycle_carrier_release_added", 0),
