@@ -81,3 +81,23 @@ perturbation levels). No rule, default or threshold changes after the freeze for
 - Development figures are reported as such ("development set"), never as generalisation.
 - Generalisation claims come only from sections 4 and 5, with their case counts and intervals,
   next to the development figures.
+
+## 7. Justified disagreements with a reference
+
+Adam, 2026-10-23: "it is okay to record down that we are doing the right thing if we differ from
+curator or experimental but have a biological reason."
+
+A case where the model differs from the curators or the experiment, but follows the curated
+biology, is recorded as a **justified disagreement**:
+- the reason is biological and checkable: the Reactome events (stIds, verified in Neo4j) or a
+  reference that make the model's answer the curated consequence, written down when the case is
+  first traced, not after it decides a gate;
+- the case **stays an error in every headline and gate figure** (the ground truth is never
+  edited); an annotated figure, with the justified disagreements listed, is reported beside it;
+- the list lives in `justified_disagreements.tsv` (pathway, gene, direction, readout, reference
+  answered, model answer, reason, evidence, spec), so it can be audited and the external test
+  can show whether those calls hold up.
+
+Examples already recorded in specs: SHH knockout reading GLI3R UP (specs/089, GLI3R forms
+without Hedgehog), CCNE1 overexpression raising p-RB1/p-FZR1 (specs/089, cyclin E drives those
+phosphorylations), and the curator–experiment disagreements on RBL1/RBL2 knockout (specs/090).
