@@ -92,16 +92,19 @@ served_build() {
 cmd_build() {
   # Options (experiments only): --variant NAME builds into <id>_NAME and never
   # moves `current`; --env LNG_X=v passes a generator flag (recorded in
-  # BUILD.json). A plain build moves `current` as before.
-  local variant="" extra_env=()
+  # BUILD.json); --list FILE builds another pathway list (specs/097's sample),
+  # also variant-only. A plain build moves `current` as before.
+  local variant="" extra_env=() list="$LIST"
   while [ $# -gt 0 ]; do
     case "$1" in
       --variant) [ -n "${2:-}" ] || die "--variant needs a name"; variant="$2"; shift 2 ;;
       --env) [[ "$2" == LNG_*=* ]] || die "--env takes LNG_NAME=value"; extra_env+=("$2"); shift 2 ;;
+      --list) [ -f "${2:-}" ] || die "--list needs an existing pathway list file"; list="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"; shift 2 ;;
       *) die "unknown build option $1" ;;
     esac
   done
   [ ${#extra_env[@]} -eq 0 ] || [ -n "$variant" ] || die "--env needs --variant: a flagged build must not become current"
+  [ "$list" = "$LIST" ] || [ -n "$variant" ] || die "--list needs --variant: another pathway list must not become current"
   [ -z "$variant" ] || [[ "$variant" =~ ^[A-Za-z0-9._-]+$ ]] || die "--variant must be [A-Za-z0-9._-]+"
   # Generator flags reach a build only through --env, so they are recorded.
   # LNG_PYTHON only selects the interpreter (lng_python), not a generator flag.
@@ -124,7 +127,7 @@ cmd_build() {
   # same minute cannot both claim the directory.
   mkdir "$dir" 2>/dev/null || die "$dir already exists (another build this minute?)"
 
-  grep -v '^#' "$LIST" > "$dir/pathways.tsv"
+  grep -v '^#' "$list" > "$dir/pathways.tsv"
   local requested; requested=$(($(wc -l < "$dir/pathways.tsv") - 1))
 
   echo "catalog: building $id ($requested pathways) into $dir"
@@ -137,7 +140,7 @@ cmd_build() {
   set -e
 
   EXTRA_ENV="$(printf '%s\n' "${extra_env[@]}")" VARIANT="$variant" \
-  "$py" - "$dir" "$sha" "$branch" "$rc" "$requested" "$(( $(date +%s) - t0 ))" "$LIST" "$LNG" <<'PY' || die "could not write the manifest for $id; current left unchanged"
+  "$py" - "$dir" "$sha" "$branch" "$rc" "$requested" "$(( $(date +%s) - t0 ))" "$list" "$LNG" <<'PY' || die "could not write the manifest for $id; current left unchanged"
 import csv, glob, hashlib, json, os, sys, datetime, subprocess
 d, sha, branch, rc, requested, secs, lst, lng = sys.argv[1:]
 
