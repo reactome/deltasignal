@@ -53,3 +53,13 @@ must reproduce canonical's defaults.
 1. Only Signaling by MET, L1CAM interactions and R-HSA-453274 move.
 2. At least 6 of the 10 CBL cases in MET specs/092 lists are fixed.
 3. No prediction for L1CAM or GTSE1.
+
+## Build count (before any arm)
+
+Variant build `20261023-1115_55b5464_mv2` (LNG branch `carrier-moves-093`, `55b5464`): every
+edge and pool table equals canonical `20261022-2011_233665c` (`compare_build.py`, 0 of 92
+differ); only `carrier_loops.csv` gains its `moves` column. Marked rows: **13 open-loop rows,
+exactly the census's 3 (pathway, free form, release) pairs**, and 72 closed-loop rows in 10
+pathways. As registered, the rule applies to open loops only, so the solver keeps only the 13
+(`1f52ed2`; the first implementation would have dropped the closed rows too). A first build
+(`20261023-1030_705fc63_mv`) marked nothing: compartments carry no stId, fixed by comparing dbIds.
