@@ -38,3 +38,10 @@ Not recommended. Keeping the recycling release restores CBL's 10 cases but break
 receptor's own 20 knockouts. A rule that fixes CBL without the rail would need the recycled
 receptor to be bounded by its own supply (a receptor cannot recycle more than was made), as a
 pool or a closed-twin bound does. That is a different rule, not registered here.
+
+## Decision
+
+Adam, 2026-10-23: "yes to option one", i.e. merge as a not-adopted record.
+`DS_CARRIER_LOOP_MOVES` stays `drop`; the generator's `moves` column (branch
+`carrier-moves-093`) is not merged, so canonical tables have no such column and `keep` would
+act on nothing until it is.

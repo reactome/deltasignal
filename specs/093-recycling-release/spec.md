@@ -1,6 +1,6 @@
 # specs/093: a release that moves the carrier across compartments is a return, not a let-go
 
-**Status:** pre-registered 2026-10-23, before the implementation, the build and the arm. Arm `mvk`: **gate fails**, held-out −10 (10 / 20, all Signaling by MET): all 10 CBL cases fixed, but HGF and MET knockout read UP (the recycling loop holds itself up). Not recommended.
+**Status:** pre-registered 2026-10-23, before the implementation, the build and the arm. Arm `mvk`: **gate fails**, held-out −10 (10 / 20, all Signaling by MET): all 10 CBL cases fixed, but HGF and MET knockout read UP (the recycling loop holds itself up). **Not adopted** (Adam, 2026-10-23: "yes to option one", merged as a record); `DS_CARRIER_LOOP_MOVES` stays `drop`. The generator branch `carrier-moves-093` is not merged.
 
 Adam, 2026-10-23: "ok" to following the CBL/MET lead from specs/092.
 

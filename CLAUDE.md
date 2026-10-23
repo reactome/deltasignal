@@ -504,7 +504,7 @@ env vars only override for benchmark sweeps:
   Checkpoints) gains AND in-edges (`carrier_component`) from the starting
   copies of the maximal entities it contains. Reports
   `carrier_component_rule` and `carrier_component_edges`.
-  `DS_CARRIER_LOOP_MOVES=drop` (default) | `keep` (specs/093, pre-registered): a release
+  `DS_CARRIER_LOOP_MOVES=drop` (default) | `keep` (specs/093, **not adopted**: held-out −10; CBL in MET fixed, HGF/MET knockout rail UP): a release
   the generator marks `moves` in `carrier_loops.csv` (it carries the free form across
   compartments: MET recycled to the membrane) is left out of the loop table, so no
   carrier-loop rule drops it. Reports `carrier_loop_moves`.
@@ -942,6 +942,13 @@ for the last feature that touched it rather than re-deriving from the code.
   p < 1e-4, Mitotic G1 +37, all p107/p130 kinase/phosphatase perturbations), held-out 0,
   experimental +1. APC/AMER1 at cytosolic β-catenin were right only through the old 181×
   ceiling.
+- `specs/092-solved-reach/` — analysis: the solver routes 2 of 1,100 curator `no_path`
+  errors, and its carrier-loop drops cut 80 curator / 17 experimental wrong cases' routes
+  (RB1, CBL in MET, SMAD7, PTPN11/SPRY2).
+- `specs/093-recycling-release/` — `DS_CARRIER_LOOP_MOVES=keep`: an open release that moves
+  the carrier across compartments (MET recycled to the membrane) is kept. **Not adopted**
+  (Adam, 2026-10-23): held-out −10 (10 / 20): CBL's 10 MET cases fixed, but HGF and MET
+  knockouts read UP because the kept recycling closes a self-sustaining receptor loop.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
