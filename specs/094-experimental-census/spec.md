@@ -1,6 +1,6 @@
 # specs/094: the remaining experimental errors, and the PIP3 knife-edge re-measured
 
-**Status:** part A analysis, 2026-10-23. Part B pre-registered 2026-10-23, before the arm.
+**Status:** part A analysis, 2026-10-23. Part B pre-registered 2026-10-23, before the arm; arm `lel` **refuted**: held-out −40, tuning −126, experimental −42 (PIP3 −112 / −41: receptor knockouts compressed to NORMAL), and PTEN overexpression still reads UP. Not adopted.
 
 Adam, 2026-10-23: "okay continue" to a census of the remaining experimental errors.
 
