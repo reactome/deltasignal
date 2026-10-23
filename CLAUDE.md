@@ -472,7 +472,8 @@ env vars only override for benchmark sweeps:
   residual now reads held edges (specs/018 closures too) at the value the
   iteration used, not the live state, which had reported residual ≈ 1 on
   converged solves.
-- `DS_SELF_INHIBITOR_COPIES=off` (default) | `on` (specs/095, pre-registered): the
+- `DS_SELF_INHIBITOR_COPIES=on` (**default since 2026-10-23**, specs/095; tuning +14,
+  experimental +9, held-out 0, nothing broken against `off`) | `off`: the
   specs/022 pair test also accepts an inhibitor that another copy of the input's
   entity reaches (PTEN's mRNA:miRNA complexes, built from the transcribed mRNA copy,
   repressing translation of the root copy). Reports `self_inhibitor_copies` and
@@ -954,6 +955,15 @@ for the last feature that touched it rather than re-deriving from the code.
   the carrier across compartments (MET recycled to the membrane) is kept. **Not adopted**
   (Adam, 2026-10-23): held-out −10 (10 / 20): CBL's 10 MET cases fixed, but HGF and MET
   knockouts read UP because the kept recycling closes a self-sustaining receptor loop.
+- `specs/094-experimental-census/` — the experimental errors: 220, of which 142 are
+  curator–experiment disagreements and 78 agreed errors (PTEN in PIP3 the largest class).
+  specs/014's loop elasticity re-measured and **refuted** (held-out −40, tuning −126,
+  experimental −42).
+- `specs/095-self-inhibitor-copies/` — `DS_SELF_INHIBITOR_COPIES=on`: the specs/022 pair
+  test also accepts an inhibitor reached from another copy of the input's entity (PTEN's
+  12 mRNA:miRNA complexes, built from the transcribed mRNA copy, shut off translation of the
+  pinned root copy). **Adopted** (Adam, 2026-10-23): tuning +14, experimental +9 (9 / 0),
+  held-out 0; all 9 PTEN overexpression experimental cases fixed.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -985,7 +995,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 114 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
+| `test/test_self_inhibition.jl` | 115 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |

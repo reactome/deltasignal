@@ -1,6 +1,6 @@
 # specs/095: a self-inhibitor built from another copy of the input
 
-**Status:** pre-registered 2026-10-23, before the implementation, the census and the arm. Arm `sic`: **gate passes**, tuning +14 (14 / 0), experimental +9 (9 / 0, p 0.004), held-out 0, nothing broken; all 9 PTEN overexpression experimental cases fixed. Recommended for adoption; Adam decides.
+**Status:** pre-registered 2026-10-23, before the implementation, the census and the arm. Arm `sic`: **gate passes**, tuning +14 (14 / 0), experimental +9 (9 / 0, p 0.004), held-out 0, nothing broken; all 9 PTEN overexpression experimental cases fixed. **Adopted** (Adam, 2026-10-23: "yes"); `on` is the default.
 
 From specs/094: PTEN overexpression in PIP3 is the largest class of experimental errors on
 which every reference agrees (9 cases, all read 83.5× UP, expected DOWN). specs/094 refuted

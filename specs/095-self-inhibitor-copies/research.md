@@ -32,3 +32,8 @@ reaction's input counts that input at weight w) extended to another node copy of
 entity, which the generator emits when a species is both a root and a product (PTEN mRNA). It
 fixes the largest class of experimental errors on which every reference agrees, and breaks
 nothing on either axis. The 115 slots it adds elsewhere change no class.
+
+## Decision
+
+Adam, 2026-10-23: "yes", adopt. `DS_SELF_INHIBITOR_COPIES=on` is the default; `off` restores
+the earlier pair test.

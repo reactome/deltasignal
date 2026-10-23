@@ -337,7 +337,8 @@ end
                               DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
     end
     t(r) = r.node_activities["T"] / BL
-    off = run(nothing)
+    @test run(nothing).diagnostics["self_inhibitor_copies"] == "on"   # default since specs/095's adoption
+    off = run("off")
     @test off.diagnostics["self_inhibitor_copies"] == "off"
     @test t(off) ≈ 1.0 rtol = 1e-6                      # 4x input divided by the 4x complex
     on = run("on")

@@ -62,14 +62,15 @@ end
 const DS_VALID_SELF_INHIBITOR_LEAVES = Set(["0", "1"])
 
 """
-specs/095. `DS_SELF_INHIBITOR_COPIES`: `off` (default) | `on`. Under `on` the
+specs/095. `DS_SELF_INHIBITOR_COPIES`: `on` (default since its adoption, Adam
+2026-10-23: tuning +14, experimental +9, held-out 0, nothing broken) | `off`. Under `on` the
 specs/022 pair test also accepts an inhibitor that a different copy of the
 input's entity (a node with the same stable id) reaches: PTEN's 12
 mRNA:miRNA complexes are built from the transcribed mRNA copy, while
 translation reads the pinned root copy.
 """
 function self_inhibitor_copies()::Bool
-    value = get(ENV, "DS_SELF_INHIBITOR_COPIES", "off")
+    value = get(ENV, "DS_SELF_INHIBITOR_COPIES", "on")
     value in ("off", "on") || throw(ArgumentError(
         "DS_SELF_INHIBITOR_COPIES must be off or on; got $(repr(value))"))
     return value == "on"
