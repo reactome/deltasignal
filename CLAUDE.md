@@ -472,6 +472,11 @@ env vars only override for benchmark sweeps:
   residual now reads held edges (specs/018 closures too) at the value the
   iteration used, not the live state, which had reported residual ≈ 1 on
   converged solves.
+- `DS_SELF_INHIBITOR_COPIES=off` (default) | `on` (specs/095, pre-registered): the
+  specs/022 pair test also accepts an inhibitor that another copy of the input's
+  entity reaches (PTEN's mRNA:miRNA complexes, built from the transcribed mRNA copy,
+  repressing translation of the root copy). Reports `self_inhibitor_copies` and
+  `self_inhibitor_copy_pairs`.
 - `DS_SELF_INHIBITOR_LEAVES=1` (**default since 2026-09-28**; curator held-out
   +48, experimental +20 at p 0.0012 against `0`) | `0` (specs/040 rule B): the
   specs/022 pair test also matches an inhibitor that shares a non-cofactor
@@ -980,7 +985,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 106 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
+| `test/test_self_inhibition.jl` | 114 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |

@@ -318,4 +318,44 @@ end
     end
 end
 
+
+# specs/095: PTEN's shape. Translation T reads the root mRNA copy M1; the gene G is
+# transcribed (rx) into a second copy M2 (same stable id), which the miRNA complex
+# I = M2:miR is assembled from; I represses T. Without the copy clause nothing
+# reaches I from M1, so I acts at full strength.
+@testset "a self-inhibitor built from another copy of the input (specs/095)" begin
+    nd(u, st) = u => DS.NetworkNode(u, st, "protein", nothing, u, BL)
+    nodes = Dict(nd("T", "R-T"), nd("M1", "R-M"), nd("M2", "R-M"), nd("G", "R-G"), nd("rx", "R-RX"),
+                 nd("miR", "R-MIR"), nd("I", "R-I"))
+    edges = [edge("M1", "T", true, "input"), edge("I", "T", false, "regulator"),
+             edge("G", "rx", true, "input"), DS.LogicNetworkEdge("rx", "M2", false, true, 1.0, "output"),
+             edge("M2", "I", true, "assembly"), edge("miR", "I", true, "assembly")]
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                             Dict("R-I" => Set(["R-M", "R-MIR"])))
+    run(c; m = 4.0) = with_env("DS_SELF_INHIBITOR_COPIES" => c) do
+        DS.solve_steady_state(net, Dict("M1" => (m, 1.0), "G" => (m, 1.0), "miR" => (1.0, 1.0)),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    t(r) = r.node_activities["T"] / BL
+    off = run(nothing)
+    @test off.diagnostics["self_inhibitor_copies"] == "off"
+    @test t(off) ≈ 1.0 rtol = 1e-6                      # 4x input divided by the 4x complex
+    on = run("on")
+    @test on.diagnostics["self_inhibitor_copies"] == "on"
+    @test on.diagnostics["self_inhibitor_copy_pairs"] == 1
+    @test t(on) ≈ 4.0 / 4.0^0.1 rtol = 1e-6             # the shared part kept at w = 0.1
+    @test t(run("on"; m = 0.25)) ≈ 0.25 / 0.25^0.1 rtol = 1e-6
+    # a copy that does not reach the inhibitor adds nothing
+    net2 = DS.ReactionNetwork(nodes, [e for e in edges if e.parent_uuid != "M2"],
+                              Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                              Dict("R-I" => Set(["R-M", "R-MIR"])))
+    r2 = with_env("DS_SELF_INHIBITOR_COPIES" => "on") do
+        DS.solve_steady_state(net2, Dict("M1" => (4.0, 1.0), "G" => (4.0, 1.0), "miR" => (1.0, 1.0)),
+                              DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    @test r2.diagnostics["self_inhibitor_copy_pairs"] == 0
+    with_env("DS_SELF_INHIBITOR_COPIES" => "yes") do
+        @test_throws ArgumentError DS.self_inhibitor_copies()
+    end
+end
 end

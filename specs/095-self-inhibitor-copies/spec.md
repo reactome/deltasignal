@@ -44,8 +44,10 @@ unchanged.
 
 ## Census (after the implementation, before the arm)
 
-How many inhibitor slots the copy clause adds, per pathway, counted on canonical with the solver's
-own pair test, committed before the arm.
+`census.jl` → `census.txt`, the solver's own pair test on canonical: the copy clause adds **115
+inhibitor slots in 5 pathways**, all new (none widens an existing slot): R-HSA-446728 60, TP53
+transcription (R-HSA-3700989) 24, R-HSA-2559583 18, **PIP3 (R-HSA-1257604) 12, exactly the 12
+PTEN mRNA:miRNA complexes**, RAF 1.
 
 ## Arm
 
