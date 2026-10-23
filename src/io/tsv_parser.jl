@@ -649,7 +649,8 @@ end
 Read `carrier_loops.csv` beside a logic network (specs/049): one
 `(free_uuid, loop_source_uuid, closed)` per row, sorted. `nothing` when the
 file is absent (a bundle that predates it). Under `DS_CARRIER_LOOP_MOVES=keep`
-(specs/093) a row marked `moves` (a release across compartments) is left out.
+(specs/093) an open loop's row marked `moves` (a release across compartments) is
+left out; a closed loop's row stays.
 """
 function parse_carrier_loops(logic_network_path::String)::Union{Nothing, Vector{CarrierLoopEdge}}
     path = joinpath(dirname(logic_network_path), "carrier_loops.csv")
@@ -661,7 +662,9 @@ function parse_carrier_loops(logic_network_path::String)::Union{Nothing, Vector{
     out = CarrierLoopEdge[]
     keep_moves = carrier_loop_moves() == "keep" && "moves" in names(df)
     for r in eachrow(df)
-        keep_moves && !ismissing(r.moves) && lowercase(strip(r.moves)) in ("true", "1") && continue
+        # only an OPEN loop's release (specs/093 as registered); a closed loop's row stays
+        keep_moves && !ismissing(r.moves) && lowercase(strip(r.moves)) in ("true", "1") &&
+            !ismissing(r.closed) && lowercase(strip(r.closed)) in ("false", "0") && continue
         any(ismissing, (r.free_uuid, r.loop_source_uuid, r.closed)) &&
             throw(ArgumentError("$path: a row is missing free_uuid, loop_source_uuid or closed"))
         c = lowercase(strip(r.closed))

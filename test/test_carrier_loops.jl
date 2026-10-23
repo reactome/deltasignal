@@ -425,13 +425,13 @@ end
         # specs/093: a release across compartments (moves) is left out under keep only
         write(joinpath(dir, "carrier_loops.csv"),
               "loop_id,r,closed,free_uuid,free_stid,loop_source_uuid,moves\n" *
-              "loop2,1,False,u-x,R-HSA-9,u-y,True\nloop1,48889,True,u-e,R-HSA-1,u-ep,False\n")
+              "loop2,1,False,u-x,R-HSA-9,u-y,True\nloop1,48889,True,u-e,R-HSA-1,u-ep,True\n")
         with_env("DS_CARRIER_LOOP_MOVES" => nothing) do
             @test DS.carrier_loop_moves() == "drop"
             @test DS.parse_carrier_loops(ln) == tab
         end
         with_env("DS_CARRIER_LOOP_MOVES" => "keep") do
-            @test DS.parse_carrier_loops(ln) == [("u-e", "u-ep", true)]
+            @test DS.parse_carrier_loops(ln) == [("u-e", "u-ep", true)]   # the closed row stays though marked
         end
         with_env("DS_CARRIER_LOOP_MOVES" => "yes") do
             @test_throws ArgumentError DS.carrier_loop_moves()

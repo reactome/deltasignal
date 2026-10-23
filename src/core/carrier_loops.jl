@@ -82,7 +82,7 @@ specs/093. A carrier-loop release the generator marks `moves` (it carries the
 free form across compartments: MET recycled from the endosome to the plasma
 membrane, L1CAM reinserted) is a return of material, not a partner letting go.
 - `drop` (default): the table is read as before, so `fed_single` may drop it.
-- `keep`: `parse_carrier_loops` leaves such rows out of the loop table, so the
+- `keep`: `parse_carrier_loops` leaves such OPEN-loop rows out of the loop table, so the
   release is an ordinary producer that no carrier-loop rule drops. A table
   without the column has no moving rows.
 """
