@@ -1,0 +1,43 @@
+ 9	PIP3_activates_AKT_signaling	PTEN	OE	{('0', '2'): 9}	{'propagator_missed': 9}
+ 5	RAF_MAP_kinase_cascade	NF1	KO	{('2', '1'): 5}	{'no_path': 5}
+ 4	Mitotic_G1-G1_S_phases	RB1	KO	{('2', '1'): 4}	{'propagator_missed': 4}
+ 3	Mitotic_G1-G1_S_phases	AKT1	KO	{('0', '1'): 3}	{'no_path': 3}
+ 3	Mitotic_G1-G1_S_phases	SRC	OE	{('2', '1'): 3}	{'no_path': 3}
+ 3	RAF_MAP_kinase_cascade	RAF1	KO	{('0', '2'): 3}	{'propagator_missed': 3}
+ 3	Cell_Cycle_Checkpoints	MDM2	KO	{('0', '2'): 2, ('2', '1'): 1}	{'propagator_missed': 2, 'no_path': 1}
+ 3	Transcriptional_Regulation_by_TP53	AKT1	KO	{('0', '1'): 2, ('2', '1'): 1}	{'propagator_missed': 3}
+ 3	Transcriptional_Regulation_by_TP53	MDM4	KO	{('2', '1'): 3}	{'propagator_missed': 3}
+ 2	Mitotic_Prophase	CCNB1	OE	{('2', '0'): 1, ('2', '1'): 1}	{'propagator_missed': 2}
+ 2	Mitotic_G1-G1_S_phases	AKT1	OE	{('2', '1'): 2}	{'no_path': 2}
+ 2	Mitotic_G1-G1_S_phases	CDKN1B	KO	{('2', '1'): 1, ('2', '0'): 1}	{'propagator_missed': 2}
+ 2	Mitotic_G1-G1_S_phases	SRC	KO	{('0', '1'): 2}	{'no_path': 2}
+ 2	PIP3_activates_AKT_signaling	TP53	KO	{('2', '0'): 2}	{'propagator_missed': 2}
+ 2	PIP3_activates_AKT_signaling	TP53	OE	{('0', '2'): 2}	{'propagator_missed': 2}
+ 2	Signaling_by_WNT	APC	KO	{('2', '1'): 1, ('1', '2'): 1}	{'propagator_missed': 1, 'false_positive_change': 1}
+ 2	Signaling_by_WNT	APC	OE	{('0', '1'): 1, ('2', '0'): 1}	{'propagator_missed': 2}
+ 2	Signaling_by_WNT	WNT1	KO	{('0', '1'): 2}	{'propagator_missed': 2}
+ 1	S_Phase	CCND1	KO	{('0', '1'): 1}	{'no_path': 1}
+ 1	S_Phase	CCND1	OE	{('2', '1'): 1}	{'no_path': 1}
+ 1	S_Phase	CCNE1	OE	{('1', '2'): 1}	{'false_positive_change': 1}
+ 1	S_Phase	CDK4	KO	{('0', '1'): 1}	{'no_path': 1}
+ 1	S_Phase	CDK4	OE	{('2', '1'): 1}	{'no_path': 1}
+ 1	S_Phase	CDKN1B	OE	{('0', '2'): 1}	{'propagator_missed': 1}
+ 1	S_Phase	MYC	KO	{('2', '1'): 1}	{'no_path': 1}
+ 1	S_Phase	MYC	OE	{('0', '1'): 1}	{'no_path': 1}
+ 1	Mitotic_Prophase	SET	KO	{('2', '1'): 1}	{'no_path': 1}
+ 1	Mitotic_Prophase	TPR	KO	{('1', '0'): 1}	{'false_positive_change': 1}
+ 1	Mitotic_G1-G1_S_phases	CCNE1	KO	{('0', '1'): 1}	{'propagator_missed': 1}
+ 1	Mitotic_G1-G1_S_phases	CDKN1B	OE	{('0', '2'): 1}	{'propagator_missed': 1}
+ 1	Signaling_by_ERBB2	ERBB3	KO	{('0', '1'): 1}	{'propagator_missed': 1}
+ 1	Signaling_by_ERBB2	PTPN12	KO	{('1', '2'): 1}	{'false_positive_change': 1}
+ 1	Signaling_by_ERBB2	PTPN12	OE	{('1', '0'): 1}	{'false_positive_change': 1}
+ 1	Signaling_by_WNT	WNT5A	OE	{('2', '1'): 1}	{'no_path': 1}
+ 1	Signaling_by_WNT	AMER1	OE	{('2', '0'): 1}	{'propagator_missed': 1}
+ 1	Signaling_by_WNT	WIF1	OE	{('0', '1'): 1}	{'no_path': 1}
+ 1	Cell_Cycle_Checkpoints	ATM	OE	{('0', '2'): 1}	{'propagator_missed': 1}
+ 1	Cell_Cycle_Checkpoints	MDM2	OE	{('0', '1'): 1}	{'no_path': 1}
+ 1	Transcriptional_Regulation_by_TP53	AKT2	KO	{('0', '1'): 1}	{'propagator_missed': 1}
+ 1	Transcriptional_Regulation_by_TP53	BRCA1	KO	{('0', '1'): 1}	{'propagator_missed': 1}
+ 1	Transcriptional_Regulation_by_TP53	BRCA1	OE	{('1', '0'): 1}	{'false_positive_change': 1}
+ 1	Transcriptional_Regulation_by_TP53	MDM4	OE	{('0', '1'): 1}	{'propagator_missed': 1}
+total 78

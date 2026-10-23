@@ -19,6 +19,31 @@ commit.
 ---
 
 
+> **2026-10-23 (later): canonical numbers with self-inhibitor copies (specs/095).**
+> - Build `20261022-2011_233665c` (unchanged).
+> - Solver `b61b365`: `DS_SELF_INHIBITOR_COPIES=on` by default.
+> - Results: `results/b61b365/dflt095`. They reproduce the measured arm (`sic`) on every
+>   case and value, both axes.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **90.25%** | **0.8755** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.61% | 0.8668 |
+> | curator, all pathways, in release (81) | 23,625 | 88.89% | 0.8664 |
+> | curator, all pathways, every case | 24,100 | 88.28% | 0.8586 |
+> | experimental, every case (10 pathways) | 849 | **74.68%** | **0.6628** |
+>
+> **What moved:** curator tuning +14 (14 / 0), experimental +9 (9 / 0, p 0.004), held-out 0:
+> every PTEN overexpression case in PIP3 (83.5× → 0.17×).
+>
+> Converged: 1,724 / 1,725 curator and 244 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 88.28% / 0.8586 against 83.34% / 0.8063, **+4.94pp**.
+> - Experimental: 74.68% (634/849) against 75.74% (643/849), **−1.06pp**.
+>
+> **Previous box**, kept below for the record.
+
 > **2026-10-23: canonical numbers with shared base weights (specs/091).**
 > - Build `20261022-2011_233665c` (unchanged).
 > - Solver `8162f5f`: `DS_POOL_BASE_WEIGHT=split` by default, plus the 2026-10-22 review
