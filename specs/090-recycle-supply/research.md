@@ -54,3 +54,8 @@ Not recommended for adoption: −6 on tuning, nothing gained on any axis, and th
 overexpression prediction is refuted. The knockout behaviour it was written for (an RBL1 or RBL2
 knockout empties its pool) does not change any class, because those cases were already right
 on the curator axis and the experimental axis disagrees with the curators there.
+
+## Decision
+
+Adam, 2026-10-23: "lets go with 1", i.e. merge as a not-adopted record. `DS_POOL_SUPPLY_AND`
+stays an opt-in, default off.

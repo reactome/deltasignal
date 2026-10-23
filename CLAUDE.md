@@ -448,7 +448,8 @@ env vars only override for benchmark sweeps:
   (generator `LNG_RECYCLE_POOLS`, default on since specs/081) joins a modification cycle into one
   component and is never an input. The solve reports `recycle_edges`
   (`src/core/recycle.jl`); the bench never counts it against a root.
-  `DS_POOL_SUPPLY_AND=off` (default) | `on` (specs/090, pre-registered): a pool
+  `DS_POOL_SUPPLY_AND=off` (default) | `on` (specs/090, **not adopted**: tuning −6, RBL2
+  overexpression reads UP through DREAM ⊣ RBL1): a pool
   state's AND-joined producers (a recycle base assembled from the protein and its
   partners) are one supply term, their capped product. Reports `pool_supply_and`
   and `cycle_supply_and_groups`.
@@ -921,6 +922,11 @@ for the last feature that touched it rather than re-deriving from the code.
   (Adam, 2026-10-22) despite a failed gate: tuning +22 (p 0.0001), experimental +3, held-out
   −2 (p 0.63; SMAD7 right only through a removed drain, SHH where the arm reads GLI3R UP, a
   threshold pair). Not combined with specs/088.
+- `specs/090-recycle-supply/` — `DS_POOL_SUPPLY_AND`: a recycle pool's AND-assembled
+  resting complexes as one supply term, so an RBL1/RBL2 knockout empties its pool (review
+  2026-10-22, finding 2). **Not adopted** (Adam, 2026-10-23): tuning −6, held-out 0,
+  experimental 0; RBL2 overexpression reads UP because the p107 pool's RBL1 copy is
+  DREAM-repressed transcription (R-HSA-8964525).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
