@@ -379,7 +379,7 @@ function solve_steady_state(
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["pool_supply_reach"] = supply_reach
     result.diagnostics["pool_supply_and"] = ymode == "balance" ? pool_supply_and() : "off"   # specs/090
-    result.diagnostics["pool_base_weight"] = ymode == "balance" ? pool_base_weight() : "full"   # specs/091
+    result.diagnostics["pool_base_weight"] = ymode == "balance" ? pool_base_weight() : "split"   # specs/091
     result.diagnostics["cycle_carrier_release"] = crelease
     result.diagnostics["cycle_reeval_carrier_rule"] = rcarriers
     result.diagnostics["drug_rule"] = drug_rule

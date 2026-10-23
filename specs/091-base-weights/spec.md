@@ -1,6 +1,6 @@
 # specs/091: a pool's resting copies share one base weight
 
-**Status:** pre-registered 2026-10-23, before the implementation and the arm. Arm `pbw`: **gate passes**, tuning +35 (40 / 5, p < 1e-4, Mitotic G1 +37, WNT −2), held-out 0, experimental +1. Recommended for adoption; Adam decides.
+**Status:** pre-registered 2026-10-23, before the implementation and the arm. Arm `pbw`: **gate passes**, tuning +35 (40 / 5, p < 1e-4, Mitotic G1 +37, WNT −2), held-out 0, experimental +1. **Adopted** (Adam, 2026-10-23: "lets go with option 1"); `split` is the default.
 
 Adam, 2026-10-23: "ok" to candidate I2 of the 2026-10-22 review
 (docs/reviews/2026-10-22-review.md, finding 3).

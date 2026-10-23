@@ -46,3 +46,9 @@ Recommended for adoption. The rule removes a dependence of pool magnitudes on va
 multiplicity, gains 37 Mitotic G1 cases, all CDK4/6 and PP2A perturbations of the p107/p130
 pools in the curated direction, and loses 3 WNT cases, 2 of which were right only through the
 20-copy ceiling.
+
+## Decision
+
+Adam, 2026-10-23: "lets go with option 1", i.e. adopt. `DS_POOL_BASE_WEIGHT=split` is the
+default; `full` restores specs/081's weights. The specs/081 test fixture keeps its full-weight
+numbers by setting `full` explicitly.

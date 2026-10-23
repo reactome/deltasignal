@@ -448,9 +448,11 @@ env vars only override for benchmark sweeps:
   (generator `LNG_RECYCLE_POOLS`, default on since specs/081) joins a modification cycle into one
   component and is never an input. The solve reports `recycle_edges`
   (`src/core/recycle.jl`); the bench never counts it against a root.
-  `DS_POOL_BASE_WEIGHT=full` (default) | `split` (specs/091, pre-registered): a
-  pool's k resting copies weigh 1/k each, so the next form rests at φ₀ whatever k
-  is. Reports `pool_base_weight` and `cycle_bases_split`.
+  `DS_POOL_BASE_WEIGHT=split` (**default since 2026-10-23**, specs/091; tuning +35,
+  held-out 0, experimental +1 against `full`) | `full` (specs/081, the earlier
+  default): a pool's k resting copies weigh 1/k each, so the next form rests at
+  φ₀ whatever k is (β-catenin's ceiling was 181×). Reports `pool_base_weight` and
+  `cycle_bases_split`.
   `DS_POOL_SUPPLY_AND=off` (default) | `on` (specs/090, **not adopted**: tuning −6, RBL2
   overexpression reads UP through DREAM ⊣ RBL1): a pool
   state's AND-joined producers (a recycle base assembled from the protein and its
@@ -930,6 +932,12 @@ for the last feature that touched it rather than re-deriving from the code.
   2026-10-22, finding 2). **Not adopted** (Adam, 2026-10-23): tuning −6, held-out 0,
   experimental 0; RBL2 overexpression reads UP because the p107 pool's RBL1 copy is
   DREAM-repressed transcription (R-HSA-8964525).
+- `specs/091-base-weights/` — `DS_POOL_BASE_WEIGHT=split`: a pool's resting copies share
+  one base weight, so magnitudes no longer depend on how many variant copies the generator
+  emits (review 2026-10-22, finding 3). **Adopted** (Adam, 2026-10-23): tuning +35 (40 / 5,
+  p < 1e-4, Mitotic G1 +37, all p107/p130 kinase/phosphatase perturbations), held-out 0,
+  experimental +1. APC/AMER1 at cytosolic β-catenin were right only through the old 181×
+  ceiling.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

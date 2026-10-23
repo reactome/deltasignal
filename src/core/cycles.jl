@@ -64,13 +64,15 @@ end
 
 """
 specs/091. The baseline weight of a pool's resting (base) copies:
-- `full` (default, specs/081): every base weighs 1, so with k bases the form one
-  step away rests at ρ/(k + ρ) and its largest fold grows with k.
-- `split`: each of k bases weighs 1/k, so they hold what one base holds and the
-  next form rests at φ₀ whatever k is. One-base pools are unchanged bit for bit.
+- `split` (default since specs/091 was adopted, Adam 2026-10-23: tuning +35,
+  held-out 0, experimental +1): each of k bases weighs 1/k, so they hold what one
+  base holds and the next form rests at φ₀ whatever k is. One-base pools are
+  unchanged bit for bit.
+- `full` (specs/081, the default before): every base weighs 1, so with k bases the
+  form one step away rests at ρ/(k + ρ) and its largest fold grows with k.
 """
 function pool_base_weight()::String
-    value = get(ENV, "DS_POOL_BASE_WEIGHT", "full")
+    value = get(ENV, "DS_POOL_BASE_WEIGHT", "split")
     value in ("full", "split") || throw(ArgumentError(
         "DS_POOL_BASE_WEIGHT must be full or split; got $(repr(value))"))
     return value

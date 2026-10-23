@@ -472,7 +472,9 @@ end
     pool = DS.CyclePool("recycle1", ["C1", "C2", "M"], "C1", paths, String[], Tuple{String, String}[], ["C1", "C2"])
     net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
                              Dict{String, Set{String}}(), nothing, [pool])
-    go(obs) = with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+    # full base weights (specs/081's numbers); split, the default since specs/091, is tested below
+    go(obs) = with_env("DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1", "DS_SELF_INHIBITOR_WEIGHT" => "off",
+                       "DS_POOL_BASE_WEIGHT" => get(ENV, "DS_POOL_BASE_WEIGHT", "full")) do
         o = Dict(k => (1.0, 1.0) for k in ("S1", "S2", "K", "PP"))
         for (k, v) in obs; o[k] = (v, 1.0); end
         DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
@@ -545,7 +547,7 @@ end
     net2 = DS.ReactionNetwork(nodes2, [edges; edge("E", "C1", "assembly"; and = true)],
                               Dict{String, DS.SetExpansionMapping}(), Set{String}(),
                               Dict{String, Set{String}}(), nothing, [pool])
-    go2(obs, m) = with_env("DS_POOL_SUPPLY_AND" => m, "DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1",
+    go2(obs, m) = with_env("DS_POOL_SUPPLY_AND" => m, "DS_POOL_BASE_WEIGHT" => "full", "DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1",
                            "DS_SELF_INHIBITOR_WEIGHT" => "off") do
         o = Dict(k => (1.0, 1.0) for k in ("S1", "S2", "K", "PP", "E"))
         for (k, v) in obs; o[k] = (v, 1.0); end
@@ -570,7 +572,9 @@ end
     gob(obs, m) = with_env("DS_POOL_BASE_WEIGHT" => m) do
         go(obs)
     end
-    @test gob(Dict{String, Float64}(), nothing).diagnostics["pool_base_weight"] == "full"
+    with_env("DS_POOL_BASE_WEIGHT" => nothing) do
+        @test DS.pool_base_weight() == "split"                 # default since specs/091's adoption
+    end
     @test gob(Dict{String, Float64}(), "full").node_activities == r0.node_activities
     ks = gob(Dict("K" => 0.0), "split")
     @test ks.diagnostics["pool_base_weight"] == "split" && ks.diagnostics["cycle_bases_split"] == 1
