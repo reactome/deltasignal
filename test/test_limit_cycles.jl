@@ -160,4 +160,18 @@ end
     end
 end
 
+
+@testset "the fallback is gated on the finished state's residual (review 2026-10-22)" begin
+    # The sweep's own maxch is read mid-sweep and could stop below tolerance while
+    # the finished state sat above it: the solve was non-converged and the
+    # fallback never ran (EGFR, 19 canonical solves). These cases did that.
+    for (dep, p, tol, it) in ((2, 10.0, 1e-6, 500), (2, 10.0, 1e-5, 500), (2, 5.0, 1e-3, 200))
+        r = with_env("DS_NONCONV_FALLBACK" => "lm", "DS_DEPLETION_OWN_PRODUCT" => "full",
+                     "DS_NONCONV_RESTARTS" => "0") do
+            DS.solve_steady_state(ring(deplete = dep), Dict("P" => (p, 1.0)),
+                                  DS.SteadyStateParams(1.0, 0.1, it, tol, "penalty"))
+        end
+        @test r.converged || r.diagnostics["nonconv_components"] > 0
+    end
+end
 end

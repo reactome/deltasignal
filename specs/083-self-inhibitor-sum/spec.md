@@ -39,7 +39,7 @@ Most have one such activator, which squares the input's fold. specs/012 measured
 de-duplicating the *same entity* as catalyst and substrate at −15 held-out. That is
 deletion of an identical node; this rule is containment-based damping, as specs/022 is.
 
-## The rule (`DS_SELF_ACTIVATOR_WEIGHT`, default `off`; values `off` or w in [0, 1])
+## The rule (`DS_SELF_ACTIVATOR_WEIGHT`, registered default `off`, default 0.1 since adoption; values `off` or w in [0, 1])
 
 The mirror of specs/022:
 - **Pairs.** For each positive `regulator` or `catalyst` edge A → reaction t: the

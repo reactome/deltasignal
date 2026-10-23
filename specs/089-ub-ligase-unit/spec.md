@@ -39,7 +39,7 @@ Everything else in the ubiquitin pass is unchanged.
 ## Structural count (`census.py` → `census.tsv`, Neo4j Release 97, before the implementation)
 
 102 ubiquitinations in the catalog pathways with an identified substrate. The rule drops
-ligase leaves in **42** (A: 36, B: 6), in 28 pathways. For example:
+ligase leaves in **42** (A: 36, B: 6), in 26 pathways (28 in the first draft, a miscount; review 2026-10-22). For example:
 - Mitotic G1: CKS1B (R-HSA-187575, A); CKS1B, CUL1, SKP1, SKP2 (R-HSA-1363331, B).
 - TP53 and Cell Cycle Checkpoints: p-MDM2 and MDM4 in "MDM2 ubiquitinates TP53"
   (R-HSA-6804879, B).

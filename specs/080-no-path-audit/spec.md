@@ -97,6 +97,13 @@ MP-BioPath defines key outputs. A complex that merely contains the readout is no
 The database check above counted a readout as reached when a reached entity *contains* it,
 which is more generous. For the 103 wrong readout-form cases:
 
+> **Correction (review 2026-10-22):** `breaks.py` groups the reach table by (pathway, gene,
+> readout) without separating the axes, and every experimental case is also a curator case.
+> So the break table's figures mix the two: the 103 readout-form errors are 94 curator + 9
+> experimental (`classify_readout_form.py` reads only the curator cases, so its classes sum to
+> 94), and the component-into-root-complex row (430 / 244) is 414 / 230 on the curator axis
+> alone. The 181 wrong in Mitotic G1 likewise counts experimental duplicates.
+
 | class | wrong | what it is |
 |---|---|---|
 | no gene-containing node reaches the scored copies | 74 | **an artefact of this check.** The database route ends in a complex containing the readout (e.g. XIAP:apoptosome containing cleaved caspase-9), and no reaction makes the readout itself from it. The benchmark is right to call these no-path. |
