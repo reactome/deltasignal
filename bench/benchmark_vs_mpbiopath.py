@@ -1245,6 +1245,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["drugs_listed"] += len(parsed.get("drug_stids") or [])
             SOLVE_TALLY[f"pathogen_rule={ds_result.get('pathogen_rule', 'unknown')}"] += 1
             SOLVE_TALLY["pathogens_held"] += int(ds_result.get("pathogens_held") or 0)
+            SOLVE_TALLY[f"ubiquitin_rule={ds_result.get('ubiquitin_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["ubiquitin_held"] += int(ds_result.get("ubiquitin_held") or 0)
             # how many listed stable ids this solve's network carried: a run whose
             # pathways list none (most do) holds nothing under the default by design
             SOLVE_TALLY["pathogens_listed"] += len(parsed.get("pathogen_stids") or [])
@@ -1623,6 +1625,10 @@ def main():
     # inert is the default since specs/048 amendment 2, and 83 of 92 pathways list
     # no pathogen, so a subset run that holds nothing is expected. Refuse only when
     # networks DID list pathogens and none was held: the listing matched nothing.
+    urules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("ubiquitin_rule="))
+    print(f"Free ubiquitin: rule {'/'.join(urules) or 'unknown'}, {SOLVE_TALLY['ubiquitin_held']} node-solves held (specs/098)")
+    if "inert" in urules and args.limit is None and SOLVE_TALLY["ubiquitin_held"] == 0:
+        raise SystemExit("DS_UBIQUITIN_MODE=inert but no solve held a free ubiquitin node; the arm is the control.")
     if "inert" in prules and SOLVE_TALLY["pathogens_held"] == 0:
         if SOLVE_TALLY["pathogens_listed"]:
             raise SystemExit("DS_PATHOGEN_MODE=inert and the networks list pathogens, but no solve held one; "

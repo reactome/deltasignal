@@ -33,8 +33,12 @@ depletion edges (specs/089) are untouched. The solve reports `ubiquitin_rule` an
 
 ## Census (after the implementation, before the arm)
 
-Free ubiquitin nodes per pathway, and how many of specs/097's 13 ubiquitin-closed components
-remain cyclic once they are held (re-run of `loop_audit.jl` with the held nodes' in-edges removed).
+`loop_audit_hold.jl` (specs/097's audit with a held free ubiquitin's in-edges removed) on canonical:
+- **342 free ubiquitin nodes in 40 pathways**;
+- ubiquitin-closed positive components **13 → 0**; unhandled components 97 → 85; pathways with an
+  unhandled positive loop 30 → 24;
+- one large component was closed by ubiquitin and also by material steps: it stays cyclic as a
+  material loop (material-closed nodes 249 → 1,136).
 
 ## Arm
 

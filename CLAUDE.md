@@ -414,6 +414,10 @@ env vars only override for benchmark sweeps:
     nothing broken.
   - The solve reports `pathogen_rule` and `pathogens_held`. A bundle without
     the table reports `inert: no pathogen table`, and the bench refuses it.
+- `DS_UBIQUITIN_MODE=propagate` (default) | `inert` (specs/098, pre-registered): free
+  ubiquitin nodes (the three ubiquitin stIds exactly, not conjugates) held at baseline like
+  drugs, so the free pool cannot close loops over a pathway's ubiquitinations. Reports
+  `ubiquitin_rule` and `ubiquitin_held`.
 - `DS_SET_POOL_MODE=product` (default) | `extreme` | `geomean` | `mean` | `max`
   (specs/033): how a set POOL node (the generator's `LNG_SET_POOL`: one node
   per set-valued catalyst or regulator, fed by `set_member` edges) combines its
@@ -981,7 +985,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 106 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
-| `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
+| `test/test_drugs.jl` | 134 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 549 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
