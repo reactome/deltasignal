@@ -960,6 +960,8 @@ function solve_handler(req)
             "cycle_carriers" => get(solver_result.diagnostics, "cycle_carriers", "off"),
             "pool_supply_reach" => get(solver_result.diagnostics, "pool_supply_reach", "all"),
             "cycle_supply_regulated_kept" => get(solver_result.diagnostics, "cycle_supply_regulated_kept", 0),
+            "pool_supply_and" => get(solver_result.diagnostics, "pool_supply_and", "off"),   # specs/090
+            "cycle_supply_and_groups" => get(solver_result.diagnostics, "cycle_supply_and_groups", 0),
             "cycle_carrier_release" => get(solver_result.diagnostics, "cycle_carrier_release", "listed"),
             "cycle_carrier_release_added" => get(solver_result.diagnostics, "cycle_carrier_release_added", 0),
             # specs/075 (additive): how the drives re-evaluate a carrier.

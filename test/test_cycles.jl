@@ -531,6 +531,40 @@ end
         "intermediates" => String[], "carriers" => [], "paths" => [Dict("from" => "A", "to" => "B", "enzyme" => true,
         "steps" => [["A", "B", ["F"]]])])]))
     @test DS.pools_from_json(old)[1].bases == ["A"]   # a table written before specs/081
+    # specs/090: the supply AND. With single-producer states the rule is the identity.
+    goa(obs, m) = with_env("DS_POOL_SUPPLY_AND" => m) do
+        go(obs)
+    end
+    for obs in (Dict{String, Float64}(), Dict("S1" => 0.0), Dict("S1" => 50.0), Dict("K" => 80.0))
+        @test goa(obs, "on").node_activities == goa(obs, "off").node_activities
+    end
+    @test goa(Dict{String, Float64}(), nothing).diagnostics["pool_supply_and"] == "off"
+    @test goa(Dict{String, Float64}(), "on").diagnostics["cycle_supply_and_groups"] == 0
+    # C1 also needs a partner E (RBL2:E2F4): its producers S1 AND E are one term.
+    nodes2 = merge(nodes, Dict("E" => DS.NetworkNode("E", "R-E", "protein", nothing, "E", BL)))
+    net2 = DS.ReactionNetwork(nodes2, [edges; edge("E", "C1", "assembly"; and = true)],
+                              Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                              Dict{String, Set{String}}(), nothing, [pool])
+    go2(obs, m) = with_env("DS_POOL_SUPPLY_AND" => m, "DS_CYCLE_MODE" => "balance", "DS_CYCLE_PHI" => "0.1",
+                           "DS_SELF_INHIBITOR_WEIGHT" => "off") do
+        o = Dict(k => (1.0, 1.0) for k in ("S1", "S2", "K", "PP", "E"))
+        for (k, v) in obs; o[k] = (v, 1.0); end
+        DS.solve_steady_state(net2, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
+    end
+    # the protein knocked out in both copies: off averages the partner in (1/3 left),
+    # on empties the pool, as the AND assembly did before specs/081
+    koff = go2(Dict("S1" => 0.0, "S2" => 0.0), "off")
+    kon = go2(Dict("S1" => 0.0, "S2" => 0.0), "on")
+    @test fold(koff, "M") ≈ 1 / 3 rtol = 1e-6
+    @test fold(kon, "M") ≈ 0.0 atol = 1e-9
+    @test fold(kon, "C1") ≈ 0.0 atol = 1e-9
+    @test kon.diagnostics["cycle_supply_and_groups"] == 1
+    # overexpressed protein: off dilutes it by the partner, on reads the product
+    @test fold(go2(Dict("S1" => 10.0, "S2" => 10.0), "off"), "M") ≈ 7.0 rtol = 1e-6   # (10+1+10)/3
+    @test fold(go2(Dict("S1" => 10.0, "S2" => 10.0), "on"), "M") ≈ 10.0 rtol = 1e-6   # (10*1 + 10)/2
+    with_env("DS_POOL_SUPPLY_AND" => "yes") do
+        @test_throws ArgumentError DS.pool_supply_and()
+    end
 end
 
 @testset "a release pool: the released copy reads the free state (specs/086)" begin
