@@ -134,6 +134,17 @@ function solve_steady_state(
     carrier_component_rule = carrier_component_twin() ? (carrier_loop_mode() == "closed_twin" ? "on" :
                              "on: inert under DS_CARRIER_LOOP_MODE=$(carrier_loop_mode())") : "off"
     carrier_component_edges = count(e -> e.edge_type == CARRIER_COMPONENT_EDGE, network.edges)
+    # Review 2026-10-22: the open rule acts only when the loop mode applies it, as
+    # the component rule above reports (the bench refused DS_CARRIER_LOOP_MODE=off
+    # arms, the documented re-run for old builds, as "the arm is the control").
+    if carrier_open != "off"
+        lmode = carrier_loop_mode()
+        if lmode in ("off", "all")
+            carrier_open = "$carrier_open: inert under DS_CARRIER_LOOP_MODE=$lmode"
+        elseif endswith(carrier_loop_rule, ": no carrier table")
+            carrier_open = "$carrier_open: no carrier table"
+        end
+    end
     # specs/059: a recycled copy of an entity also reads its root copies.
     network, recycled_twin_rule, recycled_twin_edges = apply_recycled_twins(network, recycled_twin_mode())
     # specs/063: a dead-end binding complex depletes its free partner.
@@ -1976,6 +1987,21 @@ function solve_scc_ordered!(
                     comp_residual = maxch
                     maxch < tol && break
                 end
+                # Review 2026-10-22: maxch is measured mid-sweep, before later
+                # nodes of the same Gauss-Seidel sweep move, and can sit below
+                # tolerance while the finished state is above it (EGFR ARHGEF7
+                # knockout: 6.95e-7 vs 1.048e-6). Gate the fallback, restarts and
+                # the reported residual on |F(x) - x| of the state actually kept,
+                # the scale of the final convergence verdict.
+                if !is_neg && !minimize
+                    if haskey(comp_pools, c)
+                        comp_residual = _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed,
+                                                                  comp_pools[c], comp_shared[c], baseline_vec,
+                                                                  pool_carriers)
+                    elseif !any(u -> u in managed, comp_nodes[c])
+                        comp_residual = _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+                    end
+                end
                 # specs/066: a component still above tolerance after the cap is
                 # usually a limit cycle (a Goodwin ring), whose fixed point exists
                 # but repels damped relaxation. Find it by least squares on the
@@ -2004,6 +2030,7 @@ function solve_scc_ordered!(
                             first && r1 < tol && (pool_stats["nonconv_pool_rescued"] = get(pool_stats, "nonconv_pool_rescued", 0) + 1)
                         else
                             x[comp_nodes[c]] = saved
+                            comp_residual = r0      # the kept iterate's true residual
                         end
                     elseif haskey(comp_pools, c) || any(u -> u in managed, comp_nodes[c])
                         pool_stats["nonconv_skipped_pools"] = get(pool_stats, "nonconv_skipped_pools", 0) + 1
@@ -2020,6 +2047,7 @@ function solve_scc_ordered!(
                             first && r1 < tol && (pool_stats["nonconv_rescued"] = get(pool_stats, "nonconv_rescued", 0) + 1)
                         else
                             x[comp_nodes[c]] = saved
+                            comp_residual = r0      # the kept iterate's true residual
                         end
                     end
                 end

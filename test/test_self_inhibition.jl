@@ -284,6 +284,22 @@ end
     ni = asolve(anet(; containment = Dict{String, Set{String}}()); g = 2.0, w = "0.1")
     @test ni.diagnostics["self_activator_rule"] == "inert: no containment table"
     @test tf(ni) ≈ 8.0 rtol = 1e-6
+    # review 2026-10-22: a knocked-out TF zeroes its TF:gene activator, and the
+    # rule leaves it at 0 (it read 1e-3 of baseline through the log floor)
+    @test tf(asolve(net; g = 1.0, tf1 = 0.0)) == 0.0
+    @test tf(asolve(net; g = 2.0, tf1 = 0.0)) == 0.0
+    @test tf(asolve(net; g = 1.0, tf1 = 0.0005, w = "0.1")) ≈ tf(asolve(net; g = 1.0, tf1 = 0.0005, w = "off")) rtol = 1e-9
+    # review 2026-10-22: an activator that is also an input keeps its input slot;
+    # only the regulator slot is damped, n = 1
+    nodes = Dict(node.(["T", "G", "TF1", "A1"]))
+    both = DS.ReactionNetwork(nodes,
+        [edge("G", "T", true, "input"), edge("A1", "T", true, "input"), edge("A1", "T", true, "regulator"),
+         edge("G", "A1", true, "assembly"), edge("TF1", "A1", true, "assembly")],
+        Dict{String, DS.SetExpansionMapping}(), Set{String}(), Dict("R-A1" => Set(["R-G", "R-TF1"])))
+    @test tf(asolve(both; g = 2.0, w = "off")) ≈ 8.0 rtol = 1e-6
+    rb = asolve(both; g = 2.0, w = "0.1")
+    @test tf(rb) ≈ 2.0 * 2.0 * 2.0^0.1 rtol = 1e-6
+    @test rb.diagnostics["self_activators"] == 1
     for bad in ("1.5", "-0.1", "half")
         with_env("DS_SELF_ACTIVATOR_WEIGHT" => bad) do
             @test_throws ArgumentError DS.resolve_reaction_eval_config()

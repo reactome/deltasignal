@@ -445,7 +445,7 @@ env vars only override for benchmark sweeps:
   iterate as under `off`), and the bench refuses such a build. φ₀ refers to
   the pool's ACTIVE form, which the generator marks (`LNG_POOL_ACTIVE_VIA`).
   A pool may mark several base (resting) states (specs/081); a `recycle` edge
-  (generator `LNG_RECYCLE_POOLS`, default off) joins a modification cycle into one
+  (generator `LNG_RECYCLE_POOLS`, default on since specs/081) joins a modification cycle into one
   component and is never an input. The solve reports `recycle_edges`
   (`src/core/recycle.jl`); the bench never counts it against a root.
   A release pool (generator `LNG_RELEASE_POOLS`, default on since specs/086) lists
@@ -497,8 +497,8 @@ env vars only override for benchmark sweeps:
   `DS_CARRIER_LOOP_OPEN=fed_single` (**default since 2026-10-19**, specs/077
   amendment 1, post hoc; held-out +65 (84 / 19), experimental −5 (every loss
   traced: release artefacts or threshold shifts), faithful build +272) | `off`
-  | `fed_single_ub` (specs/088, pre-registered: ubiquitin is not a displacer)
-  (the earlier solver) | `fed` (fails its gate: intrinsic apoptosis −26).
+  (the earlier solver) | `fed_single_ub` (specs/088, not adopted: ubiquitin is
+  not a displacer) | `fed` (fails its gate: intrinsic apoptosis −26).
   `fed_single` is `fed` that keeps a release with a second non-cofactor input
   (a displacer, BAD freeing tBID). The rule: an OPEN loop's free form that keeps a producer outside
   its loops stops reading its own release (RBBP8 released by MMEJ in DSB
@@ -506,7 +506,7 @@ env vars only override for benchmark sweeps:
   receptor scaffold, which `all` cut) keeps them. Reports
   `carrier_loop_open_rule` and `carrier_loop_open_edges`. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
-  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261017-1246_5e663d9` (since 2026-10-17, specs/068; `20261017-0654_d3ebf38` (specs/067) before).
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261022-2011_233665c` (since 2026-10-22, specs/089; `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
 - `DS_RECYCLED_TWIN=on` (**default since 2026-10-15**, specs/061 adoption) |
   `off` (specs/059): a RECYCLED copy of an
   entity (every producer, except depletion and dissociation, downstream of
@@ -936,7 +936,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty-two files contain assertions; the
+**Most of the test suite cannot fail.** Twenty-three files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -946,19 +946,19 @@ other seven execute code and print output.
 | `test/test_propagator_invariants.jl` | 121 | |
 | `test/test_loop_pool.jl` | 81 | |
 | `test/test_solver_determinism.jl` | 126 | |
-| `test/test_and_curves.jl` | 93 | specs/074 cap band added 2026-10-18 |
+| `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 100 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
+| `test/test_self_inhibition.jl` | 106 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
 | `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 524 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
+| `test/test_cycles.jl` | 525 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 235 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
+| `test/test_carrier_loops.jl` | 238 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
-| `test/test_limit_cycles.jl` | 53 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
+| `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

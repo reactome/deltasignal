@@ -125,5 +125,8 @@ def test_carrier_loop_capacity_counts_by_the_amendment_5_rule():
                              {"free_uuid": "F", "loop_source_uuid": "EP", "closed": False},
                              {"free_uuid": "B", "loop_source_uuid": "EP", "closed": True}]}
     # G is E's only twin: H has an in-edge, F is listed, Z's empty id names nothing
-    assert bench.carrier_loop_capacity(net) == (2, 1)
-    assert bench.carrier_loop_capacity({**net, "carrier_loops": None}) == (0, 0)
+    # F is the one open free form (review 2026-10-22: the specs/077 refusal needs it)
+    assert bench.carrier_loop_capacity(net) == (2, 1, 1)
+    assert bench.carrier_loop_capacity({**net, "carrier_loops": None}) == (0, 0, 0)
+    only_open = {**net, "carrier_loops": [{"free_uuid": "F", "loop_source_uuid": "EP", "closed": False}]}
+    assert bench.carrier_loop_capacity(only_open) == (0, 0, 1)

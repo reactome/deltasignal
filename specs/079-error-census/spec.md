@@ -20,6 +20,13 @@ claim about Reactome as a whole (below). No solver rule can fix those: the most 
 these networks is **94.4% curator** and **85.3% experimental**. The solver work since
 specs/039 has been spent on the other half.
 
+> **Correction (review 2026-10-22):** that ceiling is not an upper bound. `no_path` is read
+> from the generator's network (`build_adjacency` in the bench), not the network the solver
+> runs, which adds edges (`closed_twin` carrier supply, `recycled_supply`, specs/084's
+> `carrier_component`) and drops loop edges. specs/084 then fixed 6 curator and 4
+> experimental cases that were all labelled `no_path` here. Read "no route" as "no route in
+> the generated network", which a solver rule can still create.
+
 ## The experimental set and the curators disagree
 
 All 845 valid experimental cases are also curated. The curators' answer matches the

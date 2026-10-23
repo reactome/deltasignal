@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-17. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-22. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,38 @@ commit.
 
 ---
 
+
+> **2026-10-22: canonical numbers with every default adopted since 2026-10-17.**
+> - Build `20261022-2011_233665c`: generator `233665c` (LNG #119–#122:
+>   recycle pools on by default (specs/081), release pools (specs/086), the
+>   ubiquitin pass sparing its own ligase (specs/089)).
+> - Solver `a5bc9c0`, carrying specs/073 (joint pool components), 074 (hill_sat
+>   cap band), 075 (re-evaluated carriers), 076 (LM restarts), 077 (open carrier
+>   releases), 083 (self-contained activators) and 084 (component twins).
+> - Results: `results/a5bc9c0/dflt089`. They reproduce the measured arm
+>   (`ulu`) on every case and value, both axes.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **90.25%** | **0.8755** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.61% | 0.8668 |
+> | curator, all pathways, in release (81) | 23,625 | 88.68% | 0.8635 |
+> | curator, all pathways, every case | 24,100 | 88.07% | 0.8558 |
+> | experimental, every case (10 pathways) | 849 | **73.50%** | **0.6534** |
+>
+> **What moved since the previous box:** held-out in release +0.34pp (macro-F1
+> +0.005), curator all +1.05pp, experimental +2.12pp (606 → 624 of 849). Each
+> step is measured in its spec's research.md.
+>
+> Converged: 1,706 / 1,725 curator and 234 / 244 experimental solves. With the
+> 2026-10-22 review fixes (solver `c3e5898`, `results/c3e5898/rev1022`): no class
+> changes, 1,724 / 1,725 and 244 / 244 (docs/reviews/2026-10-22-review.md).
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 88.07% / 0.8558 against 83.34% / 0.8063, **+4.73pp**.
+> - Experimental: 73.50% (624/849) against 75.74% (643/849), **−2.24pp**.
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-17 (later): canonical numbers with closed carrier loops kept
 > closed (specs/068).**

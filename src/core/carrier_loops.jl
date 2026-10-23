@@ -216,8 +216,12 @@ The network the solve actually runs under the active `DS_CARRIER_LOOP_MODE`:
 for influence scores, which must differentiate the edges the solve used (the
 twin's `carrier_supply` edge, specs/059's `recycled_supply` edges and specs/063's
 sequestration depletions), not the
-loop edges it dropped.
+loop edges it dropped. Recycle edges (specs/081) are stripped first, as the
+solve does: left in, a starting copy with a recycle in-edge stopped being a
+root and gained `recycled_supply` edges the solve never had (review
+2026-10-22, L1CAM: 13 edges).
 """
 solved_carrier_network(network::ReactionNetwork) =
-    first(apply_sequestration(first(apply_recycled_twins(first(apply_carrier_loops(network, carrier_loop_mode())),
-                                                         recycled_twin_mode())), sequestration_mode()))
+    first(apply_sequestration(first(apply_recycled_twins(
+        first(apply_carrier_loops(first(split_recycle_edges(network)), carrier_loop_mode())),
+        recycled_twin_mode())), sequestration_mode()))

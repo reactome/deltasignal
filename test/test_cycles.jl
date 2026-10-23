@@ -483,6 +483,8 @@ end
     @test r0.diagnostics["recycle_edges"] == 2
     # a recycle edge is never an input: the starting copies have no update of their own
     @test !any(r -> r.target_uuid in ("S1", "S2"), DS.convert_to_reaction_network(net))
+    # review 2026-10-22: the influence network is the one the solve ran, without them
+    @test !any(e -> e.edge_type == "recycle", DS.solved_carrier_network(net).edges)
     # without the recycle edges the pool's nodes are not one component, so it is not solved
     norec = DS.ReactionNetwork(nodes, [e for e in edges if e.edge_type != "recycle"],
                                Dict{String, DS.SetExpansionMapping}(), Set{String}(),

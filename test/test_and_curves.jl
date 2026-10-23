@@ -309,4 +309,12 @@ end
     end
 end
 
+
+@testset "hill_sat at exactly the cap with DS_HILL_SAT_EPS=0 (review 2026-10-22)" begin
+    # the specs/074 below-cap form divided 0 by 0 here and returned NaN
+    v = and_fold([100.0]; mode="hill_sat", eps="0")
+    @test isfinite(v)
+    @test v ≈ 100.0 rtol = 1e-9
+    @test and_fold([10.0, 10.0]; mode="hill_sat", eps="0") ≈ 100.0 rtol = 1e-9
+end
 end  # outer testset

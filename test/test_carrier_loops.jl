@@ -290,6 +290,11 @@ end
     @test run("all", "fed").node_activities == a.node_activities
     @test run("off", "fed").node_activities == run("off", "off").node_activities
     @test run("off", "fed").diagnostics["carrier_loop_open_edges"] == 0
+    # review 2026-10-22: a rule the loop mode leaves inert says so (the bench
+    # refused DS_CARRIER_LOOP_MODE=off arms on a bare "fed_single")
+    @test run("off", "fed_single").diagnostics["carrier_loop_open_rule"] == "fed_single: inert under DS_CARRIER_LOOP_MODE=off"
+    @test run("all", "fed_single").diagnostics["carrier_loop_open_rule"] == "fed_single: inert under DS_CARRIER_LOOP_MODE=all"
+    @test run("all", "off").diagnostics["carrier_loop_open_rule"] == "off"
     # the influence network is the one the solve ran
     with_env("DS_CARRIER_LOOP_OPEN" => "fed") do
         sn = DS.solved_carrier_network(net)

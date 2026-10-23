@@ -81,7 +81,16 @@ struct Reaction
     # limiting-reactant min across distinct components. Off, they are min'd
     # like any assembly input, so the container is capped by the LEAST copy.
     activator_group::Vector{Int}
+
+    # Per-activator flag: the slot came from an `input` edge (review 2026-10-22).
+    # The specs/083 self-activator rule damps only regulator and catalyst slots;
+    # an entity that is also an input of the same reaction keeps its input slot.
+    activator_is_input::Vector{Bool}
 end
+
+# Constructor for callers that predate `activator_is_input`: no slot is an input.
+Reaction(t, a, i, d, s, p, pr, g, aa, ia, ac, as, ag) =
+    Reaction(t, a, i, d, s, p, pr, g, aa, ia, ac, as, ag, fill(false, length(a)))
 
 # Back-compat outer constructor: callers predating the per-activator catalyst
 # flag (the biological-realism / feedback / compartmentalization enhancement
@@ -174,6 +183,7 @@ function create_reaction_from_edges(
     activator_is_catalyst = Bool[]
     activator_is_assembly = Bool[]
     activator_group = Int[]
+    activator_is_input = Bool[]
     group_ids = Dict{String, Int}()   # base stable id -> dense group id
     inhibitors = String[]
     inhibitor_is_and = Bool[]
@@ -186,6 +196,7 @@ function create_reaction_from_edges(
             push!(activators, edge.parent_uuid)
             push!(activator_is_and, edge.is_and)
             push!(activator_is_catalyst, edge.edge_type == "catalyst")
+            push!(activator_is_input, edge.edge_type == "input")
             # `composition` (complex -> complex that contains it, emitted by LNG
             # along Reactome's hasComponent hierarchy) shares assembly's
             # limiting-reactant semantics: a container cannot exceed the
@@ -233,7 +244,7 @@ function create_reaction_from_edges(
     # so per-edge weights stay aligned with the deduplicated vectors.
     if _bool_env("DS_DEDUP_ACTIVATORS", false) && length(activators) > 1
         seen = Dict{String, Int}()
-        d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]; d_grp = Int[]
+        d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]; d_grp = Int[]; d_inp = Bool[]
         for k in eachindex(activators)
             src = activators[k]
             j = get(seen, src, 0)
@@ -243,6 +254,7 @@ function create_reaction_from_edges(
                 push!(d_cat, activator_is_catalyst[k])
                 push!(d_asm, activator_is_assembly[k])
                 push!(d_grp, activator_group[k])
+                push!(d_inp, activator_is_input[k])
                 seen[src] = length(d_act)
             else
                 # Merge deterministically so the result cannot depend on edge
@@ -259,6 +271,7 @@ function create_reaction_from_edges(
                 d_and[j] |= activator_is_and[k]
                 d_cat[j] |= activator_is_catalyst[k]
                 d_asm[j] &= activator_is_assembly[k]
+                d_inp[j] |= activator_is_input[k]
                 # A composition edge parallel to a plain activator from the same
                 # source repeats a fold the plain edge already carries, so the
                 # plain role wins: the group survives only if EVERY duplicate is
@@ -272,6 +285,7 @@ function create_reaction_from_edges(
         activators, activator_is_and = d_act, d_and
         activator_is_catalyst, activator_is_assembly = d_cat, d_asm
         activator_group = d_grp
+        activator_is_input = d_inp
     end
 
     # Reaction-level fallback flag (preserved for any legacy caller).
@@ -297,6 +311,7 @@ function create_reaction_from_edges(
         activator_is_catalyst,
         activator_is_assembly,
         activator_group,
+        activator_is_input,
     )
 end
 
@@ -587,7 +602,10 @@ function index_reactions(
             push!(act_orig, k)
         end
         # specs/083: per activator, the inputs it contains and is computed from
-        act_shared = [Int[uuid_to_idx[a] for a in get(self_act, (r.activator_uuids[k], r.target_uuid), String[])
+        # only regulator/catalyst slots, as the pairs are built (review 2026-10-22:
+        # an activator that is also an input had its input slot damped too)
+        act_shared = [(k <= length(r.activator_is_input) && r.activator_is_input[k]) ? Int[] :
+                      Int[uuid_to_idx[a] for a in get(self_act, (r.activator_uuids[k], r.target_uuid), String[])
                           if haskey(uuid_to_idx, a)] for k in act_orig]
         inh_orig = [k for (k, u) in enumerate(r.inhibitor_uuids) if haskey(uuid_to_idx, u)]
         sub_orig = [k for (k, u) in enumerate(r.substrate_uuids) if haskey(uuid_to_idx, u)]
@@ -1016,7 +1034,7 @@ struct ReactionEvalConfig
     self_inhibitor_weight::Float64   # < 0 = off. Default 0.1. specs/022.
     loop_gain::Float64               # 1.0 = off. specs/028.
     set_pool_mode::String            # specs/033: how a set pool combines its members.
-    self_activator_weight::Float64   # < 0 = off (default). specs/083.
+    self_activator_weight::Float64   # < 0 = off; default 0.1 since specs/083 was adopted.
 end
 
 """
@@ -1676,9 +1694,15 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             l_s = log(max(f_s, fl))
             l_a = log(max(src_val / bl, fl))
             e = (l_s * l_a > 0) ? sign(l_a) * min(abs(l_a), abs(l_s)) : zero(T)
-            l_eff = (l_a - e) + (T(config.self_activator_weight) / n_sa) * e
-            v = clamp(bl * exp(l_eff), zero(T), one(T))
-            src_val = clamp(v, min(src_val, bl), max(src_val, bl))
+            # Review 2026-10-22: with no overlap, or an activator below the
+            # floor (a knockout), leave it as it is. The floored log turned an
+            # exact 0 into 1e-3 of baseline, so a TF knockout no longer zeroed
+            # transcription (280 curator values).
+            if e != zero(T) && src_val >= fl * bl
+                l_eff = (l_a - e) + (T(config.self_activator_weight) / n_sa) * e
+                v = clamp(bl * exp(l_eff), zero(T), one(T))
+                src_val = clamp(v, min(src_val, bl), max(src_val, bl))
+            end
         end
         transformed = apply_sensitivity_transform(
             src_val;
@@ -1886,7 +1910,10 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 # which has no cancellation either.
                 diff_hi = raw - max_internal
                 root_hi = sqrt(diff_hi * diff_hi + sat_eps * sat_eps)
-                hi = diff_hi > zero(T) ?
+                # root_hi == 0 only when sat_eps == 0 and raw is exactly the cap
+                # (review 2026-10-22: 0/0 gave NaN under DS_HILL_SAT_EPS=0)
+                hi = root_hi == zero(T) ? max_internal :
+                    diff_hi > zero(T) ?
                     max_internal - (sat_eps * sat_eps) / (T(2.0) * (diff_hi + root_hi)) :
                     raw - (sat_eps * sat_eps) / (T(2.0) * (root_hi - diff_hi))
                 # Smooth-max with 0 (floors at 0). hi is bounded by
