@@ -111,6 +111,9 @@ struct ReactionNetwork
     # uuid -> (node_kind, member_leaves) from the generator's `nodes.csv`
     # (specs/052, DS_ZERO_SUPPLY_MODE). `nothing` = no such file.
     node_leaves::Union{Nothing, Dict{String, NodeLeaves}}
+    # RNA species' stable ids from the generator's `rnas.csv` (specs/100), with
+    # the same `nothing` / empty distinction as drug_stids.
+    rna_stids::Union{Nothing, Set{String}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
@@ -119,9 +122,10 @@ struct ReactionNetwork
                     pools = nothing,
                     pathogen_stids = nothing,
                     carrier_loops = nothing,
-                    node_leaves = nothing) =
+                    node_leaves = nothing,
+                    rna_stids = nothing) =
         new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools, pathogen_stids,
-            carrier_loops, node_leaves)
+            carrier_loops, node_leaves, rna_stids)
 end
 
 """
@@ -418,6 +422,7 @@ function parse_complete_network(
     containment = parse_containment(logic_network_path)
     drugs = parse_drug_list(logic_network_path)
     pathogens = parse_pathogen_list(logic_network_path)
+    rnas = parse_rna_list(logic_network_path)                       # specs/100
     carrier_loops = parse_carrier_loops(logic_network_path)
     # specs/052: read only by DS_ZERO_SUPPLY_MODE=hold, which is not adopted. A
     # malformed node table must not take a pathway out of service under `off`
@@ -460,7 +465,7 @@ function parse_complete_network(
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
                                Set{String}(), containment, drugs, pools, pathogens, carrier_loops,
-                               node_leaves)
+                               node_leaves, rnas)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -489,7 +494,7 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs, pools, pathogens, carrier_loops, node_leaves)
+                           containment, drugs, pools, pathogens, carrier_loops, node_leaves, rnas)
 end
 
 """
@@ -505,6 +510,9 @@ present in this pathway, with `parse_drug_list`'s `nothing` / empty distinction.
 """
 parse_pathogen_list(logic_network_path::String) =
     _parse_stid_list(logic_network_path, "pathogens.csv", "pathogen")
+
+"""Read the generator's `rnas.csv` (specs/100): RNA species' stable ids, as `parse_drug_list`."""
+parse_rna_list(logic_network_path::String) = _parse_stid_list(logic_network_path, "rnas.csv", "RNA")
 
 function _parse_stid_list(logic_network_path::String, file::String, what::String)::Union{Nothing, Set{String}}
     path = joinpath(dirname(logic_network_path), file)
@@ -759,6 +767,13 @@ pathogen_stids_json(network::ReactionNetwork) =
 
 """Inverse of `pathogen_stids_json`."""
 pathogen_stids_from_json(raw) = _stids_from_json(raw, "pathogen_stids")
+
+"""JSON form of `rna_stids` (specs/100), as `drug_stids_json`."""
+rna_stids_json(network::ReactionNetwork) =
+    network.rna_stids === nothing ? nothing : sort(collect(network.rna_stids))
+
+"""Inverse of `rna_stids_json`."""
+rna_stids_from_json(raw) = _stids_from_json(raw, "rna_stids")
 
 function _stids_from_json(raw, field::String)::Union{Nothing, Set{String}}
     raw === nothing && return nothing

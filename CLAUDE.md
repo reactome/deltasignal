@@ -542,6 +542,10 @@ env vars only override for benchmark sweeps:
   if any, all depletion; never a carrier free form, specs/061 amendment 2). The one-way form of the identity twin that
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
+- `DS_RNA_TWIN=off` (default) | `on` (specs/100, pre-registered): a root copy of an RNA
+  species (the generator's `rnas.csv`) reads its produced copies (`rna_supply`, OR, one-way,
+  solver-only). Reports `rna_twin_rule` and `rna_twin_edges`; the bench refuses a build
+  without the table.
 - `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` | `sole_direct` (specs/063,
   all **refuted**: held-out −1,180 / −1,686 / −1,121): a binding whose complex nothing in the pathway uses
   (only dissociation sinks) gains a depletion edge from the complex to its
@@ -1021,7 +1025,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_cli_observations.jl` | 50 | |

@@ -225,7 +225,8 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
     n == 0 && twins == 0 && length(kept) == length(network.edges) - n && return network, mode, 0, 0, 0, 0
     out = ReactionNetwork(network.nodes, kept, network.set_mappings, network.cofactor_stids,
                           network.containment, network.drug_stids, network.pools,
-                          network.pathogen_stids, network.carrier_loops, network.node_leaves)
+                          network.pathogen_stids, network.carrier_loops, network.node_leaves,
+                          network.rna_stids)
     return out, mode, length(hit), n, twins, nopen
 end
 
@@ -240,6 +241,6 @@ root and gained `recycled_supply` edges the solve never had (review
 2026-10-22, L1CAM: 13 edges).
 """
 solved_carrier_network(network::ReactionNetwork) =
-    first(apply_sequestration(first(apply_recycled_twins(
+    first(apply_sequestration(first(apply_rna_twins(first(apply_recycled_twins(
         first(apply_carrier_loops(first(split_recycle_edges(network)), carrier_loop_mode())),
-        recycled_twin_mode())), sequestration_mode()))
+        recycled_twin_mode())), rna_twin_mode())), sequestration_mode()))

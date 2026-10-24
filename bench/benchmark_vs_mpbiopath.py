@@ -1238,6 +1238,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["own_source_depletions"] += int(ds_result.get("own_source_depletions") or 0)
             SOLVE_TALLY[f"recycled_twin_rule={ds_result.get('recycled_twin_rule', 'unknown')}"] += 1
             SOLVE_TALLY["recycled_twin_edges"] += int(ds_result.get("recycled_twin_edges") or 0)
+            SOLVE_TALLY[f"rna_twin_rule={ds_result.get('rna_twin_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["rna_twin_edges"] += int(ds_result.get("rna_twin_edges") or 0)
             if not ds_result.get("converged"):
                 SOLVE_TALLY["scored_unconverged"] += 1
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
@@ -1602,6 +1604,12 @@ def main():
                     f"{r['valid_total']}\t{r['valid_correct']}\t{r['valid_accuracy']:.6f}\n")
     print(f"\nConverged: {SOLVE_TALLY['converged']} of {SOLVE_TALLY['solves']} solves")
     drules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("depletion_own_product="))
+    rnrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("rna_twin_rule="))
+    print(f"RNA twins: rule {'/'.join(rnrules) or 'unknown'}, {SOLVE_TALLY['rna_twin_edges']} edge-solves (specs/100)")
+    if any(r.startswith("on: no RNA table") for r in rnrules):
+        raise SystemExit("DS_RNA_TWIN=on but a network has no rnas.csv (a build that predates it); the arm is not the rule.")
+    if "on" in rnrules and args.limit is None and SOLVE_TALLY["rna_twin_edges"] == 0:
+        raise SystemExit("DS_RNA_TWIN=on but no solve added an RNA supply edge; the arm is the control.")
     trules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("recycled_twin_rule="))
     print(f"\nDepletion: own-product rule {'/'.join(drules) or 'unknown'}, {SOLVE_TALLY['own_source_depletions']} "
           f"gated edge-solves; recycled twins {'/'.join(trules) or 'unknown'}, {SOLVE_TALLY['recycled_twin_edges']} "

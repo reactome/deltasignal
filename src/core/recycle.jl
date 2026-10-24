@@ -30,6 +30,7 @@ function split_recycle_edges(network::ReactionNetwork)
     kept = [e for e in network.edges if e.edge_type != RECYCLE_EDGE]
     out = ReactionNetwork(network.nodes, kept, network.set_mappings, network.cofactor_stids,
                           network.containment, network.drug_stids, network.pools,
-                          network.pathogen_stids, network.carrier_loops, network.node_leaves)
+                          network.pathogen_stids, network.carrier_loops, network.node_leaves,
+                          network.rna_stids)
     return out, pairs
 end

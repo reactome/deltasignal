@@ -28,6 +28,7 @@ include("core/cycles.jl")
 include("core/self_fed.jl")
 include("core/carrier_loops.jl")
 include("core/recycled_twin.jl")
+include("core/rna_twin.jl")
 include("core/recycle.jl")
 include("core/sequestration.jl")
 include("core/zero_supply.jl")
@@ -58,6 +59,7 @@ export parse_drug_list, drug_stids_json, drug_stids_from_json, drug_mode, drug_u
 export parse_pathogen_list, pathogen_stids_json, pathogen_stids_from_json, pathogen_mode, pathogen_uuids
 export parse_carrier_loops, carrier_loops_json, carrier_loops_from_json, carrier_loop_mode, carrier_loop_open, carrier_component_twin, apply_carrier_loops, solved_carrier_network
 export recycled_twin_mode, apply_recycled_twins
+export rna_twin_mode, apply_rna_twins, parse_rna_list, rna_stids_json, rna_stids_from_json
 export sequestration_mode, apply_sequestration
 export parse_pools, cycle_mode, cycle_carriers, PoolPath
 export conserved_mode, conserved_uuids
