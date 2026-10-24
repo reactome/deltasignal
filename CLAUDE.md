@@ -533,7 +533,7 @@ env vars only override for benchmark sweeps:
   receptor scaffold, which `all` cut) keeps them. Reports
   `carrier_loop_open_rule` and `carrier_loop_open_edges`. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
-  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261022-2011_233665c` (since 2026-10-22, specs/089; `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261024-0801_7a754fc` (since 2026-10-24, specs/100: adds `rnas.csv`; `20261022-2011_233665c` (specs/089), `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
 - `DS_RECYCLED_TWIN=on` (**default since 2026-10-15**, specs/061 adoption) |
   `off` (specs/059): a RECYCLED copy of an
   entity (every producer, except depletion and dissociation, downstream of
