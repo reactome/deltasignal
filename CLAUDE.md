@@ -414,7 +414,8 @@ env vars only override for benchmark sweeps:
     nothing broken.
   - The solve reports `pathogen_rule` and `pathogens_held`. A bundle without
     the table reports `inert: no pathogen table`, and the bench refuses it.
-- `DS_UBIQUITIN_MODE=propagate` (default) | `inert` (specs/098, pre-registered): free
+- `DS_UBIQUITIN_MODE=propagate` (default) | `inert` (specs/098, **not adopted**: held-out +6 USP1, experimental −4 CCNE1; free ubiquitin is the only
+  link of the p27 degradation cycle): free
   ubiquitin nodes (the three ubiquitin stIds exactly, not conjugates) held at baseline like
   drugs, so the free pool cannot close loops over a pathway's ubiquitinations. Reports
   `ubiquitin_rule` and `ubiquitin_held`.
@@ -968,6 +969,15 @@ for the last feature that touched it rather than re-deriving from the code.
   12 mRNA:miRNA complexes, built from the transcribed mRNA copy, shut off translation of the
   pinned root copy). **Adopted** (Adam, 2026-10-23): tuning +14, experimental +9 (9 / 0),
   held-out 0; all 9 PTEN overexpression experimental cases fixed.
+- `specs/096-validation-plan/` — how accuracy will be validated: development continues on
+  agreed errors and unhandled loop types with a stop rule; freeze; one external dataset scored
+  once; blind curator pathways; justified disagreements recorded, scores kept raw.
+- `specs/097-loop-audit/` — structural coverage: the 92 benchmark pathways match a 101-pathway
+  sample (4.4% of nodes cyclic in both); unhandled loops cost ~8 points on routes through them;
+  catalyst- and material-closed positive loops remain unhandled.
+- `specs/098-free-ubiquitin/` — `DS_UBIQUITIN_MODE=inert`: free ubiquitin held at baseline.
+  **Not adopted** (Adam, 2026-10-23): held-out +6 (USP1), experimental −4 (CCNE1's curated
+  route through the p27 degradation cycle runs through free ubiquitin).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

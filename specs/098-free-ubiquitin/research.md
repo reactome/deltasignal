@@ -59,3 +59,7 @@ the p27 cycle the free ubiquitin node is also the network's only link from degra
 ubiquitination, and holding it cuts CCNE1's curated route. Net small and split (curator +9,
 experimental −4). Not recommended as it stands. A version that holds free ubiquitin only where it is
 not the sole link of a curated degradation cycle would need its own pre-registration.
+
+## Decision
+
+Adam, 2026-10-23: "lets not adopt then". `DS_UBIQUITIN_MODE` stays `propagate` (opt-in only).

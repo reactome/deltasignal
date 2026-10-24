@@ -1,6 +1,6 @@
 # specs/098: free ubiquitin is a pool, not a signal
 
-**Status:** pre-registered 2026-10-23, before the implementation and the arm. Arm `ubi` void (branch lacked specs/095). Arm `ubi2`: gate passes narrowly, held-out +6 (USP1), tuning +3, experimental −4 (CCNE1, whose route runs through free ubiquitin in the p27 degradation cycle). Not recommended as it stands; Adam decides.
+**Status:** pre-registered 2026-10-23, before the implementation and the arm. Arm `ubi` void (branch lacked specs/095). Arm `ubi2`: gate passes narrowly, held-out +6 (USP1), tuning +3, experimental −4 (CCNE1, whose route runs through free ubiquitin in the p27 degradation cycle). **Not adopted** (Adam, 2026-10-23: "lets not adopt then"); `DS_UBIQUITIN_MODE` stays `propagate`.
 
 From the loop audit (specs/097), which looks for unhandled loop types by structure, not by
 errors. Adam, 2026-10-23: "continue".
