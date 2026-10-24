@@ -9,8 +9,8 @@ copy, which feeds only the 12 PTEN mRNA:miRNA complexes that repress translation
 TP53 then reaches AKT only through the repressors, with the sign reversed (all 28
 curator cases wrong). One mRNA is one pool, whichever reaction made a node copy.
 
-  DS_RNA_TWIN=off  nothing changes.
-  DS_RNA_TWIN=on   each root copy of an entity listed in the bundle's `rnas.csv`
+  DS_RNA_TWIN=off  nothing changes (the solver before 2026-10-24).
+  DS_RNA_TWIN=on   (default since 2026-10-24, specs/100 adoption) each root copy of an entity listed in the bundle's `rnas.csv`
                    gains an activating OR in-edge (`rna_supply`) from every
                    produced copy of the same stable id. One-way, as
                    `recycled_supply` (specs/059). The edge exists only in the
@@ -23,7 +23,7 @@ A bundle without `rnas.csv` reports "on: no RNA table" and adds nothing.
 const RNA_SUPPLY_EDGE = "rna_supply"
 
 function rna_twin_mode()::String
-    value = get(ENV, "DS_RNA_TWIN", "off")
+    value = get(ENV, "DS_RNA_TWIN", "on")
     value in ("off", "on") || throw(ArgumentError("DS_RNA_TWIN must be off or on; got $(repr(value))"))
     return value
 end

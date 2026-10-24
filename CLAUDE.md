@@ -542,10 +542,12 @@ env vars only override for benchmark sweeps:
   if any, all depletion; never a carrier free form, specs/061 amendment 2). The one-way form of the identity twin that
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
-- `DS_RNA_TWIN=off` (default) | `on` (specs/100, pre-registered): a root copy of an RNA
-  species (the generator's `rnas.csv`) reads its produced copies (`rna_supply`, OR, one-way,
-  solver-only). Reports `rna_twin_rule` and `rna_twin_edges`; the bench refuses a build
-  without the table.
+- `DS_RNA_TWIN=on` (**default since 2026-10-24**, specs/100; tuning +28 (28 / 0), experimental
+  +4 (4 / 0), held-out 0: every TP53 case in PIP3) | `off`: a root copy of an RNA
+  species (the generator's `rnas.csv`, LNG #125) reads its produced copies (`rna_supply`, OR, one-way,
+  solver-only), so TP53 raising PTEN transcription reaches translation. Reports `rna_twin_rule`
+  and `rna_twin_edges`; a bundle without the table reports `on: no RNA table` and the bench
+  refuses it, so re-run an older build with `--server DS_RNA_TWIN=off`.
 - `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` | `sole_direct` (specs/063,
   all **refuted**: held-out −1,180 / −1,686 / −1,121): a binding whose complex nothing in the pathway uses
   (only dissociation sinks) gains a depletion edge from the complex to its
@@ -986,6 +988,10 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/098-free-ubiquitin/` — `DS_UBIQUITIN_MODE=inert`: free ubiquitin held at baseline.
   **Not adopted** (Adam, 2026-10-23): held-out +6 (USP1), experimental −4 (CCNE1's curated
   route through the p27 degradation cycle runs through free ubiquitin).
+- `specs/100-transcribed-copy/` — `DS_RNA_TWIN=on`: a root copy of an RNA species reads the copies
+  transcription produces (PTEN mRNA in PIP3: TP53 raised only the copy feeding the 12 miRNA
+  repressors, inverting AKT). **Adopted** (Adam, 2026-10-24): tuning +28 (28 / 0), experimental
+  +4 (4 / 0), held-out 0. Needs the generator's `rnas.csv` (LNG #125).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -1025,7 +1031,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14 |
+| `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_cli_observations.jl` | 50 | |

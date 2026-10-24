@@ -28,3 +28,10 @@ unchanged (1,724 / 1,725, 244 / 244). **The gate passes; nothing is broken.**
 Recommended for adoption. The rule follows from what an mRNA is (one pool, however many node
 copies the generator made of it), touches only RNA species (135 in 19 pathways), and fixes a whole
 inverted class with nothing broken. Experimental would go from 635 to 639 of 849.
+
+## Adoption (Adam, 2026-10-24)
+
+Adopted on the registered gate (tuning +28 (28 / 0), experimental +4 (4 / 0), held-out 0,
+nothing broken). `DS_RNA_TWIN` defaults to `on`; generator `rnas.csv` is LNG #125. Canonical is
+rebuilt from generator main once #125 is merged; the defaults run on that build must reproduce
+arm `rnt` (experimental 639/849).

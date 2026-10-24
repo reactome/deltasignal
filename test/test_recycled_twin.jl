@@ -304,9 +304,9 @@ end
     f(r, u) = r.node_activities[u] / BL
     net = mk(Set(["R-M"]))
     with_env("DS_RNA_TWIN" => nothing) do
-        @test DS.rna_twin_mode() == "off"
+        @test DS.rna_twin_mode() == "on"             # default since the specs/100 adoption
     end
-    off = run(net, nothing, Dict("G" => (5.0, 1.0)))
+    off = run(net, "off", Dict("G" => (5.0, 1.0)))
     @test off.diagnostics["rna_twin_rule"] == "off"
     @test f(off, "P") ≈ 1.0 atol = 1e-9                 # translation reads the unmoved root copy
     on = run(net, "on", Dict("G" => (5.0, 1.0)))
