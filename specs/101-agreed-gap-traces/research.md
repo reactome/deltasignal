@@ -51,3 +51,50 @@ Builds from LNG `balance-choices-101` 64a95a0: `20261024-1307_64a95a0_bal` (flag
     ubiquitination (R-HSA-450580) 4 → 2.
   - The two census pathways that do not move have unbalanced copies with no better-balanced
     partner on both sides, so the rule keeps them.
+
+The control build `balctl` (flag off) is identical to canonical: 0 of 92 tables differ. The
+canonical defaults arm `20261024-0801_7a754fc/results/b0d6737/dflt100` is therefore the control.
+
+## T2 result 2: arm `bal` (`20261024-1307_64a95a0_bal/results/319dd0e/bal`, solver = main ddf0060)
+
+Read with `holdout_report.py --cases <dflt100> --compare <bal> --pair-on-valid --set-aside
+RAF_MAP_kinase_cascade` (`--cases` is the baseline; a first reading had the arms swapped).
+
+| axis | net | fixed / broke | p | RAF set aside |
+|---|---|---|---|---|
+| curator held-out | **+30** | 34 / 4 | < 1e-4 | +30 (no RAF case moves) |
+| curator tuning | −12 | 11 / 23 | 0.058 | −12 |
+| experimental | −4 | 2 / 6 | 0.29 | −4 |
+
+Curator all 88.40% → 88.48%; held-out in release 90.25% → 90.41%; experimental 639 → 635/849.
+**Registered gate passes**: held-out +30 ≥ 0, experimental −4 ≥ −5, worst pathway
+Signaling by ERBB2 −7 curator / −3 experimental (≥ −10).
+
+Predictions:
+1. **Holds.** MDM2:MDM4 (R-HSA-6804932) reads 0 under MDM4 knockout.
+2. **Fails.** 0 of the 43 wrong MDM4 knockout cases fixed; 8 more broken (curator), experimental
+   1 fixed / 2 broken. Trace (`trace_bal.jl` = `trace_mdm4.jl` on the bal build): with the
+   heterodimer gone, p-MDM2 is no longer drained into it and reads 8.3×; the MDM2 homodimer
+   (6804933) reads 5.5–100×; the ligase pool R-HSA-6804885::pool reads 2.73× (was 0.855), and
+   TP53 [nucleoplasm] falls to 0.655. MDM4 knockout now reads TP53 targets DOWN (0.12–0.43).
+   The network says MDM2 alone is as good a TP53 ligase as MDM2:MDM4 (one output set), so
+   freeing MDM2 from MDM4 raises ligase. The curators' answer (MDM4 knockout de-represses
+   TP53) needs the heterodimer to be the stronger ligase, which Reactome does not encode.
+   The 3 MDM4 cases fixed are overexpression readouts that now read DOWN (0.81).
+3. **Fails as written** (result 1).
+
+What moved, by mechanism (curator):
+- Fixed, Interleukin-4/13 (24, all STAT6/STAT3 knockout/overexpression at NORMAL readouts):
+  "p-Y-STATs dimerize" (R-HSA-6788622, 9 → 3 copies) and R-HSA-6786097 (4 → 2) no longer
+  let p-STAT6 make the STAT3 or STAT1 dimer; the readouts are other STATs' targets and
+  now read exactly baseline, as the curators say. Same shape for STAT5B in IL-3/5/GM-CSF (7),
+  ROBO2 (2), PDGFRA (1).
+- Broken, Signaling by ERBB2 (15, of which 8 fixed): "ERBB2 forms heterodimers with
+  ligand-activated EGFR/ERBB3/ERBB4" (R-HSA-1963589, 227 → 25 copies) and the two
+  trans-autophosphorylations. EGFR and ERBB3 knockouts used to feed every heterodimer copy;
+  now each lowers only its own heterodimer and the readouts move to ~0.94–0.96 (DOWN expected
+  by curators and experiments). Right before only through the cross product.
+- Broken, TP53 (8, MDM4 above); IFN α/β PTPN11 (2); TGF-beta SMAD2/3 (2, 0.60 → 0.94).
+
+Status: structural fix that passes its registered gate on held-out gains that look right
+case by case; its motivating case (MDM4) inverts instead of improving. Adoption is Adam's call.
