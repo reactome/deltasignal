@@ -62,3 +62,15 @@ The variant build must equal canonical in every edge before the arm.
    is pinned.
 4. No prediction for held-out (TP53 transcription R-HSA-3700989, R-HSA-2559583 and R-HSA-446728 are
    held-out pathways).
+
+
+## Build (before any arm)
+
+The first variant build (`20261023-2301_998b4b9_rna`) listed, besides 135 RNA species, 2,393
+variants of RNA-containing complexes (miR-26A RISC): the shared table writer counts a variant
+that chose a listed member as listed, right for drugs, wrong here. Fixed in the generator (LNG
+`135af3c`, test fails on the old code) so only nodes that ARE an RNA species are listed. Rebuilt:
+`20261023-2341_135af3c_rna2` equals canonical in every edge (0 of 92 differ); `rnas.csv` lists 135
+RNA species in 19 pathways, no complex.
+
+Arms: `rnd` (main's defaults on this build, the control) and `rnt` (`--server DS_RNA_TWIN=on`).
