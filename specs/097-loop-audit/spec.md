@@ -65,3 +65,10 @@ Experimental: no unhandled loop 83.3% (191), positive 76.4% (55), self-depleting
   self-depleting rings (handled numerically by specs/066's fallback, not structurally). Free
   ubiquitin is under test (specs/098). A constant loop elasticity is refuted (specs/014, 094);
   the knife-edge needs a per-loop or structural answer.
+
+## Re-run with specs/095 (2026-10-23)
+
+The first run used a branch without specs/095's default (`DS_SELF_INHIBITOR_COPIES=on`), so the
+12 PTEN miRNA slots were not counted as handled. Re-run on a branch containing main (`b61b365`):
+**identical results** on both catalogs (those slots sit inside a component that stays cyclic
+either way).

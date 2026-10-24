@@ -1,6 +1,6 @@
 pathway	nodes	cyclic_nodes	cyclic_components	handled_pool_edges	handled_self_edges	unhandled_components	unhandled_nodes	positive	self_depleting	negative
 R-HSA-112314	12901	167	1	0	8	1	167	1	0	0
-R-HSA-112409	184	0	0	0	2	0	0	0	0	0
+R-HSA-112409	184	0	0	0	4	0	0	0	0	0
 R-HSA-114508	106	0	0	0	0	0	0	0	0	0
 R-HSA-1169408	506	12	1	0	56	1	12	1	0	0
 R-HSA-1221632	5450	0	0	0	0	0	0	0	0	0
@@ -69,7 +69,7 @@ R-HSA-72764	1762	0	0	0	0	0	0	0	0	0
 R-HSA-75893	1571	72	12	0	172	6	60	6	0	0
 R-HSA-77289	297	8	2	0	0	2	8	2	0	0
 R-HSA-8851680	60	0	0	0	0	0	0	0	0	0
-R-HSA-8853884	223	0	0	0	9	0	0	0	0	0
+R-HSA-8853884	223	0	0	0	27	0	0	0	0	0
 R-HSA-8876725	41	0	0	0	0	0	0	0	0	0
 R-HSA-8939902	248	50	4	0	36	4	50	2	2	0
 R-HSA-8949664	39	0	0	0	0	0	0	0	0	0
