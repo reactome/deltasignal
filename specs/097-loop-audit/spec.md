@@ -72,3 +72,20 @@ The first run used a branch without specs/095's default (`DS_SELF_INHIBITOR_COPI
 12 PTEN miRNA slots were not counted as handled. Re-run on a branch containing main (`b61b365`):
 **identical results** on both catalogs (those slots sit inside a component that stays cyclic
 either way).
+
+## Correction (2026-10-23, found in specs/099)
+
+The `closed_by` sub-label stored one edge type per node pair. Where an entity is both an input
+and the catalyst of one reaction (self-catalysis), the pair was labelled `catalyst` and its
+material input edge was dropped with it, so loops that close through such a pair were counted as
+catalyst-closed. Fixed (a pair is material if any of its edges is). Corrected split of the
+unhandled positive loops (`bench92_*.tsv`, `sample101_*.tsv` re-written):
+
+| closed by | benchmark (92) | sample (101) |
+|---|---|---|
+| catalyst / regulator only | 12 components, 1,198 nodes, 9 pathways | 8 components, 47 nodes, 7 pathways |
+| free ubiquitin | 13, 1,007 nodes, 10 pathways | 4, 81 nodes, 3 pathways |
+| material steps | **32, 938 nodes, 16 pathways** | **59, 2,424 nodes, 23 pathways** |
+
+Material-closed positive loops are the dominant unhandled type, and more so outside the
+benchmark. The other figures above (totals, the case table) are unchanged.

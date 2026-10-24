@@ -126,7 +126,9 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
     for e in sn.edges
         a, b = e.parent_uuid, e.child_uuid
         push!(get!(adj_all, a, String[]), b)
-        etype[(a, b)] = e.edge_type
+        # a pair may carry several edges (an entity both input and catalyst of one
+        # reaction); it is material if any of them is (fixed 2026-10-23, specs/099)
+        etype[(a, b)] = haskey(etype, (a, b)) && !(etype[(a, b)] in ("catalyst", "regulator")) ? etype[(a, b)] : e.edge_type
         e.is_positive || push!(neg, (a, b))
         if haskey(pool_of, a) && get(pool_of, b, 0) == pool_of[a]
             handled_pool += 1; continue

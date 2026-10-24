@@ -2,29 +2,29 @@ pathway	size	label	closed_by	neg_edges	edge_types	example
 R-HSA-112314	167	positive	material	0	input|output	R-HSA-421007
 R-HSA-1169408	12	positive	catalyst	0	catalyst|input|output	R-HSA-1169383::variant::R-HSA-1169381=R-HSA-936553
 R-HSA-1268020	2	positive	catalyst	0	catalyst|output	R-HSA-1307803
-R-HSA-1445148	32	positive	catalyst	0	catalyst|input|output	R-HSA-1445143
+R-HSA-1445148	32	positive	material	0	input|output	R-HSA-1445143
 R-HSA-1475029	14	positive	material	0	input|output	R-ALL-113528
 R-HSA-1475029	8	positive	material	0	input|output	R-ALL-113521
 R-HSA-1475029	14	positive	material	0	input|output	R-HSA-1475025
-R-HSA-1592389	6	positive	catalyst	0	catalyst|output	R-HSA-375064
+R-HSA-1592389	6	positive	catalyst	0	catalyst|input|output	R-HSA-375064
 R-HSA-1632852	337	positive	material	0	input|output	R-HSA-9646394::variant::R-HSA-2029105=R-HSA-2029024_R-HSA-2029119=R-HSA-201607_R-HSA-2029122=R-HSA-8943213_R-HSA-9641120=R-HSA-9665106
 R-HSA-1632852	254	positive	material	0	catalyst|input|output	R-HSA-5678490
 R-HSA-1632852	5	positive	material	0	input|output	R-ALL-5676030
-R-HSA-1632852	6	positive	catalyst	0	catalyst|input|output	R-HSA-9674127
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-937055::variant::R-HSA-181230=R-HSA-181226_R-NME-168944=R-ALL-180811
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-166360::variant::R-HSA-181230=R-HSA-181226_R-NME-168944=R-NME-180817
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-937028::variant::R-HSA-181230=R-HSA-8870679_R-HSA-8870680=R-HSA-140876
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-937059
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-166119
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-166284
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-937055::variant::R-CTR-9628992=R-ALL-181161_R-HSA-181230=R-HSA-181410
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-2262777
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-166286
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-937028::variant::R-CTR-9628992=R-CTR-9628834_R-HSA-181230=R-HSA-181410
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-937018::variant::R-HSA-181230=R-HSA-6805997
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-166360::variant::R-HSA-181230=R-HSA-8870679_R-HSA-8870680=R-HSA-140585
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-166362
-R-HSA-166058	21	positive	catalyst	0	catalyst|input|output|specialization	R-HSA-166286
+R-HSA-1632852	6	positive	ubiquitin	0	input|output	R-HSA-9674127
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-937055::variant::R-HSA-181230=R-HSA-181226_R-NME-168944=R-ALL-180811
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-166360::variant::R-HSA-181230=R-HSA-181226_R-NME-168944=R-NME-180817
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-937028::variant::R-HSA-181230=R-HSA-8870679_R-HSA-8870680=R-HSA-140876
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-937059
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-166119
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-166284
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-937055::variant::R-CTR-9628992=R-ALL-181161_R-HSA-181230=R-HSA-181410
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-2262777
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-166286
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-937028::variant::R-CTR-9628992=R-CTR-9628834_R-HSA-181230=R-HSA-181410
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-937018::variant::R-HSA-181230=R-HSA-6805997
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-166360::variant::R-HSA-181230=R-HSA-8870679_R-HSA-8870680=R-HSA-140585
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-166362
+R-HSA-166058	21	positive	material	0	input|output|specialization	R-HSA-166286
 R-HSA-1799339	11	positive	material	0	input|output|variant_pool	R-HSA-1799326
 R-HSA-195253	61	positive	ubiquitin	0	input|output	R-HSA-2130284::variant::R-HSA-165977=R-HSA-165987_R-HSA-165990=R-HSA-165980_R-HSA-196216=R-HSA-3008954
 R-HSA-196807	14	positive	material	0	input|output	R-HSA-8938073
@@ -35,7 +35,7 @@ R-HSA-2559580	89	positive	material	0	input|output|variant_pool|variant_split	R-H
 R-HSA-264876	4	positive	material	0	input|output	R-HSA-265160
 R-HSA-382556	10	positive	material	0	input|output	R-ALL-176478
 R-HSA-382556	26	self_depleting		1	depletion|input|output|variant_pool	R-HSA-8866551
-R-HSA-416482	436	positive	catalyst	0	catalyst|input|output|variant_pool|variant_split	R-HSA-114551::variant::R-HSA-167442=R-HSA-164383_R-HSA-6814413=R-HSA-6814414
+R-HSA-416482	436	positive	material	0	input|output|variant_pool|variant_split	R-HSA-114551::variant::R-HSA-167442=R-HSA-164383_R-HSA-6814413=R-HSA-6814414
 R-HSA-5213460	3	self_depleting		1	depletion|input|output	R-HSA-9688827
 R-HSA-5423646	16	positive	material	0	input|output	R-ALL-5490254
 R-HSA-5610787	192	positive	material	0	input|output|specialization	R-HSA-5610767
@@ -49,32 +49,32 @@ R-HSA-70268	22	negative		12	input|output|regulator	R-HSA-9861626
 R-HSA-70268	19	positive	material	0	input|output	R-HSA-71849
 R-HSA-70268	4	negative		1	input|output|regulator	R-ALL-1655887
 R-HSA-71336	19	positive	material	0	input|output	R-HSA-163764
-R-HSA-75893	10	positive	catalyst	0	catalyst|input|output	R-HSA-5357866::variant::R-HSA-3371401=R-HSA-3371397_R-HSA-5357900=R-HSA-50845
-R-HSA-75893	10	positive	catalyst	0	catalyst|input|output	R-HSA-5357845
-R-HSA-75893	10	positive	catalyst	0	catalyst|input|output	R-HSA-5357845
-R-HSA-75893	10	positive	catalyst	0	catalyst|input|output	R-HSA-5357845
-R-HSA-75893	10	positive	catalyst	0	catalyst|input|output	R-HSA-5357845
-R-HSA-75893	10	positive	catalyst	0	catalyst|input|output	R-HSA-5357845
+R-HSA-75893	10	positive	material	0	input|output	R-HSA-5357866::variant::R-HSA-3371401=R-HSA-3371397_R-HSA-5357900=R-HSA-50845
+R-HSA-75893	10	positive	material	0	input|output	R-HSA-5357845
+R-HSA-75893	10	positive	material	0	input|output	R-HSA-5357845
+R-HSA-75893	10	positive	material	0	input|output	R-HSA-5357845
+R-HSA-75893	10	positive	material	0	input|output	R-HSA-5357845
+R-HSA-75893	10	positive	material	0	input|output	R-HSA-5357845
 R-HSA-77289	4	positive	material	0	input|output	R-HSA-77329
 R-HSA-77289	4	positive	material	0	input|output	R-HSA-8952873
 R-HSA-8939902	7	positive	ubiquitin	0	input|output	R-HSA-9008125
 R-HSA-8939902	7	self_depleting		2	depletion|input|output|variant_pool	R-HSA-8939688
 R-HSA-8939902	7	positive	ubiquitin	0	input|output	R-HSA-9008076
-R-HSA-8939902	29	self_depleting		12	catalyst|depletion|input|output|variant_pool	R-HSA-9009401
+R-HSA-8939902	29	self_depleting		12	depletion|input|output|variant_pool	R-HSA-9009401
 R-HSA-8964539	37	positive	material	0	input|output|regulator	R-ALL-113521
 R-HSA-9616222	4	positive	catalyst	0	input|output|regulator	R-HSA-381289
-R-HSA-9645460	14	self_depleting		2	catalyst|depletion|input|output	R-HSA-9645440
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975133::variant::R-ALL-9824768=R-ALL-9824730_R-HSA-975158=R-HSA-9824779
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975115
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975113::variant::R-ALL-9824768=R-ALL-9824783_R-HSA-975158=R-HSA-9824779_R-HSA-975179=R-HSA-975127
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975130::variant::R-ALL-9824768=R-ALL-9824770_R-HSA-975158=R-HSA-9824779
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975133::variant::R-HSA-975158=R-HSA-1679087
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975161::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-ALL-188126
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975115
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975111
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975182::variant::R-HSA-1014260=R-HSA-975187_R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-COV-9754729
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975100
-R-HSA-975155	23	positive	catalyst	0	assembly|catalyst|input|output|specialization	R-HSA-975161::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-HIV-9684900
+R-HSA-9645460	14	self_depleting		2	depletion|input|output	R-HSA-9645440
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975133::variant::R-ALL-9824768=R-ALL-9824730_R-HSA-975158=R-HSA-9824779
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975115
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975113::variant::R-ALL-9824768=R-ALL-9824783_R-HSA-975158=R-HSA-9824779_R-HSA-975179=R-HSA-975127
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975130::variant::R-ALL-9824768=R-ALL-9824770_R-HSA-975158=R-HSA-9824779
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975133::variant::R-HSA-975158=R-HSA-1679087
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975161::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-ALL-188126
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975115
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975111
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975182::variant::R-HSA-1014260=R-HSA-975187_R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-COV-9754729
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975100
+R-HSA-975155	23	positive	material	0	assembly|input|output|specialization	R-HSA-975161::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-HIV-9684900
 R-HSA-9761174	6	positive	catalyst	0	output|regulator	R-HSA-9761188
-R-HSA-977225	15	positive	catalyst	0	catalyst|input|output	R-HSA-5658496
+R-HSA-977225	15	positive	material	0	input|output	R-HSA-5658496
 R-HSA-9854311	4	negative		3	output|regulator	R-HSA-9854315
