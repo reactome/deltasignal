@@ -984,6 +984,8 @@ function solve_handler(req)
             "self_fed_edges_held" => get(solver_result.diagnostics, "self_fed_edges_held", 0),
             "self_inhibitor_leaves" => get(solver_result.diagnostics, "self_inhibitor_leaves", "unknown"),
             "self_inhibitor_leaf_pairs" => get(solver_result.diagnostics, "self_inhibitor_leaf_pairs", 0),
+            "self_inhibitor_copies" => get(solver_result.diagnostics, "self_inhibitor_copies", "on"),   # specs/095
+            "self_inhibitor_copy_pairs" => get(solver_result.diagnostics, "self_inhibitor_copy_pairs", 0),
             # specs/066 (additive): the non-converged fallback ("off"/"lm"), the
             # components still above tolerance at the cap, and what it did.
             "nonconv_fallback" => get(solver_result.diagnostics, "nonconv_fallback", "unknown"),

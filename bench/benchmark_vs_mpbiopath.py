@@ -1293,6 +1293,8 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["self_fed_edges_held"] += int(ds_result.get("self_fed_edges_held") or 0)
             SOLVE_TALLY[f"self_inhibitor_leaves={ds_result.get('self_inhibitor_leaves', 'unknown')}"] += 1
             SOLVE_TALLY["self_inhibitor_leaf_pairs"] += int(ds_result.get("self_inhibitor_leaf_pairs") or 0)
+            SOLVE_TALLY[f"self_inhibitor_copies={ds_result.get('self_inhibitor_copies', 'unknown')}"] += 1
+            SOLVE_TALLY["self_inhibitor_copy_pairs"] += int(ds_result.get("self_inhibitor_copy_pairs") or 0)
             # specs/066: the non-converged fallback and what it did.
             SOLVE_TALLY[f"nonconv_fallback={ds_result.get('nonconv_fallback', 'unknown')}"] += 1
             for k in ("nonconv_components", "nonconv_improved", "nonconv_rescued", "nonconv_skipped_pools"):
@@ -1714,6 +1716,11 @@ def main():
           f"leaf inhibitors {'/'.join(lrules) or 'unknown'}, {SOLVE_TALLY['self_inhibitor_leaf_pairs']} pair-solves (specs/040)")
     if "entry" in srules and SOLVE_TALLY["self_fed_edges_held"] == 0:
         raise SystemExit("DS_SELF_FED_MODE=entry but no solve held a self-fed edge; the arm is the control.")
+    crs = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_inhibitor_copies="))
+    print(f"Self-inhibitor copies: {'/'.join(crs) or 'unknown'}, "
+          f"{SOLVE_TALLY['self_inhibitor_copy_pairs']} pair-solves added (specs/095)")
+    if "on" in crs and args.limit is None and SOLVE_TALLY["self_inhibitor_copy_pairs"] == 0:
+        raise SystemExit("DS_SELF_INHIBITOR_COPIES=on but no solve added a copy pair; the arm is the control.")
     if "on" in lrules and SOLVE_TALLY["self_inhibitor_leaf_pairs"] == 0:
         raise SystemExit("DS_SELF_INHIBITOR_LEAVES=1 but no solve flagged a leaf-shared inhibitor; the arm is the control.")
     nrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("nonconv_fallback="))

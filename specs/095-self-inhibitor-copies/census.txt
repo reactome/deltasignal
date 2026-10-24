@@ -1,0 +1,6 @@
+R-HSA-446728	60 slots changed	60 new slots
+R-HSA-3700989	24 slots changed	24 new slots
+R-HSA-2559583	18 slots changed	18 new slots
+R-HSA-1257604	12 slots changed	12 new slots
+R-HSA-5673001	1 slots changed	1 new slots
+total slots changed: 115 in 5 pathways
