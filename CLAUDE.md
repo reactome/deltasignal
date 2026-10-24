@@ -533,7 +533,7 @@ env vars only override for benchmark sweeps:
   receptor scaffold, which `all` cut) keeps them. Reports
   `carrier_loop_open_rule` and `carrier_loop_open_edges`. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
-  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261024-0801_7a754fc` (since 2026-10-24, specs/100: adds `rnas.csv`; `20261022-2011_233665c` (specs/089), `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261024-1634_f2c6a71` (since 2026-10-24, specs/101: balanced variant choices, LNG #126; `20261024-0801_7a754fc` (specs/100, adds `rnas.csv`), `20261022-2011_233665c` (specs/089), `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
 - `DS_RECYCLED_TWIN=on` (**default since 2026-10-15**, specs/061 adoption) |
   `off` (specs/059): a RECYCLED copy of an
   entity (every producer, except depletion and dissociation, downstream of
@@ -992,6 +992,13 @@ for the last feature that touched it rather than re-deriving from the code.
   transcription produces (PTEN mRNA in PIP3: TP53 raised only the copy feeding the 12 miRNA
   repressors, inverting AKT). **Adopted** (Adam, 2026-10-24): tuning +28 (28 / 0), experimental
   +4 (4 / 0), held-out 0. Needs the generator's `rnas.csv` (LNG #125).
+- `specs/101-agreed-gap-traces/` — agreed errors traced. T1: RB1 knockout in Mitotic G1 is not
+  curated as a route (the repression lives only in a reaction name); a curation-review item, no
+  rule. T2: the generator emitted set-to-set reactions as the full cross product (MDM2 alone made
+  MDM2:MDM4; p-STAT6 made the STAT3 dimer); `LNG_BALANCE_CHOICES` drops copies whose protein
+  content does not balance when better-balanced copies exist. **Adopted** (Adam, 2026-10-24):
+  held-out +30 (34 / 4), tuning −12, experimental −4. The MDM4 knockout it was built for
+  inverts: the freed MDM2 homodimer raises the ligase pool.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

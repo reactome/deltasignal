@@ -19,6 +19,35 @@ commit.
 ---
 
 
+> **2026-10-24 (afternoon): canonical numbers with balanced variant choices (specs/101).**
+> - Build `20261024-1634_f2c6a71` (generator main after LNG #126, `LNG_BALANCE_CHOICES` on by
+>   default). Same content as the measured build `20261024-1307_64a95a0_bal`: 0 of 92 pathway
+>   tables differ.
+> - Solver unchanged (`bc67b32` = main `ddf0060` in `src/`).
+> - Results: `results/bc67b32/dflt101`. They reproduce the measured arm (`bal`) on every case,
+>   both axes.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **90.41%** | **0.8775** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.77% | 0.8687 |
+> | curator, all pathways, in release (81) | 23,625 | 89.09% | 0.8684 |
+> | curator, all pathways, every case | 24,100 | 88.48% | 0.8605 |
+> | experimental, every case (10 pathways) | 849 | **74.79%** | **0.6635** |
+>
+> **What moved:** curator held-out +30 (34 fixed / 4 broken, p < 1e-4; IL-4/13 STAT6 no longer
+> makes the STAT3 dimer), tuning −12, experimental −4 (639 → 635: EGFR knockout in ERBB2 now
+> lowers only its own heterodimer; MDM4 knockout in TP53 reads DOWN through the freed MDM2
+> homodimer).
+>
+> Converged: 1,724 / 1,725 curator and 244 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 88.48% / 0.8605 against 83.34% / 0.8063, **+5.14pp**.
+> - Experimental: 74.79% (635/849) against 75.74% (643/849), **−0.94pp** (8 cases).
+>
+> **Previous box**, kept below for the record.
+
 > **2026-10-24: canonical numbers with RNA twins (specs/100).**
 > - Build `20261024-0801_7a754fc` (generator main after LNG #125, which adds `rnas.csv`). Same
 >   content as `20261022-2011_233665c` plus that table: 0 of 92 pathway tables differ from the
