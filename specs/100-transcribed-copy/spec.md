@@ -1,6 +1,6 @@
 # specs/100: a root copy of an RNA reads its transcribed copies
 
-**Status:** pre-registered 2026-10-23, before the implementation, the build and the arm.
+**Status:** pre-registered 2026-10-23, before the implementation, the build and the arm. Arm `rnt`: **gate passes**, tuning +28 (28 / 0), experimental +4 (4 / 0), held-out 0, nothing broken; all TP53 cases in PIP3 fixed. Recommended for adoption; Adam decides.
 
 Adam, 2026-10-23: "ok" to closing the experimental gap with MP-BioPath through agreed errors;
 "ok" to tracing TP53 in PIP3.
