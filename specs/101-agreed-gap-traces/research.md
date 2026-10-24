@@ -98,3 +98,6 @@ What moved, by mechanism (curator):
 
 Status: structural fix that passes its registered gate on held-out gains that look right
 case by case; its motivating case (MDM4) inverts instead of improving. Adoption is Adam's call.
+
+**Adopted** (Adam, 2026-10-24, "ok" to the recommendation): `LNG_BALANCE_CHOICES` on by default
+in the generator (LNG PR #126). Canonical rebuild after merge.
