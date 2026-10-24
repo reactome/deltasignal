@@ -26,3 +26,10 @@ Mitotic G1 (4), MDM4 KO in TP53 (3), AKT1 KO in TP53 (2).
   structural signature), and here even full sequestration would not reach the target genes
   (different E2F entity). **Curation-review item** (Adam's call): RB1:E2F as a negative
   regulator of E2F1-stimulated transcription in Mitotic G1.
+
+## T2. MDM4 knockout in TP53: unbalanced copies of "MDM2 forms homo- or heterodimers"
+
+See spec.md (pre-registration of `LNG_BALANCE_CHOICES`). Trace (`trace_mdm4.jl`, MDM4 KO,
+folds against baseline): TP53 [nucleoplasm] 1.064 ← depletion by pool R-HSA-6804885 (0.855) ←
+variants MDM2:MDM4 and MDM2 dimer both 0.855 ← MDM2:MDM4 (0.803) fed by two copies of
+R-HSA-6804741: MDM4 + p-MDM2 (0) and p-MDM2 alone (1.607, makes MDM4 from nothing).
