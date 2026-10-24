@@ -57,7 +57,9 @@ displacement (BAD freeing tBID from BCL-2), where the bound share is what moves.
 `fed_single_ub` (specs/088) is `fed_single` that does not count ubiquitin as that
 second input: a ligase released after ubiquitinating its target (MDM2:MDM4, CBL) is a
 carrier release, not a displacement.
-`fed_single` is the default since 2026-10-19 (specs/077, adopted by Adam).
+`fed_single_ub` is the default since 2026-10-23 (specs/088 amendment 1, adopted by Adam:
+tuning +2, experimental +1, held-out 0); `fed_single` was the default from 2026-10-19
+(specs/077) and restores the previous model.
 
 An observation still wins: a pinned free form keeps its pin. A bundle without
 `carrier_loops.csv` reports "<mode>: no carrier table" and solves as `off`.
@@ -71,7 +73,7 @@ const DS_VALID_CARRIER_LOOP_OPEN = Set(["off", "fed", "fed_single", "fed_single_
 const UBIQUITIN_STIDS = Set(["R-HSA-68524", "R-HSA-113595", "R-HSA-9660007"])
 
 function carrier_loop_open()::String
-    value = get(ENV, "DS_CARRIER_LOOP_OPEN", "fed_single")
+    value = get(ENV, "DS_CARRIER_LOOP_OPEN", "fed_single_ub")
     value in DS_VALID_CARRIER_LOOP_OPEN || throw(ArgumentError(
         "DS_CARRIER_LOOP_OPEN must be one of $(join(sort(collect(DS_VALID_CARRIER_LOOP_OPEN)), ", ")); got $(repr(value))"))
     return value

@@ -263,13 +263,15 @@ end
                               DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
     end
     with_env("DS_CARRIER_LOOP_OPEN" => nothing) do
-        @test DS.carrier_loop_open() == "fed_single"
+        @test DS.carrier_loop_open() == "fed_single_ub"      # default since specs/088 amendment 1
     end
-    # fed_single is the default since specs/077's adoption, bit for bit; off reports itself
+    # the default is fed_single_ub, bit for bit (this fixture has no ubiquitin, so it
+    # equals fed_single here); off reports itself
     d = run("closed_twin", nothing)
     o = run("closed_twin", "off")
+    @test d.node_activities == run("closed_twin", "fed_single_ub").node_activities
     @test d.node_activities == run("closed_twin", "fed_single").node_activities
-    @test d.diagnostics["carrier_loop_open_rule"] == "fed_single"
+    @test d.diagnostics["carrier_loop_open_rule"] == "fed_single_ub"
     @test o.diagnostics["carrier_loop_open_rule"] == "off"
     @test o.diagnostics["carrier_loop_open_edges"] == 0
     # fed: R reads S only; RA keeps r1, its one producer, so A still reaches T

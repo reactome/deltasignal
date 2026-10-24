@@ -50,3 +50,26 @@ ubiquitin pass without losing the CBL class (specs/078), and is not designed her
 Adam, 2026-10-22: "go with your recommendation. we could revisit later as it has positive
 attributes". **Not adopted.** `fed_single` stays the default; `fed_single_ub` stays reachable as
 an opt-in, to re-measure once the CKS1B drain (ubiquitin pass on a ligase's own subunits) is fixed.
+
+## Amendment 1: arm `fsu2` (2026-10-23)
+
+Canonical `20261022-2011_233665c`, solver `b5beb78` (main) with
+`--server DS_CARRIER_LOOP_OPEN=fed_single_ub`, against `results/b61b365/dflt095`. Results
+`results/b5beb78/fsu2`.
+
+| split | net (fixed / broken) | p |
+|---|---|---|
+| curator held-out | 0 (6 / 6), Signaling by EGFR as in `fsu` | 1 |
+| curator tuning | +2 (7 / 5) | 0.77 |
+| experimental (RAF set aside) | **+1 (3 / 2)** | 1 |
+
+- Fixed: both MDM2 knockout experimental cases in Cell Cycle Checkpoints (100× → 0×), ATM
+  overexpression (a 50× rail → 0×, curator and experimental), 4 TP53 curator cases.
+- Broken: CDK4 and CCND1 knockout in Mitotic G1 (0.82× → 0.88×, 0.80× → 0.86×, across the 0.85
+  DOWN threshold). specs/089 removed the CKS1B drain, so the CDKN2A and PPP2R1A losses `fsu` showed
+  are gone.
+
+Predictions: (1) MDM2 knockout fixed: **holds**. (2) Mitotic G1 net ≥ −1 on each axis: **fails**
+on experimental (−2), holds on curator (0). (3) Held-out: 0.
+
+**The gate passes.** Adam, 2026-10-23: "ok", adopt. `fed_single_ub` is the default.

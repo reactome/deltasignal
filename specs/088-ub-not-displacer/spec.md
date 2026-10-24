@@ -1,6 +1,6 @@
 # specs/088: ubiquitin is not a displacer (amends specs/077's fed_single)
 
-**Status:** pre-registered 2026-10-22, before the implementation and the arm. Arm `fsu`: gate passes, net 0 (held-out 0, tuning −4, experimental 0); MDM2 fixed (+2 / +2), Mitotic G1 −6 / −2 through the SCF(Skp2) release and the CKS1B drain. **Not adopted** (Adam, 2026-10-22: "go with your recommendation. we could revisit later as it has positive attributes"); `fed_single` stays the default. To revisit with a fix for the CKS1B drain.
+**Status:** pre-registered 2026-10-22. Arm `fsu`: not adopted (Adam, 2026-10-22). Amendment 1, arm `fsu2` on today's canonical: gate passes, tuning +2, experimental +1, held-out 0; **adopted** (Adam, 2026-10-23); `fed_single_ub` is the default.
 
 Adam, 2026-10-22: "ok" to the rule.
 
