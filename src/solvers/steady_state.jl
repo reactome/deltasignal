@@ -184,7 +184,7 @@ function solve_steady_state(
     # specs/022: inhibitors that contain their own reaction's input. Built unless
     # DS_SELF_INHIBITOR_WEIGHT=off. specs/040 rule B widens the pair test to
     # shared leaves; `self_leaf_pairs` counts the slots only that clause flags.
-    self_shared, self_rule, self_leaf_pairs = self_inhibitor_setup(network)
+    self_shared, self_rule, self_leaf_pairs, self_copy_pairs = self_inhibitor_setup(network)
     # specs/083: activators built from their own reaction's input
     self_act, self_act_rule = self_activator_setup(network)
     # specs/060 amendment 1: depleters whose entity contains their target's.
@@ -430,6 +430,8 @@ function solve_steady_state(
     result.diagnostics["nonconv_restarts_max"] = ncrestarts
     result.diagnostics["self_inhibitor_leaves"] = self_inhibitor_leaves() ? "on" : "off"
     result.diagnostics["self_inhibitor_leaf_pairs"] = self_leaf_pairs
+    result.diagnostics["self_inhibitor_copies"] = self_inhibitor_copies() ? "on" : "off"   # specs/095
+    result.diagnostics["self_inhibitor_copy_pairs"] = self_copy_pairs
     return result
 end
 
@@ -441,14 +443,18 @@ NOT the one being run, which a caller must be able to see.
 function self_inhibitor_setup(network::ReactionNetwork)
     empty = Dict{Tuple{String, String}, Vector{String}}()
     leaves = self_inhibitor_leaves()        # validated even when the rule is off
-    _self_inhibitor_weight_env() < 0 && return empty, "off", 0
-    isempty(network.containment) && return empty, "inert: no containment table", 0
+    copies = self_inhibitor_copies()        # specs/095
+    _self_inhibitor_weight_env() < 0 && return empty, "off", 0, 0
+    isempty(network.containment) && return empty, "inert: no containment table", 0, 0
     strict = self_contained_inhibitor_map(network; leaves = false)
-    leaves || return strict, "on", 0
-    full = self_contained_inhibitor_map(network; leaves = true)
+    full = leaves ? self_contained_inhibitor_map(network; leaves = true) : strict
     # specs/040 rule B: slots the leaf clause flags that stId containment did not.
     n_leaf = count(k -> !haskey(strict, k), keys(full))
-    return full, "on", n_leaf
+    copies || return full, "on", n_leaf, 0
+    # specs/095: slots (or shared inputs) only the copy clause adds
+    withc = self_contained_inhibitor_map(network; leaves = leaves, copies = true)
+    n_copy = count(k -> get(full, k, String[]) != withc[k], keys(withc))
+    return withc, "on", n_leaf, n_copy
 end
 
 """
@@ -594,7 +600,8 @@ node, so an inhibitor is never matched against a sibling variant's input.
 Depletion edges are not inhibitors here and are never included.
 """
 function self_contained_inhibitor_map(network::ReactionNetwork;
-                                      leaves::Bool = false)::Dict{Tuple{String, String}, Vector{String}}
+                                      leaves::Bool = false,
+                                      copies::Bool = false)::Dict{Tuple{String, String}, Vector{String}}
     out = Dict{Tuple{String, String}, Vector{String}}()
     isempty(network.containment) && return out
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
@@ -634,6 +641,13 @@ function self_contained_inhibitor_map(network::ReactionNetwork;
             for l in leaves_of(st); push!(get!(carriers, l, String[]), u); end
         end
     end
+    by_sid = Dict{String, Vector{String}}()
+    if copies
+        for u in sort(collect(keys(network.nodes)))
+            st = network.nodes[u].reactome_id
+            st === nothing || push!(get!(by_sid, st, String[]), u)
+        end
+    end
     reach_cache = Dict{String, Set{String}}()
     function reaches(a::String)
         get!(reach_cache, a) do
@@ -663,9 +677,11 @@ function self_contained_inhibitor_map(network::ReactionNetwork;
             end
             return false
         end
+        # specs/095: another copy of the input's entity reaching I also counts
+        copy_reaches(a, as) = copies && any(n -> n != a && I in reaches(n), get(by_sid, as, String[]))
         shared = String[a for a in unique(get(acts, e.child_uuid, String[]))
                         if (as = sid(a)) !== nothing &&
-                           ((as in inside && I in reaches(a)) ||
+                           ((as in inside && (I in reaches(a) || copy_reaches(a, as))) ||
                             (leaves && leaf_shared(as, s) && (I in reaches(a) || common_cause(a, as))))]
         isempty(shared) || (out[(I, e.child_uuid)] = sort(shared))
     end
