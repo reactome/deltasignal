@@ -1,0 +1,9 @@
+ReferenceGeneProduct: 444 entity pairs in 46 pathways
+ReferenceMolecule: 58 entity pairs in 37 pathways
+DefinedSet: 20 entity pairs in 17 pathways
+ReferenceIsoform: 16 entity pairs in 10 pathways
+GenomeEncodedEntity: 13 entity pairs in 5 pathways
+OtherEntity: 8 entity pairs in 4 pathways
+ReferenceRNASequence: 6 entity pairs in 4 pathways
+Polymer: 6 entity pairs in 6 pathways
+RNA pairs: [('R-HSA-1257604', 'R-HSA-2318746'), ('R-HSA-2559583', 'R-HSA-3209107'), ('R-HSA-3700989', 'R-HSA-2318746'), ('R-HSA-446728', 'R-HSA-9759501'), ('R-HSA-446728', 'R-HSA-9760967'), ('R-HSA-446728', 'R-HSA-9759493')]
