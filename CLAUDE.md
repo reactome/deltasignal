@@ -519,11 +519,13 @@ env vars only override for benchmark sweeps:
   the generator marks `moves` in `carrier_loops.csv` (it carries the free form across
   compartments: MET recycled to the membrane) is left out of the loop table, so no
   carrier-loop rule drops it. Reports `carrier_loop_moves`.
-  `DS_CARRIER_LOOP_OPEN=fed_single` (**default since 2026-10-19**, specs/077
+  `DS_CARRIER_LOOP_OPEN=fed_single_ub` (**default since 2026-10-23**, specs/088 amendment 1;
+  tuning +2, experimental +1, held-out 0 against `fed_single`: ubiquitin is not a displacer,
+  so a ligase released after ubiquitinating its target, MDM2:MDM4, stops reading its own
+  release) | `fed_single` (default 2026-10-19 to 2026-10-23, specs/077
   amendment 1, post hoc; held-out +65 (84 / 19), experimental −5 (every loss
   traced: release artefacts or threshold shifts), faithful build +272) | `off`
-  (the earlier solver) | `fed_single_ub` (specs/088, not adopted: ubiquitin is
-  not a displacer) | `fed` (fails its gate: intrinsic apoptosis −26).
+  (the earlier solver) | `fed` (fails its gate: intrinsic apoptosis −26).
   `fed_single` is `fed` that keeps a release with a second non-cofactor input
   (a displacer, BAD freeing tBID). The rule: an OPEN loop's free form that keeps a producer outside
   its loops stops reading its own release (RBBP8 released by MMEJ in DSB
@@ -932,8 +934,10 @@ for the last feature that touched it rather than re-deriving from the code.
   does not count as a release's displacer, so a ligase released after ubiquitinating its
   target (MDM2:MDM4) stops reading its own release. Gate passes, net 0 (held-out 0, tuning
   −4, experimental 0): MDM2 knockout fixed in Cell Cycle Checkpoints, Mitotic G1 −6 / −2
-  through the SCF(Skp2) release exposing the CKS1B drain. **Not adopted** (Adam,
-  2026-10-22); to revisit with a fix for that drain.
+  through the SCF(Skp2) release exposing the CKS1B drain. Not adopted then (Adam,
+  2026-10-22). Amendment 1, re-measured once specs/089 removed the drain: tuning +2,
+  experimental +1 (both MDM2 knockout cases, ATM overexpression), held-out 0; **adopted**
+  (Adam, 2026-10-23).
 - `specs/089-ub-ligase-unit/` — the generator's ubiquitin pass no longer drains a
   ligase's own subunits (`LNG_UB_LIGASE_UNIT`, LNG #122): a leaf of the catalyst's curated
   `activeUnit`, or of a complex released unchanged, that leaves the reaction unmodified is not
@@ -1015,7 +1019,7 @@ other seven execute code and print output.
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 549 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
-| `test/test_carrier_loops.jl` | 243 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
+| `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 84 | specs/059–061, added 2026-10-14 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |

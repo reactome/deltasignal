@@ -1,6 +1,6 @@
 # specs/088: ubiquitin is not a displacer (amends specs/077's fed_single)
 
-**Status:** pre-registered 2026-10-22, before the implementation and the arm. Arm `fsu`: gate passes, net 0 (held-out 0, tuning −4, experimental 0); MDM2 fixed (+2 / +2), Mitotic G1 −6 / −2 through the SCF(Skp2) release and the CKS1B drain. **Not adopted** (Adam, 2026-10-22: "go with your recommendation. we could revisit later as it has positive attributes"); `fed_single` stays the default. To revisit with a fix for the CKS1B drain.
+**Status:** pre-registered 2026-10-22. Arm `fsu`: not adopted (Adam, 2026-10-22). Amendment 1, arm `fsu2` on today's canonical: gate passes, tuning +2, experimental +1, held-out 0; **adopted** (Adam, 2026-10-23); `fed_single_ub` is the default.
 
 Adam, 2026-10-22: "ok" to the rule.
 
@@ -63,3 +63,22 @@ below −10 (RAF set aside).
 2. Only EGFR, Cell Cycle Checkpoints and Mitotic G1 move.
 3. No prediction for EGFR or held-out. The CBL releases are the class specs/057 found right
    for the wrong reasons.
+
+## Amendment 1 (2026-10-23): re-measured on today's canonical, before the arm
+
+Adam, 2026-10-23: "ok" to closing the experimental gap with MP-BioPath (634 against 643),
+starting with this rule. The decision in 2026-10-22 was to revisit it once the CKS1B drain was
+fixed. specs/089 (`LNG_UB_LIGASE_UNIT`, adopted) removed every CKS1B drain, and specs/091 and 095
+were adopted since. The rule is unchanged.
+
+| arm | build | solver | against |
+|---|---|---|---|
+| `fsu2` | canonical `20261022-2011_233665c` | main, `--server DS_CARRIER_LOOP_OPEN=fed_single_ub` | `results/b61b365/dflt095` |
+
+Gate unchanged (specs/077's).
+
+Predictions:
+1. Both MDM2 knockout experimental cases in Cell Cycle Checkpoints are fixed again.
+2. Mitotic G1 no longer loses the CCND1, CDK4, CDKN2A and PPP2R1A cases that `fsu` lost through
+   the SCF(Skp2) release (the CKS1B drain is gone): Mitotic G1 net ≥ −1 on each axis.
+3. No prediction for held-out (`fsu`: 0, EGFR 6 / 6).
