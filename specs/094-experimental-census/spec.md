@@ -47,3 +47,25 @@ specialization bridges, the non-converged fallback), so the trade-off is re-meas
 2. TP53 in PIP3: at least 2 of its 4 experimental cases are fixed.
 3. No prediction on held-out or tuning nets. specs/014 measured held-out +29, tuning −61; the
    direction is reported against that.
+
+## C. The gap to MP-BioPath, split by reference agreement (2026-10-23)
+
+Adam, 2026-10-23: "I was hoping we would get the experimental results to at least equal to
+where we were with the publication." At `results/b61b365/dflt095` DeltaSignal scores 634 of 849
+against MP-BioPath's published 643 (`bench/analysis/experimental_gap.py` → `gap_b61b365.tsv`;
+`gap_split.py` → `gap_split.txt`):
+
+| | MP-BioPath right, DeltaSignal wrong | DeltaSignal right, MP-BioPath wrong | net |
+|---|---|---|---|
+| curators agree with the experiment | 35 | **46** | **DeltaSignal +11** |
+| curators disagree with the experiment | **26** | 6 | MP-BioPath +20 |
+| total | 61 | 52 | MP-BioPath +9 |
+
+On the cases where every reference agrees, DeltaSignal is ahead. The whole gap is on
+curator–experiment disagreements, where MP-BioPath (whose networks carry ~1,800 hand edits made
+against experimental data, specs/034) matches the experiment and DeltaSignal mostly gives the
+curators' answer. Under specs/096 those are not targeted, except where curated biology supports
+the experiment (a justified disagreement with the curators): CDKN2A in TP53 (ARF sequesters MDM2,
+not curated in that pathway) is the first candidate. The agreed classes MP-BioPath still wins:
+NF1 knockout in RAF 5, RB1 knockout 4, MDM4 knockout 3, TP53 in PIP3 4, MDM2 knockout in Cell
+Cycle Checkpoints 2, AKT1 knockout in TP53 2.
