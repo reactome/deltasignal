@@ -54,3 +54,22 @@ The unhandled positive loops are not one class:
 - **metabolic cycles:** common outside the benchmark (11 sample pathways) and absent from it, so
   no benchmark case can test a rule for them. Recorded as an unvalidated class for the external
   test (specs/096).
+
+## 3. Why the finders miss the unlisted interconversion cycles (`cyc_edges.jl`, `cyc2.jl`)
+
+Of the 39 unlisted interconversion cycles (8 benchmark, 31 sample):
+- **2 have a pool state on the cycle** (p-PTK6 in Signaling by PTK6, p-Y427-SHC1 in insulin
+  signalling). The enzyme's free form is a state of its own phosphorylation pool, so the
+  carrier-loop finder does not take its bind–act–release loop (p-PTK6 binds ARAP1, phosphorylates
+  it, is released). In the solver a pool state is written by its pool, and the release is a
+  supply producer that the pool's own forms reach, so specs/039's supply test drops it: the loop
+  is likely cut already, and the audit, which reads a pool state's in-edges as ordinary, overcounts
+  it.
+- **37 run between variant copies of complexes** (one node per member combination of a set:
+  TLR/MyD88 R-HSA-166058 and R-HSA-975155, TNF R-HSA-75893, VEGF R-HSA-194138, NHEJ, Fanconi,
+  insulin). Neither finder looks across variant copies.
+
+Benchmark exposure: the 5 benchmark pathways with such cycles hold 83 wrong curator cases in all
+(VEGF 31, PTK6 38, Fanconi 8, insulin 6, NHEJ 0), not all through these cycles, and **no
+experimental cases**. A variant-copy loop rule would be a generator change for at most a few dozen
+curator cases. Not pursued now; recorded for the stop rule (specs/096) as a known small class.
