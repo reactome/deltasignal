@@ -33,3 +33,21 @@ See spec.md (pre-registration of `LNG_BALANCE_CHOICES`). Trace (`trace_mdm4.jl`,
 folds against baseline): TP53 [nucleoplasm] 1.064 ← depletion by pool R-HSA-6804885 (0.855) ←
 variants MDM2:MDM4 and MDM2 dimer both 0.855 ← MDM2:MDM4 (0.803) fed by two copies of
 R-HSA-6804741: MDM4 + p-MDM2 (0) and p-MDM2 alone (1.607, makes MDM4 from nothing).
+
+## T2 result 1: the `bal` build (structure)
+
+Builds from LNG `balance-choices-101` 64a95a0: `20261024-1307_64a95a0_bal` (flag on) and
+`20261024-1346_64a95a0_balctl` (flag off, control).
+
+- R-HSA-6804741 in TP53: 4 copies → 2 (the two unbalanced pairings gone), as designed.
+- `compare_build.py` canonical vs bal: 38 pathway tables differ. **Prediction 3 fails as
+  written**: 3 moved pathways are not in the census (Signaling by FGFR2 R-HSA-5654738, ERBB4
+  R-HSA-1236394, AUF1 R-HSA-450531) and 2 census pathways do not move (R-HSA-198933,
+  R-HSA-5617472).
+  - The extras are the intended class, which the census missed because it counted only
+    output edges that gain a protein: set-to-set bindings emitted as a cross product. "FGFR2b
+    binds to FGF" (R-HSA-190260) 240 copies → 120, FGFR2c 48 → 24, "ERBB4 binds NRGs"
+    (R-HSA-1236398) and "Homodimerization of ERBB4" (R-HSA-1250220) 63 → 21 each, AUF1
+    ubiquitination (R-HSA-450580) 4 → 2.
+  - The two census pathways that do not move have unbalanced copies with no better-balanced
+    partner on both sides, so the rule keeps them.
