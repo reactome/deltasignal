@@ -101,3 +101,24 @@ case by case; its motivating case (MDM4) inverts instead of improving. Adoption 
 
 **Adopted** (Adam, 2026-10-24, "ok" to the recommendation): `LNG_BALANCE_CHOICES` on by default
 in the generator (LNG PR #126). Canonical rebuild after merge.
+
+## T3. AKT1 and SRC in Mitotic G1: products used by nothing (canonical `20261024-1634_f2c6a71`)
+
+Agreed experimental errors after T2: 68 of 210 wrong cases (142 are curator–experiment
+disagreements). AKT1 and SRC in Mitotic G1 are 10 of them (all `no_path`); curator 16 of 104
+right.
+
+- AKT1 catalyses only "AKT phosphorylates p21Cip1 and p27Kip1" (R-HSA-198613), output
+  p-T-CDKN1A/B [cytosol] (R-HSA-198605). SRC catalyses only "Tyrosine kinases phosphorylate
+  Cip/Kip inhibitors bound to CDK4/6:CCND complexes" (R-HSA-8942607), output
+  CDK4/6:CCND:p-Y77-CDKN1A,p-Y88-CDKN1B (R-HSA-8942622).
+- Neo4j: neither output (nor anything containing it) is an input, catalyst or regulator of any
+  reaction in Release 97. specs/080 `db_reach`: no route even under v4 (the loose reading);
+  MP-BioPath's network has one (`mpb_path` 1).
+- The biology (cytoplasmic retention of p-T-p27; p-Y88-p27 leaves CDK4 active toward RB1) is
+  in the summations, not the event graph. As T1: **curation-review items**, no rule. AKT1's one
+  readout that is reached (its own product, 198605) is right.
+
+Remaining agreed classes, each traced: NF1 (RAF, set aside; specs/053), MDM4 (T2: needs the
+heterodimer to be the stronger ligase, not encoded), RB1 (T1), EGFR in ERBB2 (T2: one
+heterodimer of three after balancing; set alternatives are averaged).
