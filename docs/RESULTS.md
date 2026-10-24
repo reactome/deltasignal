@@ -19,6 +19,34 @@ commit.
 ---
 
 
+> **2026-10-23 (evening): canonical numbers with ubiquitin not a displacer (specs/088 amendment 1).**
+> - Build `20261022-2011_233665c` (unchanged).
+> - Solver `90f7df4`: `DS_CARRIER_LOOP_OPEN=fed_single_ub` by default.
+> - Results: `results/90f7df4/dflt088`. They reproduce the measured arm (`fsu2`) on every case
+>   and value, both axes.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **90.25%** | **0.8758** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.61% | 0.8671 |
+> | curator, all pathways, in release (81) | 23,625 | 88.90% | 0.8667 |
+> | curator, all pathways, every case | 24,100 | 88.29% | 0.8589 |
+> | experimental, every case (10 pathways) | 849 | **74.79%** | **0.6636** |
+>
+> **What moved:** curator tuning +2, experimental +1 (634 → 635: both MDM2 knockout cases in Cell
+> Cycle Checkpoints and ATM overexpression fixed; CDK4 and CCND1 knockout lost by a threshold),
+> held-out 0.
+>
+> Converged: 1,724 / 1,725 curator and 244 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 88.29% / 0.8589 against 83.34% / 0.8063, **+4.95pp**.
+> - Experimental: 74.79% (635/849) against 75.74% (643/849), **−0.94pp**. On the cases where the
+>   curators agree with the experiment DeltaSignal is ahead; the gap is on disagreements
+>   (specs/094 section C).
+>
+> **Previous box**, kept below for the record.
+
 > **2026-10-23 (later): canonical numbers with self-inhibitor copies (specs/095).**
 > - Build `20261022-2011_233665c` (unchanged).
 > - Solver `b61b365`: `DS_SELF_INHIBITOR_COPIES=on` by default.
