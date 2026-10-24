@@ -125,6 +125,9 @@ function solve_steady_state(
     pathogens = pmode == "inert" ? pathogen_uuids(network) : Set{String}()
     pathogen_rule = pmode == "propagate" ? "propagate" :
                     network.pathogen_stids === nothing ? "inert: no pathogen table" : "inert"
+    # specs/098: free ubiquitin, the same hold
+    umode = ubiquitin_mode()
+    ubiquitins = umode == "inert" ? ubiquitin_uuids(network) : Set{String}()
     # specs/049: a carrier loop's free form reads its supply, not its own release.
     # First, so every rule resolved on the network below sees the same edges.
     carrier_open = carrier_loop_open()   # specs/077
@@ -245,6 +248,16 @@ function solve_steady_state(
             if !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
         pathogens_held = length(ppins)
         observations = merge(observations, ppins)
+    end
+    ubiquitin_held = 0
+    if !isempty(ubiquitins)
+        # the drug rule's pin precedence: an observation that pins wins
+        upins = Dict{String, Tuple{Float64, Float64}}(
+            u => (network.nodes[u].baseline * 100.0, 1.0)
+            for u in ubiquitins
+            if !(haskey(observations, u) && observations[u][2] > OBS_CONFIDENCE_TOL))
+        ubiquitin_held = length(upins)
+        observations = merge(observations, upins)
     end
     zero_supply_held = 0
     if !isempty(zheld)
@@ -386,6 +399,8 @@ function solve_steady_state(
     result.diagnostics["drugs_held"] = drugs_held
     result.diagnostics["pathogen_rule"] = pathogen_rule
     result.diagnostics["pathogens_held"] = pathogens_held
+    result.diagnostics["ubiquitin_rule"] = umode                 # specs/098
+    result.diagnostics["ubiquitin_held"] = ubiquitin_held
     result.diagnostics["carrier_loop_rule"] = carrier_loop_rule
     result.diagnostics["carrier_loop_forms"] = carrier_loop_forms
     result.diagnostics["carrier_loop_edges_dropped"] = carrier_loop_edges

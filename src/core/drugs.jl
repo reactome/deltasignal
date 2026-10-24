@@ -82,6 +82,24 @@ function pathogen_mode()::String
     return value
 end
 
+"""
+specs/098. `DS_UBIQUITIN_MODE`: `propagate` (default) | `inert`. Under `inert`
+every FREE ubiquitin node (stable id exactly one of the three ubiquitin stIds;
+conjugates and complexes are not touched) is held at baseline, as drugs and
+pathogens are: free ubiquitin is a large, non-limiting pool, and routing signal
+through it closes gain-1 loops over every ubiquitination in a pathway
+(specs/097: 13 such loops in 10 pathways).
+"""
+function ubiquitin_mode()::String
+    value = get(ENV, "DS_UBIQUITIN_MODE", "propagate")
+    value in ("propagate", "inert") || throw(ArgumentError(
+        "DS_UBIQUITIN_MODE must be propagate or inert; got $(repr(value))"))
+    return value
+end
+
+"""uuids of free ubiquitin nodes (specs/098)."""
+ubiquitin_uuids(network::ReactionNetwork)::Set{String} = _uuids_with_stid(network, UBIQUITIN_STIDS)
+
 """uuids in this network whose Reactome stable id the bundle declares pathogen-derived."""
 pathogen_uuids(network::ReactionNetwork)::Set{String} = _uuids_with_stid(network, network.pathogen_stids)
 

@@ -921,6 +921,8 @@ function solve_handler(req)
             # specs/048 (additive): "propagate", "inert", or "inert: no pathogen table".
             "pathogen_rule" => get(solver_result.diagnostics, "pathogen_rule", "unknown"),
             "pathogens_held" => get(solver_result.diagnostics, "pathogens_held", 0),
+            "ubiquitin_rule" => get(solver_result.diagnostics, "ubiquitin_rule", "propagate"),   # specs/098
+            "ubiquitin_held" => get(solver_result.diagnostics, "ubiquitin_held", 0),
             # specs/049 (additive): "off", "closed", "closed_supply", "closed_twin", "all", or
             # "<mode>: no carrier table"; the free forms that lost loop in-edges, how many
             # edges, and how many root-twin supply edges closed_twin added.

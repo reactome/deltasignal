@@ -414,6 +414,11 @@ env vars only override for benchmark sweeps:
     nothing broken.
   - The solve reports `pathogen_rule` and `pathogens_held`. A bundle without
     the table reports `inert: no pathogen table`, and the bench refuses it.
+- `DS_UBIQUITIN_MODE=propagate` (default) | `inert` (specs/098, **not adopted**: held-out +6 USP1, experimental −4 CCNE1; free ubiquitin is the only
+  link of the p27 degradation cycle): free
+  ubiquitin nodes (the three ubiquitin stIds exactly, not conjugates) held at baseline like
+  drugs, so the free pool cannot close loops over a pathway's ubiquitinations. Reports
+  `ubiquitin_rule` and `ubiquitin_held`.
 - `DS_SET_POOL_MODE=product` (default) | `extreme` | `geomean` | `mean` | `max`
   (specs/033): how a set POOL node (the generator's `LNG_SET_POOL`: one node
   per set-valued catalyst or regulator, fed by `set_member` edges) combines its
@@ -964,6 +969,15 @@ for the last feature that touched it rather than re-deriving from the code.
   12 mRNA:miRNA complexes, built from the transcribed mRNA copy, shut off translation of the
   pinned root copy). **Adopted** (Adam, 2026-10-23): tuning +14, experimental +9 (9 / 0),
   held-out 0; all 9 PTEN overexpression experimental cases fixed.
+- `specs/096-validation-plan/` — how accuracy will be validated: development continues on
+  agreed errors and unhandled loop types with a stop rule; freeze; one external dataset scored
+  once; blind curator pathways; justified disagreements recorded, scores kept raw.
+- `specs/097-loop-audit/` — structural coverage: the 92 benchmark pathways match a 101-pathway
+  sample (4.4% of nodes cyclic in both); unhandled loops cost ~8 points on routes through them;
+  catalyst- and material-closed positive loops remain unhandled.
+- `specs/098-free-ubiquitin/` — `DS_UBIQUITIN_MODE=inert`: free ubiquitin held at baseline.
+  **Not adopted** (Adam, 2026-10-23): held-out +6 (USP1), experimental −4 (CCNE1's curated
+  route through the p27 degradation cycle runs through free ubiquitin).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -996,7 +1010,7 @@ other seven execute code and print output.
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
 | `test/test_self_inhibition.jl` | 115 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
-| `test/test_drugs.jl` | 127 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10 |
+| `test/test_drugs.jl` | 134 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10; free ubiquitin (specs/098) 2026-10-23 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 549 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |

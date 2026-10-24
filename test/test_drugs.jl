@@ -301,4 +301,35 @@ end
     end
 end
 
+
+# specs/098: free ubiquitin held at baseline under DS_UBIQUITIN_MODE=inert. A
+# ubiquitination r1 (S + Ub -> SUb), a deubiquitination r2 releasing Ub, and a
+# readout T of SUb: the loop Ub -> r1 -> SUb -> r2 -> Ub is closed by free Ub.
+@testset "free ubiquitin is held under inert (specs/098)" begin
+    nd(u, st) = u => DS.NetworkNode(u, st, "protein", nothing, u, BL)
+    nodes = Dict(nd("S", "R-S"), nd("Ub", "R-HSA-113595"), nd("r1", "R-R1"), nd("SUb", "R-SUB"),
+                 nd("r2", "R-R2"), nd("D", "R-D"), nd("X", "R-X"), nd("UbX", "R-HSA-UBX"))
+    out(a, b) = DS.LogicNetworkEdge(a, b, false, true, 1.0, "output")
+    edges = [edge("S", "r1", true, "input"), edge("Ub", "r1", true, "input"), out("r1", "SUb"),
+             edge("SUb", "r2", true, "input"), edge("D", "r2", true, "catalyst"), out("r2", "Ub"),
+             edge("Ub", "UbX", true, "assembly"), edge("X", "UbX", true, "assembly")]
+    net = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}())
+    run(m, obs) = with_env("DS_UBIQUITIN_MODE" => m) do
+        DS.solve_steady_state(net, obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    f(r, u) = r.node_activities[u] / BL
+    base = Dict("S" => (4.0, 1.0), "D" => (1.0, 1.0), "X" => (1.0, 1.0))
+    p = run(nothing, base)
+    @test p.diagnostics["ubiquitin_rule"] == "propagate" && p.diagnostics["ubiquitin_held"] == 0
+    i = run("inert", base)
+    @test i.diagnostics["ubiquitin_rule"] == "inert" && i.diagnostics["ubiquitin_held"] == 1
+    @test f(i, "Ub") ≈ 1.0 atol = 1e-9                     # held at baseline
+    @test f(i, "SUb") ≈ 4.0 rtol = 1e-5                   # the conjugate still carries S (solver tolerance)
+    @test f(i, "UbX") ≈ 1.0 atol = 1e-9                   # a complex containing Ub is computed, not held
+    # an observation that pins Ub wins
+    @test f(run("inert", merge(base, Dict("Ub" => (3.0, 1.0)))), "Ub") ≈ 3.0 atol = 1e-9
+    with_env("DS_UBIQUITIN_MODE" => "off") do
+        @test_throws ArgumentError DS.ubiquitin_mode()
+    end
+end
 end
