@@ -150,6 +150,8 @@ function solve_steady_state(
     end
     # specs/059: a recycled copy of an entity also reads its root copies.
     network, recycled_twin_rule, recycled_twin_edges = apply_recycled_twins(network, recycled_twin_mode())
+    # specs/100: a root copy of an RNA reads its transcribed copies
+    network, rna_twin_rule, rna_twin_edges = apply_rna_twins(network, rna_twin_mode())
     # specs/063: a dead-end binding complex depletes its free partner.
     network, sequestration_rule, sequestration_edges = apply_sequestration(network, sequestration_mode())
     # specs/035: loop participants released unchanged by their loop, held at
@@ -168,7 +170,8 @@ function solve_steady_state(
         network = ReactionNetwork(network.nodes, vcat(network.edges, bridges),
                                   network.set_mappings, network.cofactor_stids,
                                   network.containment, network.drug_stids, network.pools,
-                                  network.pathogen_stids, network.carrier_loops, network.node_leaves)
+                                  network.pathogen_stids, network.carrier_loops, network.node_leaves,
+                                  network.rna_stids)
     end
 
     # specs/052: under a pin to 0, nodes built from a protein no unpinned source
@@ -412,6 +415,8 @@ function solve_steady_state(
     result.diagnostics["carrier_loop_open_edges"] = carrier_open_edges
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
+    result.diagnostics["rna_twin_rule"] = rna_twin_rule        # specs/100
+    result.diagnostics["rna_twin_edges"] = rna_twin_edges
     result.diagnostics["sequestration_rule"] = sequestration_rule
     result.diagnostics["sequestration_edges"] = sequestration_edges
     result.diagnostics["own_entity_depletions"] = length(own_entity)
@@ -555,7 +560,7 @@ function without_depletions(network::ReactionNetwork, pairs::Set{Tuple{String, S
              if !(e.edge_type == "depletion" && (e.parent_uuid, e.child_uuid) in pairs)]
     return ReactionNetwork(network.nodes, edges, network.set_mappings, network.cofactor_stids,
                            network.containment, network.drug_stids, network.pools, network.pathogen_stids,
-                           network.carrier_loops, network.node_leaves)
+                           network.carrier_loops, network.node_leaves, network.rna_stids)
 end
 
 function own_source_depletion_sources(network::ReactionNetwork)::Dict{Tuple{String, String}, Vector{String}}

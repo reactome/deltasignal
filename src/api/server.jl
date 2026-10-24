@@ -349,6 +349,11 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
     catch
         throw(ArgumentError("`pathogen_stids` must be a list of stable ids or null."))
     end
+    rna_stids = try
+        DeltaSignal.rna_stids_from_json(get(data, :rna_stids, nothing))
+    catch
+        throw(ArgumentError("`rna_stids` must be a list of stable ids or null."))
+    end
     carrier_loops = try
         DeltaSignal.carrier_loops_from_json(get(data, :carrier_loops, nothing))
     catch
@@ -360,7 +365,8 @@ function reaction_network_from_json(data)::DeltaSignal.ReactionNetwork
         throw(ArgumentError("`node_leaves` must be null or the map /api/parse returns."))
     end
     return DeltaSignal.ReactionNetwork(nodes_dict, edges, set_mappings, cofactor_stids, containment,
-                                       drug_stids, pools, pathogen_stids, carrier_loops, node_leaves)
+                                       drug_stids, pools, pathogen_stids, carrier_loops, node_leaves,
+                                       rna_stids)
 end
 
 """
@@ -757,6 +763,7 @@ function parse_handler(req)
             "drug_stids" => DeltaSignal.drug_stids_json(network),
             # specs/048: the same for the bundle's pathogen list.
             "pathogen_stids" => DeltaSignal.pathogen_stids_json(network),
+            "rna_stids" => DeltaSignal.rna_stids_json(network),               # specs/100
             # specs/039: the interconversion pool table (null when none), so a
             # parse -> POSTed solve runs the same cycle model as a solve by id.
             "pools" => DeltaSignal.pools_json(network),
@@ -937,6 +944,8 @@ function solve_handler(req)
             # specs/059: "off" or "on", and how many recycled_supply edges were added.
             "recycled_twin_rule" => get(solver_result.diagnostics, "recycled_twin_rule", "unknown"),
             "recycled_twin_edges" => get(solver_result.diagnostics, "recycled_twin_edges", 0),
+            "rna_twin_rule" => get(solver_result.diagnostics, "rna_twin_rule", "off"),   # specs/100
+            "rna_twin_edges" => get(solver_result.diagnostics, "rna_twin_edges", 0),
             # specs/061 (default since 2026-10-15): the own-product rule and how many
             # depletion edges were gated on their source copies.
             "depletion_own_product" => get(solver_result.diagnostics, "depletion_own_product", "unknown"),

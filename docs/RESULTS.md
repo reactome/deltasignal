@@ -1,6 +1,6 @@
 # DeltaSignal: current results
 
-**Last measured (canonical box below)**: 2026-10-23. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
+**Last measured (canonical box below)**: 2026-10-24. Section 1 onwards: 2026-09-21, Reactome Release97, catalog build `cat_prod`
 (generator `f2842bc`), solver `5032771` with the current code defaults
 (`hill_sat`, assembly-limiting on, `DS_INHIBITOR_EPS=1e-12`,
 `DS_DEPLETION_H_MIN=0.1`).
@@ -18,6 +18,34 @@ commit.
 
 ---
 
+
+> **2026-10-24: canonical numbers with RNA twins (specs/100).**
+> - Build `20261024-0801_7a754fc` (generator main after LNG #125, which adds `rnas.csv`). Same
+>   content as `20261022-2011_233665c` plus that table: 0 of 92 pathway tables differ from the
+>   measured build `20261023-2341_135af3c_rna2`.
+> - Solver `b0d6737`: `DS_RNA_TWIN=on` by default.
+> - Results: `results/b0d6737/dflt100`. They reproduce the measured arm (`rnt`) on every case,
+>   both axes.
+>
+> | | cases | accuracy | macro-F1 |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **90.25%** | **0.8758** |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.61% | 0.8671 |
+> | curator, all pathways, in release (81) | 23,625 | 89.02% | 0.8688 |
+> | curator, all pathways, every case | 24,100 | 88.40% | 0.8610 |
+> | experimental, every case (10 pathways) | 849 | **75.27%** | **0.6674** |
+>
+> **What moved:** curator tuning +28 (28 fixed / 0 broken), experimental +4 (635 → 639), held-out
+> 0. Every TP53 case in PIP3 activates AKT signaling: TP53 now raises the PTEN mRNA copy that is
+> translated, not only the copy the miRNA repressors read.
+>
+> Converged: 1,724 / 1,725 curator and 244 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 88.40% / 0.8610 against 83.34% / 0.8063, **+5.06pp**.
+> - Experimental: 75.27% (639/849) against 75.74% (643/849), **−0.47pp** (4 cases).
+>
+> **Previous box**, kept below for the record.
 
 > **2026-10-23 (evening): canonical numbers with ubiquitin not a displacer (specs/088 amendment 1).**
 > - Build `20261022-2011_233665c` (unchanged).

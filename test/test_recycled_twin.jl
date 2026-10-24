@@ -287,4 +287,44 @@ end
     @test fold(src, "T") ≈ fold(full, "T") atol = 1e-9
 end
 
+
+# specs/100: a root copy of an RNA reads its transcribed copies. G is transcribed
+# (tx) into M2; M1, a root copy of the same mRNA (R-M), is translated (tl) into P.
+@testset "RNA twins: a root mRNA copy reads its transcribed copy (specs/100)" begin
+    nd(u, st) = u => DS.NetworkNode(u, st, "protein", nothing, u, BL)
+    nodes = Dict(nd("G", "R-G"), nd("tx", "R-TX"), nd("M2", "R-M"), nd("M1", "R-M"), nd("tl", "R-TL"), nd("P", "R-P"))
+    out(a, b) = DS.LogicNetworkEdge(a, b, false, true, 1.0, "output")
+    inp(a, b) = DS.LogicNetworkEdge(a, b, true, true, 1.0, "input")
+    edges = [inp("G", "tx"), out("tx", "M2"), inp("M1", "tl"), out("tl", "P")]
+    mk(rnas) = DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(), Set{String}(),
+                                  Dict{String, Set{String}}(), nothing, nothing, nothing, nothing, nothing, rnas)
+    run(net, mode, obs) = with_env("DS_RNA_TWIN" => mode) do
+        DS.solve_steady_state(net, obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+    end
+    f(r, u) = r.node_activities[u] / BL
+    net = mk(Set(["R-M"]))
+    with_env("DS_RNA_TWIN" => nothing) do
+        @test DS.rna_twin_mode() == "on"             # default since the specs/100 adoption
+    end
+    off = run(net, "off", Dict("G" => (5.0, 1.0)))
+    @test off.diagnostics["rna_twin_rule"] == "off"
+    @test f(off, "P") ≈ 1.0 atol = 1e-9                 # translation reads the unmoved root copy
+    on = run(net, "on", Dict("G" => (5.0, 1.0)))
+    @test on.diagnostics["rna_twin_rule"] == "on" && on.diagnostics["rna_twin_edges"] == 1
+    @test f(on, "M1") ≈ 5.0 rtol = 1e-6
+    @test f(on, "P") ≈ 5.0 rtol = 1e-6
+    # a pinned root copy keeps its pin
+    @test f(run(net, "on", Dict("G" => (5.0, 1.0), "M1" => (2.0, 1.0))), "P") ≈ 2.0 rtol = 1e-6
+    # only listed RNAs: a protein with the same shape is untouched
+    @test run(mk(Set{String}()), "on", Dict("G" => (5.0, 1.0))).diagnostics["rna_twin_edges"] == 0
+    # no table: says so, adds nothing
+    nt = run(mk(nothing), "on", Dict("G" => (5.0, 1.0)))
+    @test nt.diagnostics["rna_twin_rule"] == "on: no RNA table"
+    @test f(nt, "P") ≈ 1.0 atol = 1e-9
+    # the JSON round trip keeps the table
+    @test DS.rna_stids_from_json(DS.JSON3.read(DS.JSON3.write(DS.rna_stids_json(net)))) == Set(["R-M"])
+    with_env("DS_RNA_TWIN" => "yes") do
+        @test_throws ArgumentError DS.rna_twin_mode()
+    end
+end
 end

@@ -85,6 +85,6 @@ function apply_sequestration(network::ReactionNetwork, mode::String)
     net = ReactionNetwork(network.nodes, vcat(network.edges, added), network.set_mappings,
                           network.cofactor_stids, network.containment, network.drug_stids,
                           network.pools, network.pathogen_stids, network.carrier_loops,
-                          network.node_leaves)
+                          network.node_leaves, network.rna_stids)
     return net, mode, length(added)
 end
