@@ -391,6 +391,14 @@ function solve_steady_state(
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
     result.diagnostics["self_activator_rule"] = self_act_rule   # specs/083
+    # specs/103: how several depletion edges into one node combine, and how many
+    # reactions have more than one (the only ones `share` changes).
+    result.diagnostics["depletion_combine"] = resolve_reaction_eval_config().depletion_combine
+    ndep = Dict{String, Int}()
+    for e in network.edges
+        e.edge_type == "depletion" && (ndep[e.child_uuid] = get(ndep, e.child_uuid, 0) + 1)
+    end
+    result.diagnostics["depletion_shared_nodes"] = count(>(1), values(ndep))
     result.diagnostics["cycle_rule"] = cycle_rule
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["pool_supply_reach"] = supply_reach

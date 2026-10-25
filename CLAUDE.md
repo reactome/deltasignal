@@ -1032,7 +1032,7 @@ other seven execute code and print output.
 |---|---|---|
 | `test/test_config_validation.jl` | 217 | |
 | `test/test_loop_elasticity.jl` | 175 | + 1 `@test_broken` |
-| `test/test_propagator_invariants.jl` | 121 | |
+| `test/test_propagator_invariants.jl` | 133 | specs/103 shared depletion added 2026-10-25 |
 | `test/test_loop_pool.jl` | 81 | |
 | `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |

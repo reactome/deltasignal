@@ -366,6 +366,45 @@ end
         @test_throws ArgumentError act(dep_net(), half_supply, "suppress-only")
     end
 
+    @testset "DS_DEPLETION_COMBINE: two consumers of one pool share it (specs/103)" begin
+        # U -> R0 -> X;  Q1 -| X and Q2 -| X (depletion).  Under `product` each
+        # consumer acts as the only one, so losing one de-represses X to the cap.
+        N(id) = DeltaSignal.NetworkNode(id, "R-HSA-" * id, "unknown", nothing, id, 0.01)
+        function two_dep(; second=true)
+            ids = ("U", "R0", "X", "Q1", "Q2")
+            edges = [DeltaSignal.LogicNetworkEdge("U", "R0", true, true, 1.0, "input"),
+                     DeltaSignal.LogicNetworkEdge("R0", "X", false, true, 1.0, "output"),
+                     DeltaSignal.LogicNetworkEdge("Q1", "X", true, false, 1.0, "depletion")]
+            second && push!(edges, DeltaSignal.LogicNetworkEdge("Q2", "X", true, false, 1.0, "depletion"))
+            DeltaSignal.ReactionNetwork(Dict(id => N(id) for id in ids), edges, Dict{String,DeltaSignal.SetExpansionMapping}())
+        end
+        P = DeltaSignal.SteadyStateParams(1.0, 1e-6, 500, 1e-8, "penalty")
+        solve(net, obs, env) = withenv("DS_DEPLETION_COMBINE" => env) do
+            DeltaSignal.solve_steady_state(net, obs, P)
+        end
+        X(net, obs, env) = solve(net, obs, env).node_activities["X"] / BL
+        ko1 = Dict("Q1" => (0.0, 1.0))
+
+        @test resolve_reaction_eval_config().depletion_combine == "product"
+        @test X(two_dep(), ko1, nothing) == X(two_dep(), ko1, "product")
+        # the defect: one of two consumers lost reads X at the 10x ceiling
+        @test X(two_dep(), ko1, "product") ≈ 10.0 rtol=1e-6
+        # shared: S = s / mean(E), so losing one of two consumers doubles X
+        @test X(two_dep(), ko1, "share") ≈ 2.0 rtol=1e-6
+        @test X(two_dep(), Dict("Q1" => (0.5, 1.0)), "share") ≈ 1 / 0.75 rtol=1e-6
+        # both consumers up 100x (specs/011's EPS15 case): the floor binds either way
+        both = Dict("Q1" => (100.0, 1.0), "Q2" => (100.0, 1.0))
+        @test X(two_dep(), both, "share") ≈ 0.1 rtol=1e-6
+        @test X(two_dep(), both, "share") ≈ X(two_dep(), both, "product") rtol=1e-9
+        # one consumer: identical
+        for obs in (ko1, Dict("Q1" => (5.0, 1.0)))
+            @test X(two_dep(second=false), obs, "share") == X(two_dep(second=false), obs, "product")
+        end
+        @test solve(two_dep(), ko1, "share").diagnostics["depletion_combine"] == "share"
+        @test solve(two_dep(), ko1, "share").diagnostics["depletion_shared_nodes"] == 1
+        @test_throws ArgumentError X(two_dep(), ko1, "mean")
+    end
+
     @testset "review fixes 2026-09-19: dedup keeps the input role, own-product ignores catalysts, elasticity acts under the flat solve" begin
         N(id) = DeltaSignal.NetworkNode(id, "R-HSA-" * id, "unknown", nothing, id, 0.01)
         P = DeltaSignal.SteadyStateParams(1.0, 1e-6, 300, 1e-8, "penalty")

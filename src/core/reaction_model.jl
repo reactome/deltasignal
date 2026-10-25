@@ -1035,6 +1035,7 @@ struct ReactionEvalConfig
     loop_gain::Float64               # 1.0 = off. specs/028.
     set_pool_mode::String            # specs/033: how a set pool combines its members.
     self_activator_weight::Float64   # < 0 = off; default 0.1 since specs/083 was adopted.
+    depletion_combine::String        # specs/103: "product" (default) | "share".
 end
 
 """
@@ -1085,6 +1086,7 @@ const DS_VALID_MODES = Dict(
     "DS_DEPLETION_OWN_PRODUCT" => Set(["full", "suppress_only", "suppress_only_entity", "suppress_only_source"]),
     "DS_INHIBITOR_FLOOR_SCOPE" => Set(["loops", "all", "transcription", "none"]),
     "DS_SET_POOL_MODE"         => Set(["product", "extreme", "geomean", "mean", "max"]),
+    "DS_DEPLETION_COMBINE"     => Set(["product", "share"]),
 )
 
 const DS_BREAK_ROLES = Set(["catalyst", "assembly", "depletion"])
@@ -1422,6 +1424,11 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # gene's transcription): under the AND product the input is otherwise
         # counted once per such activator. Default 0.1 (specs/083 adopted).
         _self_activator_weight_env(),
+        # specs/103. Several depletion edges into one node: `product` multiplies
+        # their factors b/x_k, so each consumer acts as the pool's only one;
+        # `share` reads them as consumers of one pool, b/mean(x_k) (mass action
+        # with equal baseline shares).
+        _mode_env("DS_DEPLETION_COMBINE", "product"),
     )
     if cfg.loop_gain < 1.0 && cfg.loop_elasticity < 1.0
         throw(ArgumentError("DS_LOOP_GAIN and DS_LOOP_ELASTICITY are two ways to pull a loop " *
@@ -2302,21 +2309,31 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         eps_dep = T(config.inhibitor_eps)
         h_max_dep = T(config.depletion_h_max)
         suppress_only = config.depletion_own_product in ("suppress_only", "suppress_only_entity", "suppress_only_source")
+        share = config.depletion_combine == "share" && length(rxn.depletion_indices) > 1
+        x_sum = zero(T)
         @inbounds for k in 1:length(rxn.depletion_indices)
             i_dep = rxn.depletion_indices[k]
             raw_dep = (supply !== nothing && k <= length(rxn.depletion_break) && rxn.depletion_break[k]) ?
                       supply[i_dep] : x[i_dep]      # recycling closure: entry value, no feedback
             x_dep = clamp(raw_dep, zero(T), one(T))
             f_dep = (bl + eps_dep) / (x_dep + eps_dep)
+            capped = false
             if suppress_only && k <= length(rxn.depletion_own_product) &&
                rxn.depletion_own_product[k]
-                f_dep = min(f_dep, one(T))
+                f_dep = min(f_dep, one(T)); capped = true
             elseif suppress_only && k <= length(rxn.depletion_own_src) &&
                    _own_source_down(rxn.depletion_own_src[k], x)
-                f_dep = min(f_dep, one(T))
+                f_dep = min(f_dep, one(T)); capped = true
             end
-            H_dep *= f_dep
+            if share
+                x_sum += capped ? max(x_dep, bl) : x_dep
+            else
+                H_dep *= f_dep
+            end
         end
+        # specs/103: consumers of one pool share it (S = s / sum k_i E_i), so
+        # losing one of two consumers at most doubles the substrate.
+        share && (H_dep = (bl + eps_dep) / (x_sum / length(rxn.depletion_indices) + eps_dep))
         # Bound suppression by the SAME factor as de-repression. The old
         # lower bound was zero, so depletion could suppress a node without
         # limit while de-repression was capped at h_max -- capped above,
