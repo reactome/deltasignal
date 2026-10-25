@@ -1038,7 +1038,7 @@ other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|
-| `test/test_config_validation.jl` | 217 | |
+| `test/test_config_validation.jl` | 219 | |
 | `test/test_loop_elasticity.jl` | 175 | + 1 `@test_broken` |
 | `test/test_propagator_invariants.jl` | 133 | specs/103 shared depletion added 2026-10-25 |
 | `test/test_loop_pool.jl` | 81 | |
