@@ -79,6 +79,21 @@ function pool_base_weight()::String
 end
 
 """
+specs/104. What a pool's drives read for another copy of one of the pool's own entities:
+- `off` (default): its solved value, as any other input.
+- `hold`: baseline, as the pool's own nodes. A drive is a rate per unit of source, so a
+  copy of the source entity (a root copy no reaction produces, read by some of a step's
+  variant copies) is not a rate. Under APC overexpression in WNT such copies read 80x and
+  the PP2A step ran 80x faster.
+"""
+function pool_drive_twins()::String
+    value = get(ENV, "DS_POOL_DRIVE_TWINS", "off")
+    value in ("off", "hold") || throw(ArgumentError(
+        "DS_POOL_DRIVE_TWINS must be off or hold; got $(repr(value))"))
+    return value
+end
+
+"""
 specs/090. How a pool state's producers enter the supply:
 - `off` (default): every producer is its own term of the mean, as before.
 - `on`: a state's AND-joined producers (a complex assembled from the protein
@@ -179,6 +194,9 @@ struct IndexedPool
                                         # out when it is a carrier (specs/075), else nothing
     supply_and::Vector{Vector{Bool}}    # per state, aligned with supply_rxns: the producer is
                                         # AND-joined (specs/090; filled per solve, empty = off)
+    drive_twins::Vector{Int}            # specs/104: non-pool copies of the pool's entities that
+                                        # its steps read, held at baseline in the drives under
+                                        # DS_POOL_DRIVE_TWINS=hold (filled per solve, empty = off)
 end
 
 """Drive regulariser: rates are k·(u + ε), so with every drive of a pool at zero
@@ -366,7 +384,7 @@ function index_pools(pools, uuid_to_idx::Dict{String, Int}, rxns_idx, phi::Float
         end
         push!(out, IndexedPool([uuid_to_idx[f] for f in p.forms], pi0, pf, pt, k, j0, psteps,
                                fnodes, fpaths, cnodes, crefs, supply, frx, cs, crx, crel, Int[], Int[],
-                               Union{Nothing, Set{Int}}[], [Bool[] for _ in p.forms]))
+                               Union{Nothing, Set{Int}}[], [Bool[] for _ in p.forms], Int[]))
     end
     stats === nothing || (stats["cycle_carrier_release_added"] = n_release_added)
     stats === nothing || (stats["cycle_bases_split"] = n_split)
@@ -384,7 +402,7 @@ function path_drives(x::AbstractVector{Float64}, p::IndexedPool, rxns_idx, basel
     # pool's steps (a SOCS complex built from a state) are re-evaluated from
     # their own inputs with the pool at baseline, so they carry everything but
     # their dependence on the pool's own protein (derivation3-fable).
-    pool_nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes)
+    pool_nodes = vcat(p.forms, p.flux_nodes, p.copy_nodes, p.drive_twins)   # specs/104
     hv = vcat(pool_nodes, p.reeval)
     hkeep = [x[h] for h in hv]
     for v in pool_nodes; x[v] = baseline_vec[v]; end

@@ -463,6 +463,11 @@ env vars only override for benchmark sweeps:
   state's AND-joined producers (a recycle base assembled from the protein and its
   partners) are one supply term, their capped product. Reports `pool_supply_and`
   and `cycle_supply_and_groups`.
+  `DS_POOL_DRIVE_TWINS=off` (default) | `hold` (specs/104, measured, no class change on either axis;
+  adoption pending): a pool's drives hold at baseline any non-pool copy of the pool's own entities that
+  a step reads (WNT: root copies of the PP2A step's substrate read 80x under APC overexpression and
+  emptied the intermediate the ubiquitination readout leaves from, 0.014 -> 1.11). Reports
+  `pool_drive_twins_rule` and `pool_drive_twins`.
   A release pool (generator `LNG_RELEASE_POOLS`, default on since specs/086) lists
   the released copy as its carrier, reading the free state through a
   `released_twin` edge; paths may be up to 10 steps (`CYCLE_MAX_STEPS`).
@@ -1014,6 +1019,8 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/103-depletion-share/` — `DS_DEPLETION_COMBINE=share`: consumers of one pool share it
   (MDM4 knockout: the heterodimer alone de-repressed free MDM2 10×). **Not adopted** (gate fails, PIP3
   −13); experimental 0. specs/101 T4 records the agreed errors no structural rule reaches.
+- `specs/104-pool-drive-twins/` — `DS_POOL_DRIVE_TWINS=hold`: a pool's drives do not read another
+  copy of the pool's own entity. No class change (31 WNT curator values move); adoption pending.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -1049,7 +1056,7 @@ other seven execute code and print output.
 | `test/test_drugs.jl` | 134 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10; free ubiquitin (specs/098) 2026-10-23 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
-| `test/test_cycles.jl` | 549 | specs/039, added 2026-09-27; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
+| `test/test_cycles.jl` | 573 | specs/039, added 2026-09-27; drive twins (specs/104) 2026-10-25; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
 | `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
