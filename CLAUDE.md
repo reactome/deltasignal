@@ -542,6 +542,11 @@ env vars only override for benchmark sweeps:
   if any, all depletion; never a carrier free form, specs/061 amendment 2). The one-way form of the identity twin that
   `closed_twin` handles for carrier loops (SMAD2 in TGF-beta). The solve
   reports `recycled_twin_rule` and `recycled_twin_edges`.
+- `DS_DEPLETION_COMBINE=product` (default) | `share` (specs/103, **not adopted**: held-out 0, tuning
+  +13, experimental 0, PIP3 −13: VAV1 through PTEN's four ligases): several depletion edges into one
+  node read as consumers of one pool, b / mean(x), instead of the product of their factors. MDM4
+  knockout then de-represses TP53 (9 curator cases). Reports `depletion_combine` and
+  `depletion_shared_nodes`.
 - `DS_RNA_TWIN=on` (**default since 2026-10-24**, specs/100; tuning +28 (28 / 0), experimental
   +4 (4 / 0), held-out 0: every TP53 case in PIP3) | `off`: a root copy of an RNA
   species (the generator's `rnas.csv`, LNG #125) reads its produced copies (`rna_supply`, OR, one-way,
@@ -1006,6 +1011,9 @@ for the last feature that touched it rather than re-deriving from the code.
   Each regulator is one pool of its variants, added after enumeration. **Adopted** (Adam,
   2026-10-24): tuning +173, experimental +6 (641/849), held-out 0; mostly in-sample. Headlines are
   reported with it and with Release 97 alone. AKT1 inverts through p27's assembly-factor role.
+- `specs/103-depletion-share/` — `DS_DEPLETION_COMBINE=share`: consumers of one pool share it
+  (MDM4 knockout: the heterodimer alone de-repressed free MDM2 10×). **Not adopted** (gate fails, PIP3
+  −13); experimental 0. specs/101 T4 records the agreed errors no structural rule reaches.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
