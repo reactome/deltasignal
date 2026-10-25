@@ -1014,6 +1014,9 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/103-depletion-share/` — `DS_DEPLETION_COMBINE=share`: consumers of one pool share it
   (MDM4 knockout: the heterodimer alone de-repressed free MDM2 10×). **Not adopted** (gate fails, PIP3
   −13); experimental 0. specs/101 T4 records the agreed errors no structural rule reaches.
+- `specs/105-readout-entity-mean/` — bench `DS_KO_AGG=mean_entity`: a set readout read through proxy
+  reaction copies or members weighs each curated entity once, not each variant copy (ERBB2: EGFR was
+  9 of 225 copies). Gate passes: experimental +2 (643/849), tuning +6, held-out 0; adoption pending.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
