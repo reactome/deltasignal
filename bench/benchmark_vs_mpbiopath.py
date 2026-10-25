@@ -1287,6 +1287,11 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             SOLVE_TALLY["recycled_twin_edges"] += int(ds_result.get("recycled_twin_edges") or 0)
             SOLVE_TALLY[f"rna_twin_rule={ds_result.get('rna_twin_rule', 'unknown')}"] += 1
             SOLVE_TALLY["rna_twin_edges"] += int(ds_result.get("rna_twin_edges") or 0)
+            # specs/107: metabolite pools and multi-step carriers (off by default)
+            SOLVE_TALLY[f"metabolite_pools_rule={ds_result.get('metabolite_pools_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["metabolite_pools"] += int(ds_result.get("metabolite_pools") or 0)
+            SOLVE_TALLY[f"carrier_multistep_rule={ds_result.get('carrier_multistep_rule', 'unknown')}"] += 1
+            SOLVE_TALLY["carrier_multistep_rows"] += int(ds_result.get("carrier_multistep_rows") or 0)
             if not ds_result.get("converged"):
                 SOLVE_TALLY["scored_unconverged"] += 1
             SOLVE_TALLY[f"drug_rule={ds_result.get('drug_rule', 'unknown')}"] += 1
@@ -1707,7 +1712,20 @@ def main():
                          "but no solve changed a free form; the arm is the control.")
     if "all" in lrules and SOLVE_TALLY["carrier_loop_forms"] == 0:
         raise SystemExit("DS_CARRIER_LOOP_MODE=all but no solve changed a free form; the arm is the control.")
-    if "closed_twin" in lrules and SOLVE_TALLY["carrier_twins_possible"] != SOLVE_TALLY["carrier_loop_twin_edges"]:
+    mprules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("metabolite_pools_rule="))
+    msrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_multistep_rule="))
+    print(f"Metabolite pools: rule {'/'.join(mprules) or 'unknown'}, {SOLVE_TALLY['metabolite_pools']} pool-solves; "
+          f"multi-step carriers: rule {'/'.join(msrules) or 'unknown'}, "
+          f"{SOLVE_TALLY['carrier_multistep_rows']} loop-row-solves added (specs/107)")
+    # specs/107: rows the solver adds to the carrier table make twins this count of the
+    # networks' own table cannot see, so then only the table's twins are required
+    if "closed_twin" in lrules and SOLVE_TALLY["carrier_multistep_rows"] and \
+            SOLVE_TALLY["carrier_loop_twin_edges"] < SOLVE_TALLY["carrier_twins_possible"]:
+        raise SystemExit(f"DS_CARRIER_LOOP_MODE=closed_twin: the networks have "
+                         f"{SOLVE_TALLY['carrier_twins_possible']} root twins of closed free forms, but the "
+                         f"solves added only {SOLVE_TALLY['carrier_loop_twin_edges']} twin edges.")
+    if "closed_twin" in lrules and not SOLVE_TALLY["carrier_multistep_rows"] and \
+            SOLVE_TALLY["carrier_twins_possible"] != SOLVE_TALLY["carrier_loop_twin_edges"]:
         raise SystemExit(f"DS_CARRIER_LOOP_MODE=closed_twin: the networks have "
                          f"{SOLVE_TALLY['carrier_twins_possible']} root twins of closed free forms, but the "
                          f"solves added {SOLVE_TALLY['carrier_loop_twin_edges']} twin edges.")

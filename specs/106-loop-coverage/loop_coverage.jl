@@ -80,6 +80,8 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
     d = joinpath(build, pw)
     isfile(joinpath(d, "logic_network.csv")) || continue
     net = DS.parse_complete_network(joinpath(d, "logic_network.csv"), joinpath(d, "stid_to_uuid_mapping.csv"))
+    # specs/107: the pool and carrier tables as the solve extends them (inert under the defaults)
+    net = first(DS.apply_material_loops(net))
     sn = DS.solved_carrier_network(net)
     sid(u) = (n = get(net.nodes, u, nothing); n === nothing ? "" : something(n.reactome_id, ""))
     # handled edges by mechanism

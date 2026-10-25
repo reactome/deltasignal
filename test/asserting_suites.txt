@@ -31,3 +31,4 @@ test_zero_supply
 test_recycled_twin
 test_sequestration
 test_limit_cycles
+test_material_loops

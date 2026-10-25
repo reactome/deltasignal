@@ -114,6 +114,11 @@ struct ReactionNetwork
     # RNA species' stable ids from the generator's `rnas.csv` (specs/100), with
     # the same `nothing` / empty distinction as drug_stids.
     rna_stids::Union{Nothing, Set{String}}
+    # leaf stable id -> its reference entity's stable id, from the generator's
+    # `leaf_refs.csv` (specs/107): GRIP2 at the membrane and in the cytosol are one
+    # protein. `nothing` = no such file. Read only by DS_CARRIER_MULTISTEP=wide,
+    # before anything rebuilds the network (a rebuild that omits it drops it).
+    leaf_refs::Union{Nothing, Dict{String, String}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
@@ -123,9 +128,10 @@ struct ReactionNetwork
                     pathogen_stids = nothing,
                     carrier_loops = nothing,
                     node_leaves = nothing,
-                    rna_stids = nothing) =
+                    rna_stids = nothing,
+                    leaf_refs = nothing) =
         new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools, pathogen_stids,
-            carrier_loops, node_leaves, rna_stids)
+            carrier_loops, node_leaves, rna_stids, leaf_refs)
 end
 
 """
@@ -424,6 +430,7 @@ function parse_complete_network(
     pathogens = parse_pathogen_list(logic_network_path)
     rnas = parse_rna_list(logic_network_path)                       # specs/100
     carrier_loops = parse_carrier_loops(logic_network_path)
+    leaf_refs = parse_leaf_refs(logic_network_path)                 # specs/107
     # specs/052: read only by DS_ZERO_SUPPLY_MODE=hold, which is not adopted. A
     # malformed node table must not take a pathway out of service under `off`
     # (the pool-table precedent below); it is reported and dropped.
@@ -465,7 +472,7 @@ function parse_complete_network(
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
                                Set{String}(), containment, drugs, pools, pathogens, carrier_loops,
-                               node_leaves, rnas)
+                               node_leaves, rnas, leaf_refs)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -494,7 +501,7 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs, pools, pathogens, carrier_loops, node_leaves, rnas)
+                           containment, drugs, pools, pathogens, carrier_loops, node_leaves, rnas, leaf_refs)
 end
 
 """
@@ -513,6 +520,25 @@ parse_pathogen_list(logic_network_path::String) =
 
 """Read the generator's `rnas.csv` (specs/100): RNA species' stable ids, as `parse_drug_list`."""
 parse_rna_list(logic_network_path::String) = _parse_stid_list(logic_network_path, "rnas.csv", "RNA")
+
+"""
+specs/107: the generator's `leaf_refs.csv` (`leaf_stid,reference_stid`), each leaf
+entity's reference entity, or `nothing` if the bundle has no such file.
+"""
+function parse_leaf_refs(logic_network_path::String)::Union{Nothing, Dict{String, String}}
+    path = joinpath(dirname(logic_network_path), "leaf_refs.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; types = String)
+    for c in ("leaf_stid", "reference_stid")
+        c in names(df) || throw(ArgumentError("$path has no `$c` column; it is not a generator leaf table"))
+    end
+    out = Dict{String, String}()
+    for r in eachrow(df)
+        (ismissing(r.leaf_stid) || ismissing(r.reference_stid)) && continue
+        out[String(r.leaf_stid)] = String(r.reference_stid)
+    end
+    return out
+end
 
 function _parse_stid_list(logic_network_path::String, file::String, what::String)::Union{Nothing, Set{String}}
     path = joinpath(dirname(logic_network_path), file)

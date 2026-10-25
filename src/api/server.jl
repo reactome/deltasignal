@@ -946,6 +946,12 @@ function solve_handler(req)
             "recycled_twin_edges" => get(solver_result.diagnostics, "recycled_twin_edges", 0),
             "rna_twin_rule" => get(solver_result.diagnostics, "rna_twin_rule", "off"),   # specs/100
             "rna_twin_edges" => get(solver_result.diagnostics, "rna_twin_edges", 0),
+            # specs/107 (additive): metabolite pools and multi-step carriers
+            "metabolite_pools_rule" => get(solver_result.diagnostics, "metabolite_pools_rule", "off"),
+            "metabolite_pools" => get(solver_result.diagnostics, "metabolite_pools", 0),
+            "carrier_multistep_rule" => get(solver_result.diagnostics, "carrier_multistep_rule", "off"),
+            "carrier_multistep_forms" => get(solver_result.diagnostics, "carrier_multistep_forms", 0),
+            "carrier_multistep_rows" => get(solver_result.diagnostics, "carrier_multistep_rows", 0),
             # specs/061 (default since 2026-10-15): the own-product rule and how many
             # depletion edges were gated on their source copies.
             "depletion_own_product" => get(solver_result.diagnostics, "depletion_own_product", "unknown"),

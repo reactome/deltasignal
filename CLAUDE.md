@@ -552,6 +552,20 @@ env vars only override for benchmark sweeps:
   node read as consumers of one pool, b / mean(x), instead of the product of their factors. MDM4
   knockout then de-represses TP53 (9 curator cases). Reports `depletion_combine` and
   `depletion_shared_nodes`.
+- `DS_METABOLITE_POOLS=off` (default) | `on` (specs/107 rule 1, measured: no class change on either axis; fails B4 by two
+  pairs, PIP2 under PI3K feedback; adoption Adam's): small
+  molecules converted into one another by one-in/one-out reactions (LACT ⇄ PYR, R5P ⇄ RU5P) are one
+  pool solved by the cycle balance, every form resting with an equal share. Reports
+  `metabolite_pools_rule` and `metabolite_pools`.
+- `DS_CARRIER_MULTISTEP=off` (default) | `strict` | `wide` (specs/107 rules 2–3, measured, gate fails: `strict` held-out +6 is
+  free ubiquitin through USP1, the specs/098 gain, and B4 −2; `wide` held-out −50, SMAD2/3 phosphorylation read as a
+  carrier and free ubiquitin in Mitotic G1): a
+  form carried round a path of up to 10 reactions and released unchanged (BAP31, microtubules) joins the
+  carrier-loop table, so the carrier rules apply. `strict`: protein carriers, no set nodes; `wide`: also
+  small-molecule carriers (PE through LC3:PE), set nodes, and copies of one reference entity across
+  compartments or modifications, from the generator's `leaf_refs.csv` (LNG #128; without it that part
+  reports `wide: no reference table`). Reports `carrier_multistep_rule`, `carrier_multistep_forms`,
+  `carrier_multistep_rows`.
 - `DS_RNA_TWIN=on` (**default since 2026-10-24**, specs/100; tuning +28 (28 / 0), experimental
   +4 (4 / 0), held-out 0: every TP53 case in PIP3) | `off`: a root copy of an RNA
   species (the generator's `rnas.csv`, LNG #125) reads its produced copies (`rna_supply`, OR, one-way,
@@ -1029,6 +1043,12 @@ for the last feature that touched it rather than re-deriving from the code.
   amendment 1 counts cofactor holds); about 40% of loop nodes stay in unhandled remnants in both.
   Unhandled: positive loops closed by material steps (15 sample pathways), catalysts (13) or free ubiquitin; self-depleting rings only
   numerically. No further rules are chosen from experimental traces (Adam, 2026-10-25).
+- `specs/107-loop-rules/` — three rules for loop types specs/106 left unhandled, judged by behaviour checks on networks
+  without ground truth (convergence, rails, dose monotonicity, relabelling) plus a curator held-out no-harm guard.
+  Rule 1 (`DS_METABOLITE_POOLS`): no class change, B4 −2. Rule 2 (`DS_CARRIER_MULTISTEP=strict`): held-out +6, all
+  free ubiquitin (specs/098's USP1), B4 −2. Rule 3 (`wide`): rails 32% → 10% and monotone 89% → 97% on the benchmark,
+  but held-out −50: the reference match joins SMAD2 with p-SMAD2, so a phosphorylation cycle reads as a closed carrier,
+  and free ubiquitin closes in Mitotic G1. Defaults off; generator `leaf_refs.csv` is LNG #128.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -1048,7 +1068,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty-three files contain assertions; the
+**Most of the test suite cannot fail.** Twenty-four files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -1071,6 +1091,7 @@ other seven execute code and print output.
 | `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
+| `test/test_material_loops.jl` | 44 | specs/107, added 2026-10-25 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

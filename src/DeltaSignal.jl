@@ -30,6 +30,7 @@ include("core/carrier_loops.jl")
 include("core/recycled_twin.jl")
 include("core/rna_twin.jl")
 include("core/recycle.jl")
+include("core/material_loops.jl")
 include("core/sequestration.jl")
 include("core/zero_supply.jl")
 
@@ -61,6 +62,7 @@ export parse_carrier_loops, carrier_loops_json, carrier_loops_from_json, carrier
 export recycled_twin_mode, apply_recycled_twins
 export rna_twin_mode, apply_rna_twins, parse_rna_list, rna_stids_json, rna_stids_from_json
 export sequestration_mode, apply_sequestration
+export metabolite_pools_mode, carrier_multistep_mode, metabolite_pools, multistep_carriers, apply_material_loops, parse_leaf_refs
 export parse_pools, cycle_mode, cycle_carriers, PoolPath
 export conserved_mode, conserved_uuids
 export parse_node_leaves, node_leaves_json, node_leaves_from_json, zero_supply_mode, zero_supply_uuids
