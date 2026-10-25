@@ -1024,6 +1024,11 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/105-readout-entity-mean/` — bench `DS_KO_AGG=mean_entity`: a set readout read through proxy
   reaction copies or members weighs each curated entity once, not each variant copy (ERBB2: EGFR was
   9 of 225 copies). Gate passes: experimental +2 (643/849), tuning +6, held-out 0; adoption pending.
+- `specs/106-loop-coverage/` — analysis: every loop in the network as generated and the rule that
+  handles it. Rules touch 93% of benchmark loops and 85% in 101 other pathways (carrier rules most);
+  about 40% of loop nodes stay in unhandled remnants in both. Unhandled: positive loops closed by
+  material steps (17 sample pathways), catalysts (13) or free ubiquitin; self-depleting rings only
+  numerically. No further rules are chosen from experimental traces (Adam, 2026-10-25).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
