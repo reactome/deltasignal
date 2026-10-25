@@ -102,3 +102,51 @@ PI3K's catalysts lie downstream of PIP3, a catalyst-closed positive loop, so mor
 drains PIP2. At 0.5× PI4P the loop slows and PIP2 rises to 1.17×. PIP3 itself is monotone (0.50,
 1, 2.40); with the rule off it rails to 12.2× at 2× PI4P. The non-monotone readout is the substrate
 of an enzyme under positive feedback, not a numerical fault, but the registered criterion counts it.
+
+## No-harm guard and reported axes (benchmark arms)
+
+Catalog `20261024-2211_7f4b28a_refs107` (canonical build plus `leaf_refs.csv`). Control `ctl107`
+(solver 04b88f2, defaults) is identical to `dflt102` on the canonical build, row for row on both
+axes. Arms at solver 6fe789a, each read against `ctl107` with
+`holdout_report.py --pair-on-valid --set-aside RAF_MAP_kinase_cascade`. Each log's tally confirms its
+rule ran (32 metabolite pool-solves in every arm; `strict` added 36–48 loop-row-solves per axis,
+`wide` 484–3,224).
+
+| arm | curator held-out (guard) | tuning | experimental | guard |
+|---|---|---|---|---|
+| `m107` rule 1 | 0 (0 / 0) | 0 | 0 | passes |
+| `ms107` rules 1 + 2 | **+6 (6 / 0), p 0.031**, 1 of 70 pathways | 0 | 0 | passes |
+| `mw107` rules 1 + 3 | **−50 (6 / 56), p < 1e-4**, 3 of 70 pathways | −35 (5 / 40) | +1 (3 / 2, p 1) | **fails** |
+
+RAF changes nothing in any row (tuning with RAF set aside equals tuning).
+
+**Traced (`wide_rows.jl`, the rows each mode adds per pathway, entities read in Neo4j):**
+
+- **Rule 2's +6 is free ubiquitin.** Its only row in the Fanconi pathway is free Ub (R-HSA-68524,
+  a set of UBB/UBC/UBA52/RPS27A, protein leaves, so `strict` accepts it) released by FANCD2
+  deubiquitination by USP1:WDR48 (R-HSA-6786171). Closing it holds free ubiquitin, and the 6 USP1
+  cases are exactly the specs/098 gain (`DS_UBIQUITIN_MODE=inert`: held-out +6, USP1). It is not a
+  multi-step protein carrier gain.
+- **Rule 3's TGF-beta losses (−48 of the curator total, SMAD2/3, TGFBR1/2) are a modification cycle
+  read as a carrier.** The reference table matches SMAD2 [cytosol] with p-S465,S467-SMAD2 [cytosol]
+  (and SMAD3 likewise), so phosphorylation in the receptor complex, release (R-HSA-170850), and
+  MTMR4 dephosphorylation (R-HSA-2187401) form a closed "carrier" loop of four forms. The closed rule
+  then holds p-SMAD2/3, the signal itself, at baseline: receptor knockouts and SMAD overexpression
+  read NORMAL. A modification changes what a protein does; it is not a carrier released unchanged.
+- **Rule 3's Mitotic G1 losses (SRC, JAK2, ABL1, PTK6 knockouts, 8 each) are free ubiquitin again,**
+  here Ub [nucleoplasm] closed through proteasomal degradation of ubiquitinated p27/p21
+  (R-HSA-187574), so the p27 degradation route these kinases act through no longer moves. This is
+  the specs/098 loss class (CCNE1 there).
+
+**Outcome against the registered gate:** no arm passes every criterion. Rule 1 passes the guard
+(no class change) and fails B4 on the benchmark by two pairs (PIP2 under PI3K feedback, traced
+above). Rule 2 passes the guard and fails B4 by two pairs (Fanconi); its accuracy effect is the
+ubiquitin hold specs/098 already measured and Adam declined. Rule 3 passes B2–B5 on both
+catalogs and fails the no-harm guard. Defaults stay off; adoption is Adam's.
+
+**What the traces say about the rules, not the data.** Both rule 3 mechanisms come from the
+reference match, not from the multi-step walk: matching across modifications admits
+phosphorylation cycles, and free ubiquitin is a protein set that every ubiquitination releases.
+A variant that matches references only across compartments (same modifications) and leaves
+free ubiquitin to `DS_UBIQUITIN_MODE` would answer both, but it is chosen from curator held-out
+traces, so it would need its own pre-registration and Adam's decision before it is run.
