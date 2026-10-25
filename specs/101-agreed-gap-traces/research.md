@@ -122,3 +122,25 @@ right.
 Remaining agreed classes, each traced: NF1 (RAF, set aside; specs/053), MDM4 (T2: needs the
 heterodimer to be the stronger ligase, not encoded), RB1 (T1), EGFR in ERBB2 (T2: one
 heterodimer of three after balancing; set alternatives are averaged).
+
+## T4. CCND1 and CDK4 in S Phase: needs sequestration (canonical `20261024-2211_7f4b28a`)
+
+Agreed experimental errors after specs/102: 62. Readout p-FZR1,p-RB1 (R-HSA-187920) in S Phase;
+CCND1 and CDK4 knockout and overexpression are 4 `no_path` cases (curators agree, DOWN / UP).
+
+- Only "Phosphorylation of proteins involved in the G1/S transition by Cyclin A:Cdk2"
+  (R-HSA-187948) makes the readout. Its catalyst CCNA:p-T160-CDK2 comes from CAK acting on
+  CCNA:CDK2 (R-HSA-141608), which p27/p21 consume in "Inactivation of Cyclin A:Cdk2 complexes by
+  p27/p21" (R-HSA-187934, already an E2 target).
+- In S Phase CCND1 and CDK4 occur only in cyclin D degradation and relocalization and in PTK6's
+  phosphorylation of CDKN1B (R-HSA-8848436). Its product, p-Y88-CDKN1B:(CDK4:CCND1,(CDK2:CCNE1))
+  (R-HSA-8848441), is used by nothing in Release 97. Its summation says what it does: a bound
+  non-inhibitor of CDK2/CDK4. That is the specs/102 E3 class. specs/080 `db_reach`: no route
+  under any reading; MP-BioPath has none either.
+- A summation rule in the E3 form would make 8848441 activate the CCNE1:CDK2-catalysed p27
+  phosphorylation (R-HSA-187520). The readout would then move only if more p27 took CCNA:CDK2 out
+  of circulation. That is binding as sequestration, which specs/063 refuted in three forms; the
+  network does not encode it. **Not a lever; no arm.** A curation-review item with T1 and T3.
+
+MYC in S Phase (2 `no_path` cases at R-HSA-187568, and 2 at 187920 where curators disagree) has
+no route under any `db_reach` reading either.
