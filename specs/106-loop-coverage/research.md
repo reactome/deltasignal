@@ -62,3 +62,26 @@ material), neurotransmitter receptors (119, material).
   catalyst, self-depleting, ubiquitin. Each new rule is to be judged by a stated rationale and
   behaviour checks on networks without ground truth (convergence, no rail to 100× or 0 under a 2×
   input, label invariance, dose monotonicity), not by experimental cases.
+
+## Amendment 1 (2026-10-25): held nodes
+
+Tracing the sample's material-closed loops (specs/107) showed loops closed through H+, H2O, CoA-SH and
+NAD+. These are on each bundle's cofactor list, and under the default `DS_COFACTOR_MODE=inert` the
+solver holds them at baseline, so no signal goes round such a loop. The first run did not count that
+mechanism. `loop_coverage.jl` now has a `held` mechanism: an edge into a cofactor, drug or pathogen
+node (the default holds, specs/007, 055, 048) is handled. Re-run on the same builds:
+
+| | benchmark (92) | sample (101), first run | sample (101), amended |
+|---|---|---|---|
+| touched | 690 (93%) | 306 (85%) | 319 (88%) |
+| dissolved | 657 (88%) | 290 (80%) | 299 (83%) |
+| untouched | 54 | 55 | 42 |
+| loop nodes in dissolved loops | 46% | 51% | 53% |
+| loop nodes left in remnants | 37% | 42% | 39% |
+| held fires in | 1 loop | – | 15 loops, 10 pathways |
+
+Sample remnants, amended: positive closed by catalyst 35 loops / 13 pathways, by material steps
+20 / 15, through ubiquitin 3 / 2; self-depleting 5 / 4; other negative 1 / 1. The benchmark's
+remnants do not change. P1–P3 still hold (P1: 88% against 93%; P3: material 15 pathways against
+catalyst 13). The tables in this directory are the amended run; the figures above the amendment are
+the first run's.

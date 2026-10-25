@@ -394,7 +394,7 @@ R-HSA-5654743	6	carrier	dissolved		0	R-HSA-5654166::variant::R-HSA-5654158=R-HSA
 R-HSA-5654743	6	carrier	dissolved		0	R-HSA-5654151
 R-HSA-5654743	6	carrier	dissolved		0	R-HSA-5654169
 R-HSA-5654743	6	carrier	dissolved		0	R-HSA-5654163
-R-HSA-5673001	348	self	partly_handled	positive:catalyst	333	R-HSA-5672978
+R-HSA-5673001	348	held|self	partly_handled	positive:catalyst	333	R-HSA-5672978
 R-HSA-5673001	103	carrier	dissolved		0	R-HSA-5672961
 R-HSA-5673001	6	carrier	dissolved		0	R-HSA-5658420::variant::R-HSA-5658219=R-HSA-5658215
 R-HSA-5673001	6	carrier	dissolved		0	R-HSA-5658438
