@@ -103,6 +103,9 @@ function solve_steady_state(
 )::SolverResult
     
     start_time = time()
+    # specs/107: metabolite pools and multi-step carriers join the pool and
+    # carrier-loop tables. First, because a rebuilt network drops `leaf_refs`.
+    network, material_report = apply_material_loops(network)
     # specs/081: recycle edges are structural only; no rule below reads them
     network, recycle_pairs = split_recycle_edges(network)
 
@@ -400,6 +403,7 @@ function solve_steady_state(
     end
     result.diagnostics["depletion_shared_nodes"] = count(>(1), values(ndep))
     result.diagnostics["cycle_rule"] = cycle_rule
+    merge!(result.diagnostics, material_report)   # specs/107
     result.diagnostics["cycle_carriers"] = ymode == "balance" ? (cycle_carriers() ? "on" : "off") : "off"
     result.diagnostics["pool_supply_reach"] = supply_reach
     result.diagnostics["pool_supply_and"] = ymode == "balance" ? pool_supply_and() : "off"   # specs/090

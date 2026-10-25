@@ -242,5 +242,5 @@ root and gained `recycled_supply` edges the solve never had (review
 """
 solved_carrier_network(network::ReactionNetwork) =
     first(apply_sequestration(first(apply_rna_twins(first(apply_recycled_twins(
-        first(apply_carrier_loops(first(split_recycle_edges(network)), carrier_loop_mode())),
+        first(apply_carrier_loops(first(split_recycle_edges(first(apply_material_loops(network)))), carrier_loop_mode())),
         recycled_twin_mode())), rna_twin_mode())), sequestration_mode()))
