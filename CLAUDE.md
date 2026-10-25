@@ -1021,6 +1021,9 @@ for the last feature that touched it rather than re-deriving from the code.
   −13); experimental 0. specs/101 T4 records the agreed errors no structural rule reaches.
 - `specs/104-pool-drive-twins/` — `DS_POOL_DRIVE_TWINS=hold`: a pool's drives do not read another
   copy of the pool's own entity. No class change (31 WNT curator values move); adoption pending.
+- `specs/105-readout-entity-mean/` — bench `DS_KO_AGG=mean_entity`: a set readout read through proxy
+  reaction copies or members weighs each curated entity once, not each variant copy (ERBB2: EGFR was
+  9 of 225 copies). Gate passes: experimental +2 (643/849), tuning +6, held-out 0; adoption pending.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

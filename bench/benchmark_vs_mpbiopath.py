@@ -90,6 +90,12 @@ PIN_CONFIDENCE = 1.0
 # perturbation does not reach sat at 1.0 (PALB2 KD read [0, 1, 1, 0] -> 1);
 # measured under root pins, mean is held-out +65 (132 / 67), experimental 0.
 KO_AGG = os.environ.get("DS_KO_AGG", "mean")
+# specs/105: "mean_entity" weighs each curated entity a readout resolves to once
+# (a proxy reaction copy by its output entity, a set by its member), not each
+# variant copy. An unknown value used to fall through to "max" silently.
+KO_AGG_MODES = ("mean", "mean_entity", "min", "extreme", "max")
+if KO_AGG not in KO_AGG_MODES:
+    raise SystemExit(f"DS_KO_AGG must be one of {KO_AGG_MODES}; got {KO_AGG!r}")
 
 # Diagnostic: comma-separated logic_network edge_types to drop before solving
 # (e.g. "assembly,dissociation"). Empty = keep all edges.
@@ -386,6 +392,36 @@ def load_entity_reaction_proxies(pathway_dir: Path):
         for row in csv.DictReader(fh):
             out[str(row["entity_stable_id"])].append(str(row["proxy_uuid"]))
     return out
+
+
+def load_output_entities(pathway_dir: Path) -> dict:
+    """specs/105: reaction uuid -> the non-cofactor entities (``diagram_entity_id``)
+    its output edges make. Empty without ``nodes.csv``."""
+    nodes_csv = pathway_dir / "nodes.csv"
+    if not nodes_csv.exists():
+        return {}
+    with open(nodes_csv) as f:
+        entity = {r["uuid"]: r["diagram_entity_id"] for r in csv.DictReader(f)}
+    cof = set()
+    cof_csv = pathway_dir / "cofactors.csv"
+    if cof_csv.exists():
+        with open(cof_csv) as f:
+            cof = {r["stable_id"] for r in csv.DictReader(f)}
+    out = defaultdict(set)
+    with open_network(pathway_dir) as f:
+        for row in csv.DictReader(f):
+            if row.get("edge_type") == "output":
+                e = entity.get(row["target_id"], "")
+                if e and e not in cof:
+                    out[row["source_id"]].add(e)
+    return out
+
+
+def entity_mean(vals_by_uuid: Mapping, groups: list) -> float:
+    """specs/105: the mean over groups of each group's mean. A group is the
+    uuids of one curated entity; empty groups are skipped."""
+    means = [sum(vals_by_uuid[u] for u in g) / len(g) for g in groups if g]
+    return sum(means) / len(means)
 
 
 def build_adjacency(pathway_dir: Path) -> dict:
@@ -1028,6 +1064,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
 
     stid_to_uuids = load_stid_to_uuids(pathway_dir)
     entity_reaction_proxies = load_entity_reaction_proxies(pathway_dir)
+    output_entities = load_output_entities(pathway_dir) if KO_AGG == "mean_entity" else {}
     perturbations = parse_perturbation_columns(header)
 
     gene_names = sorted({g for g, _, _ in perturbations})
@@ -1071,6 +1108,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
 
     own_uuids = context_own_uuids(pathway_dir)
     key_output_uuids = {}
+    key_output_groups = {}   # specs/105: ko -> uuids grouped by curated entity
     for r in rows:
         ko = str(r["key_output"])
         if ko and ko not in key_output_uuids:
@@ -1086,12 +1124,17 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                 uuids = stid_to_uuids.get(sid, [])
                 if uuids:
                     break
+            groups = [uuids]
             # Fallback: a curated species expanded into virtual variants has no
             # UUID of its own — read the flux of its producing reaction instead.
             if not uuids:
                 for sid in candidate_sids:
                     uuids = entity_reaction_proxies.get(sid, [])
                     if uuids:
+                        by_out = defaultdict(list)
+                        for u in uuids:
+                            by_out["|".join(sorted(output_entities.get(u, ()))) or u].append(u)
+                        groups = list(by_out.values())
                         break
             # Set-typed readout: the generator expands EntitySets to their member
             # species, so the set itself has no node. Aggregate the member
@@ -1099,15 +1142,19 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             if not uuids:
                 members = neo4j_set_member_stids(candidate_sids)
                 seen_m = set()
+                groups = []
                 for sid in candidate_sids:
                     for m in members.get(sid, []):
                         if m in seen_m:
                             continue
                         seen_m.add(m)
                         uuids = uuids + stid_to_uuids.get(m, [])
+                        groups.append(list(stid_to_uuids.get(m, [])))
             if own_uuids is not None:
                 uuids = [u for u in uuids if u in own_uuids]
+                groups = [[u for u in g if u in own_uuids] for g in groups]
             key_output_uuids[ko] = uuids
+            key_output_groups[ko] = [g for g in groups if g]
 
     # Optional key-output remap for recurated pathways (see DS_KO_REMAP). Build
     # the perturbed-gene → active/inactive-form lookup from the network's own
@@ -1349,7 +1396,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             #   extreme — the value deviating most from baseline (handles UP&DOWN)
             if uuids and ko_uuids:
                 vals = [activities.get(u, 0.01) for u in ko_uuids]
-                if KO_AGG == "mean":
+                if KO_AGG == "mean_entity" and ko_uuids is key_output_uuids.get(ko):
+                    agg = entity_mean({u: activities.get(u, 0.01) for u in ko_uuids},
+                                      key_output_groups.get(ko) or [ko_uuids])
+                elif KO_AGG in ("mean", "mean_entity"):
                     agg = sum(vals) / len(vals)
                 elif KO_AGG == "min":
                     agg = min(vals)
