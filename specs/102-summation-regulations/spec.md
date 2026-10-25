@@ -47,3 +47,17 @@ too. Also: no case outside RB1, AKT1 or SRC perturbations may break unless trace
 3. E3: SRC knockout lowers and SRC overexpression raises the E2F targets. At least 3 of its 5
    wrong experimental cases fixed.
 4. Only Mitotic G1, S Phase and PIP3 activates AKT (the pathways holding a source reaction) move.
+
+## Amendment 1 (before any measurement): how the regulator is wired
+
+The first build (`20261024-2015_26ac7a2_sum`, never benchmarked) added each regulator as a curated
+participant. Its set choices then entered the variant enumeration:
+- every E1 target got three times the copies;
+- the RBL1/RBL2 phosphorylations (R-HSA-1226095/1226094, E3 targets) went over the variant cap
+  (120 → 4 copies);
+- the capped fallback removed all 174 recycle transitions of the specs/081 p130/p107 pools.
+
+A regulator the release does not curate should not reshape the reaction it regulates. LNG
+67574bf (branch `summation-regulations-102`) instead adds it after enumeration, to every copy, as
+ONE pool of its variants (`<stId>::pool`, the generator's existing OR pool node). Rules,
+targets, gate and predictions are unchanged.
