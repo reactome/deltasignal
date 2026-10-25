@@ -2,6 +2,8 @@
 # rules that handle edges inside it, and what is left of it once they have.
 #
 # Mechanisms (each as the default solver applies it):
+#   held    - an edge into a node held at baseline (cofactors, specs/007;
+#             drugs, specs/055; pathogens, specs/048): the node does not read it;
 #   recycle - recycle edges (specs/081), solved by the pool balance;
 #   carrier - carrier-loop edges the carrier rules drop (specs/049, 077, 088);
 #   pool    - an edge between two nodes of one pool (specs/039, 081, 086);
@@ -9,7 +11,7 @@
 #             input (specs/022, 040, 083, 095).
 # A loop's remnants are the cyclic components left inside it on the solved
 # network (carrier edges dropped, twins and supply edges added, recycle edges
-# stripped) once pool and self edges are removed, labelled as in specs/097.
+# stripped) once held, pool and self edges are removed, labelled as in specs/097.
 #
 # Usage (dev container): julia loop_coverage.jl BUILD_DIR OUT_PREFIX
 using DeltaSignal, CSV, DataFrames
@@ -71,7 +73,7 @@ end
 loop_rows = DataFrame(pathway = String[], size = Int[], touched = String[], status = String[],
                       remnants = String[], remnant_nodes = Int[], example = String[])
 pw_rows = DataFrame(pathway = String[], nodes = Int[], loops = Int[], loop_nodes = Int[],
-                    recycle_edges = Int[], carrier_edges = Int[], pool_edges = Int[], self_edges = Int[],
+                    held_edges = Int[], recycle_edges = Int[], carrier_edges = Int[], pool_edges = Int[], self_edges = Int[],
                     created_remnants = Int[])
 
 for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
@@ -93,8 +95,10 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
             for q in p.paths, (a, b, rxs) in q.steps, rx in rxs; pool_of[rx] = k; end
         end
     end
+    held = union(DS.cofactor_uuids(net), DS.drug_uuids(net), DS.pathogen_uuids(net))
     self_inh = first(DS.self_inhibitor_setup(sn))
     self_act = first(DS.self_activator_setup(sn))
+    hld = Set((e.parent_uuid, e.child_uuid) for e in net.edges if e.child_uuid in held)
     pool = Set{Tuple{String, String}}(); slf = Set{Tuple{String, String}}()
     adj = Dict{String, Vector{String}}(); neg = Set{Tuple{String, String}}()
     etype = Dict{Tuple{String, String}, String}()
@@ -102,6 +106,7 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
         a, b = e.parent_uuid, e.child_uuid
         etype[(a, b)] = e.edge_type
         e.is_positive || push!(neg, (a, b))
+        b in held && continue
         if haskey(pool_of, a) && get(pool_of, b, 0) == pool_of[a]
             push!(pool, (a, b)); continue
         end
@@ -143,6 +148,7 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
     inside(k, s) = count(((a, b),) -> get(loop_of, a, 0) == k && get(loop_of, b, 0) == k, s)
     for (k, c) in enumerate(loops)
         t = String[]
+        inside(k, hld) > 0 && push!(t, "held")
         inside(k, recycle) > 0 && push!(t, "recycle")
         inside(k, carrier) > 0 && push!(t, "carrier")
         inside(k, pool) > 0 && push!(t, "pool")
@@ -154,7 +160,7 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
                           sum(last, r; init = 0), sid(first(sort(c)))))
     end
     push!(pw_rows, (pw, length(nodes), length(loops), sum(length, loops; init = 0),
-                    length(recycle), length(carrier), length(pool), length(slf), created))
+                    length(hld), length(recycle), length(carrier), length(pool), length(slf), created))
 end
 CSV.write(prefix * "_pathways.tsv", pw_rows; delim = '\t')
 CSV.write(prefix * "_loops.tsv", loop_rows; delim = '\t')
@@ -164,7 +170,7 @@ for s in ("dissolved", "partly_handled", "untouched", "acyclic_after_solver")
     x = loop_rows[loop_rows.status .== s, :]
     println("  $s: ", nrow(x), " loops, ", sum(x.size; init = 0), " nodes, ", length(unique(x.pathway)), " pathways")
 end
-for m in ("recycle", "carrier", "pool", "self")
+for m in ("held", "recycle", "carrier", "pool", "self")
     x = loop_rows[occursin.(m, loop_rows.touched), :]
     println("  touched by $m: ", nrow(x), " loops, ", length(unique(x.pathway)), " pathways")
 end
