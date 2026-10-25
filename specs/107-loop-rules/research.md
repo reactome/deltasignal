@@ -54,3 +54,51 @@ Benchmark (92 pathways, 744 loops):
     which only the reference table joins.
 - **P3 fails narrowly:** rules 1–3 leave material-closed remnants in 9 of the 15 sample pathways
   (predicted at most 8).
+
+## Behaviour checks B2–B5 (`behaviour.jl`, `score_behaviour.py`)
+
+Perturbations and readouts were chosen once, with every rule on (`select`), and every arm solved the
+same ones: the root nodes reaching a node the rules touch (at most 8 per pathway, by stable id), at
+doses 0, 0.5, 2, 10, plus the unperturbed solve; readouts are the touched nodes and up to 10 terminal
+nodes they reach. Rails: a readout ≥ 99× or ≤ 0.01× under a 0.5× or 2× root. Monotone: folds over
+doses 0, 0.5, 1, 2, 10 never rise and fall. Relabel: one perturbation per pathway on a copy with every
+uuid renamed and the edge order reversed.
+
+Sample: 14 pathways touched, 99 roots, 410 solves per arm.
+
+| arm | converged | rails | monotone | relabel, max fold difference |
+|---|---|---|---|---|
+| rules off | 100% | 394 / 2,332 (16.9%) | 1,132 / 1,166 (97.1%) | 7.8e-14 |
+| rule 1 | 100% | 385 (16.5%) | 1,132 (97.1%) | 7.8e-14 |
+| rules 1 + 2 | 100% | 385 (16.5%) | 1,132 (97.1%) | 7.8e-14 |
+| rules 1 + 3 | 100% | 88 (3.8%) | 1,159 (99.4%) | 2.2e-14 |
+
+No sample pathway worsens under any arm. Under rules 1 + 3, Macroautophagy goes from 80 rails to 0,
+R-HSA-75893 from 84 to 0 and R-HSA-977225 from 18 to 0; Hedgehog 'off' state from 37 to 64 of 64 pairs monotone.
+
+Benchmark (overlay of the canonical build): 13 pathways touched, 421 solves per arm.
+
+| arm | converged | rails | monotone | relabel |
+|---|---|---|---|---|
+| rules off | 100% | 767 / 2,372 (32.3%) | 1,061 / 1,186 (89.5%) | 5.6e-14 |
+| rule 1 | 100% | 761 (32.1%) | **1,059** (89.3%) | 3.3e-14 |
+| rules 1 + 2 | 100% | 670 (28.2%) | **1,057** (89.1%) | 3.3e-14 |
+| rules 1 + 3 | 100% | 227 (9.6%) | 1,154 (97.3%) | 1.2e-14 |
+
+**Against the registered criterion** (B2 and B4 not worse, B3 not higher, B5 holds), on both catalogs:
+
+- **Rules 1 and 2 fail on the benchmark (B4), narrowly.** Rule 1 loses two monotone pairs: one readout,
+  PI(4,5)P2 in PIP3, under the PI4P and PI5P roots (the second listing of the same readout as a
+  terminal node is not counted twice). Rule 2 also loses two in the Fanconi anemia pathway
+  (R-HSA-6783310), where it cuts rails from 187 to 112.
+- **Rule 3 (with rule 1) passes on both catalogs:** benchmark rails 32.3% → 9.6%, monotone 89.5% → 97.3%.
+  Per pathway it is not uniform: cyclin B1 / G2/M (R-HSA-453274) rails 136 → 144 while its monotone pairs go 46 → 122;
+  Class I MHC (R-HSA-983169) monotone 95 → 87; PIP3 as under rule 1.
+
+**The PIP3 trace (rule 1).** Rule 1 makes PI(4,5)P2 ⇄ PI(3,4,5)P3 a pool (PI3K forward through 372
+reaction copies, PTEN back). With PI4P at 2×, the pool's total rises to 1.33× (supply: PIP5K at 2×,
+PIP4K at 1×), as conservation requires, but the split moves to PIP3 (2.40×) and PIP2 falls to 0.26×:
+PI3K's catalysts lie downstream of PIP3, a catalyst-closed positive loop, so more PIP3 speeds PI3K and
+drains PIP2. At 0.5× PI4P the loop slows and PIP2 rises to 1.17×. PIP3 itself is monotone (0.50,
+1, 2.40); with the rule off it rails to 12.2× at 2× PI4P. The non-monotone readout is the substrate
+of an enzyme under positive feedback, not a numerical fault, but the registered criterion counts it.
