@@ -144,3 +144,13 @@ CCND1 and CDK4 knockout and overexpression are 4 `no_path` cases (curators agree
 
 MYC in S Phase (2 `no_path` cases at R-HSA-187568, and 2 at 187920 where curators disagree) has
 no route under any `db_reach` reading either.
+
+AKT1 in Mitotic G1 (5 agreed experimental cases) is the same class. Its knockout inverts through
+E2's CDK4/6 target (R-HSA-8941915, p27 as an assembly factor; specs/102 prediction 2). Restricting E2
+to CDK2 targets was considered and **not registered**. The CDK2 target's product (R-HSA-69562) is
+used by nothing, so AKT1 would lose its route again and read NORMAL: 0 experimental cases fixed,
+2 curator cases restored. Lowering CDK2 activity by p27 binding is sequestration again.
+
+So the remaining agreed errors that a structural rule could reach are exhausted. What is left
+needs binding-as-sequestration (CCND1, CDK4, AKT1, MYC), a ligase strength the release does not
+state (MDM4), set alternatives read as required (EGFR in ERBB2), or RAF (set aside).
