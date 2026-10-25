@@ -51,3 +51,6 @@ Broken, each traced:
 The +173 / +6 are mostly in-sample: Mitotic G1 is a tuning pathway, and RB1 and SRC were chosen
 by error. ABL1, JAK2 and PTK6 (95 curator cases) were not chosen and move as the summation says.
 No held-out pathway contains a source reaction, so there is no held-out reading.
+
+**Adopted** (Adam, 2026-10-24: "yes adopt it"), as registered, E2 included: `LNG_SUMMATION_REGULATIONS` on
+by default (LNG PR #127). Headlines are reported with the supplement and with Release 97 alone.
