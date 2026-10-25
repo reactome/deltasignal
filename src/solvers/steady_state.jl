@@ -404,6 +404,7 @@ function solve_steady_state(
     result.diagnostics["pool_supply_reach"] = supply_reach
     result.diagnostics["pool_supply_and"] = ymode == "balance" ? pool_supply_and() : "off"   # specs/090
     result.diagnostics["pool_base_weight"] = ymode == "balance" ? pool_base_weight() : "split"   # specs/091
+    result.diagnostics["pool_drive_twins_rule"] = pool_drive_twins()   # specs/104
     result.diagnostics["cycle_carrier_release"] = crelease
     result.diagnostics["cycle_reeval_carrier_rule"] = rcarriers
     result.diagnostics["drug_rule"] = drug_rule
@@ -2397,6 +2398,22 @@ function solve_steady_state_penalty(
                                                               if !isempty(k) && haskey(uuid_to_idx, u)) : nothing,
                                         stats = index_stats)
         index_stats["cycle_pools_skipped"] = n_skipped
+        # specs/104: copies of a pool's own entities that its steps read
+        n_twins = 0
+        if pool_drive_twins() == "hold" && node_keys !== nothing
+            ent(i) = first(split(get(node_keys, all_nodes[i], ""), "::"))
+            for p in ipools
+                own = Set{Int}(vcat(p.forms, p.flux_nodes, p.copy_nodes))
+                ents = Set(ent(i) for i in vcat(p.forms, p.flux_nodes))
+                delete!(ents, "")
+                for st in p.path_steps, (ris, _) in st, ri in ris, a in rxns_idx[ri].activator_indices
+                    (a in own || a in p.drive_twins || !(ent(a) in ents)) && continue
+                    push!(p.drive_twins, a); n_twins += 1
+                end
+                sort!(p.drive_twins)
+            end
+        end
+        index_stats["pool_drive_twins"] = n_twins
         # Component-entry values, for the final residual below: a held edge
         # (specs/018 closure, specs/040 self-fed) reads these, not the live state.
         # Only iterated components record one (NaN elsewhere); every other node
@@ -2548,6 +2565,7 @@ function solve_steady_state_penalty(
             "cycle_supply_regulated_kept" => get(index_stats, "cycle_supply_regulated_kept", 0),
             "cycle_supply_and_groups" => get(index_stats, "cycle_supply_and_groups", 0),   # specs/090
             "cycle_bases_split" => get(index_stats, "cycle_bases_split", 0),               # specs/091
+            "pool_drive_twins" => get(index_stats, "pool_drive_twins", 0),                 # specs/104
             "cycle_carrier_release_added" => get(index_stats, "cycle_carrier_release_added", 0),
             # specs/075: re-evaluated pool-fed inputs that are carriers (pairs).
             "cycle_reeval_carriers" => get(index_stats, "cycle_reeval_carriers", 0),

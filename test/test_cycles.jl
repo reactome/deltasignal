@@ -225,10 +225,14 @@ end
 #   Ss + Ph -> SsP -> SP -> S + Ph
 # G -> P -> S supplies the protein; Ss -> W -> D is the readout. K has its own
 # supply KG -> KP -> K besides the release step (a carrier).
-function ring(; rl = identity, carriers = true, copies = false, c1cat = false, extra_carriers = [])
+function ring(; rl = identity, carriers = true, copies = false, c1cat = false, extra_carriers = [],
+              twin = false)
     ids = ["G", "P", "S", "SE", "SsE", "Ss", "SsP", "SP", "K", "Ph", "b1", "c1", "r1", "b2", "c2", "r2",
-           "W", "D", "KG", "KP", "K2", "b1x", "C1"]
+           "W", "D", "KG", "KP", "K2", "b1x", "C1", "SsEx", "r1x"]
     nodes = Dict(rl(k) => DS.NetworkNode(rl(k), "R-" * k, "protein", nothing, rl(k), BL) for k in ids)
+    # specs/104: SsEx is a root copy of the intermediate SsE (same stable id), read by a
+    # second copy r1x of the release step, as the WNT destruction complex's PP2A step
+    twin && (nodes[rl("SsEx")] = DS.NetworkNode(rl("SsEx"), "R-SsE", "protein", nothing, rl("SsEx"), BL))
     E = [("G", "P", "input"), ("P", "S", "output"),
          ("S", "b1", "input"), ("K", "b1", "input"), ("b1", "SE", "output"),
          ("SE", "c1", "input"), ("c1", "SsE", "output"),
@@ -240,10 +244,13 @@ function ring(; rl = identity, carriers = true, copies = false, c1cat = false, e
          ("KG", "KP", "input"), ("KP", "K", "output")]
     copies && append!(E, [("S", "b1x", "input"), ("K2", "b1x", "input"), ("b1x", "SE", "output")])
     c1cat && push!(E, ("C1", "c1", "input"))
+    # catalysed by the pool's own complex, as PP2A's step is in WNT
+    twin && append!(E, [("SsEx", "r1x", "input"), ("SsE", "r1x", "catalyst"), ("r1x", "Ss", "output")])
     edges = [edge(rl(s), rl(t), et; and = et == "input") for (s, t, et) in E]
     st(a, b, rs...) = (rl(a), rl(b), sort([rl(r) for r in rs]))
     bind1 = copies ? st("S", "SE", "b1", "b1x") : st("S", "SE", "b1")
-    paths = [DS.PoolPath(rl("S"), rl("Ss"), [bind1, st("SE", "SsE", "c1"), st("SsE", "Ss", "r1")], true),
+    rel1 = twin ? st("SsE", "Ss", "r1", "r1x") : st("SsE", "Ss", "r1")
+    paths = [DS.PoolPath(rl("S"), rl("Ss"), [bind1, st("SE", "SsE", "c1"), rel1], true),
              DS.PoolPath(rl("Ss"), rl("S"), [st("Ss", "SsP", "b2"), st("SsP", "SP", "c2"), st("SP", "S", "r2")], true)]
     cs = carriers ? [(rl("K"), rl("r1")), (rl("Ph"), rl("r2"))] : Tuple{String, String}[]
     append!(cs, [(rl(a), rl(b)) for (a, b) in extra_carriers])
@@ -261,6 +268,40 @@ function solve_ring(net; obs = Dict{String, Float64}(), phi = "0.1", carriers = 
         for (k, v) in obs; o[rl(k)] = (v, 1.0); end
         DS.solve_steady_state(net, o, DS.SteadyStateParams(1.0, 0.1, 500, 1e-9, "penalty"))
     end
+end
+
+@testset "a drive does not read another copy of the pool's own entity (specs/104)" begin
+    net = ring(; twin = true)
+    rt(obs, mode) = with_env("DS_POOL_DRIVE_TWINS" => mode) do
+        solve_ring(net; obs = obs, pinned = ("G", "K", "Ph", "SsEx"))
+    end
+    up = Dict("SsEx" => 80.0)
+    @test DS.pool_drive_twins() == "off"
+    r0 = rt(Dict{String, Float64}(), "off"); h0 = rt(Dict{String, Float64}(), "hold")
+    @test fold(r0, "SsE") ≈ 1.0 atol = 1e-9
+    @test fold(h0, "SsE") ≈ 1.0 atol = 1e-9
+    # the defect: the root copy at 80x speeds the release step it feeds, and the
+    # intermediate that step exits empties
+    roff = rt(up, "off")
+    @test fold(roff, "SsE") < 0.5
+    @test fold(roff, "Ss") > 5.0
+    @test roff.diagnostics["pool_drive_twins"] == 0
+    @test roff.diagnostics["pool_drive_twins_rule"] == "off"
+    # held: the pool reads as with the copy at baseline
+    rh = rt(up, "hold")
+    @test rh.converged
+    for k in ("S", "Ss", "SE", "SsE", "SsP", "SP", "D")
+        @test fold(rh, k) ≈ fold(h0, k) atol = 1e-6
+    end
+    @test fold(rh, "SsEx") ≈ 80.0 atol = 1e-9           # the copy itself keeps its value
+    @test rh.diagnostics["pool_drive_twins"] == 1
+    @test rh.diagnostics["pool_drive_twins_rule"] == "hold"
+    # without a twin, hold changes nothing
+    plain = ring()
+    a = with_env(() -> solve_ring(plain; obs = Dict("K" => 80.0)), "DS_POOL_DRIVE_TWINS" => "off")
+    b = with_env(() -> solve_ring(plain; obs = Dict("K" => 80.0)), "DS_POOL_DRIVE_TWINS" => "hold")
+    @test a.node_activities == b.node_activities
+    @test_throws ArgumentError with_env(() -> DS.pool_drive_twins(), "DS_POOL_DRIVE_TWINS" => "on")
 end
 
 @testset "a carrier shared by two pools leaves out both pools' release steps (specs/049 amendment 7)" begin
