@@ -533,7 +533,7 @@ env vars only override for benchmark sweeps:
   receptor scaffold, which `all` cut) keeps them. Reports
   `carrier_loop_open_rule` and `carrier_loop_open_edges`. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
-  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261024-1634_f2c6a71` (since 2026-10-24, specs/101: balanced variant choices, LNG #126; `20261024-0801_7a754fc` (specs/100, adds `rnas.csv`), `20261022-2011_233665c` (specs/089), `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261024-2211_7f4b28a` (since 2026-10-24, specs/102: Release 97 plus the summation supplement, LNG #127; Release 97 alone is `20261024-1634_f2c6a71` (specs/101, LNG #126); `20261024-0801_7a754fc` (specs/100, adds `rnas.csv`), `20261022-2011_233665c` (specs/089), `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
 - `DS_RECYCLED_TWIN=on` (**default since 2026-10-15**, specs/061 adoption) |
   `off` (specs/059): a RECYCLED copy of an
   entity (every producer, except depletion and dissociation, downstream of
@@ -999,6 +999,13 @@ for the last feature that touched it rather than re-deriving from the code.
   content does not balance when better-balanced copies exist. **Adopted** (Adam, 2026-10-24):
   held-out +30 (34 / 4), tuning −12, experimental −4. The MDM4 knockout it was built for
   inverts: the freed MDM2 homodimer raises the ligase pool.
+- `specs/102-summation-regulations/` — a curation supplement (generator `LNG_SUMMATION_REGULATIONS`,
+  default on): three regulations Reactome states in a reaction's summation but not in its event
+  graph, written as structural rules (RB1:E2F ⊣ E2F1/2/3-stimulated transcription; AKT's
+  p-T-p21/p27 ⊣ Cip/Kip binding to cyclin:CDK; the p-Y-Cip/Kip CDK4/6 complex → CDK4/6 catalysis).
+  Each regulator is one pool of its variants, added after enumeration. **Adopted** (Adam,
+  2026-10-24): tuning +173, experimental +6 (641/849), held-out 0; mostly in-sample. Headlines are
+  reported with it and with Release 97 alone. AKT1 inverts through p27's assembly-factor role.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

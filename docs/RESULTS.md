@@ -19,6 +19,39 @@ commit.
 ---
 
 
+> **2026-10-24 (evening): canonical numbers with the summation supplement (specs/102).**
+> - Build `20261024-2211_7f4b28a` (generator main after LNG #127, `LNG_SUMMATION_REGULATIONS` on
+>   by default). Same content as the measured build `20261024-2055_67574bf_sum2`: 0 of 92 pathway
+>   tables differ.
+> - Solver unchanged in `src/` (main `9020c7b`).
+> - Results: `results/23a526c/dflt102`. They reproduce the measured arm (`sum`) on every case,
+>   both axes.
+> - **This build is Release 97 plus a curation supplement**: three regulations stated in reaction
+>   summations but not in the event graph (RB1:E2F ⊣ E2F1/2/3-stimulated transcription; AKT's
+>   p-T-p21/p27 ⊣ Cip/Kip binding to cyclin:CDK; the p-Y-Cip/Kip CDK4/6 complex → CDK4/6 catalysis).
+>   They were chosen from agreed errors, so their gains are mostly in-sample (specs/102).
+>
+> | | cases | with supplement | Release 97 alone (`20261024-1634_f2c6a71`) |
+> |---|---|---|---|
+> | **curator held-out, in release** (70 pathways) | 18,573 | **90.41%** / 0.8775 | 90.41% / 0.8775 |
+> | curator held-out, every case (71 pathways) | 19,000 | 89.77% / 0.8687 | 89.77% / 0.8687 |
+> | curator, all pathways, in release (81) | 23,625 | 89.82% / 0.8769 | 89.09% / 0.8684 |
+> | curator, all pathways, every case | 24,100 | 89.20% / 0.8690 | 88.48% / 0.8605 |
+> | experimental, every case (10 pathways) | 849 | **75.50%** / 0.6618 | 74.79% / 0.6635 |
+>
+> **What moved:** curator tuning +173 (206 fixed / 33 broken, all Mitotic G1: RB1, SRC and the
+> other Cip/Kip tyrosine kinases ABL1, JAK2, PTK6; CCNE1 breaks 24 at readouts the curators call
+> NORMAL), experimental +6 (635 → 641), held-out 0.
+>
+> Converged: 1,724 / 1,725 curator and 244 / 244 experimental solves.
+>
+> **Against MP-BioPath's published figures:**
+> - Curator: 89.20% / 0.8690 against 83.34% / 0.8063, **+5.86pp** (Release 97 alone +5.14pp).
+> - Experimental: 75.50% (641/849) against 75.74% (643/849), **−0.24pp** (2 cases; Release 97
+>   alone −0.94pp, 8 cases).
+>
+> **Previous box**, kept below for the record.
+
 > **2026-10-24 (afternoon): canonical numbers with balanced variant choices (specs/101).**
 > - Build `20261024-1634_f2c6a71` (generator main after LNG #126, `LNG_BALANCE_CHOICES` on by
 >   default). Same content as the measured build `20261024-1307_64a95a0_bal`: 0 of 92 pathway
