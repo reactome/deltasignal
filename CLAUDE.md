@@ -564,7 +564,8 @@ env vars only override for benchmark sweeps:
   carrier-loop table, so the carrier rules apply. `strict`: protein carriers, no set nodes; `wide`: also
   small-molecule carriers (PE through LC3:PE), set nodes, and copies of one reference entity across
   compartments or modifications, from the generator's `leaf_refs.csv` (LNG #128; without it that part
-  reports `wide: no reference table`). `compartment` (amendment 1, under measurement): `wide`, joining copies
+  reports `wide: no reference table`). `compartment` (amendment 1, measured, guard fails: held-out −10, all Class I MHC knockouts DOWN → NORMAL once
+  the BAP31 loop stops railing; rails 32% → 20%, behaviour checks pass): `wide`, joining copies
   only when they also share modified residues (the table's `modifications` column, LNG #129; without it
   `compartment: no modification column` and the bench refuses), and never free ubiquitin as a carrier.
   Reports `carrier_multistep_rule`, `carrier_multistep_forms`, `carrier_multistep_rows`.
@@ -1050,7 +1051,9 @@ for the last feature that touched it rather than re-deriving from the code.
   Rule 1 (`DS_METABOLITE_POOLS`): no class change, B4 −2. Rule 2 (`DS_CARRIER_MULTISTEP=strict`): held-out +6, all
   free ubiquitin (specs/098's USP1), B4 −2. Rule 3 (`wide`): rails 32% → 10% and monotone 89% → 97% on the benchmark,
   but held-out −50: the reference match joins SMAD2 with p-SMAD2, so a phosphorylation cycle reads as a closed carrier,
-  and free ubiquitin closes in Mitotic G1. Defaults off; generator `leaf_refs.csv` is LNG #128.
+  and free ubiquitin closes in Mitotic G1. Amendment 1, rule 3b (`compartment`: compartment copies only, never free
+  ubiquitin): behaviour checks pass, held-out −10, every case a Class I MHC knockout matched only through BAP31's railed
+  loop. Defaults off; generator `leaf_refs.csv` is LNG #128, its `modifications` column LNG #129.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

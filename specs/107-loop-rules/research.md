@@ -150,3 +150,50 @@ phosphorylation cycles, and free ubiquitin is a protein set that every ubiquitin
 A variant that matches references only across compartments (same modifications) and leaves
 free ubiquitin to `DS_UBIQUITIN_MODE` would answer both, but it is chosen from curator held-out
 traces, so it would need its own pre-registration and Adam's decision before it is run.
+
+## Amendment 1: rule 3b (`DS_CARRIER_MULTISTEP=compartment`)
+
+Generator: `leaf_refs.csv` gains `modifications` (LNG #129, branch `leaf-mods-107`). New overlays
+`20261024-2211_7f4b28a_refs107m` and `20261025-1318_7f4b28a_sample101_refs107m` (hard-linked copies
+plus the three-column table, written by LNG e9483e9; `BUILD.json` records it). Solver 6fadb58.
+
+**Rows (A1, rows part):** rule 3b adds no row in TGF-beta (the SMAD2/3 rows are gone) or Mitotic G1
+(free ubiquitin is gone). In Fanconi, the free-ubiquitin row is gone too, and FAN1 [nucleoplasm], released
+unchanged after unhooking the crosslink, is listed as a carrier (it was listed under `wide` as well).
+Cyclin B1:CDK1 (G2/M, R-HSA-453274) is no longer touched, as predicted.
+
+**Behaviour checks** (the registered selections, rule 1 off):
+
+| catalog | arm | converged | rails | monotone | relabel |
+|---|---|---|---|---|---|
+| sample | rules off | 100% | 394 / 2,332 (16.9%) | 1,132 / 1,166 | 7.8e-14 |
+| sample | rule 3b | 100% | 350 (15.0%) | 1,152 | 2.2e-14 |
+| benchmark | rules off | 100% | 767 / 2,372 (32.3%) | 1,061 / 1,186 | 5.6e-14 |
+| benchmark | rule 3b | 100% | 471 (19.9%) | 1,074 | 5.6e-14 |
+
+B2–B5 pass on both catalogs. Per pathway it is not uniform: Macroautophagy (R-HSA-1632852) monotone
+240 → 233, Class I MHC (R-HSA-983169) 95 → 87 (as under `wide`).
+
+**No-harm guard (`mc107` against `ctl107`): fails.** Held-out **−10 (0 / 10), p 0.002**, one pathway;
+tuning 0; experimental 0.
+
+All ten are knockouts in Class I MHC antigen processing: nine E3 ligases (CBLB, FBXO11, FBXW7, KEAP1,
+RNF213, SOCS1, TRAF7, VHL, ZBTB16) at antigen peptide bound class I MHC [plasma membrane] (fold
+0.667 → 0.917, DOWN → NORMAL), and HLA-A at the same complex [Golgi membrane] (0.0028 → 0.857). Curators
+say DOWN. Rule 3b lists two carriers there: UBA7 (E1, released by "Transfer of ubiquitin from E1 to E2")
+and the BAP31 oligomer (released by "Transport of MHC heterotrimer to ER exit site"). Adding them one
+at a time (`mhc_iso.jl`) shows that **BAP31 alone moves every case** and UBA7 changes nothing. Rules
+off, BAP31's loop iterates: a single ligase knockout drives Golgi MHC to 0.0015× and an HLA-A
+knockout to 0.0028×. Those are rails (B3 counts them), and the curator DOWN was matched through them.
+With BAP31 held as a closed carrier, the same knockouts still lower both readouts (0.75×, 0.92×,
+0.86×), but the plasma-membrane values fall inside NORMAL. The direction agrees with the curators; the
+class change comes from the rail's magnitude going away. BAP31 is the carrier this rule was written
+for (an ER chaperone escorting MHC to exit sites and returning), so this loss is the rule working as
+designed, not a new wrong join.
+
+**Predictions:** A1 fails (rows as predicted, but the guard fails, at the edge of the predicted −10 to
++10 range); A2 holds on the benchmark (19.9% ≤ 20%), fails on the sample (15.0%, predicted ≤ 10%: most
+of `wide`'s sample gain came through modified-form matching); A3 holds (0).
+
+**Outcome:** rule 3b fails the registered no-harm guard, so it stays off. Whether the ten cases count
+as justified disagreements (curator DOWN reached only through a railed loop) is Adam's call.
