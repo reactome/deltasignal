@@ -1,0 +1,29 @@
+{
+ "build": "20261026-1643_8b6527e_hpn112",
+ "code": "03e602e",
+ "dataset": "hpn_dream",
+ "role": "TEST",
+ "solves": 110,
+ "rules": {
+  "rna_twin_rule=on": 110,
+  "metabolite_pools_rule=off": 110,
+  "cycle_reeval_carrier_rule=carrier": 110,
+  "conserved_rule=off": 110,
+  "carrier_loop_open_rule=fed_single_ub": 110,
+  "self_inhibitor_rule=on": 110,
+  "ubiquitin_rule=propagate": 110,
+  "self_activator_rule=on": 110,
+  "sequestration_rule=off": 110,
+  "carrier_multistep_rule=off": 110,
+  "cycle_rule=balance": 110,
+  "zero_supply_rule=off": 110,
+  "pathogen_rule=inert": 110,
+  "carrier_loop_rule=closed_twin": 110,
+  "self_fed_rule=off": 110,
+  "carrier_component_rule=on": 110,
+  "recycled_twin_rule=on": 110,
+  "drug_rule=inert": 110
+ },
+ "species": 48,
+ "species_in_networks": 20
+}

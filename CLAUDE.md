@@ -1081,6 +1081,10 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/111-freeze/` — the freeze (Adam, 2026-10-26): specs/096's stop rule (four consecutive arms failing their
   gate, met in specs/107). specs/105 adopted, 104 and 109 not; generator and solver tagged `freeze-2026-10-26`; one
   canonical catalog; backlog for after the external test.
+- `specs/112-hpn-dream/` — the external test: the frozen model on HPN-DREAM sub-challenge 1A (mTOR inhibitor descendants,
+  Hill et al. 2016), networks of the 13 pathways acting on mTOR built with the frozen generator. Mean AUROC over the 30
+  official contexts **0.693** (reachability 0.667, constant 0.5); above reachability in 29 of 30. 20 of 48 readouts are
+  in a network. Leaderboard comparison pending. The dataset is now FIT.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
