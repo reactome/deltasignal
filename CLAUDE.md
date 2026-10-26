@@ -545,7 +545,7 @@ env vars only override for benchmark sweeps:
   receptor scaffold, which `all` cut) keeps them. Reports
   `carrier_loop_open_rule` and `carrier_loop_open_edges`. The table comes from LNG #111, so builds
   before it (`20261010-1415_c0e1b2a` and earlier) are re-run with
-  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261024-2211_7f4b28a` (since 2026-10-24, specs/102: Release 97 plus the summation supplement, LNG #127; Release 97 alone is `20261024-1634_f2c6a71` (specs/101, LNG #126); `20261024-0801_7a754fc` (specs/100, adds `rnas.csv`), `20261022-2011_233665c` (specs/089), `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
+  `--server DS_CARRIER_LOOP_MODE=off`. Canonical build `20261026-1349_8b6527e` (the frozen build, specs/111: generator tag `freeze-2026-10-26`, identical predictions); before it `20261024-2211_7f4b28a` (since 2026-10-24, specs/102: Release 97 plus the summation supplement, LNG #127; Release 97 alone is `20261024-1634_f2c6a71` (specs/101, LNG #126); `20261024-0801_7a754fc` (specs/100, adds `rnas.csv`), `20261022-2011_233665c` (specs/089), `20261021-2218_f99c4ab` (specs/086) and `20261020-2038_23ef3e1` (specs/081) before).
 - `DS_RECYCLED_TWIN=on` (**default since 2026-10-15**, specs/061 adoption) |
   `off` (specs/059): a RECYCLED copy of an
   entity (every producer, except depletion and dissociation, downstream of
