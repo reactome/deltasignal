@@ -266,8 +266,9 @@ Response:
 - **`metabolite_pools_rule`** / **`metabolite_pools`**, **`carrier_multistep_rule`** /
   **`carrier_multistep_forms`** / **`carrier_multistep_rows`** (additive, specs/107): `"off"` by
   default. `DS_METABOLITE_POOLS=on` solves small molecules converted into one another as one pool
-  (`"on: no node table"` without `nodes.csv`); `DS_CARRIER_MULTISTEP` (`"strict"`, `"wide"`, or
-  `"wide: no reference table"` without `leaf_refs.csv`) adds forms carried round a multi-step path to
+  (`"on: no node table"` without `nodes.csv`); `DS_CARRIER_MULTISTEP` (`"strict"`, `"wide"`,
+  `"compartment"`, or `"<mode>: no reference table"` without `leaf_refs.csv`, `"compartment: no
+  modification column"` with a table from before its `modifications` column) adds forms carried round a multi-step path to
   the carrier-loop table, counted as free forms and rows.
 - **`carrier_loop_open_rule`**, **`carrier_loop_open_edges`** (additive,
   specs/077): `"fed_single"` (default since 2026-10-19), `"fed"`, `"fed_single_ub"` (specs/088) or `"off"` (`DS_CARRIER_LOOP_OPEN`), and how

@@ -557,15 +557,17 @@ env vars only override for benchmark sweeps:
   molecules converted into one another by one-in/one-out reactions (LACT ⇄ PYR, R5P ⇄ RU5P) are one
   pool solved by the cycle balance, every form resting with an equal share. Reports
   `metabolite_pools_rule` and `metabolite_pools`.
-- `DS_CARRIER_MULTISTEP=off` (default) | `strict` | `wide` (specs/107 rules 2–3, measured, gate fails: `strict` held-out +6 is
+- `DS_CARRIER_MULTISTEP=off` (default) | `strict` | `wide` | `compartment` (specs/107 rules 2–3, measured, gate fails: `strict` held-out +6 is
   free ubiquitin through USP1, the specs/098 gain, and B4 −2; `wide` held-out −50, SMAD2/3 phosphorylation read as a
   carrier and free ubiquitin in Mitotic G1): a
   form carried round a path of up to 10 reactions and released unchanged (BAP31, microtubules) joins the
   carrier-loop table, so the carrier rules apply. `strict`: protein carriers, no set nodes; `wide`: also
   small-molecule carriers (PE through LC3:PE), set nodes, and copies of one reference entity across
   compartments or modifications, from the generator's `leaf_refs.csv` (LNG #128; without it that part
-  reports `wide: no reference table`). Reports `carrier_multistep_rule`, `carrier_multistep_forms`,
-  `carrier_multistep_rows`.
+  reports `wide: no reference table`). `compartment` (amendment 1, under measurement): `wide`, joining copies
+  only when they also share modified residues (the table's `modifications` column, LNG #129; without it
+  `compartment: no modification column` and the bench refuses), and never free ubiquitin as a carrier.
+  Reports `carrier_multistep_rule`, `carrier_multistep_forms`, `carrier_multistep_rows`.
 - `DS_RNA_TWIN=on` (**default since 2026-10-24**, specs/100; tuning +28 (28 / 0), experimental
   +4 (4 / 0), held-out 0: every TP53 case in PIP3) | `off`: a root copy of an RNA
   species (the generator's `rnas.csv`, LNG #125) reads its produced copies (`rna_supply`, OR, one-way,
@@ -1091,7 +1093,7 @@ other seven execute code and print output.
 | `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
-| `test/test_material_loops.jl` | 44 | specs/107, added 2026-10-25 |
+| `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

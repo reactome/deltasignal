@@ -77,6 +77,10 @@ const CarrierLoopEdge = Tuple{String, String, Bool}
 # generator's `nodes.csv`: `node_kind`, `member_leaves`).
 const NodeLeaves = Tuple{String, Vector{String}}
 
+# A leaf's reference entity and its modified residues (specs/107, `leaf_refs.csv`);
+# modifications `nothing` when the table has no such column.
+const LeafRef = Tuple{String, Union{Nothing, String}}
+
 struct ReactionNetwork
     nodes::Dict{String, NetworkNode}
     edges::Vector{LogicNetworkEdge}
@@ -114,11 +118,14 @@ struct ReactionNetwork
     # RNA species' stable ids from the generator's `rnas.csv` (specs/100), with
     # the same `nothing` / empty distinction as drug_stids.
     rna_stids::Union{Nothing, Set{String}}
-    # leaf stable id -> its reference entity's stable id, from the generator's
-    # `leaf_refs.csv` (specs/107): GRIP2 at the membrane and in the cytosol are one
-    # protein. `nothing` = no such file. Read only by DS_CARRIER_MULTISTEP=wide,
-    # before anything rebuilds the network (a rebuild that omits it drops it).
-    leaf_refs::Union{Nothing, Dict{String, String}}
+    # leaf stable id -> (its reference entity's stable id, its modified residues),
+    # from the generator's `leaf_refs.csv` (specs/107): GRIP2 at the membrane and in
+    # the cytosol are one protein; SMAD2 and p-SMAD2 share a reference entity but not
+    # modifications (amendment 1). Modifications are "" for none, `nothing` when the
+    # bundle's table has no such column. `nothing` = no such file. Read only by
+    # DS_CARRIER_MULTISTEP=wide|compartment, before anything rebuilds the network
+    # (a rebuild that omits it drops it).
+    leaf_refs::Union{Nothing, Dict{String, LeafRef}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
@@ -522,20 +529,24 @@ parse_pathogen_list(logic_network_path::String) =
 parse_rna_list(logic_network_path::String) = _parse_stid_list(logic_network_path, "rnas.csv", "RNA")
 
 """
-specs/107: the generator's `leaf_refs.csv` (`leaf_stid,reference_stid`), each leaf
-entity's reference entity, or `nothing` if the bundle has no such file.
+specs/107: the generator's `leaf_refs.csv` (`leaf_stid,reference_stid` and, since
+amendment 1, `modifications`), each leaf entity's reference entity and modified
+residues, or `nothing` if the bundle has no such file. Modifications read
+`nothing` when the column is absent (an older bundle), not "".
 """
-function parse_leaf_refs(logic_network_path::String)::Union{Nothing, Dict{String, String}}
+function parse_leaf_refs(logic_network_path::String)::Union{Nothing, Dict{String, LeafRef}}
     path = joinpath(dirname(logic_network_path), "leaf_refs.csv")
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame; types = String)
     for c in ("leaf_stid", "reference_stid")
         c in names(df) || throw(ArgumentError("$path has no `$c` column; it is not a generator leaf table"))
     end
-    out = Dict{String, String}()
+    with_mods = "modifications" in names(df)
+    out = Dict{String, LeafRef}()
     for r in eachrow(df)
         (ismissing(r.leaf_stid) || ismissing(r.reference_stid)) && continue
-        out[String(r.leaf_stid)] = String(r.reference_stid)
+        mods = with_mods ? (ismissing(r.modifications) ? "" : String(r.modifications)) : nothing
+        out[String(r.leaf_stid)] = (String(r.reference_stid), mods)
     end
     return out
 end
