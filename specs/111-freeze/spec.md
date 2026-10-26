@@ -55,3 +55,14 @@ No rule, default or threshold changes after the freeze for the external test.
 
 A shortlist is drawn from descriptions only and given to Adam. Nothing is downloaded, and no account or terms
 are accepted, before he approves one.
+
+### Shortlist (from published descriptions only, 2026-10-26; nothing downloaded)
+
+| dataset | perturbations | readouts | access | fit |
+|---|---|---|---|---|
+| LINCS P100 (Litichevskiy et al., Cell Systems 2018; PXD017458) | 90 drugs × 6 cell lines in the pilot; a later release covers 128 compounds | ~100 phosphopeptides (reduced-representation phosphoproteome) | public, CC BY 4.0, PanoramaPublic / clue.io | largest and openly licensed; drug perturbations need a target map registered before scoring (decryptM, specs/021, lost to reachability under its first map) |
+| HPN-DREAM (Hill et al., Nature Methods 2016) | 4 breast cancer lines × 8 ligand stimuli, a few kinase inhibitors (mTOR, AKT, MEK, ...) | ~45 phosphoproteins by RPPA, time courses | challenge data via the DREAM platform (an account and data terms are needed) | well-curated readouts; few perturbations; stimuli and time courses do not map onto our steady state directly |
+| Kinase knockouts in HCT-116 (ERK2, PLK1, PIK3CA, PAK4; 2026, TMT proteome and phosphoproteome) | 4 genetic knockouts | proteome and phosphoproteome | public repository not confirmed | genetic knockouts are the closest match to our protocol, but only 4 genes |
+| HMMR knockout in KELLY neuroblastoma cells (Mendeley Data 10.17632/6wr2tj8wr9) | 1 genetic knockout | phosphopeptides | public | one gene: too small to test anything |
+
+Adam chooses. An account, data terms, or any download wait for his approval.
