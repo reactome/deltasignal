@@ -37,3 +37,5 @@ EGFR, 1/4 ERBB3 and 1/2 ERBB4 (two ERBB4 entities), where the plain mean read 9/
 Circularity: the rule was found tracing EGFR, an agreed error. The 4 ERBB3 knockout curator cases and
 the 2 EGFR ones at 1963580 were not used to choose it. If adopted, headlines are reported under both
 readings, as specs/102's are.
+
+**Decision (Adam, 2026-10-26, at the freeze, specs/111): adopted as the bench default** (`DS_KO_AGG=mean_entity`). Headlines are reported with it and with `mean`.

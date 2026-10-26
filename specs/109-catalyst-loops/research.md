@@ -95,3 +95,5 @@ p-SMAD2/3 it holds (R-HSA-2187401), and the DNA-PK complexes in NHEJ (R-HSA-5693
 released by ligation and rebinds. With specs/106 amendment 2, material-closed positive loops are the largest
 unhandled class (benchmark 28 loops in 14 pathways, sample 46 in 20). The large loops that really are closed
 only through catalysts are EGFR, WNT, HOX activation and DNA/DSB repair.
+
+**Decision (Adam, 2026-10-26, at the freeze, specs/111): not adopted.** It passes the gate but changes no class on any axis.

@@ -89,10 +89,12 @@ PIN_CONFIDENCE = 1.0
 # is read as the pool average. "max" hid a knockdown whenever a copy the
 # perturbation does not reach sat at 1.0 (PALB2 KD read [0, 1, 1, 0] -> 1);
 # measured under root pins, mean is held-out +65 (132 / 67), experimental 0.
-KO_AGG = os.environ.get("DS_KO_AGG", "mean")
-# specs/105: "mean_entity" weighs each curated entity a readout resolves to once
-# (a proxy reaction copy by its output entity, a set by its member), not each
-# variant copy. An unknown value used to fall through to "max" silently.
+# specs/105: "mean_entity" (default since 2026-10-26, adopted at the freeze,
+# specs/111) weighs each curated entity a readout resolves to once (a proxy
+# reaction copy by its output entity, a set by its member), not each variant
+# copy. "mean" reproduces earlier numbers. An unknown value used to fall
+# through to "max" silently.
+KO_AGG = os.environ.get("DS_KO_AGG", "mean_entity")
 KO_AGG_MODES = ("mean", "mean_entity", "min", "extreme", "max")
 if KO_AGG not in KO_AGG_MODES:
     raise SystemExit(f"DS_KO_AGG must be one of {KO_AGG_MODES}; got {KO_AGG!r}")
