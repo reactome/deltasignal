@@ -478,7 +478,7 @@ env vars only override for benchmark sweeps:
   consumers; set pools transparent) reads its component-entry value, which
   is baseline. Entries are per solve: pins off baseline and targets with an
   outside activator off baseline. The solve reports `self_fed_rule`,
-  `self_fed_nodes` and `self_fed_edges_held`. `catalyst_loop` (specs/109, pre-registered, not a
+  `self_fed_nodes` and `self_fed_edges_held`. `catalyst_loop` (specs/109, measured, gate passes, not a
   default) runs the same test only in positive components closed solely through catalyst or
   regulator slots (autocatalysis, a TF switching on its own gene) and holds only those edges;
   it also reports `self_fed_catalyst_components`. Also fixed there: the final
@@ -1062,6 +1062,11 @@ for the last feature that touched it rather than re-deriving from the code.
   the readout at a mild 0.5× / 2× dose reaches ≤ 0.01× or ≥ 99×), and the new answer fits; the same test flags gains as
   not credible; scores stay raw. Audit: 8.0% of correct held-out curator cases and 9.5% of correct experimental cases
   are rail-dependent (34 pathways). Of specs/107 rule 3b's ten MHC losses, one is justified.
+- `specs/109-catalyst-loops/` — `DS_SELF_FED_MODE=catalyst_loop`: rule A (specs/040) only in positive loops closed through
+  catalyst or regulator slots, holding only those edges; judged by the loop-rule gate (Adam, 2026-10-26: behaviour checks,
+  un-railed cases keep direction, held-out losses read by specs/108). Gate passes: no class change on any axis, rails gone
+  in small autocatalytic and self-activating loops (PAK1, CEBPA, HNF1B/ONECUT1), but large catalyst loops untouched
+  (benchmark rails 61.0% → 60.5%): with several entries no node is self-fed. Adoption Adam's.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
