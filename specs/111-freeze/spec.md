@@ -82,3 +82,24 @@ Adam approved LINCS P100 ("feel free to start with LINCS"). The processed files 
 
 Four readouts cannot test the model, so P100 is not scored. No value file was opened; the dataset is still
 unseen and keeps its TEST role in `bench/datasets.tsv`.
+
+## Frozen state (recorded after the tags)
+
+- Generator: logic-network-generator `8b6527e`, tag `freeze-2026-10-26`.
+- Solver and bench: deltasignal `05dc867`, tag `freeze-2026-10-26`.
+- Catalog: `20261026-1349_8b6527e` (92 of 92 pathways, 209,480 nodes, 492,034 edges; Reactome Release 97),
+  served by the API since the tag.
+- Benchmark: `builds/20261026-1349_8b6527e/results/05dc867` under the protocol line
+  `DS_PIN_SCOPE=root_cycle DS_PIN_ROOT_IGNORE=depletion DS_PERTURB_UI_DOWN=0 DS_PERTURB_UI_UP=80 DS_KO_AGG=mean_entity`.
+  Every prediction on both axes is identical to specs/105's `entmean` arm on the previous canonical build.
+
+**Development figures** (development set, never generalisation; specs/096 §6):
+
+| axis | cases | accuracy | macro-F1 |
+|---|---|---|---|
+| curator, all | 24,100 | 89.22% | 0.8693 |
+| curator, held-out (SELECT, specs/051) | 19,000 | 89.77% | 0.8687 |
+| curator, tuning | 5,100 | 87.18% | 0.8656 |
+| experimental (849 cases) | 849 | 75.74% (643; MP-BioPath 643) | balanced accuracy 0.6857 |
+
+Converged: 1,724 of 1,725 curator solves, 244 of 244 experimental.
