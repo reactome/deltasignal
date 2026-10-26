@@ -1,0 +1,307 @@
+{
+ "dataset": "hpn_dream",
+ "role": "TEST",
+ "contexts": 32,
+ "official_contexts": 30,
+ "mean_auroc_official": {
+  "deltasignal": 0.6930250793816668,
+  "reachability": 0.6672555250815017,
+  "constant": 0.5
+ },
+ "mean_auroc_all": {
+  "deltasignal": 0.6887111856697694,
+  "reachability": 0.6641499023080979,
+  "constant": 0.5
+ },
+ "per_context": [
+  {
+   "cell": "BT20",
+   "stimulus": "EGF",
+   "official": true,
+   "n": 46,
+   "deltasignal": 0.7680555555555556,
+   "reachability": 0.7305555555555555,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT20",
+   "stimulus": "FGF1",
+   "official": true,
+   "n": 46,
+   "deltasignal": 0.6468253968253969,
+   "reachability": 0.623015873015873,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT20",
+   "stimulus": "HGF",
+   "official": true,
+   "n": 46,
+   "deltasignal": 0.7354312354312355,
+   "reachability": 0.7086247086247086,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT20",
+   "stimulus": "IGF1",
+   "official": true,
+   "n": 46,
+   "deltasignal": 0.6818181818181818,
+   "reachability": 0.6415584415584416,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT20",
+   "stimulus": "Insulin",
+   "official": false,
+   "n": 46,
+   "deltasignal": 0.6643002028397565,
+   "reachability": 0.6369168356997972,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT20",
+   "stimulus": "NRG1",
+   "official": true,
+   "n": 46,
+   "deltasignal": 0.6602434077079108,
+   "reachability": 0.6835699797160243,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT20",
+   "stimulus": "PBS",
+   "official": true,
+   "n": 46,
+   "deltasignal": 0.7376344086021506,
+   "reachability": 0.7182795698924731,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT20",
+   "stimulus": "Serum",
+   "official": true,
+   "n": 46,
+   "deltasignal": 0.7380952380952381,
+   "reachability": 0.6959706959706959,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "EGF",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.5410526315789473,
+   "reachability": 0.511578947368421,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "FGF1",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.6372767857142857,
+   "reachability": 0.5982142857142857,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "HGF",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.7071428571428572,
+   "reachability": 0.6833333333333333,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "IGF1",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.6572916666666667,
+   "reachability": 0.6375,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "Insulin",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.5523504273504274,
+   "reachability": 0.5235042735042735,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "NRG1",
+   "official": false,
+   "n": 44,
+   "deltasignal": 0.5837053571428571,
+   "reachability": 0.5982142857142857,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "PBS",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.6583333333333333,
+   "reachability": 0.6375,
+   "constant": 0.5
+  },
+  {
+   "cell": "BT549",
+   "stimulus": "Serum",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.7382478632478633,
+   "reachability": 0.7115384615384616,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "EGF",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.7364130434782609,
+   "reachability": 0.7065217391304348,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "FGF1",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.8592592592592593,
+   "reachability": 0.8388888888888889,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "HGF",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.7577160493827161,
+   "reachability": 0.7361111111111112,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "IGF1",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.6815789473684211,
+   "reachability": 0.6473684210526316,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "Insulin",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.691358024691358,
+   "reachability": 0.6759259259259259,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "NRG1",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.6631016042780749,
+   "reachability": 0.6377005347593583,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "PBS",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.8555194805194806,
+   "reachability": 0.827922077922078,
+   "constant": 0.5
+  },
+  {
+   "cell": "MCF7",
+   "stimulus": "Serum",
+   "official": true,
+   "n": 39,
+   "deltasignal": 0.8189655172413793,
+   "reachability": 0.7982758620689655,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "EGF",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.7242105263157895,
+   "reachability": 0.6968421052631579,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "FGF1",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.6350446428571429,
+   "reachability": 0.5982142857142857,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "HGF",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.5769230769230769,
+   "reachability": 0.5409429280397022,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "IGF1",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.6394628099173554,
+   "reachability": 0.6136363636363636,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "Insulin",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.6459770114942529,
+   "reachability": 0.6137931034482759,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "NRG1",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.7176339285714286,
+   "reachability": 0.6964285714285714,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "PBS",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.6776859504132231,
+   "reachability": 0.6590909090909091,
+   "constant": 0.5
+  },
+  {
+   "cell": "UACC812",
+   "stimulus": "Serum",
+   "official": true,
+   "n": 44,
+   "deltasignal": 0.650103519668737,
+   "reachability": 0.6252587991718427,
+   "constant": 0.5
+  }
+ ],
+ "note": "per-context positive counts are left out of the public copy (derived from the challenge truth); the full file is beside the data"
+}
