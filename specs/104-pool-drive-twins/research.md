@@ -30,3 +30,5 @@ specs/083 and specs/091. Adoption on faithfulness is Adam's call. It does not cl
 gap (641/849). The remaining distance on APC/AMER1 is the release pool's conservation: the curated
 exit to SCF(β-TrCP) is read from an intermediate and is not a pool transition, so capture rate cannot
 raise the ubiquitination flux above the release flux.
+
+**Decision (Adam, 2026-10-26, at the freeze, specs/111): not adopted.** It changes no class on either axis.

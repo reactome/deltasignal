@@ -91,6 +91,10 @@ readouts are a bistable switch, not signal. Gates on any case axis are read
 with `bench/analysis/holdout_report.py --compare B --set-aside
 RAF_MAP_kinase_cascade`, and both figures are reported. Headlines keep RAF.
 
+**`DS_KO_AGG=mean_entity` (default since 2026-10-26, specs/105, adopted at the freeze, specs/111)**: a readout
+that resolves to several nodes weighs each curated entity once (a proxy reaction copy by its output entity, a set
+by its member), not each variant copy. `DS_KO_AGG=mean` reproduces numbers from before 2026-10-26.
+
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
 of inferring the protocol from flags.
 
@@ -464,7 +468,7 @@ env vars only override for benchmark sweeps:
   partners) are one supply term, their capped product. Reports `pool_supply_and`
   and `cycle_supply_and_groups`.
   `DS_POOL_DRIVE_TWINS=off` (default) | `hold` (specs/104, measured, no class change on either axis;
-  adoption pending): a pool's drives hold at baseline any non-pool copy of the pool's own entities that
+  not adopted at the freeze): a pool's drives hold at baseline any non-pool copy of the pool's own entities that
   a step reads (WNT: root copies of the PP2A step's substrate read 80x under APC overexpression and
   emptied the intermediate the ubiquitination readout leaves from, 0.014 -> 1.11). Reports
   `pool_drive_twins_rule` and `pool_drive_twins`.
@@ -1040,10 +1044,11 @@ for the last feature that touched it rather than re-deriving from the code.
   (MDM4 knockout: the heterodimer alone de-repressed free MDM2 10×). **Not adopted** (gate fails, PIP3
   −13); experimental 0. specs/101 T4 records the agreed errors no structural rule reaches.
 - `specs/104-pool-drive-twins/` — `DS_POOL_DRIVE_TWINS=hold`: a pool's drives do not read another
-  copy of the pool's own entity. No class change (31 WNT curator values move); adoption pending.
+  copy of the pool's own entity. No class change (31 WNT curator values move). Not adopted (Adam, 2026-10-26, at the freeze).
 - `specs/105-readout-entity-mean/` — bench `DS_KO_AGG=mean_entity`: a set readout read through proxy
   reaction copies or members weighs each curated entity once, not each variant copy (ERBB2: EGFR was
-  9 of 225 copies). Gate passes: experimental +2 (643/849), tuning +6, held-out 0; adoption pending.
+  9 of 225 copies). Gate passes: experimental +2 (643/849), tuning +6, held-out 0. **Adopted as the bench default**
+  (Adam, 2026-10-26, at the freeze, specs/111); `DS_KO_AGG=mean` reproduces earlier numbers.
 - `specs/106-loop-coverage/` — analysis: every loop in the network as generated and the rule that
   handles it. Rules touch 93% of benchmark loops and 88% in 101 other pathways (carrier rules most;
   amendment 1 counts cofactor holds); about 40% of loop nodes stay in unhandled remnants in both.
@@ -1068,11 +1073,14 @@ for the last feature that touched it rather than re-deriving from the code.
   in small autocatalytic and self-activating loops (PAK1, CEBPA, HNF1B/ONECUT1), but large catalyst loops untouched
   (benchmark rails 61.0% → 60.5%): with several entries no node is self-fed. Amendment 1: a pair that is also an
   input (a complex modifying itself, 35% of catalyst pairs) is not a catalyst slot; same scores. The NHEJ and TGF-beta
-  loops are material cycles of that kind. Adoption Adam's.
+  loops are material cycles of that kind. Not adopted (Adam, 2026-10-26, at the freeze: it changes no score).
 - `specs/110-self-modification/` — `DS_DEDUP_ACTIVATORS=1` (specs/012) re-measured under the loop-rule gate: a complex
   that is input and catalyst of its own reaction counted once. Rails fall (benchmark 37% → 24%) but monotonicity
   falls too, and held-out −60 (3 / 63, 61 not rail-dependent: SOCS1 in IFN-gamma, BER glycosylases): the doubling
   carries correct moderate calls past the thresholds. Gate fails; not adopted.
+- `specs/111-freeze/` — the freeze (Adam, 2026-10-26): specs/096's stop rule (four consecutive arms failing their
+  gate, met in specs/107). specs/105 adopted, 104 and 109 not; generator and solver tagged `freeze-2026-10-26`; one
+  canonical catalog; backlog for after the external test.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
