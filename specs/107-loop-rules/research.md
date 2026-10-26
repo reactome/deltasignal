@@ -197,3 +197,19 @@ of `wide`'s sample gain came through modified-form matching); A3 holds (0).
 
 **Outcome:** rule 3b fails the registered no-harm guard, so it stays off. Whether the ten cases count
 as justified disagreements (curator DOWN reached only through a railed loop) is Adam's call.
+
+**Decision (Adam, 2026-10-26): not adopted.** Rule 3b improves every behaviour check but no accuracy
+axis (held-out −10, tuning 0, experimental 0), and under specs/108 only one of the ten losses (HLA-A at
+the Golgi readout) is justified. A "dose-insensitive response" artefact class, which might have excused the
+nine ligase cases, is **not** registered: it would be defined after seeing the cases it rescues. Defaults
+for rules 1–3b stay off. Work moves to positive loops closed by a catalyst (specs/106).
+
+**Why the behaviour gain does not show in accuracy (analysis after the decision, 2026-10-26).** Rule 3b
+removes 296 rails among the behaviour probes at the mild doses, 192 of them in NHEJ (R-HSA-5693571), 48 in
+R-HSA-74752, and 18 in Class I MHC. Against `ctl107`, only 85 valid curator values move and no experimental value
+moves. Of the scored curator cases it takes off a rail, 32 in all, **30 keep the same class and were right
+before and after**. One goes from right to wrong (HLA-A at the Golgi readout), and one was wrong and stays
+wrong. In NHEJ, all 32 valid curator cases are right and all 32 are railed under the control; 6 come off the
+rail and stay right. The three-class score gives no credit when a railed answer pointing the right way becomes
+a moderate one, so a rule whose main effect is removing rails can lose on these axes but hardly gain. The nine
+ligase losses are the only class changes not on a rail: a readout near the 0.85 cutoff (0.667 → 0.917).
