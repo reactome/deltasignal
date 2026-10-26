@@ -336,6 +336,8 @@ function solve_steady_state(
     node_keys = Dict{String, String}(u => something(nd.reactome_id, "") for (u, nd) in network.nodes)
     supply_reach = ymode == "balance" ? pool_supply_reach() : "all"
     signal_pairs = supply_reach == "material" ? pool_signal_edge_pairs(network) : nothing
+    # specs/109: the catalyst-slot edges a catalyst_loop component may hold
+    cat_pairs = self_fed_mode() == "catalyst_loop" ? catalyst_edge_pairs(network) : Set{Tuple{String, String}}()
     crelease = ymode == "balance" && cycle_carriers() ? cycle_carrier_release() : "listed"
     # specs/075: resolved here so a misspelt mode fails before any solve.
     rcarriers = ymode == "balance" && cycle_carriers() ? cycle_reeval_carriers() : "off"
@@ -350,7 +352,8 @@ function solve_steady_state(
                                              carrier_release = crelease,
                                              node_keys = node_keys,
                                              pool_signal_pairs = signal_pairs,
-                                             structural = recycle_pairs)
+                                             structural = recycle_pairs,
+                                             catalyst_pairs = cat_pairs)
     own_mode = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
     if own_mode == "suppress_only_source"
         # specs/061 amendments 4-5: no cap is applied during an iteration. Pass 1
@@ -368,7 +371,8 @@ function solve_steady_state(
                                                carrier_release = crelease,
                                                node_keys = node_keys,
                                                pool_signal_pairs = signal_pairs,
-                                               structural = recycle_pairs)
+                                               structural = recycle_pairs,
+                                               catalyst_pairs = cat_pairs)
         first_pass = pfull(reactions)
         down(u) = haskey(first_pass.node_activities, u) &&
                   first_pass.node_activities[u] < get(baseline_activities, u, 0.01) * (1 - 1e-6)
@@ -1411,6 +1415,7 @@ function solve_scc_ordered!(
     pool_signal_pairs::Union{Nothing, Set{Tuple{Int, Int}}} = nothing,
     entry_supply::Union{Nothing, Vector{Float64}} = nothing,
     order_key::Union{Nothing, Vector{UInt64}} = nothing,
+    catalyst_pairs::Set{Tuple{Int, Int}} = Set{Tuple{Int, Int}}(),
 )
     # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
     # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
@@ -1427,7 +1432,7 @@ function solve_scc_ordered!(
     end
     # `supply` (component-entry state) is read by recycling-closure edges: the
     # legacy catalyst knob and the role list of specs/018.
-    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
+    use_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() in ("entry", "catalyst_loop"))
     max_inner = params.max_iters
     tol = params.tolerance
 
@@ -1654,7 +1659,10 @@ function solve_scc_ordered!(
 
     # Pool bookkeeping (specs/017): member node lists and an internal-negative
     # census per component, built only when pooling is on.
-    self_fed_on = self_fed_mode() == "entry"
+    self_fed_on = self_fed_mode() in ("entry", "catalyst_loop")
+    # specs/109: rule A only in catalyst-closed positive components, and only
+    # on their catalyst and regulator edges.
+    catalyst_only = self_fed_mode() == "catalyst_loop"
     # Node lists per component: for pooling, for rule A, and for the entry
     # snapshot the final residual reads (specs/040).
     need_nodes = pooling || self_fed_on || entry_supply !== nothing
@@ -1937,8 +1945,12 @@ function solve_scc_ordered!(
             # specs/040 rule A: self-fed inputs of this component read the
             # entry value. Computed ONCE here, from the entry state; the flags
             # live on this solve's IndexedReactions only. See core/self_fed.jl.
-            if self_fed_on && baseline_vec !== nothing
+            if self_fed_on && baseline_vec !== nothing &&
+               (!catalyst_only || (!comp_has_neg[c] && !haskey(comp_pools, c) &&
+                                   catalyst_closed(comp_nodes[c], rs, rxns_idx, catalyst_pairs)))
                 nodes_c = comp_nodes[c]
+                catalyst_only && (pool_stats["self_fed_catalyst_components"] =
+                                  get(pool_stats, "self_fed_catalyst_components", 0) + 1)
                 in_c = Set(nodes_c)
                 act_out = Dict{Int, Vector{Int}}()
                 is_pool = Set{Int}()
@@ -1974,7 +1986,8 @@ function solve_scc_ordered!(
                     r = rxns_idx[ri]
                     for k in eachindex(r.activator_indices)
                         s = r.activator_indices[k]
-                        if s in sf && s != r.target_idx && k <= length(r.activator_break)
+                        if s in sf && s != r.target_idx && k <= length(r.activator_break) &&
+                           (!catalyst_only || (s, r.target_idx) in catalyst_pairs)
                             r.activator_break[k] || (n_held += 1)
                             r.activator_break[k] = true
                         end
@@ -2297,6 +2310,7 @@ function solve_steady_state_penalty(
     node_keys::Union{Nothing, Dict{String, String}} = nothing,
     pool_signal_pairs::Union{Nothing, Set{Tuple{String, String}}} = nothing,
     structural::Vector{Tuple{String, String}} = Tuple{String, String}[],
+    catalyst_pairs::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
 )::SolverResult
 
     all_nodes = collect(keys(x0))
@@ -2364,7 +2378,7 @@ function solve_steady_state_penalty(
     # and in influence scores that zeroed the influence of every other input
     # under assembly-limiting. Pass the live state instead wherever closures
     # are marked: it IS the entry value there.
-    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
+    flat_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() in ("entry", "catalyst_loop"))
     max_change = 0.0
 
     # Optional damping for loop convergence. The original feed-forward
@@ -2429,7 +2443,9 @@ function solve_steady_state_penalty(
             pool_signal_pairs = pool_signal_pairs === nothing ? nothing :
                 Set{Tuple{Int, Int}}((uuid_to_idx[a], uuid_to_idx[b]) for (a, b) in pool_signal_pairs
                                      if haskey(uuid_to_idx, a) && haskey(uuid_to_idx, b)),
-            entry_supply = entry_supply, order_key = order_key)
+            entry_supply = entry_supply, order_key = order_key,
+            catalyst_pairs = Set{Tuple{Int, Int}}((uuid_to_idx[a], uuid_to_idx[b]) for (a, b) in catalyst_pairs
+                                                  if haskey(uuid_to_idx, a) && haskey(uuid_to_idx, b)))
         @inbounds for i in eachindex(entry_supply)
             isnan(entry_supply[i]) && (entry_supply[i] = x[i])
         end
@@ -2581,6 +2597,8 @@ function solve_steady_state_penalty(
             "scc_order" => get(index_stats, "scc_order", "label"),
             "scc_order_ties" => get(index_stats, "scc_order_ties", 0),
             "self_fed_edges_held" => get(index_stats, "self_fed_edges_held", 0),
+            # specs/109: components rule A ran in under catalyst_loop.
+            "self_fed_catalyst_components" => get(index_stats, "self_fed_catalyst_components", 0),
             # specs/066: non-converged components, and what the fallback did.
             "nonconv_components" => get(index_stats, "nonconv_components", 0),
             "nonconv_improved" => get(index_stats, "nonconv_improved", 0),
@@ -2665,7 +2683,7 @@ function compute_influence_scores(
 
     eval_config = resolve_reaction_eval_config()
     two_pass && (eval_config = with_own_product(eval_config, "full"))
-    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() == "entry")
+    infl_supply = _bool_env("DS_SCC_BREAK_CATALYST", false) || (!isempty(_break_roles_env()) || self_fed_mode() in ("entry", "catalyst_loop"))
     influence_scores = Dict{String, Float64}()
     h = 1e-6
     for rxn in indexed

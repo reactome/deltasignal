@@ -1,0 +1,17 @@
+pathway	root	dose	readout	role	fold	converged	residual
+R-HSA-140534	521b51d0-9a90-4dd6-a41a-53c2670d5632	2.0	max_abs_fold_difference	relabel	2.7755575615628914e-15	true	9.330983561234296e-7
+R-HSA-170834	c942afae-263a-4a5c-ab21-c4230e7c980a	2.0	max_abs_fold_difference	relabel	0.0	true	2.393918396847994e-16
+R-HSA-177929	6a58ea91-2dfc-400b-85d0-bcb7273fbb4f	2.0	max_abs_fold_difference	relabel	4.9960036108132044e-14	true	4.398748675860098e-7
+R-HSA-186712	a0b80b32-e41b-400f-9a00-8cf9b69f841f	2.0	max_abs_fold_difference	relabel	0.0	true	4.118187406643159e-7
+R-HSA-194315	55455a33-bd5f-46e1-9208-c44d2900ee55	2.0	max_abs_fold_difference	relabel	6.938893903907228e-16	true	4.4479228311633534e-7
+R-HSA-195721	5cef1646-3803-421b-84c0-5c8f82dfcf67	2.0	max_abs_fold_difference	relabel	1.4988010832439613e-13	true	3.101913985045779e-7
+R-HSA-373760	ba6de1ae-29a1-4c18-8653-da789d20029e	2.0	max_abs_fold_difference	relabel	0.0	true	4.747077219091622e-7
+R-HSA-418889	f985316f-dd0d-4b45-a4b1-9a5bf93f00c6	2.0	max_abs_fold_difference	relabel	0.0	true	3.218271770188963e-7
+R-HSA-5617472	e8c4200f-bfa7-4c32-9e4e-e0e6c07d2aea	2.0	max_abs_fold_difference	relabel	0.0	true	3.2104551800360426e-7
+R-HSA-5673001	0a642ae9-d697-45da-81d7-4ea32d056573	2.0	max_abs_fold_difference	relabel	1.1102230246251565e-14	true	4.790040258884076e-7
+R-HSA-5693532	9c96a85b-0d87-4034-a0b6-611553fdbf71	2.0	max_abs_fold_difference	relabel	1.7486012637846216e-13	true	4.2450043469255405e-7
+R-HSA-5693571	e6aec420-4734-45cf-96fc-a0cb0efe2fb6	2.0	max_abs_fold_difference	relabel	0.0	true	4.0541101320457074e-7
+R-HSA-6783310	2f1ae38c-0328-446f-9660-d5b3f45c5449	2.0	max_abs_fold_difference	relabel	3.469446951953614e-16	true	3.764770198921852e-7
+R-HSA-73893	67cc7975-e03f-4dac-a09e-788089bc663d	2.0	max_abs_fold_difference	relabel	2.220446049250313e-14	true	4.562412032615981e-7
+R-HSA-73894	c8fcdc7c-0250-4b9b-bf3f-7c9aaf9ca350	2.0	max_abs_fold_difference	relabel	3.0281332996651145e-12	true	4.879317975214903e-7
+R-HSA-75153	5b2b210c-2c48-4473-b71c-2dc7ab055c37	2.0	max_abs_fold_difference	relabel	0.0	true	3.208538261745275e-7

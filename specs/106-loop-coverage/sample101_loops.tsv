@@ -28,25 +28,25 @@ R-HSA-1632852	5		untouched	positive:material	5	R-HSA-5679206
 R-HSA-1632852	39	carrier	dissolved		0	R-HSA-1632843
 R-HSA-1632852	75	carrier	dissolved		0	R-HSA-5673768
 R-HSA-1632852	21	carrier	dissolved		0	R-HSA-9613513
-R-HSA-1632852	7	carrier	partly_handled	positive:catalyst	6	R-HSA-9674127
+R-HSA-1632852	7	carrier	partly_handled	positive:ubiquitin	6	R-HSA-9674127
 R-HSA-166058	7	pool	dissolved		0	R-HSA-9750946
 R-HSA-166058	6	carrier	dissolved		0	R-HSA-937050
 R-HSA-166058	6	carrier	dissolved		0	R-HSA-937034
 R-HSA-166058	6	carrier	dissolved		0	R-HSA-937044
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-166091
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-166091
 R-HSA-166058	21	held	dissolved		0	R-HSA-2262774::variant::R-HSA-181230=R-HSA-181226_R-NME-168944=R-NME-180817
 R-HSA-166058	21	held	dissolved		0	R-HSA-166360::variant::R-CTR-9628992=R-CTR-9628834_R-HSA-181230=R-HSA-181410
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-166360::variant::R-HSA-166029=R-HSA-166033_R-HSA-181230=R-HSA-166850
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-2262775
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-166118::variant::R-HSA-181230=R-HSA-181226_R-NME-168944=R-ALL-180811
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-166119
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-166100::variant::R-CTR-9628992=R-ALL-181015_R-HSA-181230=R-HSA-181410_R-HSA-937026=R-HSA-937014
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-2262774::variant::R-CTR-9628992=R-ALL-181161_R-HSA-181230=R-HSA-181410
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-937059
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-2262777
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-166100::variant::R-HSA-166029=R-HSA-166025_R-HSA-181230=R-HSA-166850_R-HSA-937026=R-HSA-937045
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-2262774::variant::R-HSA-181230=R-HSA-6805997
-R-HSA-166058	21		untouched	positive:catalyst	21	R-HSA-166100::variant::R-HSA-181230=R-HSA-8870679_R-HSA-8870680=R-HSA-140867_R-HSA-937026=R-HSA-937045
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-166360::variant::R-HSA-166029=R-HSA-166033_R-HSA-181230=R-HSA-166850
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-2262775
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-166118::variant::R-HSA-181230=R-HSA-181226_R-NME-168944=R-ALL-180811
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-166119
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-166100::variant::R-CTR-9628992=R-ALL-181015_R-HSA-181230=R-HSA-181410_R-HSA-937026=R-HSA-937014
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-2262774::variant::R-CTR-9628992=R-ALL-181161_R-HSA-181230=R-HSA-181410
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-937059
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-2262777
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-166100::variant::R-HSA-166029=R-HSA-166025_R-HSA-181230=R-HSA-166850_R-HSA-937026=R-HSA-937045
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-2262774::variant::R-HSA-181230=R-HSA-6805997
+R-HSA-166058	21		untouched	positive:material	21	R-HSA-166100::variant::R-HSA-181230=R-HSA-8870679_R-HSA-8870680=R-HSA-140867_R-HSA-937026=R-HSA-937045
 R-HSA-1799339	12	carrier	partly_handled	positive:material	11	R-HSA-265092
 R-HSA-195253	102	carrier	partly_handled	positive:ubiquitin	61	R-HSA-2130279
 R-HSA-196807	14	held	dissolved		0	R-HSA-197235
@@ -154,7 +154,7 @@ R-HSA-351202	4	carrier	dissolved		0	R-HSA-353125
 R-HSA-351202	4	carrier	dissolved		0	R-HSA-350590
 R-HSA-382556	74	carrier	partly_handled	self_depleting	26	R-HSA-8866551
 R-HSA-382556	10		untouched	positive:material	10	R-HSA-1369028
-R-HSA-416482	314		untouched	positive:catalyst	314	R-HSA-167434::variant::R-HSA-167442=R-HSA-164329_R-HSA-6814413=R-HSA-6814416
+R-HSA-416482	314		untouched	positive:material	314	R-HSA-167434::variant::R-HSA-167442=R-HSA-164329_R-HSA-6814413=R-HSA-6814416
 R-HSA-416482	6	carrier	dissolved		0	R-HSA-114525
 R-HSA-430116	5	carrier	dissolved		0	R-HSA-206751
 R-HSA-445989	7	pool	dissolved		0	R-HSA-9750226
@@ -235,7 +235,7 @@ R-HSA-70268	4		untouched	negative	4	R-HSA-9011595
 R-HSA-71336	19		untouched	positive:material	19	R-HSA-177784
 R-HSA-75893	4	carrier	dissolved		0	R-HSA-9796357
 R-HSA-75893	7	carrier	dissolved		0	R-HSA-9815510
-R-HSA-75893	180	carrier|self	partly_handled	positive:catalyst	60	R-HSA-5357845
+R-HSA-75893	180	carrier|self	partly_handled	positive:material	60	R-HSA-5357845
 R-HSA-75893	4	carrier	dissolved		0	R-HSA-5357865
 R-HSA-77289	4	held	dissolved		0	R-ALL-29374
 R-HSA-77289	4		untouched	positive:material	4	R-ALL-77308
@@ -249,28 +249,28 @@ R-HSA-9645460	14		untouched	self_depleting	14	R-HSA-9645521
 R-HSA-9707564	6	pool|self	dissolved		0	R-HSA-9707672
 R-HSA-9707564	4	pool	dissolved		0	R-HSA-9661432
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975131::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-COV-9684906
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975180
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975180
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975188
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975125
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975125
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975131::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-ALL-188127
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975111
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975111
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975131::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-COV-9754729
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975134
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975134
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975148::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-FLU-9684905
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975107::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-FLU-9684905
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975107::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-FLU-9684905
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975148::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-HIV-9684900
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975130::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-HIV-9684900
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975130::variant::R-HSA-975158=R-HSA-188132_R-NUL-9684904=R-HIV-9684900
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975188
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975132::variant::R-HSA-975158=R-HSA-1679087
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975132::variant::R-HSA-975158=R-HSA-1679087
 R-HSA-975155	7	pool	dissolved		0	R-HSA-9750228
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975131::variant::R-ALL-9824768=R-ALL-9824730_R-HSA-975158=R-HSA-9824779
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975178::variant::R-ALL-9824768=R-ALL-9824730_R-HSA-1014260=R-HSA-975187_R-HSA-975158=R-HSA-9824779
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975178::variant::R-ALL-9824768=R-ALL-9824730_R-HSA-1014260=R-HSA-975187_R-HSA-975158=R-HSA-9824779
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975131::variant::R-ALL-9824768=R-ALL-9824783_R-HSA-975158=R-HSA-9824779
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975132::variant::R-ALL-9824768=R-ALL-9824783_R-HSA-975158=R-HSA-9824779
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975132::variant::R-ALL-9824768=R-ALL-9824783_R-HSA-975158=R-HSA-9824779
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975106
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975146::variant::R-ALL-9824768=R-ALL-9824695_R-HSA-975158=R-HSA-9824779
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975146::variant::R-ALL-9824768=R-ALL-9824695_R-HSA-975158=R-HSA-9824779
 R-HSA-975155	4	carrier	dissolved		0	R-HSA-975106
-R-HSA-975155	23		untouched	positive:catalyst	23	R-HSA-975160
+R-HSA-975155	23		untouched	positive:material	23	R-HSA-975160
 R-HSA-9761174	8	self	partly_handled	positive:catalyst	6	R-HSA-9761188
 R-HSA-9769739	8	carrier	dissolved		0	R-HSA-140872
 R-HSA-9769739	8	carrier	dissolved		0	R-HSA-140812::variant::R-HSA-2076618=R-HSA-2076692
@@ -348,7 +348,7 @@ R-HSA-9769739	8	carrier	dissolved		0	R-HSA-9823290
 R-HSA-977225	4	carrier	dissolved		0	R-HSA-5692930
 R-HSA-977225	4	carrier	dissolved		0	R-HSA-5692934
 R-HSA-977225	4	carrier	dissolved		0	R-HSA-5692934
-R-HSA-977225	16	carrier	partly_handled	positive:catalyst	15	R-HSA-5658496
+R-HSA-977225	16	carrier	partly_handled	positive:material	15	R-HSA-5658496
 R-HSA-9818027	4	pool	dissolved		0	R-HSA-3341319
 R-HSA-9827857	4	self	dissolved		0	R-HSA-9827859
 R-HSA-9833482	491	self	dissolved		0	R-HSA-9833723

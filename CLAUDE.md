@@ -478,7 +478,10 @@ env vars only override for benchmark sweeps:
   consumers; set pools transparent) reads its component-entry value, which
   is baseline. Entries are per solve: pins off baseline and targets with an
   outside activator off baseline. The solve reports `self_fed_rule`,
-  `self_fed_nodes` and `self_fed_edges_held`. Also fixed there: the final
+  `self_fed_nodes` and `self_fed_edges_held`. `catalyst_loop` (specs/109, measured, gate passes, not a
+  default) runs the same test only in positive components closed solely through catalyst or
+  regulator slots (autocatalysis, a TF switching on its own gene) and holds only those edges;
+  it also reports `self_fed_catalyst_components`. Also fixed there: the final
   residual now reads held edges (specs/018 closures too) at the value the
   iteration used, not the live state, which had reported residual ≈ 1 on
   converged solves.
@@ -1044,8 +1047,8 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/106-loop-coverage/` — analysis: every loop in the network as generated and the rule that
   handles it. Rules touch 93% of benchmark loops and 88% in 101 other pathways (carrier rules most;
   amendment 1 counts cofactor holds); about 40% of loop nodes stay in unhandled remnants in both.
-  Unhandled: positive loops closed by material steps (15 sample pathways), catalysts (13) or free ubiquitin; self-depleting rings only
-  numerically. No further rules are chosen from experimental traces (Adam, 2026-10-25).
+  Unhandled: positive loops closed by material steps (20 sample pathways after amendment 2, which counts a complex that is
+  both input and catalyst as material), catalysts (7) or free ubiquitin; self-depleting rings only numerically. No further rules are chosen from experimental traces (Adam, 2026-10-25).
 - `specs/107-loop-rules/` — three rules for loop types specs/106 left unhandled, judged by behaviour checks on networks
   without ground truth (convergence, rails, dose monotonicity, relabelling) plus a curator held-out no-harm guard.
   Rule 1 (`DS_METABOLITE_POOLS`): no class change, B4 −2. Rule 2 (`DS_CARRIER_MULTISTEP=strict`): held-out +6, all
@@ -1059,6 +1062,13 @@ for the last feature that touched it rather than re-deriving from the code.
   the readout at a mild 0.5× / 2× dose reaches ≤ 0.01× or ≥ 99×), and the new answer fits; the same test flags gains as
   not credible; scores stay raw. Audit: 8.0% of correct held-out curator cases and 9.5% of correct experimental cases
   are rail-dependent (34 pathways). Of specs/107 rule 3b's ten MHC losses, one is justified.
+- `specs/109-catalyst-loops/` — `DS_SELF_FED_MODE=catalyst_loop`: rule A (specs/040) only in positive loops closed through
+  catalyst or regulator slots, holding only those edges; judged by the loop-rule gate (Adam, 2026-10-26: behaviour checks,
+  un-railed cases keep direction, held-out losses read by specs/108). Gate passes: no class change on any axis, rails gone
+  in small autocatalytic and self-activating loops (PAK1, CEBPA, HNF1B/ONECUT1), but large catalyst loops untouched
+  (benchmark rails 61.0% → 60.5%): with several entries no node is self-fed. Amendment 1: a pair that is also an
+  input (a complex modifying itself, 35% of catalyst pairs) is not a catalyst slot; same scores. The NHEJ and TGF-beta
+  loops are material cycles of that kind. Adoption Adam's.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -1095,7 +1105,7 @@ other seven execute code and print output.
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 573 | specs/039, added 2026-09-27; drive twins (specs/104) 2026-10-25; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
-| `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
+| `test/test_self_fed.jl` | 133 | specs/040, added 2026-09-28; catalyst loops (specs/109) 2026-10-26 |
 | `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23 |
