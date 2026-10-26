@@ -1053,7 +1053,7 @@ for the last feature that touched it rather than re-deriving from the code.
   but held-out −50: the reference match joins SMAD2 with p-SMAD2, so a phosphorylation cycle reads as a closed carrier,
   and free ubiquitin closes in Mitotic G1. Amendment 1, rule 3b (`compartment`: compartment copies only, never free
   ubiquitin): behaviour checks pass, held-out −10, every case a Class I MHC knockout matched only through BAP31's railed
-  loop. Defaults off; generator `leaf_refs.csv` is LNG #128, its `modifications` column LNG #129.
+  loop. **None adopted** (Adam, 2026-10-26); defaults off; generator `leaf_refs.csv` is LNG #128, its `modifications` column LNG #129.
 - `specs/108-justified-disagreements/` — the definition (Adam, 2026-10-25): a disagreement is justified only if traced
   to one element, matched by an expectation independent of the label, the old answer came through an artefact (a rail:
   the readout at a mild 0.5× / 2× dose reaches ≤ 0.01× or ≥ 99×), and the new answer fits; the same test flags gains as

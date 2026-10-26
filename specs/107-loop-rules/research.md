@@ -197,3 +197,9 @@ of `wide`'s sample gain came through modified-form matching); A3 holds (0).
 
 **Outcome:** rule 3b fails the registered no-harm guard, so it stays off. Whether the ten cases count
 as justified disagreements (curator DOWN reached only through a railed loop) is Adam's call.
+
+**Decision (Adam, 2026-10-26): not adopted.** Rule 3b improves every behaviour check but no accuracy
+axis (held-out −10, tuning 0, experimental 0), and under specs/108 only one of the ten losses (HLA-A at
+the Golgi readout) is justified. A "dose-insensitive response" artefact class, which might have excused the
+nine ligase cases, is **not** registered: it would be defined after seeing the cases it rescues. Defaults
+for rules 1–3b stay off. Work moves to positive loops closed by a catalyst (specs/106).
