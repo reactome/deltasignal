@@ -4,3 +4,4 @@ mpbiopath_experimental	849 cases, tuning pathways	FIT	2026-05-26	see mp-biopath-
 mpbiopath_curator_heldout	70 held-out pathways	SELECT	2026-10-12	see mp-biopath-pathways	reactome_curator_predictions	relabelled: used for adoption decisions since 2026-09 (specs/051)
 decryptm1	all	FIT	2026-10-12	CC0	PRIDE PXD037285	scored once as TEST (specs/021, 9cb8983), then traced (specs/051)
 korkut2015	SK-Mel-133, 89 drug conditions x 98 RPPA readouts	FIT	2026-10-15	eLife CC-BY (data); CellBox repo MIT	github sanderlab/CellBox@6bed6b94 data/	scored once as TEST (specs/062, 8de3c7f: specs/061 candidate vs control, verdict inconclusive); now FIT
+lincs_p100	all	TEST	2026-10-26	CC BY 4.0	LINCS PCCSE P100 (Litichevskiy et al. 2018; ProteomeXchange PXD017458)	the external test of the frozen model (specs/096 section 4, specs/111); approved by Adam 2026-10-26; scored once, then FIT

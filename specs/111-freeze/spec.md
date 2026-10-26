@@ -66,3 +66,19 @@ are accepted, before he approves one.
 | HMMR knockout in KELLY neuroblastoma cells (Mendeley Data 10.17632/6wr2tj8wr9) | 1 genetic knockout | phosphopeptides | public | one gene: too small to test anything |
 
 Adam chooses. An account, data terms, or any download wait for his approval.
+
+### LINCS P100: approved, then set aside on coverage (2026-10-26, before any value was read)
+
+Adam approved LINCS P100 ("feel free to start with LINCS"). The processed files came from GEO GSE101406
+(levels 3 and 4, the analyte, instance, perturbagen and cell tables; SHA-512 checked against the series'
+`SHA512SUMS`) into `~/deltasignal-catalogs/external/lincs_p100/raw_20261026`. Only the metadata tables were read:
+
+- 89 compounds × 6 cell lines (A375, A549, MCF7, NPC, PC3, YAPC), 3 h, 0.5–10 µM; about 35 compounds act on
+  kinases or other signalling proteins the networks contain.
+- Of the 96 phosphopeptide probes, **7** match a phosphorylated EWAS in Reactome 97 (UniProt and residue, from
+  the graph: `analysis/phospho_ewas_r97.csv`), and **4** occur in the 92 benchmark networks (CDK1 T161 in 5
+  pathways, RPS6KA3 S369 in 2, ABI1 S183 and BRAF S446 in 1 each). P100 was designed to cover many proteins,
+  not the canonical signalling sites Reactome curates.
+
+Four readouts cannot test the model, so P100 is not scored. No value file was opened; the dataset is still
+unseen and keeps its TEST role in `bench/datasets.tsv`.
