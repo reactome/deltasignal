@@ -61,7 +61,7 @@ def test_score_aligns_truth_to_header_and_drops_nan(tmp_path):
         f.write("stimulus\tspecies\tds_score\treach_score\tbest_pathway\n")
         for stim in h.STIMULI:
             for s, v in zip(sp, [2.0, 1.0, 1e-14, 9.0]):
-                f.write(f"{stim}\t{s}\t{v}\t{int(v > 0)}\tp\n")
+                f.write(f"{stim}\t{s}\t{v}\t{int(v >= 1)}\tp\n")
     h.score(tmp_path, out)
     import json
     s = json.loads((out / "score.json").read_text())
