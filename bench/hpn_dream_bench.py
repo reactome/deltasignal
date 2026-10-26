@@ -55,6 +55,9 @@ OFFICIAL = {"UACC812": ["PBS", "Serum", "NRG1", "Insulin", "HGF", "EGF", "FGF1",
             "BT549": ["IGF1", "PBS", "Serum", "Insulin", "HGF", "EGF", "FGF1"],
             "MCF7": ["IGF1", "PBS", "Serum", "NRG1", "Insulin", "HGF", "EGF", "FGF1"]}
 EPS = 1e-6
+# specs/112 amendment 1: an effect below the solver's tolerance is numerical noise
+# (1e-15 to 1e-14 where the pin does not reach), not a ranking; it scores 0.
+NOISE = 1e-6
 
 
 def species_order(hpn_dir, cell):
@@ -205,7 +208,8 @@ def score(hpn_dir, out_dir):
             r = {"cell": cell, "stimulus": stim, "official": stim in OFFICIAL[cell],
                  "n": len(keep), "positives": sum(classes)}
             for name, col in (("deltasignal", "ds_score"), ("reachability", "reach_score")):
-                r[name] = auroc([float(pred[(stim, sp)][col]) for sp, _ in keep], classes)
+                vals = [float(pred[(stim, sp)][col]) for sp, _ in keep]
+                r[name] = auroc([v if v >= NOISE else 0.0 for v in vals], classes)
             r["constant"] = auroc([0.0] * len(keep), classes)
             results.append(r)
     off = [r for r in results if r["official"]]

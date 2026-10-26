@@ -68,3 +68,13 @@ headline is the mean over the 30 official contexts (BT20 Insulin and BT549 NRG1 
 
 The result is reported whatever it shows. The dataset then becomes FIT, and errors may be traced, but no change
 made from them can be scored on it again.
+
+## Amendment 1 (2026-10-26, after `predict`, before any truth vector was scored)
+
+The predictions (`hpn_predictions.tsv`, committed at 69de560) give several readouts effects of 1e-15 to 1e-14
+where the MTOR pin does not reach them: floating-point noise. Under AUROC such values would rank above true zeros,
+breaking ties arbitrarily. An effect below 1e-6 (the solver's tolerance) now scores 0, in `score`; the
+predictions file is unchanged. Readouts with a real effect are from 1.79 up.
+
+Also recorded before scoring: H1 fails. 20 of the 48 readouts occur in at least one network (predicted: at least
+half).

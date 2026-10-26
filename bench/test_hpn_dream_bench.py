@@ -60,12 +60,13 @@ def test_score_aligns_truth_to_header_and_drops_nan(tmp_path):
     with open(out / "hpn_predictions.tsv", "w") as f:
         f.write("stimulus\tspecies\tds_score\treach_score\tbest_pathway\n")
         for stim in h.STIMULI:
-            for s, v in zip(sp, [2.0, 1.0, 0.0, 9.0]):
+            for s, v in zip(sp, [2.0, 1.0, 1e-14, 9.0]):
                 f.write(f"{stim}\t{s}\t{v}\t{int(v > 0)}\tp\n")
     h.score(tmp_path, out)
     import json
     s = json.loads((out / "score.json").read_text())
     assert s["official_contexts"] == 30
-    assert s["mean_auroc_official"]["deltasignal"] == pytest.approx(1.0)   # TAZ (NaN, score 9) is dropped
+    # TAZ (NaN, score 9) is dropped; C's 1e-14 is noise and scores 0 (amendment 1)
+    assert s["mean_auroc_official"]["deltasignal"] == pytest.approx(1.0)
     assert s["mean_auroc_official"]["reachability"] == pytest.approx(0.75)
     assert s["mean_auroc_official"]["constant"] == pytest.approx(0.5)
