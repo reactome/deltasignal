@@ -317,6 +317,13 @@ end
     @test DS.catalyst_edge_pairs(fixture_leaves()) == Set{Tuple{String, String}}()
     # an inhibiting regulator is not a catalyst slot
     @test isempty(DS.catalyst_edge_pairs(fixture_inh()))
+    # amendment 1: a pair that is also an input (a complex modifying itself) is material
+    selfmod = net(["S", "E", "R"], [edge("S", "R", true, "input"), edge("E", "R", true, "input"),
+                                    edge("E", "R", true, "catalyst"), edge("R", "E", true, "output"; and = false)])
+    @test isempty(DS.catalyst_edge_pairs(selfmod))
+    r = solve(selfmod, obs("S" => 2.0); DS_SELF_FED_MODE = "catalyst_loop")
+    @test r.diagnostics["self_fed_catalyst_components"] == 0
+    @test r.diagnostics["self_fed_edges_held"] == 0
 end
 
 @testset "catalyst_loop does not depend on node labels" begin

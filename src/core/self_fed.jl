@@ -154,13 +154,22 @@ is_set_pool_reaction(r::IndexedReaction)::Bool =
 """
 specs/109. The catalyst-slot edges of a network, as (source, target) uuid pairs:
 positive `catalyst` and `regulator` edges, and the `set_member` edges into a set
-pool (specs/033) that itself feeds a catalyst or regulator slot.
+pool (specs/033) that itself feeds a catalyst or regulator slot. Amendment 1: a
+pair with any other edge between the same two nodes is not a slot. Reactome often
+curates one complex as both a reaction's input and its catalyst (it modifies
+itself), and the generator writes both edges; that pair is material.
 """
 function catalyst_edge_pairs(network)::Set{Tuple{String, String}}
     slot = Set{Tuple{String, String}}()
+    other = Set{Tuple{String, String}}()
     for e in network.edges
-        e.is_positive && e.edge_type in ("catalyst", "regulator") && push!(slot, (e.parent_uuid, e.child_uuid))
+        if e.is_positive && e.edge_type in ("catalyst", "regulator")
+            push!(slot, (e.parent_uuid, e.child_uuid))
+        else
+            push!(other, (e.parent_uuid, e.child_uuid))
+        end
     end
+    setdiff!(slot, other)
     feeds = Set(first(p) for p in slot)
     for e in network.edges
         e.edge_type == "set_member" && e.child_uuid in feeds && push!(slot, (e.parent_uuid, e.child_uuid))
