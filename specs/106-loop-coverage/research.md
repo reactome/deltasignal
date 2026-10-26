@@ -85,3 +85,23 @@ Sample remnants, amended: positive closed by catalyst 35 loops / 13 pathways, by
 remnants do not change. P1–P3 still hold (P1: 88% against 93%; P3: material 15 pathways against
 catalyst 13). The tables in this directory are the amended run; the figures above the amendment are
 the first run's.
+
+## Amendment 2 (2026-10-26): a complex that is both input and catalyst
+
+specs/109 found that the remnant labels counted a (source, target) pair as a catalyst edge whenever the last
+edge read for that pair was `catalyst`. Reactome often curates one complex as both the input and the catalyst of
+a reaction (it modifies itself: TGFBR:SARA:SMAD2/3 phosphorylating SMAD2/3, the DNA-PK complexes in NHEJ), and
+the generator writes both edges; 7,898 of 22,397 catalyst pairs on the canonical build. Such a pair is now
+material: a catalyst or regulator edge never overrides another edge of the same pair. Re-run on the same builds:
+
+| remnant class (loops / pathways) | benchmark, before | benchmark, amended | sample, before | sample, amended |
+|---|---|---|---|---|
+| positive, closed by a catalyst | 20 / 17 | 12 / 9 | 35 / 13 | 8 / 7 |
+| positive, closed by material steps | 21 / 7 | 28 / 14 | 20 / 15 | 46 / 20 |
+| positive, through free ubiquitin | 13 / 10 | 13 / 10 | 3 / 2 | 4 / 3 |
+| self-depleting | 36 / 21 | 36 / 21 | 5 / 4 | 5 / 4 |
+| other negative | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
+
+Material-closed positive loops are the largest unhandled class on both catalogs. The newly material ones include
+the large components in NHEJ and TGF-beta, where a complex modifies or processes itself. The tables in this
+directory are the amended run.

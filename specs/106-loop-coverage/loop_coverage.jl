@@ -104,9 +104,16 @@ for pw in sort(filter(p -> startswith(p, "R-HSA-"), readdir(build)))
     pool = Set{Tuple{String, String}}(); slf = Set{Tuple{String, String}}()
     adj = Dict{String, Vector{String}}(); neg = Set{Tuple{String, String}}()
     etype = Dict{Tuple{String, String}, String}()
+    # amendment 2: a pair with any non-slot edge is material (a complex that is
+    # both input and catalyst of its reaction)
+    material = Set{Tuple{String, String}}()
+    for e in sn.edges
+        e.edge_type in ("catalyst", "regulator") || push!(material, (e.parent_uuid, e.child_uuid))
+    end
     for e in sn.edges
         a, b = e.parent_uuid, e.child_uuid
-        etype[(a, b)] = e.edge_type
+        # a slot edge never overwrites a material edge of the same pair
+        (e.edge_type in ("catalyst", "regulator") && (a, b) in material) || (etype[(a, b)] = e.edge_type)
         e.is_positive || push!(neg, (a, b))
         b in held && continue
         if haskey(pool_of, a) && get(pool_of, b, 0) == pool_of[a]
