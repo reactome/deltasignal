@@ -999,6 +999,7 @@ function solve_handler(req)
             # entry, and rule B ("off"/"on") with the inhibitor slots it alone flags.
             "self_fed_rule" => get(solver_result.diagnostics, "self_fed_rule", "unknown"),
             "self_fed_edges_held" => get(solver_result.diagnostics, "self_fed_edges_held", 0),
+            "self_fed_catalyst_components" => get(solver_result.diagnostics, "self_fed_catalyst_components", 0),   # specs/109
             "self_inhibitor_leaves" => get(solver_result.diagnostics, "self_inhibitor_leaves", "unknown"),
             "self_inhibitor_leaf_pairs" => get(solver_result.diagnostics, "self_inhibitor_leaf_pairs", 0),
             "self_inhibitor_copies" => get(solver_result.diagnostics, "self_inhibitor_copies", "on"),   # specs/095

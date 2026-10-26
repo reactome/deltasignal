@@ -1800,8 +1800,8 @@ def main():
     lrules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_inhibitor_leaves="))
     print(f"\nSelf-feedback: rule {'/'.join(srules) or 'unknown'}, {SOLVE_TALLY['self_fed_edges_held']} edge-solves held; "
           f"leaf inhibitors {'/'.join(lrules) or 'unknown'}, {SOLVE_TALLY['self_inhibitor_leaf_pairs']} pair-solves (specs/040)")
-    if "entry" in srules and SOLVE_TALLY["self_fed_edges_held"] == 0:
-        raise SystemExit("DS_SELF_FED_MODE=entry but no solve held a self-fed edge; the arm is the control.")
+    if any(m in srules for m in ("entry", "catalyst_loop")) and SOLVE_TALLY["self_fed_edges_held"] == 0:
+        raise SystemExit(f"DS_SELF_FED_MODE={'/'.join(srules)} but no solve held a self-fed edge; the arm is the control.")
     crs = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_inhibitor_copies="))
     print(f"Self-inhibitor copies: {'/'.join(crs) or 'unknown'}, "
           f"{SOLVE_TALLY['self_inhibitor_copy_pairs']} pair-solves added (specs/095)")

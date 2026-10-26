@@ -478,7 +478,10 @@ env vars only override for benchmark sweeps:
   consumers; set pools transparent) reads its component-entry value, which
   is baseline. Entries are per solve: pins off baseline and targets with an
   outside activator off baseline. The solve reports `self_fed_rule`,
-  `self_fed_nodes` and `self_fed_edges_held`. Also fixed there: the final
+  `self_fed_nodes` and `self_fed_edges_held`. `catalyst_loop` (specs/109, pre-registered, not a
+  default) runs the same test only in positive components closed solely through catalyst or
+  regulator slots (autocatalysis, a TF switching on its own gene) and holds only those edges;
+  it also reports `self_fed_catalyst_components`. Also fixed there: the final
   residual now reads held edges (specs/018 closures too) at the value the
   iteration used, not the live state, which had reported residual ≈ 1 on
   converged solves.
@@ -1095,7 +1098,7 @@ other seven execute code and print output.
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 573 | specs/039, added 2026-09-27; drive twins (specs/104) 2026-10-25; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
-| `test/test_self_fed.jl` | 95 | specs/040, added 2026-09-28 |
+| `test/test_self_fed.jl` | 130 | specs/040, added 2026-09-28; catalyst loops (specs/109) 2026-10-26 |
 | `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
 | `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23 |

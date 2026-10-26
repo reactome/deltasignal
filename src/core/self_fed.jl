@@ -33,6 +33,12 @@ solve; it does not change between sweeps.
   DS_SELF_FED_MODE=off    (default) previous behaviour.
   DS_SELF_FED_MODE=entry  the rule above. The solve reports `self_fed_rule`,
                           `self_fed_nodes` and `self_fed_edges_held`.
+  DS_SELF_FED_MODE=catalyst_loop  (specs/109) the same test, only in a component
+                          that is positive (no internal inhibitor or depletion
+                          edge), holds no cycle-balance pool, and is acyclic once
+                          its catalyst-slot edges are removed; only those edges
+                          are held. A self-fed node's material edges stay live.
+                          Also reports `self_fed_catalyst_components`.
 
 **Rule B.** specs/022 flags an inhibitor that CONTAINS its reaction's input
 (whole-node stId containment) and is computed from it. The PEBP1 inhibitor of
@@ -50,7 +56,7 @@ Both rules are exact at baseline (every held edge reads fold 1 there) and
 byte-identical off: they add flags and pairs, never nodes or edges.
 """
 
-const DS_VALID_SELF_FED_MODES = Set(["off", "entry"])
+const DS_VALID_SELF_FED_MODES = Set(["off", "entry", "catalyst_loop"])
 
 function self_fed_mode()::String
     value = get(ENV, "DS_SELF_FED_MODE", "off")
@@ -144,3 +150,56 @@ edge, specs/033): the structural test `compute_reaction_output_vec` applies.
 is_set_pool_reaction(r::IndexedReaction)::Bool =
     !isempty(r.activator_group) && all(==(-1), r.activator_group) &&
     isempty(r.inhibitor_indices) && isempty(r.depletion_indices)
+
+"""
+specs/109. The catalyst-slot edges of a network, as (source, target) uuid pairs:
+positive `catalyst` and `regulator` edges, and the `set_member` edges into a set
+pool (specs/033) that itself feeds a catalyst or regulator slot.
+"""
+function catalyst_edge_pairs(network)::Set{Tuple{String, String}}
+    slot = Set{Tuple{String, String}}()
+    for e in network.edges
+        e.is_positive && e.edge_type in ("catalyst", "regulator") && push!(slot, (e.parent_uuid, e.child_uuid))
+    end
+    feeds = Set(first(p) for p in slot)
+    for e in network.edges
+        e.edge_type == "set_member" && e.child_uuid in feeds && push!(slot, (e.parent_uuid, e.child_uuid))
+    end
+    return slot
+end
+
+"""
+specs/109. Whether a cyclic component is closed only through catalyst slots: with
+the in-component activator edges in `pairs` removed, no cycle (self-loops
+included) is left among `nodes_c`. Deterministic: a three-colour depth-first
+search in sorted order.
+"""
+function catalyst_closed(nodes_c::Vector{Int}, rs::Vector{Int},
+                         rxns_idx::Vector{IndexedReaction}, pairs::Set{Tuple{Int, Int}})::Bool
+    in_c = Set(nodes_c)
+    succ = Dict{Int, Vector{Int}}()
+    for ri in rs
+        r = rxns_idx[ri]; t = r.target_idx
+        for s in r.activator_indices
+            (s in in_c && !((s, t) in pairs)) && push!(get!(succ, s, Int[]), t)
+        end
+    end
+    color = Dict{Int, Int}()            # 1 on the stack, 2 done
+    for u0 in sort(nodes_c)
+        haskey(color, u0) && continue
+        stack = [(u0, 1)]; color[u0] = 1
+        while !isempty(stack)
+            u, k = stack[end]
+            nb = get(succ, u, Int[])
+            if k > length(nb)
+                color[u] = 2; pop!(stack); continue
+            end
+            stack[end] = (u, k + 1)
+            v = nb[k]
+            c = get(color, v, 0)
+            c == 1 && return false      # a cycle without a catalyst slot
+            c == 0 && (color[v] = 1; push!(stack, (v, 1)))
+        end
+    end
+    return true
+end

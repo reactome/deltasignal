@@ -248,6 +248,93 @@ end
     end
 end
 
+"specs/109: product E catalyses its own formation from S; with `branch`, E also feeds R3 -> F, and F catalyses R."
+fixture_autocat(; branch = false) = net(["S", "E", "R", "R3", "F"],
+    vcat([edge("S", "R", true, "input"), edge("E", "R", true, "catalyst"),
+          edge("R", "E", true, "output"; and = false)],
+         branch ? [edge("E", "R3", true, "input"), edge("R3", "F", true, "output"; and = false),
+                   edge("F", "R", true, "catalyst")] : DS.LogicNetworkEdge[]))
+
+@testset "catalyst_loop (specs/109): autocatalysis follows its substrate" begin
+    with_env("DS_SELF_FED_MODE" => "catalyst_loop") do
+        @test DS.self_fed_mode() == "catalyst_loop"
+    end
+    for (s, want) in ((2.0, 2.0), (0.5, 0.5), (0.0, 0.0))
+        r = solve(fixture_autocat(), obs("S" => s); DS_SELF_FED_MODE = "catalyst_loop")
+        @test fold(r, "E") ≈ want atol = 1e-6
+        @test r.converged
+    end
+    r = solve(fixture_autocat(), obs("S" => 2.0); DS_SELF_FED_MODE = "catalyst_loop")
+    @test r.diagnostics["self_fed_rule"] == "catalyst_loop"
+    @test r.diagnostics["self_fed_catalyst_components"] == 1
+    @test r.diagnostics["self_fed_edges_held"] == 1
+    # off: the gain-1 loop rails
+    r_off = solve(fixture_autocat(), obs("S" => 2.0); DS_SELF_FED_MODE = "off")
+    @test !(fold(r_off, "E") ≈ 2.0)
+    @test r_off.diagnostics["self_fed_catalyst_components"] == 0
+    # a pinned catalyst is an entry and reads live
+    r_pin = solve(fixture_autocat(), obs("S" => 1.0, "E" => 0.5); DS_SELF_FED_MODE = "catalyst_loop")
+    @test fold(r_pin, "R") ≈ 0.5 rtol = 1e-6
+end
+
+@testset "catalyst_loop holds catalyst slots only; material edges stay live" begin
+    # E is self-fed under both modes. `entry` also holds E -> R3 (an input), so
+    # F reads baseline; `catalyst_loop` holds only E -> R and F -> R.
+    r_c = solve(fixture_autocat(branch = true), obs("S" => 2.0); DS_SELF_FED_MODE = "catalyst_loop")
+    r_e = solve(fixture_autocat(branch = true), obs("S" => 2.0); DS_SELF_FED_MODE = "entry")
+    @test fold(r_c, "E") ≈ 2.0 rtol = 1e-6
+    @test fold(r_c, "F") ≈ 2.0 rtol = 1e-6
+    @test r_c.diagnostics["self_fed_edges_held"] == 2
+    @test fold(r_e, "F") ≈ 1.0 rtol = 1e-6
+    @test r_e.diagnostics["self_fed_edges_held"] == 3
+end
+
+@testset "catalyst_loop scope: a set-pool catalyst slot qualifies; material and negative loops do not" begin
+    # A1's loop closes through pool P's catalyst slot (M -set_member-> P -catalyst-> R1)
+    r_c = solve(fixture_pool(), obs("X" => 2.0); DS_SELF_FED_MODE = "catalyst_loop")
+    r_e = solve(fixture_pool(), obs("X" => 2.0); DS_SELF_FED_MODE = "entry")
+    @test r_c.diagnostics["self_fed_catalyst_components"] == 1
+    @test r_c.node_activities == r_e.node_activities
+    # A2's loop is closed by input edges: untouched, identical to off
+    r_l = solve(fixture_leaves(), obs("X" => 2.0); DS_SELF_FED_MODE = "catalyst_loop")
+    r_o = solve(fixture_leaves(), obs("X" => 2.0); DS_SELF_FED_MODE = "off")
+    @test r_l.diagnostics["self_fed_catalyst_components"] == 0
+    @test r_l.diagnostics["self_fed_edges_held"] == 0
+    @test r_l.node_activities == r_o.node_activities
+    # an internal depletion makes the component negative: untouched
+    r_n = solve(fixture_noact(), obs("X" => 2.0); DS_SELF_FED_MODE = "catalyst_loop")
+    @test r_n.diagnostics["self_fed_catalyst_components"] == 0
+    # at rest nothing moves
+    for f in (fixture_autocat(), fixture_autocat(branch = true), fixture_pool())
+        r = solve(f, obs(); DS_SELF_FED_MODE = "catalyst_loop")
+        @test all(abs(v - BL) < 1e-12 for v in values(r.node_activities))
+    end
+end
+
+@testset "catalyst_closed and catalyst_edge_pairs, by hand" begin
+    p = DS.catalyst_edge_pairs(fixture_pool())
+    @test p == Set([("P", "R1"), ("M", "P"), ("M0", "P")])
+    @test DS.catalyst_edge_pairs(fixture_leaves()) == Set{Tuple{String, String}}()
+    # an inhibiting regulator is not a catalyst slot
+    @test isempty(DS.catalyst_edge_pairs(fixture_inh()))
+end
+
+@testset "catalyst_loop does not depend on node labels" begin
+    f = fixture_autocat(branch = true)
+    relabel = Dict(u => "zz_" * reverse(u) for u in keys(f.nodes))
+    nodes2 = Dict(relabel[u] => DS.NetworkNode(relabel[u], n.reactome_id, n.entity_type,
+                                             n.original_set_id, n.display_name, n.baseline)
+                  for (u, n) in f.nodes)
+    edges2 = [DS.LogicNetworkEdge(relabel[e.parent_uuid], relabel[e.child_uuid], e.is_and,
+                                  e.is_positive, e.stoichiometry, e.edge_type) for e in f.edges]
+    f2 = DS.ReactionNetwork(nodes2, edges2, Dict{String, DS.SetExpansionMapping}())
+    r1 = solve(f, obs("S" => 3.0); DS_SELF_FED_MODE = "catalyst_loop")
+    r2 = solve(f2, obs(relabel["S"] => 3.0); DS_SELF_FED_MODE = "catalyst_loop")
+    for u in keys(f.nodes)
+        @test r1.node_activities[u] == r2.node_activities[relabel[u]]
+    end
+end
+
 @testset "self_fed_nodes, by hand" begin
     # ring e -> t -> a -> b -> t with one entry t: only b (Out = {t}) is self-fed.
     act = Dict(1 => [2], 2 => [3], 3 => [1])
