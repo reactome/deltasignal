@@ -1054,6 +1054,11 @@ for the last feature that touched it rather than re-deriving from the code.
   and free ubiquitin closes in Mitotic G1. Amendment 1, rule 3b (`compartment`: compartment copies only, never free
   ubiquitin): behaviour checks pass, held-out −10, every case a Class I MHC knockout matched only through BAP31's railed
   loop. Defaults off; generator `leaf_refs.csv` is LNG #128, its `modifications` column LNG #129.
+- `specs/108-justified-disagreements/` — the definition (Adam, 2026-10-25): a disagreement is justified only if traced
+  to one element, matched by an expectation independent of the label, the old answer came through an artefact (a rail:
+  the readout at a mild 0.5× / 2× dose reaches ≤ 0.01× or ≥ 99×), and the new answer fits; the same test flags gains as
+  not credible; scores stay raw. Audit: 8.0% of correct held-out curator cases and 9.5% of correct experimental cases
+  are rail-dependent (34 pathways). Of specs/107 rule 3b's ten MHC losses, one is justified.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
