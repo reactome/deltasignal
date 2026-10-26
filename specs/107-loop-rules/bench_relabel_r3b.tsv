@@ -1,0 +1,14 @@
+pathway	root	dose	readout	role	fold	converged	residual
+R-HSA-1257604	8175772b-10a3-4904-a014-be488ac3085f	2.0	max_abs_fold_difference	relabel	5.551115123125783e-14	true	3.985376276771646e-7
+R-HSA-170834	c942afae-263a-4a5c-ab21-c4230e7c980a	2.0	max_abs_fold_difference	relabel	0.0	true	2.393918396847994e-16
+R-HSA-194138	5aab7e52-259f-4d19-950a-a14d047c1901	2.0	max_abs_fold_difference	relabel	0.0	true	8.395601352254034e-7
+R-HSA-373760	0a5e1420-49b8-4de9-a4b7-e38f247ba59d	2.0	max_abs_fold_difference	relabel	0.0	true	9.71445146547012e-17
+R-HSA-453274	ffbb0ae9-f8f2-4019-abe6-c6eeb05a7610	2.0	max_abs_fold_difference	relabel	0.0	true	4.012327259050874e-7
+R-HSA-453279	e8a61238-1626-4564-8962-ec4d6b64c4f5	2.0	max_abs_fold_difference	relabel	9.71445146547012e-15	true	9.544341671944429e-7
+R-HSA-5693571	e6aec420-4734-45cf-96fc-a0cb0efe2fb6	2.0	max_abs_fold_difference	relabel	0.0	true	0.0
+R-HSA-6783310	2f1ae38c-0328-446f-9660-d5b3f45c5449	2.0	max_abs_fold_difference	relabel	3.469446951953614e-16	true	3.764770198921852e-7
+R-HSA-69242	adafd67c-c512-4013-9eac-4ae7ef2d6920	2.0	max_abs_fold_difference	relabel	3.3306690738754696e-14	true	4.1340695022817897e-7
+R-HSA-69620	9e41b003-c2b9-4c77-a2aa-325468c06ecc	2.0	max_abs_fold_difference	relabel	3.469446951953614e-16	true	3.0758193836355474e-7
+R-HSA-74752	e4689881-7d75-4f77-aa5b-8b0faee9d1ab	2.0	max_abs_fold_difference	relabel	5.204170427930421e-16	true	8.342930324506392e-7
+R-HSA-75153	5b2b210c-2c48-4473-b71c-2dc7ab055c37	2.0	max_abs_fold_difference	relabel	0.0	true	0.0
+R-HSA-983169	d0d2447c-c71c-4dc7-a487-d2c5ca317562	2.0	max_abs_fold_difference	relabel	5.204170427930421e-16	true	4.926614671774132e-16

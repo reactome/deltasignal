@@ -13,7 +13,7 @@ conserved quantity redistributed by enzymes, and are solved as a pool
 catalyst. There is no active form, so every state is a resting state with an
 equal baseline share. Nodes a generator pool already uses are left alone.
 
-**Multi-step carriers** (`DS_CARRIER_MULTISTEP=strict|wide`, rules 2 and 3). A
+**Multi-step carriers** (`DS_CARRIER_MULTISTEP=strict|wide|compartment`, rules 2, 3, 3b). A
 free form F is carried when a walk from F along material edges (`input` into a
 reaction, `output` out of one, the identity edges `variant_pool`,
 `variant_split`, `specialization`), through nodes that carry F's core, reaches
@@ -29,12 +29,18 @@ carrier rules of specs/049/077/088 apply unchanged.
   by reference entity when the bundle ships `leaf_refs.csv` (GRIP2 at the
   membrane and in the cytosol). Without the table that part is inert and the
   rule reports it.
+- `compartment` (rule 3b, amendment 1): `wide`, but leaves compare by reference
+  entity AND modified residues, so only compartment copies join (under `wide`,
+  SMAD2 and p-SMAD2 joined and their phosphorylation cycle read as a closed
+  carrier), and free ubiquitin (the nodes `DS_UBIQUITIN_MODE=inert` holds) is
+  never a carrier form. A table without the `modifications` column joins
+  nothing, and the rule reports it.
 Free forms the generator already lists, pool-managed nodes and held nodes are
 not candidates.
 """
 
 const DS_VALID_METABOLITE_POOLS = Set(["off", "on"])
-const DS_VALID_CARRIER_MULTISTEP = Set(["off", "strict", "wide"])
+const DS_VALID_CARRIER_MULTISTEP = Set(["off", "strict", "wide", "compartment"])
 const MATERIAL_IDENTITY_EDGES = Set(["variant_pool", "variant_split", "specialization"])
 const SET_NODE_KINDS = Set(["set_variant", "variant_pool"])
 
@@ -165,11 +171,20 @@ function multistep_carriers(network::ReactionNetwork, mode::String)
     leaves = network.node_leaves
     rows = CarrierLoopEdge[]
     (mode == "off" || leaves === nothing) && return rows, false
-    wide = mode == "wide"
+    wide = mode in ("wide", "compartment")
     refs = wide ? network.leaf_refs : nothing
-    ref(l) = refs === nothing ? l : get(refs, l, l)
+    # under `compartment` a leaf is its reference entity plus its modifications;
+    # a table without modifications joins nothing
+    by_mods = mode == "compartment"
+    by_mods && refs !== nothing && any(v -> last(v) === nothing, values(refs)) && (refs = nothing)
+    function ref(l)
+        (refs === nothing || !haskey(refs, l)) && return l
+        r, m = refs[l]
+        return by_mods ? string(r, "|", m) : r
+    end
     macro_(l) = !startswith(l, "R-ALL-")
     held = held_uuids(network)
+    free_ub = by_mods ? ubiquitin_uuids(network) : Set{String}()
     claimed = pool_claimed(network)
     listed = network.carrier_loops === nothing ? Set{String}() : Set(f for (f, _, _) in network.carrier_loops)
     kind(u) = haskey(leaves, u) ? leaves[u][1] : ""
@@ -184,7 +199,7 @@ function multistep_carriers(network::ReactionNetwork, mode::String)
     for v in values(out_adj); sort!(v); end
     for f in sort!(collect(keys(producers)))
         k = kind(f)
-        (k == "" || k == "reaction" || f in held || f in claimed || f in listed) && continue
+        (k == "" || k == "reaction" || f in held || f in claimed || f in listed || f in free_ub) && continue
         k in SET_NODE_KINDS && !wide && continue
         fl = haskey(leaves, f) ? leaves[f][2] : String[]
         core = Set(ref(l) for l in fl if macro_(l))
@@ -260,7 +275,10 @@ function apply_material_loops(network::ReactionNetwork;
                                   network.containment, network.drug_stids, pools, network.pathogen_stids,
                                   network.carrier_loops, network.node_leaves, network.rna_stids, network.leaf_refs)
             rows, with_refs = multistep_carriers(net, multistep)
-            multistep == "wide" && !with_refs && (report["carrier_multistep_rule"] = "wide: no reference table")
+            if !with_refs && multistep in ("wide", "compartment")
+                report["carrier_multistep_rule"] =
+                    network.leaf_refs === nothing ? "$multistep: no reference table" : "$multistep: no modification column"
+            end
             report["carrier_multistep_rows"] = length(rows)
             report["carrier_multistep_forms"] = length(unique(first.(rows)))
             isempty(rows) || (loops = vcat(something(loops, CarrierLoopEdge[]), rows))

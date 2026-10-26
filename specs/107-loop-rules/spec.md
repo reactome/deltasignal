@@ -77,3 +77,40 @@ are reported, not gates. Adoption is Adam's.
 - P2: rule 2 dissolves at least 4 of the 6 benchmark pathways' carrier cycles; curator held-out
   moves by fewer than 20 cases either way.
 - P3: rules 1–3 together leave material-closed remnants in at most 8 of the 15 sample pathways.
+
+## Amendment 1 (2026-10-25, before any run): rule 3b, `DS_CARRIER_MULTISTEP=compartment`
+
+Rule 3 failed the no-harm guard (held-out −50, research.md), and both traced causes came from the
+reference match, not the multi-step walk. Adam chose not to adopt rules 1–3 and to pursue a narrower
+rule 3. This variant was chosen after reading curator held-out traces, so its curator figure is read
+only as the no-harm guard, not as evidence for the rule.
+
+**Rule 3b** is rule 3 (`wide`) with two changes:
+
+1. Two leaves count as one entity only when they have the same reference entity **and the same
+   modified residues**: copies of one protein in different compartments join; SMAD2 and
+   p-S465,S467-SMAD2 do not, because a modification changes what the protein does. The generator's
+   `leaf_refs.csv` gains a `modifications` column (each leaf's modified residues, sorted; empty when
+   it has none). A bundle without the column reports `compartment: no modification column` and adds
+   no reference-matched rows (the bench refuses it).
+2. Free ubiquitin, the nodes `DS_UBIQUITIN_MODE=inert` would hold (specs/098), is never a carrier
+   form. Whether it is held stays `DS_UBIQUITIN_MODE`'s question.
+
+`wide` and `strict` are kept unchanged so the earlier arms reproduce.
+
+**Evaluation**, as registered above, with these choices fixed now:
+- Arm `mc107`: `DS_CARRIER_MULTISTEP=compartment` alone, rule 1 off (rule 1 is not adopted, so the
+  comparison is against the defaults). Control `ctl107`.
+- The behaviour checks reuse the perturbations and readouts already selected (`*_selection.tsv`,
+  chosen with every rule on). Rule 3b touches a subset of the nodes `wide` touches, so the
+  selection covers it and nothing is re-chosen.
+- Pass: B2 and B4 not worse, B3 not higher than rules off, B5 holds, on both catalogs; curator
+  held-out not significantly against (McNemar p < 0.05). Tuning and experimental reported.
+
+**Predictions:**
+- A1: rule 3b adds no row for SMAD2/3 in TGF-beta and none for free ubiquitin in Mitotic G1 or
+  Fanconi; the curator guard passes with held-out net between −10 and +10.
+- A2: the behaviour checks pass on both catalogs. Rails fall less than under `wide`: on the
+  benchmark to at most 20% (`wide` 9.6%, rules off 32.3%), on the sample to at most 10% (`wide` 3.8%).
+  The cyclin B1:CDK1 loop (G2/M), which changes CDK1's modification, is no longer dissolved.
+- A3: experimental moves by fewer than 5 cases either way.

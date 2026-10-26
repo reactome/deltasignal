@@ -929,6 +929,10 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
     if str(ds_result.get("sequestration_rule", "")).endswith(": no node table"):
         raise SystemExit(f"{pathway_name}: {ds_result['sequestration_rule']} -- DS_SEQUESTRATION "
                          "needs the network's nodes.csv, so no edge was added (specs/063).")
+    if str(ds_result.get("carrier_multistep_rule", "")).startswith("compartment: "):
+        raise SystemExit(f"{pathway_name}: {ds_result['carrier_multistep_rule']} -- DS_CARRIER_MULTISTEP="
+                         "compartment needs leaf_refs.csv with its modifications column, so no copy was "
+                         "joined (specs/107 amendment 1).")
     if str(ds_result.get("carrier_loop_rule", "")).endswith(": no carrier table"):
         raise SystemExit(f"{pathway_name}: {ds_result['carrier_loop_rule']} -- the network has no "
                          "carrier_loops.csv (a build that predates it), so no loop is changed (specs/049).")

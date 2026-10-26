@@ -78,3 +78,8 @@ def test_bench_refuses_an_unreported_or_tableless_zero_supply_rule():
         bm.refuse_unless_default_model({"zero_supply_rule": "off",
                                         "sequestration_rule": "deadend_sole: no node table"}, "P")
     bm.refuse_unless_default_model({"zero_supply_rule": "off", "sequestration_rule": "deadend_sole"}, "P")
+    # specs/107 amendment 1: compartment without the modification column joins nothing
+    for rule in ("compartment: no modification column", "compartment: no reference table"):
+        with pytest.raises(SystemExit, match="amendment 1"):
+            bm.refuse_unless_default_model({"zero_supply_rule": "off", "carrier_multistep_rule": rule}, "P")
+    bm.refuse_unless_default_model({"zero_supply_rule": "off", "carrier_multistep_rule": "compartment"}, "P")

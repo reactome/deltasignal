@@ -175,7 +175,7 @@ end
     @test isempty(rows) && !with_refs
     @test last(DS.apply_material_loops(location(); mpools = "off", multistep = "wide"))["carrier_multistep_rule"] ==
           "wide: no reference table"
-    refs = Dict("R-HSA-Gm" => "R-HSA-G", "R-HSA-Gc" => "R-HSA-G")
+    refs = Dict{String, DS.LeafRef}("R-HSA-Gm" => ("R-HSA-G", nothing), "R-HSA-Gc" => ("R-HSA-G", nothing))
     rows, with_refs = DS.multistep_carriers(location(; refs = refs), "wide")
     @test with_refs
     @test rows == [("Gc", "r1", true), ("Gm", "r2", true)]
@@ -183,12 +183,41 @@ end
     @test isempty(first(DS.multistep_carriers(location(; refs = refs), "strict")))
 end
 
+@testset "rule 3b: compartment copies join, modified forms and free ubiquitin do not" begin
+    same = Dict{String, DS.LeafRef}("R-HSA-Gm" => ("R-HSA-G", ""), "R-HSA-Gc" => ("R-HSA-G", ""))
+    @test first(DS.multistep_carriers(location(; refs = same), "compartment")) == [("Gc", "r1", true), ("Gm", "r2", true)]
+    # Gc is a phosphorylated form (SMAD2 -> p-SMAD2): wide joins them, compartment does not
+    modified = Dict{String, DS.LeafRef}("R-HSA-Gm" => ("R-HSA-G", ""), "R-HSA-Gc" => ("R-HSA-G", "O-phospho-L-serine at 465"))
+    @test first(DS.multistep_carriers(location(; refs = modified), "wide")) == [("Gc", "r1", true), ("Gm", "r2", true)]
+    rows, with_refs = DS.multistep_carriers(location(; refs = modified), "compartment")
+    @test isempty(rows) && with_refs
+    # a table without the modifications column joins nothing, and the solve says so
+    old = Dict{String, DS.LeafRef}("R-HSA-Gm" => ("R-HSA-G", nothing), "R-HSA-Gc" => ("R-HSA-G", nothing))
+    rows, with_refs = DS.multistep_carriers(location(; refs = old), "compartment")
+    @test isempty(rows) && !with_refs
+    @test last(DS.apply_material_loops(location(; refs = old); mpools = "off", multistep = "compartment"))["carrier_multistep_rule"] ==
+          "compartment: no modification column"
+    @test last(DS.apply_material_loops(location(); mpools = "off", multistep = "compartment"))["carrier_multistep_rule"] ==
+          "compartment: no reference table"
+    # free ubiquitin (Ub [nucleoplasm]) is a carrier under wide, never under compartment
+    n = carrier(); n.nodes["F"] = last(nd("F", "R-HSA-68524"))
+    @test first(DS.multistep_carriers(n, "wide")) == [("F", "r3", true)]
+    @test isempty(first(DS.multistep_carriers(n, "compartment")))
+    # the protein carrier is unaffected
+    @test first(DS.multistep_carriers(carrier(), "compartment")) == [("F", "r3", true)]
+end
+
 @testset "leaf_refs.csv: parsed when present, absent otherwise" begin
     mktempdir() do d
         f = joinpath(d, "logic_network.csv")
         @test DS.parse_leaf_refs(f) === nothing
         write(joinpath(d, "leaf_refs.csv"), "leaf_stid,reference_stid\nR-HSA-1,R-HSA-9\nR-ALL-2,R-ALL-2\n")
-        @test DS.parse_leaf_refs(f) == Dict("R-HSA-1" => "R-HSA-9", "R-ALL-2" => "R-ALL-2")
+        @test DS.parse_leaf_refs(f) == Dict("R-HSA-1" => ("R-HSA-9", nothing), "R-ALL-2" => ("R-ALL-2", nothing))
+        # amendment 1: modifications, "" for none
+        write(joinpath(d, "leaf_refs.csv"),
+              "leaf_stid,reference_stid,modifications\nR-HSA-1,R-HSA-9,\nR-HSA-3,R-HSA-9,\"O-phospho-L-serine at 465; O-phospho-L-serine at 467\"\n")
+        @test DS.parse_leaf_refs(f) == Dict("R-HSA-1" => ("R-HSA-9", ""),
+                                            "R-HSA-3" => ("R-HSA-9", "O-phospho-L-serine at 465; O-phospho-L-serine at 467"))
         write(joinpath(d, "leaf_refs.csv"), "leaf,ref\nR-HSA-1,R-HSA-9\n")
         @test_throws ArgumentError DS.parse_leaf_refs(f)
     end
