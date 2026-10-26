@@ -62,3 +62,36 @@ autocatalytic and self-activating loops, not the large catalyst-closed component
 are. Making it reach those would need a different choice of which edge closes a loop with several
 entries (for example the catalyst edges that point backwards in the solver's flow order, specs/013). That
 would be a new rule, pre-registered before it is measured. Adoption of this one is Adam's.
+
+## Amendment 1 results (solver b5d4a44, arm `cat109b`)
+
+**Behaviour checks** on the re-made selections (NHEJ and TGF-beta no longer selected; benchmark 10 pathways,
+sample 9):
+
+| catalog | arm | converged | rails | monotone | relabel |
+|---|---|---|---|---|---|
+| benchmark | rule off | 278 / 278 | 24,888 / 40,104 (62.1%) | 16,233 / 20,052 | 3.0e-12 |
+| benchmark | `catalyst_loop` | 278 / 278 | 24,665 (61.5%) | 16,233 | 3.0e-12 |
+| sample | rule off | 273 / 273 | 1,161 / 1,576 (73.7%) | 776 / 788 | 2.2e-14 |
+| sample | `catalyst_loop` | 273 / 273 | 718 (45.6%) | 788 / 788 | 2.2e-14 |
+
+G1 passes. Five benchmark components that are catalyst-closed with the fixed pair test are still untouched
+(Signaling by EGFR, Signaling by WNT, anterior HOX activation, DSB repair, DNA repair): signal enters each at
+several points, so no node is self-fed.
+
+**Benchmark:** identical to `cat109`, so the defect never fired on a scored solve. Curator held-out 0, tuning 0,
+experimental 0 (no experimental solve held an edge; the bench stopped the axis as the control). 25 values move,
+none changes class, and all 12 that come off a rail keep their direction. **The gate passes.**
+
+**Predictions:** A1 holds (NHEJ and TGF-beta drop out of the selection). A2 holds (no class change). A3 holds on
+the sample (rails fall by 38%) and fails on the benchmark (by 0.9%).
+
+## What the traces say about the large loops
+
+NHEJ and TGF-beta are not catalyst loops. In each, a complex is the input and the catalyst of its own
+reaction: the receptor complex phosphorylating its own SMAD2/3 (R-HSA-170868), MTMR4 dephosphorylating the
+p-SMAD2/3 it holds (R-HSA-2187401), and the DNA-PK complexes in NHEJ (R-HSA-5693575, 5687183, 5687360,
+5693604). Read with the fixed pair test, they are material cycles: SMAD2/3 is a phosphorylation cycle, and Ku is
+released by ligation and rebinds. With specs/106 amendment 2, material-closed positive loops are the largest
+unhandled class (benchmark 28 loops in 14 pathways, sample 46 in 20). The large loops that really are closed
+only through catalysts are EGFR, WNT, HOX activation and DNA/DSB repair.

@@ -1047,8 +1047,8 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/106-loop-coverage/` — analysis: every loop in the network as generated and the rule that
   handles it. Rules touch 93% of benchmark loops and 88% in 101 other pathways (carrier rules most;
   amendment 1 counts cofactor holds); about 40% of loop nodes stay in unhandled remnants in both.
-  Unhandled: positive loops closed by material steps (15 sample pathways), catalysts (13) or free ubiquitin; self-depleting rings only
-  numerically. No further rules are chosen from experimental traces (Adam, 2026-10-25).
+  Unhandled: positive loops closed by material steps (20 sample pathways after amendment 2, which counts a complex that is
+  both input and catalyst as material), catalysts (7) or free ubiquitin; self-depleting rings only numerically. No further rules are chosen from experimental traces (Adam, 2026-10-25).
 - `specs/107-loop-rules/` — three rules for loop types specs/106 left unhandled, judged by behaviour checks on networks
   without ground truth (convergence, rails, dose monotonicity, relabelling) plus a curator held-out no-harm guard.
   Rule 1 (`DS_METABOLITE_POOLS`): no class change, B4 −2. Rule 2 (`DS_CARRIER_MULTISTEP=strict`): held-out +6, all
@@ -1066,7 +1066,9 @@ for the last feature that touched it rather than re-deriving from the code.
   catalyst or regulator slots, holding only those edges; judged by the loop-rule gate (Adam, 2026-10-26: behaviour checks,
   un-railed cases keep direction, held-out losses read by specs/108). Gate passes: no class change on any axis, rails gone
   in small autocatalytic and self-activating loops (PAK1, CEBPA, HNF1B/ONECUT1), but large catalyst loops untouched
-  (benchmark rails 61.0% → 60.5%): with several entries no node is self-fed. Adoption Adam's.
+  (benchmark rails 61.0% → 60.5%): with several entries no node is self-fed. Amendment 1: a pair that is also an
+  input (a complex modifying itself, 35% of catalyst pairs) is not a catalyst slot; same scores. The NHEJ and TGF-beta
+  loops are material cycles of that kind. Adoption Adam's.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
