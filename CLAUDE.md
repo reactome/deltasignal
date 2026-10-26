@@ -1069,6 +1069,10 @@ for the last feature that touched it rather than re-deriving from the code.
   (benchmark rails 61.0% → 60.5%): with several entries no node is self-fed. Amendment 1: a pair that is also an
   input (a complex modifying itself, 35% of catalyst pairs) is not a catalyst slot; same scores. The NHEJ and TGF-beta
   loops are material cycles of that kind. Adoption Adam's.
+- `specs/110-self-modification/` — `DS_DEDUP_ACTIVATORS=1` (specs/012) re-measured under the loop-rule gate: a complex
+  that is input and catalyst of its own reaction counted once. Rails fall (benchmark 37% → 24%) but monotonicity
+  falls too, and held-out −60 (3 / 63, 61 not rail-dependent: SOCS1 in IFN-gamma, BER glycosylases): the doubling
+  carries correct moderate calls past the thresholds. Gate fails; not adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
