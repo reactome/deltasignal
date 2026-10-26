@@ -89,3 +89,22 @@ Adoption remains Adam's.
 - C2. G1 holds on both catalogs, and rails among the selected pairs fall by at least a quarter on each.
 - C3. Curator held-out moves by fewer than 15 cases either way; experimental by fewer than 5.
 - C4. G2 holds.
+
+## Amendment 1 (2026-10-26, after the first arm, before any re-run): a pair that is also an input is not a catalyst slot
+
+Tracing the large loops (NHEJ, TGF-beta) for the next step found a defect in the scope test and in
+specs/106's classification. Reactome often curates one complex as both the input and the catalyst of a
+reaction: the complex modifies itself (R-HSA-170868: TGFB1:p-TGFBR:ZFYVE9:SMAD2/3 phosphorylating SMAD2/3;
+R-HSA-5693604, R-HSA-5687360 and R-HSA-5693575 in NHEJ). The generator writes both an `input` and a `catalyst`
+edge for that pair (7,898 of 22,397 catalyst pairs on the canonical build). `catalyst_edge_pairs` keyed by pair,
+so removing "catalyst slots" also removed the input edge, and material cycles were counted as catalyst-closed.
+The rule could then hold an input edge.
+
+Fix: a (source, target) pair is a catalyst slot only if every edge between them is `catalyst` or `regulator`
+(set-pool `set_member` edges as before). Nothing else changes. Re-run, unchanged in every other respect:
+behaviour checks on the same selections (the selection used the same pair test, so it is re-made with the fix
+before any solve, and both sets are kept), and arm `cat109b` against `dflt102`, judged by G1–G5.
+
+Predictions: A1. The large components in NHEJ and TGF-beta no longer qualify. A2. The gate still passes, with no
+curator class change in either direction, more than 2. A3. Rails among the re-made selection fall by at least a
+tenth on both catalogs (the selection now holds only catalyst-closed loops).
