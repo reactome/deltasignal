@@ -1,0 +1,17 @@
+pathway	root	dose	readout	role	fold	converged	residual
+R-HSA-1169408	5e333042-cf32-4e3c-934b-c6f58590ca89	2.0	max_abs_fold_difference	relabel	0.0	true	2.959584470829668e-7
+R-HSA-1445148	3694f29d-b585-421c-b675-9d300ee5e14f	2.0	max_abs_fold_difference	relabel	0.0	true	0.0
+R-HSA-1592389	db4d42ec-812b-4ee2-bd29-710e5135d44d	2.0	max_abs_fold_difference	relabel	1.734723475976807e-16	true	7.202209048561004e-7
+R-HSA-1632852	2a6809a9-7bcc-4dbc-85ed-9e6f77dd4f56	2.0	max_abs_fold_difference	relabel	1.734723475976807e-16	true	4.2604246563993087e-7
+R-HSA-166058	d22cec8a-bc60-4c27-849d-2a0132e24d15	2.0	max_abs_fold_difference	relabel	6.938893903907228e-16	true	4.22731569048318e-7
+R-HSA-264876	5363b43c-6f76-4f8b-8b3d-18ac91ec75f1	2.0	max_abs_fold_difference	relabel	1.734723475976807e-16	true	8.729801758006195e-7
+R-HSA-416482	7f37a1ac-366c-4899-bde9-0c35ae4d228e	2.0	max_abs_fold_difference	relabel	1.1102230246251565e-14	true	3.987671505223389e-7
+R-HSA-611105	e4947d5d-79c2-4924-8b5f-88d9b40d8966	2.0	max_abs_fold_difference	relabel	2.220446049250313e-14	true	4.339234080941168e-7
+R-HSA-75893	48134dd7-2e64-45e7-b266-da18de92b942	2.0	max_abs_fold_difference	relabel	2.7755575615628914e-15	true	9.68221419903742e-7
+R-HSA-9645460	56d11b62-1be0-4ef8-9fad-9854fb6ef2a4	2.0	max_abs_fold_difference	relabel	0.0	true	9.40034105750831e-7
+R-HSA-9707564	978000d0-8147-43cb-88ed-a607741ae1c2	2.0	max_abs_fold_difference	relabel	0.0	true	1.4224732503009818e-16
+R-HSA-975155	ee132df1-fdd4-4919-8082-b4bb98802bcd	2.0	max_abs_fold_difference	relabel	6.938893903907228e-16	true	3.422003691522235e-7
+R-HSA-977225	ddda173e-faff-4ee9-8237-91bc476e3661	2.0	max_abs_fold_difference	relabel	0.0	true	6.632736185840926e-7
+R-HSA-9818027	45c7342e-c1af-403e-9693-4f1ebe721b25	2.0	max_abs_fold_difference	relabel	0.0	true	0.0
+R-HSA-9833482	adf616fa-c79c-4ca7-8a69-cb424fc689c2	2.0	max_abs_fold_difference	relabel	1.734723475976807e-16	true	9.86058379755586e-7
+R-HSA-9854311	24ad02aa-0131-4b75-8aec-42d940135130	2.0	max_abs_fold_difference	relabel	1.734723475976807e-16	true	2.42861286636753e-17
