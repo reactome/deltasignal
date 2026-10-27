@@ -78,3 +78,24 @@ predictions file is unchanged. Readouts with a real effect are from 1.79 up.
 
 Also recorded before scoring: H1 fails. 20 of the 48 readouts occur in at least one network (predicted: at least
 half).
+
+## Amendment 2 (2026-10-26, after H4, before any rank was computed): official-style rank and its interval
+
+Adam, 2026-10-26: approved firming up the leaderboard placement. The official leaderboard file holds only each team's
+mean AUROC, but DREAMTools 1.2.4 (the challenge's own scoring package) ships every team's AUROC per context
+(`dream8/D8C1/data/SC1A_aucs.json`) and the ranking rule (`SC1A_ranking.get_ranking`): per official context, rank the
+entries by AUROC (descending, ties at the lowest rank, pandas `method="min"`), then average the 30 ranks. No truth
+vector is read in this step; it uses only `score.json` and the teams' AUROCs.
+
+- **Validation, before any rank is reported.** The teams' AUROCs must reproduce the leaderboard: for every team, the
+  mean over the 30 official contexts equals the sheet's `mean AUROC` to its printed precision (±0.0001 after
+  rounding), and the mean rank computed among the 74 equals the sheet's `mean Rank` to ±0.001. Teams are matched by
+  name; any unmatched or mismatched team is listed. If more than two teams fail, no rank is reported.
+- **Rank.** DeltaSignal (and, separately, the reachability baseline) is added as a 75th entry with its 30 per-context
+  AUROCs from `score.json`; reported: its mean rank, its place by mean rank, and its place by mean AUROC.
+- **Interval.** A bootstrap over contexts: 10,000 resamples of the 30 official contexts with replacement (numpy
+  seed 112), each recomputing every entry's mean AUROC and mean rank; reported: the 2.5–97.5 percentile interval of
+  DeltaSignal's place on both measures. It does not resample readouts (the teams' per-readout scores are not in the
+  file), so it understates the uncertainty.
+- Prediction, written now: DeltaSignal's place by mean rank is between 8th and 16th, and the bootstrap interval of
+  its place by mean AUROC spans at least five places.
