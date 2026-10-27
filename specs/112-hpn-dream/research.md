@@ -69,7 +69,7 @@ Caveats:
 
 ## Amendment 2: validation failed (no rank reported)
 
-Run at a1c3e0f-equivalent bench code (`hpn_dream_bench.py rank`, committed before the run) on DREAMTools 1.2.4's
+Run at bench 6afc0dc (`hpn_dream_bench.py rank`, committed before the run) on DREAMTools 1.2.4's
 `SC1A_aucs.json` (74 teams × 32 contexts) and the official SC1A sheet. Under the pre-registered criterion, 33 of
 the 74 teams fail and one name is unmatched, so **no rank is reported**. DeltaSignal's place was not computed:
 the run stopped at validation. Output (team-level, kept outside the repo):
