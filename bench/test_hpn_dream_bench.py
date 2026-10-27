@@ -125,5 +125,6 @@ def test_rank_validation_amendment_3(tmp_path):
     assert len(fails("2,t1,0.6124,2\n1,MLBHKKG,0.7,1\n")) == 1         # rounded is not truncated
     assert len(fails("2,t1,0.6123,1.95\n1,MLBHKKG,0.7,1\n")) == 1      # sheet rank below ours
     assert len(fails("2,t1,0.6123,2.05\n1,MLBHKKG,0.7,1\n")) == 1      # not a whole thirtieth
-    assert len(fails("2,t1,0.6123,2.1333333\n1,MLBHKKG,0.7,1\n")) == 1  # four thirtieths
+    assert fails("2,t1,0.6123,2.0667\n1,MLBHKKG,0.7,1\n") == []         # two thirtieths, printed to 4 decimals
+    assert len(fails("2,t1,0.6123,2.1333\n1,MLBHKKG,0.7,1\n")) == 1     # four thirtieths
     assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 1         # order differs

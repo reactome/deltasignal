@@ -119,3 +119,8 @@ AUROCs. The validation now reads:
 The two-failure limit stands. Reported as in amendment 2. Because the removed entries may also have outranked
 DeltaSignal in some contexts, its official-style mean rank may be worse by up to about 3/30 than computed; this is
 reported beside the place. Amendment 2's prediction stands unchanged.
+
+**Correction to amendment 3 (same day, before any rank was computed).** The first run under amendment 3 failed 49
+teams, because the ±1e-6 written above is finer than the sheet prints mean rank (three or four decimals, e.g. 7.7333
+for 7 + 22/30). The rank check is now: the sheet's mean rank equals ours plus k/30 for some k in 0–3, within ±0.001
+(amendment 2's precision). DeltaSignal's and reachability's ranks were not computed by the failed run.

@@ -269,9 +269,8 @@ def rank(team_aucs_json, leaderboard_csv, out_dir, boot=10000, seed=112):
             bad.append({"team": t, "problem": "not in the per-context file"})
             continue
         a, ra = float(r["mean AUROC"]), float(r["mean Rank"])
-        steps = (ra - mean_rank[t]) * len(contexts)
         auc_ok = a - 1e-9 <= mean_auc[t] < a + 1e-4 + 1e-9
-        rank_ok = abs(steps - round(steps)) < 1e-6 and 0 <= round(steps) <= 3
+        rank_ok = any(abs(ra - mean_rank[t] - k / len(contexts)) <= 1e-3 for k in range(4))
         if not (auc_ok and rank_ok):
             bad.append({"team": t, "mean_auroc": [mean_auc[t], a], "mean_rank": [mean_rank[t], ra]})
     on_both = sorted((t for t in teams if t in sheet), key=lambda t: mean_rank[t])
