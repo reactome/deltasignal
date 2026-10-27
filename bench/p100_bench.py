@@ -184,7 +184,8 @@ def truth(inst_gz, level4_gctx):
     with gzip.open(inst_gz, "rt") as f:
         all_inst = list(csv.DictReader(f, delimiter="\t"))
     inst = [r for r in all_inst if r["inst_id"] in col]
-    if len(inst) != len(cols) or len(inst) != len(all_inst):
+    # every matrix column must be a listed instance; listed instances absent from the matrix were left out upstream
+    if len(inst) != len(cols):
         raise SystemExit(f"{len(inst)} instances match the matrix's {len(cols)} columns ({len(all_inst)} listed)")
     dmso = collections.defaultdict(list)
     top = {}

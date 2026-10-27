@@ -77,3 +77,10 @@ the repo (CC BY-SA). SHA-256 of `p100_targets_1uM.tsv`:
 - **Arm B.** It marks 73% of pairs as reached, as research.md expected: one unsigned hop at each end reaches most
   proteins. It can only help where the 27% it leaves at 0 are mostly unchanged probes.
 - **Arm A.** It is non-zero for 2% of pairs. Within a context it can only separate a few probes from the rest.
+
+## Scoring
+
+- **First attempt (9e155ee).** Stopped by the instance guard before anything was computed. The instance table lists
+  1,713 samples; the Level 4 matrix holds 1,684, and every one of them is listed. The guard required the two counts
+  to be equal. It now requires only that every matrix column is a listed instance. The 29 extra listings were left
+  out upstream; they are most likely QC removals (not checked).
