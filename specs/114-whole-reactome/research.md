@@ -39,3 +39,18 @@ target is in the same network); the scored-unit counts come with part 2's join.
 Pathway choice no longer limits site coverage; what Reactome curates does. For P100 that ceiling is 7 of 96 sites, so
 the frozen model still cannot be scored there in any useful way. The 26 decryptM sites curated but in no network were
 not traced (candidates: the Disease top-level pathway, left out, and EWAS in no reaction).
+
+## Part 2 groundwork: can the frozen solver handle these networks? (2026-10-27)
+
+A feasibility probe, not a score: the API at `src` of `6d2b71b` (solver unchanged since `freeze-2026-10-26`), dev
+compose environment, serving the top-level build; one solve per network with an arbitrary root node pinned to 0. No
+dataset was read.
+
+| network | nodes | parse | solve | converged | iterations |
+|---|---|---|---|---|---|
+| Cell Cycle | 100,117 | 31 s | 34 s | yes (residual 4e-15) | 14 |
+| Signal Transduction | 109,395 | 22 s | 65 s | yes (residual 9e-15) | 50 |
+
+The container peaked at 2.3 GiB. The first solve includes Julia compilation. The largest unjoined network solves in
+about a minute, so per-network solving is feasible; a joined network of all 28 (826,677 nodes before merging) was not
+tried.
