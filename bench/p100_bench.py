@@ -99,11 +99,20 @@ def reached(sources, reach):
 
 
 def score_a_b(targets, probe, reach, partners):
-    a = int(probe in reached(targets, reach))
-    if a:
-        return 1, 2
+    return scores_a_b(targets, [probe], reach, partners)[0]
+
+
+def scores_a_b(targets, prots, reach, partners):
+    """[(A, B)] for each protein in `prots`; reach is computed once per compound."""
+    direct = reached(targets, reach)
     wide = reached(set(targets) | set().union(*(partners.get(t, set()) for t in targets)), reach)
-    return 0, int(probe in wide or bool(partners.get(probe, set()) & wide))
+    out = []
+    for p in prots:
+        if p in direct:
+            out.append((1, 2))
+        else:
+            out.append((0, int(p in wide or bool(partners.get(p, set()) & wide))))
+    return out
 
 
 def score_c(targets, probe, partners):
@@ -173,7 +182,10 @@ def truth(inst_gz, level4_gctx):
     m, rows, cols = read_gctx(level4_gctx)
     col = {c: i for i, c in enumerate(cols)}
     with gzip.open(inst_gz, "rt") as f:
-        inst = [r for r in csv.DictReader(f, delimiter="\t") if r["inst_id"] in col]
+        all_inst = list(csv.DictReader(f, delimiter="\t"))
+    inst = [r for r in all_inst if r["inst_id"] in col]
+    if len(inst) != len(cols) or len(inst) != len(all_inst):
+        raise SystemExit(f"{len(inst)} instances match the matrix's {len(cols)} columns ({len(all_inst)} listed)")
     dmso = collections.defaultdict(list)
     top = {}
     for r in inst:
@@ -224,6 +236,13 @@ def score(inst_gz, level4_gctx, out_dir, catalog=None, interactions_csv=None, ta
     for r in csv.DictReader(open(out / "p100_predictions.tsv"), delimiter="\t"):
         pred[r["pert_id"]][r["probe"]] = {k: float(r[k]) for k in ("A", "B", "C")}
     tv = truth(inst_gz, level4_gctx)
+    names = {n for v in pred.values() for n in v}
+    matrix_probes = {n for v in tv.values() for n in v}
+    if not matrix_probes <= names or len(names) != 96:
+        raise SystemExit(f"probe ids differ: {len(matrix_probes - names)} matrix probes not predicted")
+    missing = sorted({pid for pid, _ in tv if pid in pred} ^ set(pred))
+    if missing:
+        raise SystemExit(f"{len(missing)} predicted compounds have no context")
     per = {}
     for col in ("A", "B", "C"):
         for r in contexts_auroc(pred, tv, col):
@@ -252,7 +271,9 @@ def score(inst_gz, level4_gctx, out_dir, catalog=None, interactions_csv=None, ta
         crng, draws = np.random.default_rng(SEED), []
         for _ in range(CONTROLS):
             pp = permuted(partners, crng)
-            cp = {pid: {probe: {"B": float(score_a_b(tg[pid], p, reach, pp)[1])} for probe, p in pr.items()}
+            names = sorted(pr)
+            cp = {pid: {n: {"B": float(ab[1])} for n, ab in zip(names, scores_a_b(tg[pid], [pr[n] for n in names],
+                                                                                 reach, pp))}
                   for pid in pred}
             draws.append(mean(contexts_auroc(cp, {k: tv[k] for k in ctx}, "B"), "B"))
         b = summary["mean_auroc"]["B"]

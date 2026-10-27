@@ -52,3 +52,26 @@ def test_permuted_keeps_degrees():
     pp = p.permuted(partners, np.random.default_rng(1))
     assert sorted(len(v) for v in pp.values()) == sorted(len(v) for v in partners.values())
     assert all(a in pp[b] for a, bs in pp.items() for b in bs)       # still symmetric
+
+
+def test_truth_against_dmso(tmp_path):
+    import gzip
+    import pytest
+    h5py = pytest.importorskip("h5py")
+    import numpy as np
+    probes, cols = ["pA", "pB", "pC"], [f"s{i}" for i in range(7)]
+    # four DMSO wells (MAD of pA = 0.1, pB = 0, pC = 0.1), two wells of D at dose 10, one at dose 1
+    m = np.array([[0.0, 1, 0.0], [0.1, 1, 0.1], [-0.1, 1, -0.1], [0.2, 1, np.nan],
+                  [0.5, 5, 0.3], [0.7, 5, 0.3], [9.0, 9, 9.0]])
+    with h5py.File(tmp_path / "m.gctx", "w") as h:
+        h["0/DATA/0/matrix"] = m
+        h["0/META/ROW/id"] = np.array([p.encode() for p in probes])
+        h["0/META/COL/id"] = np.array([c.encode() for c in cols])
+    rows = ["inst_id\tcell_id\tpert_dose\tpert_id\tpert_type"]
+    rows += [f"s{i}\tX\t0\tDMSO\tctl_vehicle" for i in range(4)]
+    rows += ["s4\tX\t10\tD\ttrt_cp", "s5\tX\t10\tD\ttrt_cp", "s6\tX\t1\tD\ttrt_cp"]
+    with gzip.open(tmp_path / "inst.gz", "wt") as f:
+        f.write("\n".join(rows) + "\n")
+    tv = p.truth(tmp_path / "inst.gz", tmp_path / "m.gctx")
+    # pA: |0.6 - 0.05| = 0.55 >= 4.45 * 0.1; pB dropped (MAD 0); pC: 3 DMSO values, |0.3 - 0| < 4.45 * 0.1
+    assert tv == {("D", "X"): {"pA": 1, "pC": 0}}
