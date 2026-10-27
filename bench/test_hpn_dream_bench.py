@@ -93,7 +93,7 @@ def test_rank_refuses_when_validation_fails(tmp_path):
     ctxs = [f"{c}_{s}" for c in h.CELL_LINES for s in h.OFFICIAL[c]]
     aucs = {ctx: {"t1": 0.6, "t2": 0.7, "t3": 0.5} for ctx in ctxs}
     (tmp_path / "aucs.json").write_text(json.dumps(aucs))
-    rows = "Team name,mean AUROC,mean Rank\nt1,0.9,2\nt2,0.9,1\nt3,0.9,3\n"
+    rows = "Final rank,Team name,mean AUROC,mean Rank\n2,t1,0.9,2\n1,t2,0.9,1\n3,t3,0.9,3\n"
     (tmp_path / "lb.csv").write_text(rows)
     per = [{"cell": c, "stimulus": s, "deltasignal": 0.65, "reachability": 0.5}
            for c in h.CELL_LINES for s in h.OFFICIAL[c]]
@@ -102,8 +102,28 @@ def test_rank_refuses_when_validation_fails(tmp_path):
     r = json.loads((tmp_path / "rank.json").read_text())
     assert len(r["validation_failures"]) == 3 and "deltasignal" not in r
     # with a matching sheet the entry is placed between t2 and t1
-    (tmp_path / "lb.csv").write_text("Team name,mean AUROC,mean Rank\nt1,0.6,2\nt2,0.7,1\nt3,0.5,3\n")
+    # the sheet truncates AUROC and its ranks may run whole thirtieths high (amendment 3)
+    (tmp_path / "lb.csv").write_text("Final rank,Team name,mean AUROC,mean Rank\n2,t1,0.6,2.1\n1,t2,0.7,1\n3,t3,0.5,3\n")
     h.rank(tmp_path / "aucs.json", tmp_path / "lb.csv", tmp_path, boot=10)
     r = json.loads((tmp_path / "rank.json").read_text())
     assert r["validation_failures"] == []
     assert r["deltasignal"]["place_by_mean_rank"] == 2 and r["deltasignal"]["place_by_mean_auroc_95"] == [2.0, 2.0]
+
+
+def test_rank_validation_amendment_3(tmp_path):
+    ctxs = [f"{c}_{s}" for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    (tmp_path / "aucs.json").write_text(json.dumps({ctx: {"t1": 0.61239, "ML_BHK_KG": 0.7} for ctx in ctxs}))
+    per = [{"cell": c, "stimulus": s, "deltasignal": 0.65, "reachability": 0.5}
+           for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    (tmp_path / "score.json").write_text(json.dumps({"per_context": per}))
+
+    def fails(rows):
+        (tmp_path / "lb.csv").write_text("Final rank,Team name,mean AUROC,mean Rank\n" + rows)
+        h.rank(tmp_path / "aucs.json", tmp_path / "lb.csv", tmp_path, boot=2)
+        return json.loads((tmp_path / "rank.json").read_text())["validation_failures"]
+    assert fails("2,t1,0.6123,2\n1,MLBHKKG,0.7,1\n") == []            # truncated, alias
+    assert len(fails("2,t1,0.6124,2\n1,MLBHKKG,0.7,1\n")) == 1         # rounded is not truncated
+    assert len(fails("2,t1,0.6123,1.95\n1,MLBHKKG,0.7,1\n")) == 1      # sheet rank below ours
+    assert len(fails("2,t1,0.6123,2.05\n1,MLBHKKG,0.7,1\n")) == 1      # not a whole thirtieth
+    assert len(fails("2,t1,0.6123,2.1333333\n1,MLBHKKG,0.7,1\n")) == 1  # four thirtieths
+    assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 1         # order differs

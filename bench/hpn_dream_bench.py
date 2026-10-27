@@ -248,6 +248,9 @@ def place(scores, name, higher_better):
     return 1 + sum((v > me) if higher_better else (v < me) for v in scores.values())
 
 
+SHEET_ALIASES = {"MLBHKKG": "ML_BHK_KG"}
+
+
 def rank(team_aucs_json, leaderboard_csv, out_dir, boot=10000, seed=112):
     import numpy as np
     out = Path(out_dir)
@@ -255,23 +258,30 @@ def rank(team_aucs_json, leaderboard_csv, out_dir, boot=10000, seed=112):
     contexts = [f"{c}_{s}" for c in CELL_LINES for s in OFFICIAL[c]]
     raw = json.loads(Path(team_aucs_json).read_text())
     teams = {t: {ctx: raw[ctx][t] for ctx in contexts} for t in raw[contexts[0]]}
-    sheet = {r["Team name"]: r for r in csv.DictReader(open(leaderboard_csv)) if r.get("Team name")}
-    # Validation: the per-context AUROCs must reproduce the official sheet.
+    sheet = {SHEET_ALIASES.get(r["Team name"], r["Team name"]): r
+             for r in csv.DictReader(open(leaderboard_csv)) if r.get("Team name")}
+    # Validation (amendment 3): the per-context AUROCs must reproduce the official sheet, which truncates AUROC
+    # to four decimals and whose mean ranks include entries later removed (whole thirtieths, never fewer).
     mean_auc, mean_rank = standings(teams, contexts)
     bad = []
     for t, r in sheet.items():
         if t not in teams:
             bad.append({"team": t, "problem": "not in the per-context file"})
             continue
-        da = abs(round(mean_auc[t], 4) - float(r["mean AUROC"]))
-        dr = abs(mean_rank[t] - float(r["mean Rank"]))
-        if da > 1e-4 + 1e-9 or dr > 1e-3:
-            bad.append({"team": t, "mean_auroc": [mean_auc[t], float(r["mean AUROC"])],
-                        "mean_rank": [mean_rank[t], float(r["mean Rank"])]})
+        a, ra = float(r["mean AUROC"]), float(r["mean Rank"])
+        steps = (ra - mean_rank[t]) * len(contexts)
+        auc_ok = a - 1e-9 <= mean_auc[t] < a + 1e-4 + 1e-9
+        rank_ok = abs(steps - round(steps)) < 1e-6 and 0 <= round(steps) <= 3
+        if not (auc_ok and rank_ok):
+            bad.append({"team": t, "mean_auroc": [mean_auc[t], a], "mean_rank": [mean_rank[t], ra]})
+    on_both = sorted((t for t in teams if t in sheet), key=lambda t: mean_rank[t])
+    finals = [int(sheet[t]["Final rank"]) for t in on_both]
+    if any(b < a for a, b in zip(finals, finals[1:])):
+        bad.append({"problem": "team order differs from the sheet's final ranks"})
     bad += [{"team": t, "problem": "not on the sheet"} for t in teams if t not in sheet]
     result = {"teams": len(teams), "sheet_teams": len(sheet), "contexts": len(contexts), "validation_failures": bad}
     if len(bad) > 2:
-        result["note"] = "more than two teams fail validation; no rank reported (amendment 2)"
+        result["note"] = "more than two teams fail validation; no rank reported (amendments 2-3)"
     else:
         per = {(r["cell"], r["stimulus"]): r for r in ours["per_context"]}
         rng = np.random.default_rng(seed)
