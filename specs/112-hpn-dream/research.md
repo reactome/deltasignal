@@ -66,3 +66,23 @@ Caveats:
   fitted to nothing here and has no cell-line context. The comparison is not like for like in either direction.
 - The paper reports a mean AUROC of 0.82 for a weighted combination of the top methods and an aggregate prior
   network (Hill et al. 2016, Supplementary Fig. 9). That combination is not a single team.
+
+## Amendment 2: validation failed (no rank reported)
+
+Run at a1c3e0f-equivalent bench code (`hpn_dream_bench.py rank`, committed before the run) on DREAMTools 1.2.4's
+`SC1A_aucs.json` (74 teams × 32 contexts) and the official SC1A sheet. Under the pre-registered criterion, 33 of
+the 74 teams fail and one name is unmatched, so **no rank is reported**. DeltaSignal's place was not computed:
+the run stopped at validation. Output (team-level, kept outside the repo):
+`~/deltasignal-catalogs/external/hpn_dream/leaderboard_20261026/analysis/rank_validation_failed.json`.
+
+Diagnosis (from the teams' figures only):
+- **Mean AUROC.** The sheet truncates to four decimals rather than rounding. Truncated, all 74 teams match exactly;
+  rounded, 44 do.
+- **Mean rank.** The sheet's value minus ours is always a whole number of thirtieths (0, 1, 2 or 3 contexts) and
+  never negative. That is what you get when the official ranks were computed with a few more entries present, which
+  beat some teams in some contexts, and those entries were then left off the sheet. DREAMTools' `remove_users` drops
+  duplicate and withdrawn accounts, which fits. The order of all 74 teams is identical to the sheet's final ranks.
+- **Name.** `MLBHKKG` on the sheet is `ML_BHK_KG` in the per-context file.
+
+So the per-context AUROCs are the leaderboard's own, and the failure is in how the check compared them. Changing the
+check now would be a change after the gate failed, so it waits for Adam.
