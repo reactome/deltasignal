@@ -25,15 +25,22 @@ run.
 
 ## Part 1: build and coverage
 
-**Pathways** (`all_pathways.tsv`, 1,728): every human pathway with `isInDisease` false that holds a
-`ReactionLikeEvent` directly (`hasEvent`), Reactome 97. The generator walks `hasEvent*`, so a pathway's network
-includes its sub-pathways; a reaction can therefore occur in several networks. 53 of the 92 benchmark pathways are
-in the list; the other 39 hold no reaction directly, and their reactions are in their sub-pathways, which are.
-Disease pathways are left out (as specs/112): mutant and pathogen states the cell lines in these datasets do not have.
+**Pathways** (`top_level_pathways.tsv`, 28): every human `TopLevelPathway` with `isInDisease` false, Reactome 97
+(Adam, 2026-10-27: "only generating top level pathways"). The generator walks `hasEvent*`, so each network holds its
+whole hierarchy: every reaction is in one network (a reaction listed under two top-level pathways is in both), and
+sub-pathways inside one top-level pathway are already joined. Only links between the 28 networks need a join (part
+2). The largest are Signal Transduction (2,589 reactions), Metabolism (2,380) and Immune System (1,900), several
+times any network built so far. The Disease top-level pathway is left out (as specs/112): mutant and pathogen states
+the cell lines in these datasets do not have.
 
-**Build:** `scripts/catalog.sh build --variant all114 --list specs/114-whole-reactome/all_pathways.tsv` from the
-generator at `8b6527e` (`freeze-2026-10-26`). A variant build never moves `current`. A pathway that fails to build
-is listed and left out, not retried with other settings.
+*Superseded first list:* every non-disease pathway holding a reaction directly (1,728, commit 75c7a30). It
+duplicated each reaction across the hierarchy; its build (`20261027-1337_8b6527e_all114`) was stopped after 45
+pathways, is incomplete, and is not used.
+
+**Build:** `scripts/catalog.sh build --variant top114 --list specs/114-whole-reactome/top_level_pathways.tsv` from
+the generator at `8b6527e` (`freeze-2026-10-26`). A variant build never moves `current`. A pathway that fails to
+build (or exceeds memory or time) is listed and left out, not retried with other settings; such a failure is
+itself a result about the frozen generator, and Adam decides what follows.
 
 **Coverage (graph only, no measured value read),** for each dataset, three counts of its readouts (decryptM: scored
 sites; korkut: the 73 used antibodies; P100: the 96 probes):
