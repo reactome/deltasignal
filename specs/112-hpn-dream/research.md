@@ -29,7 +29,7 @@ and BT549 worst (0.54–0.74).
 - H1 fails (recorded before scoring): 20 of 48 readouts in a network, not half.
 - H2 holds: 0.693 > 0.5.
 - H3 holds: 0.693 ≥ 0.667, in 29 of 30 contexts.
-- H4 is open: it needs the official leaderboard (syn2289138), which is not yet downloaded.
+- H4 fails, in the model's favour: 0.693 is above the leaderboard median (0.532); see below.
 
 ## Reading
 
@@ -40,6 +40,29 @@ grading effects (full suppression of S6K, S6 and 4EBP1 above a partial change in
 canonical mTORC1 substrates first. Its ceiling is coverage: 28 of the 48 readouts are not in any network that acts on
 mTOR and tie at 0.
 
-The comparison with the 74 teams waits for the leaderboard. The paper reports a mean AUROC of 0.82 for a weighted
-combination of the top methods and an aggregate prior network (Hill et al. 2016, Supplementary Fig. 9). That
-combination is not a single team.
+## Leaderboard (H4)
+
+`HPN-DREAM-Leaderboards-Official_v3.ods` (syn2289138; downloaded by Adam 2026-10-26 in the challenge's file bundle,
+every MD5 matching its Synapse manifest; kept outside both repositories), sheet SC1A: 74 teams, each with a mean
+AUROC over the same 30 official contexts.
+
+| | mean AUROC |
+|---|---|
+| best team | 0.782 |
+| 10th team | 0.677 |
+| team median | 0.532 |
+| team mean | 0.568 |
+| worst team | 0.394 |
+
+DeltaSignal's 0.693 is above 65 of the 74 teams and below 9, so it would place **10th of 75** by mean AUROC.
+Reachability on the same networks (0.667) would place 11th: most of the standing comes from the curated wiring
+itself, and the model's grading adds one place.
+
+Caveats:
+- The challenge's official rank is by mean rank over the contexts, not mean AUROC. The leaderboard does not hold
+  per-context AUROCs, so our mean rank was not computed. The teams' submissions (networks, `SC1Asubmissions.zip`)
+  are in the bundle, and re-scoring them would give it, but that step was not pre-registered.
+- The teams fitted their networks to the challenge's training data, in the same cell lines; the frozen model was
+  fitted to nothing here and has no cell-line context. The comparison is not like for like in either direction.
+- The paper reports a mean AUROC of 0.82 for a weighted combination of the top methods and an aggregate prior
+  network (Hill et al. 2016, Supplementary Fig. 9). That combination is not a single team.
