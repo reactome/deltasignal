@@ -8,7 +8,7 @@
 - **Complete:** 28 of 28 pathways built; none missing, empty or truncated (`BUILD.json`). `current` not moved.
 - **Size:** 826,677 nodes and 1,756,544 edges summed over the 28 networks (the frozen 92-pathway catalog: 209,480 nodes). The
   largest: Signal Transduction 109,395 nodes, Cell Cycle 100,117, Immune System 90,072, Cellular responses to stimuli
-  87,872, Metabolism of proteins 82,544, Gene expression 68,565, DNA Repair 61,363. The largest network of the frozen
+  87,872, Metabolism of proteins 82,544, Metabolism 68,565, Gene expression (Transcription) 61,363. The largest network of the frozen
   catalog has 25,692 (Signaling by Rho GTPases).
 - **Generator warnings:** 537 variant-cap hits (a set combination over the cap bundled into one node, as in every
   build since specs/036) and 849 sets that resolved to no leaves. Neither stops a build; neither was counted per pathway.
