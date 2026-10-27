@@ -1091,6 +1091,11 @@ for the last feature that touched it rather than re-deriving from the code.
   P100, scored once (the frozen model was not: 4 of 96 sites in its networks). Curated reach 0.499, plus one interaction
   hop at each end 0.514 (B − A +0.014, interval excludes 0), interactions alone 0.505. Randomly relabelled interactions
   gain most of it (B at the 86.5th percentile, short of the registered 95th). Not adopted; no rule. P100 is now FIT.
+- `specs/114-whole-reactome/` — the frozen model on the 28 non-disease top-level pathways (build
+  `20261027-1346_8b6527e_top114`, each network solved on its own), beside the frozen 92-pathway build, on FIT data.
+  More cases are scored (korkut 11,062 → 17,836; decryptM 2,334 → 5,096), but the pattern does not change: decryptM
+  regulated 187 vs reachability 301 of 725, korkut 0.723 below always-NOT 0.913, P100 reach 0.498.
+  `run_arm.sh --axis decryptm --decryptm-cases F --decryptm-phospho F` runs the decryptM bench.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
