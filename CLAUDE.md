@@ -1087,6 +1087,10 @@ for the last feature that touched it rather than re-deriving from the code.
   in a network. Among the 74 teams it would place 10th by mean AUROC (median 0.532; reachability alone 11th), and
   10th by the challenge's mean-rank rule (bootstrap over contexts 7th–13th; amendments 2–3).
   The dataset is now FIT.
+- `specs/113-interaction-edges/` — Adam's idea of adding Reactome's IntAct interactions, tested as reachability on LINCS
+  P100, scored once (the frozen model was not: 4 of 96 sites in its networks). Curated reach 0.499, plus one interaction
+  hop at each end 0.514 (B − A +0.014, interval excludes 0), interactions alone 0.505. Randomly relabelled interactions
+  gain most of it (B at the 86.5th percentile, short of the registered 95th). Not adopted; no rule. P100 is now FIT.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
