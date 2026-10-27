@@ -72,3 +72,16 @@ at which they can act (research.md). A protein is *in the networks* if a node of
 
 The result is reported whatever it shows. Nothing is tuned after scoring: no change to cutoffs, hop counts, dose or
 threshold.
+
+## Amendment 1 (2026-10-27, after the map's first build, before any P100 value was read)
+
+- **Identification fallback.** The first build identified all 89 compounds and found targets for 73. Several of the 16
+  without targets are compounds with well-known targets (trichostatin A, curcumin, pravastatin). Their exact InChIKey
+  matched a sparsely annotated ChEMBL registration. Change: a molecule that gets no target from any source passes to
+  the next identification step (connectivity block, then name, then synonym). The order of steps and of sources is
+  unchanged.
+- **Human interactors only.** Reactome's interaction table includes yeast, mouse, fly and worm proteins (about 13% of
+  rows). Partners are taken among human (taxon 9606) `ReferenceGeneProduct`s only.
+- **The map stays outside the repo.** It is derived from CC BY-SA ChEMBL data, so it stays beside that data and is not
+  committed (as for specs/051 R4, Adam 2026-10-13). Its SHA-256 and the per-source counts are recorded in
+  research.md instead.

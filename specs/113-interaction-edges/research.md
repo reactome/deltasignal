@@ -39,3 +39,25 @@ Interactions touching the networks:
 - **Scale.** Adding 14,812 protein–protein links among network proteins (47,942 if partners outside are imported)
   to networks of 3,956 proteins would couple most of each pathway to most of the rest. Added edges have cost the curator
   axis every time they were tried (specs/016, 019, 053, 056, 085), and over-coupling is the main error class.
+
+## The drug → target map (amendment 1 build, before any value was read)
+
+Built by `bench/p100_targets.py` from ChEMBL 37. Responses are cached under
+`~/deltasignal-catalogs/external/lincs_p100/chembl37_cache/`. The map is in `targets_20261027/` beside it, not in
+the repo (CC BY-SA). SHA-256 of `p100_targets_1uM.tsv`:
+`a804079ab4b5f6fea764758311813feebef9afdac6502f9f3d4204589db03b67`.
+
+| source (first that gives a target) | compounds |
+|---|---|
+| kinobeads (R4, Kd ≤ 1 µM) | 17 |
+| ChEMBL mechanism | 20 |
+| ChEMBL binding, pChEMBL ≥ 6 | 43 |
+| none (not scored) | 9 |
+
+- **Identification.** 69 compounds by exact InChIKey, 13 by connectivity block, 4 by name. 764 compound–target
+  rows; median 3 targets per compound, maximum 374 (a pan-kinase binder).
+- **No target.** BMS-906024, GSK-J4, KN-93, SMER-3, bafilomycin A1, ginkgetin, methylstat, salermide and zebularine.
+- **Sensitivity maps.** 100 nM: 722 rows. 10 µM: 896 rows. Both have the same 9 compounds without a target. Neither
+  is chosen on outcome.
+- **Interactions.** `intact_r97/interactions.csv` is the Reactome 97 export (interaction, accession, taxon), with its
+  SHA-256 in `SHA256SUMS` there.

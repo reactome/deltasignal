@@ -54,21 +54,25 @@ def parent(mol):
     return h.get("parent_chembl_id") or mol["molecule_chembl_id"]
 
 
-def find_molecule(cache, inchikey, name):
-    """(parent chembl id, how) or (None, 'unmatched'). Several hits: the lowest parent id, deterministically."""
+def find_molecules(cache, inchikey, name):
+    """[(parent chembl id, how)] in the registered order: exact InChIKey, connectivity block, name, synonym.
+    Several hits in one step: the lowest parent id, deterministically."""
     tries = [("inchikey", {"molecule_structures__standard_inchi_key": inchikey, "limit": 100})]
     if inchikey and "-" in inchikey:
         tries.append(("connectivity", {"molecule_structures__standard_inchi_key__startswith": inchikey.split("-")[0],
                                        "limit": 100}))
     tries += [("name", {"pref_name__iexact": name, "limit": 100}),
               ("synonym", {"molecule_synonyms__molecule_synonym__iexact": name, "limit": 100})]
+    out = []
     for how, params in tries:
         if not next(iter(params.values())):
             continue
         hits = get(cache, "molecule", params)["data"]
         if hits:
-            return min((parent(m) for m in hits), key=lambda c: int(c[6:])), how
-    return None, "unmatched"
+            mol = min((parent(m) for m in hits), key=lambda c: int(c[6:]))
+            if mol not in (m for m, _ in out):
+                out.append((mol, how))
+    return out
 
 
 def target_components(cache, tid):
@@ -99,6 +103,27 @@ def kinobeads(klaeger_dir, cutoff_nm):
     return out, seen
 
 
+def targets_of(cache, mol, kb, kb_mols):
+    """({accession: Kd or ""}, source) by the registered order of sources."""
+    if mol in kb_mols:
+        accs = {a: f"{kd:g}" for a, kd in kb[mol].items()}
+        if accs:
+            return accs, "kinobeads"
+    accs = {}
+    for m in get(cache, "mechanism", {"molecule_chembl_id": mol, "limit": 1000})["data"]:
+        if m.get("target_chembl_id"):
+            accs.update({a: "" for a in target_components(cache, m["target_chembl_id"])[1]})
+    if accs:
+        return accs, "mechanism"
+    acts = get(cache, "activity", {"molecule_chembl_id": mol, "assay_type": "B",
+                                   "pchembl_value__gte": PCHEMBL_MIN, "limit": 1000})["data"]
+    for tid in sorted({a["target_chembl_id"] for a in acts}):
+        ttype, comps = target_components(cache, tid)
+        if ttype == "SINGLE PROTEIN":
+            accs.update({a: "" for a in comps})
+    return (accs, "binding") if accs else ({}, "none")
+
+
 def build(pert_info_gz, klaeger_dir, cache, cutoff_nm=1000.0):
     Path(cache).mkdir(parents=True, exist_ok=True)
     kb, kb_mols = kinobeads(klaeger_dir, cutoff_nm)
@@ -106,23 +131,13 @@ def build(pert_info_gz, klaeger_dir, cache, cutoff_nm=1000.0):
         perts = [r for r in csv.DictReader(f, delimiter="\t") if r["pert_type"] == "trt_cp"]
     rows, log = [], []
     for p in sorted(perts, key=lambda r: r["pert_iname"]):
-        mol, how = find_molecule(cache, p["inchi_key"], p["pert_iname"])
-        accs, src = {}, "none"
-        if mol and mol in kb_mols:
-            accs, src = {a: f"{kd:g}" for a, kd in kb[mol].items()}, "kinobeads"
-        if mol and not accs:
-            for m in get(cache, "mechanism", {"molecule_chembl_id": mol, "limit": 1000})["data"]:
-                if m.get("target_chembl_id"):
-                    accs.update({a: "" for a in target_components(cache, m["target_chembl_id"])[1]})
-            src = "mechanism" if accs else src
-        if mol and not accs:
-            acts = get(cache, "activity", {"molecule_chembl_id": mol, "assay_type": "B",
-                                           "pchembl_value__gte": PCHEMBL_MIN, "limit": 1000})["data"]
-            for tid in sorted({a["target_chembl_id"] for a in acts}):
-                ttype, comps = target_components(cache, tid)
-                if ttype == "SINGLE PROTEIN":
-                    accs.update({a: "" for a in comps})
-            src = "binding" if accs else src
+        # amendment 1: a molecule with no target from any source passes to the next identification step
+        found = find_molecules(cache, p["inchi_key"], p["pert_iname"])
+        mol, how, accs, src = None, "unmatched", {}, "none"
+        for mol, how in found:
+            accs, src = targets_of(cache, mol, kb, kb_mols)
+            if accs:
+                break
         log.append((p["pert_iname"], p["pert_id"], mol or "", how, src, len(accs)))
         rows += [(p["pert_iname"], p["pert_id"], mol, a, accs[a], src) for a in sorted(accs)]
     return rows, log
