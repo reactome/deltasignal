@@ -62,8 +62,9 @@ code defaults, served by `scripts/run_arm.sh --catalog`. No setting is changed i
 **Two builds per dataset.** Each dataset is scored on the top-level build `20261027-1346_8b6527e_top114` **and** on the
 frozen 92-pathway build `20261026-1349_8b6527e`, with the same code. decryptM and korkut were first scored with
 earlier models, so the frozen model has no score on the 92 pathways yet. Without that control a difference would mix
-the model change with the network change. `--max-edges` is raised above the largest top-level network (147,774 edges),
-so that no network is skipped.
+the model change with the network change. The korkut and decryptM benches solve every network
+whatever its size (`--max-edges` applies only to the curator bench), so no network is skipped. *Corrected before any
+run: the first registration said `--max-edges` would be raised.*
 
 **decryptM** (`bench/decryptm_bench.py`, the specs/021 protocol unchanged):
 - Case tables from `bench/analysis/decryptm_coverage.py` on each build, with `all_sites.tsv` and `shp099_sites.tsv`,

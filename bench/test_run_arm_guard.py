@@ -18,3 +18,17 @@ def test_a_leading_dash_is_refused_before_anything_runs(name):
     assert r.returncode == 1
     assert "not start with '-'" in r.stderr
     assert "usage:" in r.stderr
+
+
+def test_decryptm_axis_needs_its_inputs_before_anything_runs():
+    r = subprocess.run(["bash", str(SCRIPT), "probe", "--axis", "decryptm"],
+                       capture_output=True, text=True, timeout=30)
+    assert r.returncode == 1
+    assert "--axis decryptm needs --decryptm-cases and --decryptm-phospho" in r.stderr
+
+
+def test_decryptm_inputs_must_exist():
+    r = subprocess.run(["bash", str(SCRIPT), "probe", "--axis", "decryptm", "--decryptm-cases", "/nonexistent"],
+                       capture_output=True, text=True, timeout=30)
+    assert r.returncode == 1
+    assert "--decryptm-cases needs an existing file" in r.stderr
