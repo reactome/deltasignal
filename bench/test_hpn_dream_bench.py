@@ -128,3 +128,5 @@ def test_rank_validation_amendment_3(tmp_path):
     assert fails("2,t1,0.6123,2.0667\n1,MLBHKKG,0.7,1\n") == []         # two thirtieths, printed to 4 decimals
     assert len(fails("2,t1,0.6123,2.1333\n1,MLBHKKG,0.7,1\n")) == 1     # four thirtieths
     assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 1         # order differs
+    (tmp_path / "aucs.json").write_text(json.dumps({ctx: {"t1": 0.7, "ML_BHK_KG": 0.7} for ctx in ctxs}))
+    assert fails("2,t1,0.7,1.0333\n1,MLBHKKG,0.7,1\n") == []           # tied here, ordered on the sheet

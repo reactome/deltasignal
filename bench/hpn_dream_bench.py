@@ -274,8 +274,9 @@ def rank(team_aucs_json, leaderboard_csv, out_dir, boot=10000, seed=112):
         if not (auc_ok and rank_ok):
             bad.append({"team": t, "mean_auroc": [mean_auc[t], a], "mean_rank": [mean_rank[t], ra]})
     on_both = sorted((t for t in teams if t in sheet), key=lambda t: mean_rank[t])
-    finals = [int(sheet[t]["Final rank"]) for t in on_both]
-    if any(b < a for a, b in zip(finals, finals[1:])):
+    # teams tied on our mean rank may stand in either order: the removed entries break such ties on the sheet
+    if any(int(sheet[y]["Final rank"]) < int(sheet[x]["Final rank"]) and mean_rank[y] > mean_rank[x] + 1e-9
+           for x, y in zip(on_both, on_both[1:])):
         bad.append({"problem": "team order differs from the sheet's final ranks"})
     bad += [{"team": t, "problem": "not on the sheet"} for t in teams if t not in sheet]
     result = {"teams": len(teams), "sheet_teams": len(sheet), "contexts": len(contexts), "validation_failures": bad}

@@ -86,3 +86,35 @@ Diagnosis (from the teams' figures only):
 
 So the per-context AUROCs are the leaderboard's own, and the failure is in how the check compared them. Changing the
 check now would be a change after the gate failed, so it waits for Adam.
+
+## Amendment 3: the rank
+
+Adam approved changing the check ("do what you think is best"). Amendment 3 was committed (50d8a41) before any rank
+was computed. Three runs followed, all on the same inputs; the per-team output stays outside the repo
+(`builds/20261026-1643_8b6527e_hpn112/results/03e602e/hpn112/rank.json`):
+
+1. b42d60f: 49 teams failed, because the ±1e-6 rank tolerance as written is finer than the sheet's printed
+   precision. No rank was computed. The correction (±0.001, amendment 2's precision) was committed (7a5b1ff)
+   before the next run.
+2. 7a5b1ff: one failure, within the limit of two, so the rank was reported. The failure was the order check: two
+   teams near the bottom (places 53 and 54) tie on our mean rank, and the sheet breaks the tie through the removed
+   entries.
+3. This commit: the order check accepts teams tied on our mean rank in either order. This was **changed after the
+   rank was seen**. It changes no number and does not change whether the gate passes; it only removes the spurious
+   entry. Validation failures: 0.
+
+| entry (75 with the 74 teams) | mean AUROC | mean rank | place by mean rank | place by mean AUROC | 95% bootstrap interval, both measures |
+|---|---|---|---|---|---|
+| DeltaSignal | 0.693 | 16.2 | **10th** | 10th | 7th–13th |
+| reachability | 0.667 | 19.6 | 11th | 11th | 9th–19th |
+
+The bootstrap uses 10,000 resamples of the 30 contexts, numpy seed 112. It does not resample readouts.
+
+- **Prediction:** place by mean rank between 8th and 16th: **holds** (10th). The AUROC-place interval spans at
+  least five places: **holds** (7th–13th, seven places).
+- **Removed entries.** These could raise DeltaSignal's official mean rank by up to 3/30, to at most 16.3. The next
+  entry below is at 18.7, so the place is unchanged.
+- **Reading.** By the challenge's own ranking rule the frozen model places 10th of 75. Its interval stays inside the
+  top 13 and does not reach the top 6. Reachability alone, the wiring without the solver, places 11th. It has a wider
+  interval, reaching 19th. So the solver's contribution is real but modest. The caveats in the Leaderboard section
+  still apply.
