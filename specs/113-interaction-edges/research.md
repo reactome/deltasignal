@@ -84,3 +84,48 @@ the repo (CC BY-SA). SHA-256 of `p100_targets_1uM.tsv`:
   1,713 samples; the Level 4 matrix holds 1,684, and every one of them is listed. The guard required the two counts
   to be equal. It now requires only that every matrix column is a listed instance. The 29 extra listings were left
   out upstream; they are most likely QC removals (not checked).
+- **Scored once (7990c7f).** `predict` gave the same predictions as at 2ebbf29 (SHA-256 identical). Output:
+  `results/7990c7f/p100/score.json` under the frozen build.
+
+## Result
+
+480 contexts (80 compounds × 6 cell lines, highest dose). A context has a median of 85 scored probes; a median of
+11.6% of them changed (interquartile range 7.6–16.9%).
+
+| arm | mean AUROC | 95% interval (bootstrap over compounds) |
+|---|---|---|
+| A, curated reach | 0.499 | 0.497–0.502 |
+| B, plus one interaction at each end | 0.514 | 0.505–0.522 |
+| C, interactions alone | 0.505 | 0.497–0.512 |
+| B − A | +0.014 | +0.006 to +0.022 |
+| B with randomly relabelled interactions (200 draws) | mean 0.504, 95th percentile 0.517 | B at the 86.5th percentile |
+
+| prediction | outcome |
+|---|---|
+| H1: A above 0.5 | **fails**. A is at chance (0.499). In 343 contexts A separates at least one probe, and its mean AUROC there is still 0.499. |
+| H2: B − A > 0 (Adam's idea) | **holds**, against my prediction. The interval excludes 0. |
+| H3: B above the random-interaction control's 95th percentile | **fails** (86.5th percentile). |
+| H4: C ≥ B | **fails**. |
+
+## Reading
+
+- **Nothing here predicts P100 well.** The best arm is 0.514. On HPN-DREAM the same kind of reachability scored 0.667
+  (specs/112). The two tasks differ:
+  - HPN-DREAM asked which canonical signalling readouts respond to one well-studied kinase inhibitor.
+  - P100 asks which of 96 proteins move at the phospho-site level, 3 h after mostly non-kinase compounds (chromatin,
+    proteostasis, metabolism).
+  - Our networks hold 38 of the 86 probe proteins, and only 4 of the 96 sites.
+- **Curated reach is at chance.** Where it fires, it is as often wrong as right. Reaching a protein in a curated
+  pathway does not predict a change at the one site P100 measures, which is mostly not a site Reactome curates.
+- **Interactions add a small, real gain.** It is +0.014 over curated reach, with an interval that excludes zero.
+  But randomly relabelled interactions with the same degrees gain most of it too (mean 0.504, so +0.005 over A). Real
+  interactions beat 86.5% of those draws, short of the registered 95%. So most of the gain comes from widening reach,
+  not from which proteins IntAct joins. What remains is suggestive and not established.
+- **Interactions alone are weaker than interactions on top of the networks** (C 0.505 vs B 0.514). The curated
+  wiring contributes even though it scores at chance alone.
+
+**For Adam's idea:** the evidence does not support adding interaction edges to the networks. On a fresh test their
+gain is small and mostly what any edges of the same degree would give. Added edges have cost the curator axis every
+time (research.md, census). No rule is proposed.
+
+LINCS P100 is FIT from this scoring (`bench/datasets.tsv`). The frozen model was not scored on it.
