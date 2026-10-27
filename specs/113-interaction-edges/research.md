@@ -61,3 +61,19 @@ the repo (CC BY-SA). SHA-256 of `p100_targets_1uM.tsv`:
   is chosen on outcome.
 - **Interactions.** `intact_r97/interactions.csv` is the Reactome 97 export (interaction, accession, taxon), with its
   SHA-256 in `SHA256SUMS` there.
+
+## Predictions (before any value was read)
+
+`p100_bench.py predict` at 2ebbf29 used the frozen catalog `20261026-1349_8b6527e`. Output is
+`results/2ebbf29/p100/p100_predictions.tsv` under that build (SHA-256 `a265b29263420a57e2ae0167386d17eb3116bbcf7264a9ba35872fb068f21ce2`). 80 compounds × 96 probes = 7,680 pairs.
+74 of the 80 compounds have a target in the networks.
+
+| arm | score 0 | score 1 | score 2 | compounds with any non-zero probe |
+|---|---|---|---|---|
+| A, curated reach | 7,512 | 168 | – | 58 |
+| B, plus one interaction at each end | 2,041 | 5,471 | 168 | 77 |
+| C, interactions alone | 4,871 | 2,643 | 166 | 76 |
+
+- **Arm B.** It marks 73% of pairs as reached, as research.md expected: one unsigned hop at each end reaches most
+  proteins. It can only help where the 27% it leaves at 0 are mostly unchanged probes.
+- **Arm A.** It is non-zero for 2% of pairs. Within a context it can only separate a few probes from the rest.
