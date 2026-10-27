@@ -1,4 +1,5 @@
 """specs/112: the HPN-DREAM scorer's own arithmetic, on fixtures (no challenge data)."""
+import json
 import sys
 from pathlib import Path
 
@@ -70,3 +71,62 @@ def test_score_aligns_truth_to_header_and_drops_nan(tmp_path):
     assert s["mean_auroc_official"]["deltasignal"] == pytest.approx(1.0)
     assert s["mean_auroc_official"]["reachability"] == pytest.approx(0.75)
     assert s["mean_auroc_official"]["constant"] == pytest.approx(0.5)
+
+
+def test_rank_min_matches_dreamtools_ties():
+    # pandas rank(ascending=False, method="min"): ties share the best of their ranks.
+    assert h.rank_min([0.7, 0.9, 0.7, 0.5]) == [2, 1, 2, 4]
+
+
+def test_standings_and_place():
+    table = {"a": {"c1": 0.9, "c2": 0.6}, "b": {"c1": 0.8, "c2": 0.8}, "c": {"c1": 0.5, "c2": 0.5}}
+    auc, rk = h.standings(table, ["c1", "c2"])
+    assert rk == {"a": 1.5, "b": 1.5, "c": 3.0}
+    assert abs(auc["b"] - 0.8) < 1e-12
+    assert h.place(auc, "a", True) == 2 and h.place(rk, "a", False) == 1
+    # a resample repeating a context weights it twice
+    _, rk2 = h.standings(table, ["c1", "c1"])
+    assert rk2["a"] == 1.0
+
+
+def test_rank_refuses_when_validation_fails(tmp_path):
+    ctxs = [f"{c}_{s}" for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    aucs = {ctx: {"t1": 0.6, "t2": 0.7, "t3": 0.5} for ctx in ctxs}
+    (tmp_path / "aucs.json").write_text(json.dumps(aucs))
+    rows = "Final rank,Team name,mean AUROC,mean Rank\n2,t1,0.9,2\n1,t2,0.9,1\n3,t3,0.9,3\n"
+    (tmp_path / "lb.csv").write_text(rows)
+    per = [{"cell": c, "stimulus": s, "deltasignal": 0.65, "reachability": 0.5}
+           for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    (tmp_path / "score.json").write_text(json.dumps({"per_context": per}))
+    h.rank(tmp_path / "aucs.json", tmp_path / "lb.csv", tmp_path, boot=10)
+    r = json.loads((tmp_path / "rank.json").read_text())
+    assert len(r["validation_failures"]) == 3 and "deltasignal" not in r
+    # with a matching sheet the entry is placed between t2 and t1
+    # the sheet truncates AUROC and its ranks may run whole thirtieths high (amendment 3)
+    (tmp_path / "lb.csv").write_text("Final rank,Team name,mean AUROC,mean Rank\n2,t1,0.6,2.1\n1,t2,0.7,1\n3,t3,0.5,3\n")
+    h.rank(tmp_path / "aucs.json", tmp_path / "lb.csv", tmp_path, boot=10)
+    r = json.loads((tmp_path / "rank.json").read_text())
+    assert r["validation_failures"] == []
+    assert r["deltasignal"]["place_by_mean_rank"] == 2 and r["deltasignal"]["place_by_mean_auroc_95"] == [2.0, 2.0]
+
+
+def test_rank_validation_amendment_3(tmp_path):
+    ctxs = [f"{c}_{s}" for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    (tmp_path / "aucs.json").write_text(json.dumps({ctx: {"t1": 0.61239, "ML_BHK_KG": 0.7} for ctx in ctxs}))
+    per = [{"cell": c, "stimulus": s, "deltasignal": 0.65, "reachability": 0.5}
+           for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    (tmp_path / "score.json").write_text(json.dumps({"per_context": per}))
+
+    def fails(rows):
+        (tmp_path / "lb.csv").write_text("Final rank,Team name,mean AUROC,mean Rank\n" + rows)
+        h.rank(tmp_path / "aucs.json", tmp_path / "lb.csv", tmp_path, boot=2)
+        return json.loads((tmp_path / "rank.json").read_text())["validation_failures"]
+    assert fails("2,t1,0.6123,2\n1,MLBHKKG,0.7,1\n") == []            # truncated, alias
+    assert len(fails("2,t1,0.6124,2\n1,MLBHKKG,0.7,1\n")) == 1         # rounded is not truncated
+    assert len(fails("2,t1,0.6123,1.95\n1,MLBHKKG,0.7,1\n")) == 1      # sheet rank below ours
+    assert len(fails("2,t1,0.6123,2.05\n1,MLBHKKG,0.7,1\n")) == 1      # not a whole thirtieth
+    assert fails("2,t1,0.6123,2.0667\n1,MLBHKKG,0.7,1\n") == []         # two thirtieths, printed to 4 decimals
+    assert len(fails("2,t1,0.6123,2.1333\n1,MLBHKKG,0.7,1\n")) == 1     # four thirtieths
+    assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 1         # order differs
+    (tmp_path / "aucs.json").write_text(json.dumps({ctx: {"t1": 0.7, "ML_BHK_KG": 0.7} for ctx in ctxs}))
+    assert fails("2,t1,0.7,1.0333\n1,MLBHKKG,0.7,1\n") == []           # tied here, ordered on the sheet
