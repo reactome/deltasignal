@@ -8,6 +8,11 @@
 #                  variant nodes the largest pathway, R-HSA-194315, is 46,710
 #                  edges, which 40000 would skip silently; specs/046)
 #   --catalog ID   run against builds/ID instead of `current` (a variant build)
+#   --axis A       curator, experimental, korkut, korkut_predict or decryptm (repeatable;
+#                  default curator and experimental)
+#   --decryptm-cases FILE --decryptm-phospho FILE
+#                  the decryptm axis's case table (decryptm_coverage.py) and Neo4j
+#                  phospho export; both are required by that axis and hashed into ARM.json
 #
 #   --server K=V   a DS_* override for the SOLVER (set in the API container)
 #   --bench  K=V   an override for the BENCHMARK script (e.g. DS_PIN_SCOPE=entry)
@@ -46,7 +51,7 @@ NAME=$1; shift
 # A leading '-' is refused: `run_arm.sh --help` used to start a real arm named
 # "--help" on the current catalog (2026-10-09).
 [[ "$NAME" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || die "NAME must be [A-Za-z0-9._-]+ and not start with '-' (usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--catalog ID] [--max-edges N])"
-SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=100000; AXES=()
+SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=100000; AXES=(); DCASES=""; DPHOSPHO=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --server) [[ "${2:-}" == DS_*=* ]] || die "--server needs DS_NAME=value"; SERVER+=("$2"); shift 2 ;;
@@ -57,10 +62,17 @@ while [ $# -gt 0 ]; do
     --catalog) [ -n "${2:-}" ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
     # specs/062: which benches to run (default curator and experimental).
     # korkut_predict never opens the korkut2015 values; korkut scores them.
-    --axis) case "${2:-}" in curator|experimental|korkut|korkut_predict) AXES+=("$2") ;;
-              *) die "--axis must be curator, experimental, korkut or korkut_predict" ;; esac; shift 2 ;;
+    --axis) case "${2:-}" in curator|experimental|korkut|korkut_predict|decryptm) AXES+=("$2") ;;
+              *) die "--axis must be curator, experimental, korkut, korkut_predict or decryptm" ;; esac; shift 2 ;;
+    --decryptm-cases) [ -f "${2:-}" ] || die "--decryptm-cases needs an existing file"; DCASES=$(readlink -f "$2"); shift 2 ;;
+    --decryptm-phospho) [ -f "${2:-}" ] || die "--decryptm-phospho needs an existing file"; DPHOSPHO=$(readlink -f "$2"); shift 2 ;;
     *) die "unknown argument $1" ;;
   esac
+done
+
+for gt in "${AXES[@]}"; do
+  [ "$gt" != decryptm ] || { [ -n "$DCASES" ] && [ -n "$DPHOSPHO" ]; } \
+    || die "--axis decryptm needs --decryptm-cases and --decryptm-phospho"
 done
 
 # Nothing may reach an arm except what the command line names. A DS_* exported
@@ -114,9 +126,9 @@ for kv in "${BENCH[@]}"; do
   # The korkut bench uses only the pinning and the perturbation level from
   # that script; any other bench knob would be recorded and inert there.
   for gt in "${AXES[@]}"; do
-    case "$gt" in korkut|korkut_predict)
+    case "$gt" in korkut|korkut_predict|decryptm)
       case " DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN " in *" $n "*) ;;
-        *) git worktree remove --force "$WT"; die "$n has no effect on the korkut bench (it reads DS_PIN_SCOPE, DS_PIN_ROOT_IGNORE, DS_PERTURB_UI_DOWN)" ;;
+        *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads DS_PIN_SCOPE, DS_PIN_ROOT_IGNORE, DS_PERTURB_UI_DOWN)" ;;
       esac ;;
     esac
   done
@@ -160,6 +172,9 @@ for gt in "${AXES[@]}"; do
       kflag=(); [ "$gt" = korkut_predict ] && kflag=(--predict-only)
       env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
         "$PY" "$WT/bench/korkut_bench.py" "${kflag[@]}" "$OUT" > "$OUT/$gt.log" 2>&1 ;;
+    decryptm)
+      env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
+        "$PY" "$WT/bench/decryptm_bench.py" "$DCASES" "$DPHOSPHO" "$OUT/decryptm" > "$OUT/$gt.log" 2>&1 ;;
     *)
       env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
         "$PY" "$WT/bench/benchmark_vs_mpbiopath.py" --max-edges "$MAX_EDGES" "${LIMIT[@]}" --ground-truth "$gt" \
@@ -167,15 +182,19 @@ for gt in "${AXES[@]}"; do
   esac || { echo "run_arm: $gt benchmark failed; see $OUT/$gt.log" >&2; status=1; break; }
 done
 
-ARM_LIMIT="${LIMIT[1]:-}" python3 - "$OUT" "$NAME" "$SHA" "$BID" "$STARTED" "$status" "${SERVER[*]:-}" "${BENCH[*]:-}" <<'PY'
-import json, os, re, sys, datetime
+ARM_LIMIT="${LIMIT[1]:-}" ARM_DCASES="$DCASES" ARM_DPHOSPHO="$DPHOSPHO" python3 - "$OUT" "$NAME" "$SHA" "$BID" "$STARTED" "$status" "${SERVER[*]:-}" "${BENCH[*]:-}" <<'PY'
+import datetime, hashlib, json, os, re, sys
 out, name, sha, bid, started, status, server, bench = sys.argv[1:]
 rec = {"name": name, "commit": sha, "build": bid, "started": started,
        "finished": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
        "exit": int(status), "limit": os.environ.get("ARM_LIMIT") or None,
        "server_overrides": server.split() if server else [],
        "bench_overrides": bench.split() if bench else []}
-for gt in ("curator", "experimental", "korkut", "korkut_predict"):
+for key, env in (("decryptm_cases", "ARM_DCASES"), ("decryptm_phospho", "ARM_DPHOSPHO")):
+    path = os.environ.get(env)
+    if path:
+        rec[key] = {"path": path, "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest()}
+for gt in ("curator", "experimental", "korkut", "korkut_predict", "decryptm"):
     log = os.path.join(out, f"{gt}.log")
     if os.path.exists(log):
         text = open(log).read()
