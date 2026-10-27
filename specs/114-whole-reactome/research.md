@@ -54,3 +54,71 @@ dataset was read.
 The container peaked at 2.3 GiB. The first solve includes Julia compilation. The largest unjoined network solves in
 about a minute, so per-network solving is feasible; a joined network of all 28 (826,677 nodes before merging) was not
 tried.
+
+## Part 2: scores (2026-10-27)
+
+Run with `scripts/run_arm.sh`, code defaults, `src/` unchanged since `freeze-2026-10-26`. Results under each build's
+`results/<code>/`: frozen 92-pathway build `20261026-1349_8b6527e` at `a47898d` (`s114_f92_kb`, `s114_f92_hand`);
+top-level build `20261027-1346_8b6527e_top114` at `a47898d` (`s114_top_kb`, korkut and decryptM kinobeads) and at
+`a0a6a3d` (`s114_top_hand`; that commit only added `bench/analysis/summary_114.py` and its test, so the bench and
+solver are the same). Figures over all cases come from `bench/analysis/summary_114.py`; split figures from the bench's
+own `summary.json`. Every result below is a development result on FIT data.
+
+### korkut2015
+
+| build | scored cases | pathways | solves converged | model | reachability | always-NOT | regulated right (model / reach, of) | McNemar (model only / reach only) |
+|---|---|---|---|---|---|---|---|---|
+| 92 pathways | 11,062 | 54 | 1,493 / 1,493 | 0.643 | 0.566 | **0.908** | 450 / 499 of 1,013 | 908 / 56 |
+| 28 top-level | 17,836 | 21 | 793 / 814 | 0.723 | 0.631 | **0.913** | 444 / 601 of 1,545 | 1,873 / 244 |
+
+78 drug sets on both builds. Units (drug set, readout): 3,480 on the 92 pathways, 1,125 of them called differently by
+different networks; 5,398 on the top-level build, 2,261 called differently (42%).
+
+### decryptM
+
+Kinobeads map (primary), held-out split (on the top-level build every case is held-out):
+
+| build | scored | regulated: model / reach / always DOWN (of) | McNemar regulated (model only / reach only) | by-drug interval, model − reach | unchanged: model / reach (of) | macro-F1 model / reach |
+|---|---|---|---|---|---|---|
+| 92 pathways, held-out | 1,133 | 97 / 112 / 248 (278) | p 6.1e-05 | [−0.093, 0] | 632 / 592 (855) | 0.368 / 0.364 |
+| 28 top-level | 5,096 | 187 / 301 / 606 (725) | 4 / 118, p 3e-30 | [−0.238, −0.100] | 3,316 / 2,834 (4,371) | 0.363 / 0.330 |
+
+Hand map: on the 92 pathways, held-out regulated 54 / 67 of 190, unchanged 485 / 452 of 621, macro-F1 0.365 / 0.364.
+On the top-level build, regulated 147 / 272 of 649 (interval [−0.276, −0.126]), unchanged 2,854 / 2,425 of 3,751, macro-F1 0.358 / 0.332.
+
+All cases (both splits on the 92 pathways), kinobeads map: 2,334 → 5,096 scored. Accuracy is 0.635 → 0.687 for the
+model, 0.596 → 0.615 for reachability and 0.778 → 0.858 for always-NOT. Units (drug, site): 1,374 → 3,127, of which
+196 → 450 get different calls from different networks.
+
+### Coverage count 3: reachable from a pinned target in the same network
+
+A unit is counted if, in at least one network, the bench's reachability call is not NOT.
+
+| dataset | build | units | reachable | readouts reachable |
+|---|---|---|---|---|
+| korkut | 92 pathways | 3,480 | 2,170 | 53 of 73 |
+| | 28 top-level | 5,398 | 3,797 | 60 of 73 |
+| decryptM (kinobeads) | 92 pathways | 1,374 | 701 | 197 sites |
+| | 28 top-level | 3,127 | 1,621 | 348 sites |
+
+### LINCS P100
+
+Score A (curated reach AUROC over contexts) on the top-level build is **0.498** [0.493, 0.503]; on the 92 pathways it is
+0.499. Predictions cover 11,429 network proteins, and 79 of the 80 compounds have a target in a network.
+
+### Hypotheses
+
+- **H1 holds.** More cases are scored on the top-level build: korkut 11,062 → 17,836; decryptM 2,334 → 5,096
+  (kinobeads) and 1,802 → 4,400 (hand).
+- **H2 fails.** On the regulated decryptM cases, the model gets 187 of 725 right and reachability 301, with an interval
+  of [−0.238, −0.100] that excludes 0. The loss is larger than on the 92 pathways (97 vs 112 of 278).
+- **H3 fails.** On korkut the model's accuracy (0.723) beats reachability's (0.631) but not always-NOT's (0.913).
+- **H4 fails.** P100 score A is 0.498, and its interval includes 0.5.
+
+**Reading.** The whole of Reactome adds cases but does not change the pattern from the 92 pathways. Wherever the
+measured call is "unchanged", the model beats reachability, because it predicts NOT for most reachable sites. On the
+regulated sites the model loses, by more than it did on the 92 pathways: on top-level decryptM, 118 regulated cases
+are right only under reachability and 4 only under the model. Both benches stay below always-NOT. Larger networks also
+give more conflicting calls: 42% of korkut units get different calls from different top-level networks. These
+networks are larger and overlap, and 21 of 814 korkut solves did not converge, against none on the 92 pathways. Why
+the model calls NOT on reachable regulated sites was not traced here. The cases are in the logs listed above.
