@@ -99,3 +99,23 @@ vector is read in this step; it uses only `score.json` and the teams' AUROCs.
   file), so it understates the uncertainty.
 - Prediction, written now: DeltaSignal's place by mean rank is between 8th and 16th, and the bootstrap interval of
   its place by mean AUROC spans at least five places.
+
+## Amendment 3 (2026-10-27, after amendment 2's validation failed, before DeltaSignal's rank was computed)
+
+Adam, 2026-10-27: "do what you think is best", on the proposal below. This changes a gate after it failed, so it is
+recorded as a post-hoc change; it is written before DeltaSignal's or reachability's rank was computed or seen, and it
+uses only the teams' figures and the sheet (research.md, amendment 2 diagnosis).
+
+Amendment 2's check failed for reasons the diagnosis traced to how the sheet was produced, not to the per-context
+AUROCs. The validation now reads:
+
+- **AUROC:** the sheet truncates to four decimals: each team's computed mean must satisfy sheet ≤ mean < sheet + 0.0001
+  (1e-9 slack).
+- **Rank:** the sheet's mean rank may exceed ours by a whole number of thirtieths, 0 to 3 (±1e-6), never less; the
+  official ranks were computed with entries later removed from the sheet. And the order must be identical: sorted by
+  our mean rank, the sheet's `Final rank` never decreases.
+- **Name:** `MLBHKKG` on the sheet is `ML_BHK_KG` in the per-context file.
+
+The two-failure limit stands. Reported as in amendment 2. Because the removed entries may also have outranked
+DeltaSignal in some contexts, its official-style mean rank may be worse by up to about 3/30 than computed; this is
+reported beside the place. Amendment 2's prediction stands unchanged.
