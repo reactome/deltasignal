@@ -130,3 +130,18 @@ gefitinib 18, lapatinib 12) and SHP099 (9), 68 of 73 in Signal Transduction, and
 (MAPK3 T202/Y204, MAPK1 T185/Y187). Over all 725 regulated cases: 391 are not reachable in the network they are scored in (305 measured
 DOWN, 86 UP), so the model cannot get them there; reachability calls only DOWN, so it gets none of the 111
 measured UP. No case was traced through a network here.
+
+**Amendment 2 (2026-10-27, post hoc): balanced accuracy.** Plain accuracy is dominated by NOT: 91% of korkut and
+86% of top-level decryptM cases are measured NOT, so always-NOT wins on it while predicting nothing. Balanced accuracy
+(the mean of recall on measured DOWN, NOT and UP; always-NOT = 0.333) and macro-F1 over the three classes, over all
+scored cases. These measures were chosen after the results; specs/114 registered plain accuracy for korkut.
+
+| case set | model | reachability | always-NOT | macro-F1 (model / reach / always-NOT) | model change calls right |
+|---|---|---|---|---|---|
+| korkut, 92 pathways | 0.413 | 0.394 | 0.333 | 0.337 / 0.295 / 0.317 | 11.5% of 3,922 |
+| korkut, top-level | 0.396 | 0.387 | 0.333 | 0.360 / 0.309 / 0.318 | 10.0% of 4,418 |
+| decryptM kinobeads, 92 pathways | 0.394 | 0.387 | 0.333 | 0.374 / 0.355 / 0.292 | 28.6% of 811 |
+| decryptM kinobeads, top-level | 0.365 | 0.382 | 0.333 | 0.363 / 0.330 / 0.308 | 14.1% of 1,323 |
+
+On both measures the model is above always-NOT and about level with reachability. When it calls a change on korkut,
+it is right about one time in ten.
