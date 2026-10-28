@@ -72,3 +72,18 @@ only), 10 stimuli (training only). Cell lines: 238 training, 79 test. Single-com
 (unseen drug) 873; Test B (unseen cell line) 2,029; Test C (both) 348. Two name checks were made before the split was
 used: bafilomycin is LINCS P100's bafilomycin A1, so it is a seen drug; I-BET726 and I-BET762 are different compounds.
 Anonymised CPPA compounds ("MEK inhibitor-01") are drugs like any other; their targets come from the class named.
+
+## Amendment 1 (2026-10-28): phase 1 mapping, before any CPPA value is read
+
+- **Antibodies** (`~/deltasignal-catalogs/analysis/121/readouts_cppa.tsv`, private; korkut map format, made from the
+  549 antibody names only, every phospho coordinate checked in Release 97): 375 total-protein, 106 phospho (each with
+  at least one curated site), 68 excluded (uncurated sites, cleaved forms, histone and ubiquitin marks, loading
+  controls, names that do not resolve). 44 ambiguous names are marked "check" with the reading used. 470 of the 481
+  usable readouts are in at least one top-level network (`20261027-1346_8b6527e_top114`).
+- **Drugs** (`bench/analysis/cppa_targets_121.py`; specs/113's rule: kinobeads at 1 µM, then ChEMBL mechanism, then
+  ChEMBL binding; anonymised compounds take their named class; a few CPPA misspellings corrected; ChEMBL's hyphenated
+  code numbers tried): 114 drugs have a target Reactome knows: 58 training, 35 of the 52 test drugs, 21 seen. The other
+  17 test drugs (cytotoxics and tool compounds without a signalling target) cannot be predicted and are not scored.
+- **Accession to gene**: Release 97's full export (32,041 pairs), not the kinobeads subset.
+- **Predictions** (`bench/cppa_bench.py`, values-blind): the frozen model, one solve per drug per top-level network, as
+  korkut_bench. Stimuli are not solved in this phase.
