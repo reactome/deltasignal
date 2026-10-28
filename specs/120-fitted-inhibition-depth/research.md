@@ -37,9 +37,10 @@ Balanced accuracy over down / not / up, leave one drug out (the fixed depths are
 - **It also breaks right calls, and those weigh more.** Measured changes are rare (91% of korkut cases are NOT), so
   under balanced accuracy one lost right DOWN call costs about as much as fifteen removed false alarms. Korkut loses 23
   right calls to NOT and 33 right DOWN calls flip to UP.
-- **Partial inhibition flips direction.** 125 korkut calls go DOWN → UP and 63 on decryptM, mostly in combinations with
-  the AKT inhibitor 901 (MK2206) or PLX4720. A half-inhibited target lets a loop that the full knockout silenced respond
-  the other way. This is the loop sensitivity specs/054 and 108 describe (rails), not a depth effect to fit.
+- **Partial inhibition flips direction.** 125 korkut calls go DOWN → UP and 63 on decryptM. On korkut, 90 of the 125
+  are combinations with the MEK inhibitor PD0325901 (901, 64) or the BRAF inhibitor PLX4720: the RAF cascade's bistable
+  switch (specs/054), which a full knockout holds in its low state and a half-inhibited target lets flip high. This is
+  the rail behaviour specs/054 and 108 describe, not a depth effect to fit.
 
 **Reading.** One global depth is not a lever: the model's false change calls come from the routes it takes, and a
 partial pin trades them against right calls almost one for one under balanced accuracy. Per-drug depths would need a
