@@ -792,8 +792,8 @@ for the last feature that touched it rather than re-deriving from the code.
     PTPN11).
 - `specs/051-dataset-roles/` — every dataset is FIT, SELECT or TEST
   (`bench/datasets.tsv`; `bench/dataset_roles.py` `require_role` refuses
-  fitting on a non-FIT set; no fitting script exists yet, and every one must
-  call it). **The curator held-out split is SELECT**, not a test set: it has chosen
+  fitting on a non-FIT set; every fitting script must call it, as
+  `bench/analysis/train_116.py`, `train_117.py` and `lr_118.py` do). **The curator held-out split is SELECT**, not a test set: it has chosen
   rules since 2026-09. decryptM 1 is FIT after its one scoring.
   The degree-preserving rewired-network null (`bench/rewire_network.py`)
   loses to the real wiring on every axis, experimental included (R3).

@@ -46,12 +46,37 @@ def test_arms(tmp_path):
     assert p.score_c({"X"}, "Z", partners) == 0
 
 
-def test_permuted_keeps_degrees():
+def test_permuted_keeps_each_proteins_degree():
     import numpy as np
-    partners = {"a": {"b", "c"}, "b": {"a"}, "c": {"a"}, "d": set()}
+    rng = np.random.default_rng(0)
+    names = [f"p{i}" for i in range(40)]
+    partners = {n: set() for n in names}
+    for _ in range(120):
+        a, b = rng.choice(names, 2, replace=False)
+        partners[a].add(b), partners[b].add(a)
     pp = p.permuted(partners, np.random.default_rng(1))
-    assert sorted(len(v) for v in pp.values()) == sorted(len(v) for v in partners.values())
-    assert all(a in pp[b] for a, bs in pp.items() for b in bs)       # still symmetric
+    assert {a: len(bs) for a, bs in pp.items()} == {a: len(bs) for a, bs in partners.items()}
+    assert all(a in pp[b] and a != b for a, bs in pp.items() for b in bs)    # symmetric, no self-loops
+    assert pp != partners                                                     # and actually rewired
+
+
+def test_network_reach_reads_boundary_edges(tmp_path):
+    _net(tmp_path)
+    d = tmp_path / "R-HSA-1"
+    # n3 (P3) reaches n1 (P1) only through a derived boundary edge
+    (d / "boundary_edges.csv").write_text("source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n"
+                                          "n3,n1,pos,and,assembly,1,\n")
+    assert "P1" in p.network_reach(tmp_path)["P3"]
+
+
+def test_set_pool_holds_no_protein(tmp_path):
+    _net(tmp_path)
+    d = tmp_path / "R-HSA-1"
+    # a pool listing P1 and P9 that n1 feeds: P1 must not be credited with reaching its sibling P9
+    (d / "leaf_refs.csv").write_text((d / "leaf_refs.csv").read_text() + "L9,uniprot:P9,\n")
+    (d / "nodes.csv").write_text((d / "nodes.csv").read_text() + "pool,set_pool,,,L1|L9,,\n")
+    (d / "logic_network.csv").write_text((d / "logic_network.csv").read_text() + "n1,pool,pos,or,set_member,1,\n")
+    assert "P9" not in p.network_reach(tmp_path)["P1"]
 
 
 def test_truth_against_dmso(tmp_path):
@@ -75,3 +100,37 @@ def test_truth_against_dmso(tmp_path):
     tv = p.truth(tmp_path / "inst.gz", tmp_path / "m.gctx")
     # pA: |0.6 - 0.05| = 0.55 >= 4.45 * 0.1; pB dropped (MAD 0); pC: 3 DMSO values, |0.3 - 0| < 4.45 * 0.1
     assert tv == {("D", "X"): {"pA": 1, "pC": 0}}
+
+
+def _truth_files(tmp_path, rows, ncols=7):
+    import gzip
+    import numpy as np
+    import h5py
+    m = np.array([[0.0, 1, 0.0], [0.1, 1, 0.1], [-0.1, 1, -0.1], [0.2, 1, np.nan],
+                  [0.5, 5, 0.3], [0.7, 5, 0.3], [9.0, 9, 9.0]])[:ncols]
+    with h5py.File(tmp_path / "m.gctx", "w") as h:
+        h["0/DATA/0/matrix"] = m
+        h["0/META/ROW/id"] = np.array([b"pA", b"pB", b"pC"])
+        h["0/META/COL/id"] = np.array([f"s{i}".encode() for i in range(ncols)])
+    with gzip.open(tmp_path / "inst.gz", "wt") as f:
+        f.write("\n".join(["inst_id\tcell_id\tpert_dose\tpert_id\tpert_type"] + rows) + "\n")
+
+
+def test_truth_refuses_an_id_listed_twice(tmp_path):
+    import pytest
+    pytest.importorskip("h5py")
+    rows = [f"s{i}\tX\t0\tDMSO\tctl_vehicle" for i in range(4)]
+    rows += ["s4\tX\t10\tD\ttrt_cp", "s5\tX\t10\tD\ttrt_cp", "s5\tX\t10\tD\ttrt_cp"]   # s6 unlisted, s5 twice
+    _truth_files(tmp_path, rows)
+    with pytest.raises(SystemExit):
+        p.truth(tmp_path / "inst.gz", tmp_path / "m.gctx")
+
+
+def test_truth_drops_a_context_whose_top_dose_is_missing(tmp_path):
+    import pytest
+    pytest.importorskip("h5py")
+    rows = [f"s{i}\tX\t0\tDMSO\tctl_vehicle" for i in range(4)]
+    rows += ["s4\tX\t1\tD\ttrt_cp", "s5\tX\t1\tD\ttrt_cp", "s6\tX\t1\tD\ttrt_cp",
+             "s9\tX\t10\tD\ttrt_cp"]                       # the 10 well is listed but not in the matrix
+    _truth_files(tmp_path, rows)
+    assert p.truth(tmp_path / "inst.gz", tmp_path / "m.gctx") == {}

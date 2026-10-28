@@ -128,8 +128,8 @@ looked at, and it is mostly wrong. Of the 118 regulated cases right only under r
 (measured DOWN, model UP) and 45 are NOT calls. The inversions are mostly ERBB-family inhibitors (afatinib 19,
 gefitinib 18, lapatinib 12) and SHP099 (9), 68 of 73 in Signal Transduction, and they include ERK1/2 activation-loop sites
 (MAPK3 T202/Y204, MAPK1 T185/Y187). Over all 725 regulated cases: 391 are not reachable in the network they are scored in (305 measured
-DOWN, 86 UP), so the model cannot get them there; reachability calls only DOWN, so it gets none of the 111
-measured UP. No case was traced through a network here.
+DOWN, 86 UP), so the model cannot get them there; reachability calls only DOWN, so it gets none of the 119
+measured UP (corrected 2026-10-28 from 111: 86 unreachable + 33 reachable). No case was traced through a network here.
 
 **Amendment 2 (2026-10-27, post hoc): balanced accuracy.** Plain accuracy is dominated by NOT: 91% of korkut and
 86% of top-level decryptM cases are measured NOT, so always-NOT wins on it while predicting nothing. Balanced accuracy
@@ -145,3 +145,7 @@ scored cases. These measures were chosen after the results; specs/114 registered
 
 On both measures the model is above always-NOT and about level with reachability. When it calls a change on korkut,
 it is right about one time in ten.
+
+**Amendment 3 (2026-10-28): P100 re-scored with the corrected reach (specs/113 amendment 1).** Score A on the
+top-level build is 0.503 [0.496, 0.509] (was 0.498 [0.493, 0.503]); B 0.511, B − A +0.008 [0.003, 0.012]. The interval
+still includes 0.5, so H4 still fails. Output `results/833abd6/p100/` under `20261027-1346_8b6527e_top114`.

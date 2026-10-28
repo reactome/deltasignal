@@ -57,18 +57,19 @@ def test_score_aligns_truth_to_header_and_drops_nan(tmp_path):
     for cell in h.CELL_LINES:
         (d / f"MD_{cell}_main.csv").write_text(",".join(["TR:x"] + [f"DV:{s}" for s in sp]) + "\n")
         for stim in h.STIMULI:
-            (t / f"TrueVec_{cell}_{stim}.csv").write_text("1,0,0,NaN\n")
+            (t / f"TrueVec_{cell}_{stim}.csv").write_text("1,0,1,NaN\n")
     with open(out / "hpn_predictions.tsv", "w") as f:
         f.write("stimulus\tspecies\tds_score\treach_score\tbest_pathway\n")
         for stim in h.STIMULI:
-            for s, v in zip(sp, [2.0, 1.0, 1e-14, 9.0]):
+            for s, v in zip(sp, [2.0, 0.0, 1e-14, 9.0]):
                 f.write(f"{stim}\t{s}\t{v}\t{int(v >= 1)}\tp\n")
     h.score(tmp_path, out)
     import json
     s = json.loads((out / "score.json").read_text())
     assert s["official_contexts"] == 30
-    # TAZ (NaN, score 9) is dropped; C's 1e-14 is noise and scores 0 (amendment 1)
-    assert s["mean_auroc_official"]["deltasignal"] == pytest.approx(1.0)
+    # TAZ (NaN, score 9) is dropped. C, a positive, carries only 1e-14 of noise, which scores 0 and ties the true
+    # zero B (amendment 1): 0.75. Without the floor C would outrank B and score 1.0.
+    assert s["mean_auroc_official"]["deltasignal"] == pytest.approx(0.75)
     assert s["mean_auroc_official"]["reachability"] == pytest.approx(0.75)
     assert s["mean_auroc_official"]["constant"] == pytest.approx(0.5)
 
@@ -127,6 +128,22 @@ def test_rank_validation_amendment_3(tmp_path):
     assert len(fails("2,t1,0.6123,2.05\n1,MLBHKKG,0.7,1\n")) == 1      # not a whole thirtieth
     assert fails("2,t1,0.6123,2.0667\n1,MLBHKKG,0.7,1\n") == []         # two thirtieths, printed to 4 decimals
     assert len(fails("2,t1,0.6123,2.1333\n1,MLBHKKG,0.7,1\n")) == 1     # four thirtieths
-    assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 1         # order differs
+    assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 2         # order differs: both teams count
     (tmp_path / "aucs.json").write_text(json.dumps({ctx: {"t1": 0.7, "ML_BHK_KG": 0.7} for ctx in ctxs}))
     assert fails("2,t1,0.7,1.0333\n1,MLBHKKG,0.7,1\n") == []           # tied here, ordered on the sheet
+
+
+def test_rank_order_check_is_pairwise_and_order_free(tmp_path):
+    # a and b tie on every context, c is last; the sheet puts a below c. An adjacent-only check passed this when
+    # the input listed a before b (review 2026-10-28).
+    ctxs = [f"{c}_{s}" for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    per = [{"cell": c, "stimulus": s, "deltasignal": 0.65, "reachability": 0.5}
+           for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    (tmp_path / "score.json").write_text(json.dumps({"per_context": per}))
+    (tmp_path / "lb.csv").write_text("Final rank,Team name,mean AUROC,mean Rank\n3,a,0.8,1\n1,b,0.8,1\n2,c,0.6,3\n")
+    for order in (("a", "b", "c"), ("b", "a", "c")):
+        vals = {"a": 0.8, "b": 0.8, "c": 0.6}
+        (tmp_path / "aucs.json").write_text(json.dumps({ctx: {t: vals[t] for t in order} for ctx in ctxs}))
+        h.rank(tmp_path / "aucs.json", tmp_path / "lb.csv", tmp_path, boot=2)
+        fails = json.loads((tmp_path / "rank.json").read_text())["validation_failures"]
+        assert sorted(f["team"] for f in fails) == ["a", "c"]

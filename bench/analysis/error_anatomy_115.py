@@ -5,7 +5,7 @@ Classes over scored cases whose measured call is not `conflict`:
 - changed / no route: measured DOWN or UP, reachability NOT (no route from a pinned target);
 - changed / right; changed / model NOT; changed / wrong direction (a route exists);
 - unchanged / right; unchanged / false change call.
-By hop band (needs a hops table from korkut_hops.py): cases, measured-changed share, model change calls, the share of
+By hop band (needs a hops table from korkut_hops.py or decryptm_hops.py, covering every scored case): cases, measured-changed share, model change calls, the share of
 those right, and direction agreement where both measured and model call a change.
 
 Usage: error_anatomy_115.py korkut|decryptm CASES_TSV [HOPS_TSV]
@@ -15,7 +15,7 @@ import csv
 import json
 import sys
 
-KEY = {"korkut": ("pathway_id", "drug_set", "readout")}
+KEY = {"korkut": ("pathway_id", "drug_set", "readout"), "decryptm": ("pathway_id", "drug", "uniprot", "position")}
 BANDS = ((1, 5), (6, 10), (11, 20), (21, 40), (41, 10 ** 9))
 
 
@@ -43,7 +43,10 @@ def anatomy(rows, hops=None, key=None):
     if hops is not None:
         groups = collections.defaultdict(list)
         for r in rows:
-            groups[band(hops.get(tuple(r[k] for k in key), ""))].append(r)
+            k = tuple(r[c] for c in key)
+            if k not in hops:          # a missing row is a table from another case log, not "no route"
+                raise SystemExit(f"no hop distance for {k}: rebuild the hops table from this case log")
+            groups[band(hops[k])].append(r)
         out["by_hops"] = {}
         for b, g in groups.items():
             calls = [r for r in g if r["predicted"] != "not"]

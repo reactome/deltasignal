@@ -2,7 +2,8 @@
 """Hop distance from a korkut case's pinned targets to its readout nodes (graph only; specs/115, specs/116).
 
 Resolves pins and readouts as `korkut_bench.py` does; shortest path in `build_adjacency` from any pinned node to any
-unpinned readout node; blank if no route.
+unpinned readout node; blank if no route. The pins must match the case log's `pinned` count, so a DS_PIN_* setting
+exported in this shell cannot silently describe a different perturbation from the one solved.
 
 Usage: korkut_hops.py BUILD CASES_TSV OUT_TSV
 """
@@ -28,6 +29,11 @@ def hops_from(adj, sources):
     return dist
 
 
+def check_pins(n, logged, *where):
+    if n != logged:
+        raise SystemExit(f"{' '.join(where)}: {n} pins here, {logged} in the case log; check DS_PIN_* in this shell")
+
+
 def main():
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import korkut_bench as kb
@@ -43,9 +49,11 @@ def main():
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
     r_stids = kb.readout_stids(readouts, g2s, kb.neo4j_site_stids(sites))
     need = collections.defaultdict(set)
+    logged = {}
     for r in csv.DictReader(open(cases), delimiter="\t"):
         if r["status"] == "scored":
             need[r["pathway_id"]].add(r["drug_set"])
+            logged[(r["pathway_id"], r["drug_set"])] = int(r["pinned"])
     res = {}
     for pid in sorted(need):
         pdir = build / pid
@@ -60,6 +68,7 @@ def main():
             g2u = {g: [u for s in g2s.get(g, []) for u in s2u.get(s, [])] for g in genes}
             pins, _ = bm.pin_occurrences(pdir, g2u, g2s)
             pinned = set().union(*pins.values()) if pins else set()
+            check_pins(len(pinned), logged[(pid, key)], pid, key)
             dist = hops_from(adj, pinned)
             for n, nodes in ro.items():
                 free = [u for u in nodes if u not in pinned and u in dist]

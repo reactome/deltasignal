@@ -129,3 +129,32 @@ gain is small and mostly what any edges of the same degree would give. Added edg
 time (research.md, census). No rule is proposed.
 
 LINCS P100 is FIT from this scoring (`bench/datasets.tsv`). The frozen model was not scored on it.
+
+## Amendment 1 (2026-10-28): code review corrections, re-scored
+
+A code review of everything since the freeze found three ways `p100_bench.py` departed from the network or from this
+registration (commit 833abd6 fixes them; tests in `bench/test_p100_bench.py`):
+- **Edges.** Reach read `logic_network.csv` only. The solver also reads `boundary_edges.csv` (specs/044), so routes
+  through the generator's derived assembly and dissociation edges were missed. It now reads both through `open_network`.
+- **Set pools.** A set-pool node lists every member of its set, so one member was credited with reaching its siblings.
+  Pools now hold no protein, as in the benchmark's own readout resolution.
+- **The random-interaction null.** It relabelled proteins, which keeps only the degree multiset; the registration says
+  each protein keeps its degree. It now rewires the interaction graph by double-edge swaps (10 per edge), and refuses
+  inputs that do not reproduce the stored B.
+- **Instances.** The instance check compared counts; it now checks ids, takes the highest listed dose and drops a
+  context whose top-dose wells are absent. No context is dropped on these data (480 scored, as before).
+
+Re-scored on the frozen build (`results/833abd6/p100/` under `20261026-1349_8b6527e`; the dataset is FIT since the
+first scoring, so this is a correction, not a second test):
+
+| | registered code (7990c7f) | corrected (833abd6) |
+|---|---|---|
+| A, curated reach | 0.499 [0.497, 0.502] | 0.499 [0.496, 0.502] |
+| B, plus interactions | 0.514 [0.505, 0.522] | 0.515 [0.507, 0.523] |
+| B − A | +0.014 [0.006, 0.022] | +0.016 [0.008, 0.024] |
+| random-interaction null: mean, 95th percentile | 0.504, 0.517 | 0.509, 0.520 |
+| B's percentile in the null | 86.5th | 84.0th |
+
+Pairs with A non-zero: 168 → 179 of 7,680. **The verdicts do not change**: H1-H2 as before, and B stays short of the
+null's 95th percentile, so most of the interaction gain is generic. The degree-keeping null is closer to B than the
+relabelled one was (mean 0.509 against 0.504), which strengthens that reading.

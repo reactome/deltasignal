@@ -2,7 +2,8 @@
 """Hop distance from a decryptM case's pinned targets to its readout nodes (graph only; specs/116).
 
 Resolves pins and readouts exactly as `decryptm_bench.py` does (`pin_occurrences`, `readout_uuids`), then takes
-the shortest path in `build_adjacency` from any pinned node to any unpinned readout node; blank if no route.
+the shortest path in `build_adjacency` from any pinned node to any unpinned readout node; blank if no route. The pins
+must match the case log's `pinned` count (korkut_hops.check_pins).
 
 Usage: decryptm_hops.py BUILD CASES_TSV PHOSPHO_CSV OUT_TSV
 """
@@ -15,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
 from decryptm_bench import readout_uuids  # noqa: E402
 from decryptm_coverage import RESIDUE, neo4j_rows  # noqa: E402
-from korkut_hops import hops_from  # noqa: E402
+from korkut_hops import check_pins, hops_from  # noqa: E402
 
 
 def main():
@@ -38,6 +39,8 @@ def main():
             g2u = {g: [u for s in gene_to_stids.get(g, []) for u in s2u.get(s, [])] for g in targets.split(";")}
             pins, _ = bm.pin_occurrences(pdir, g2u, gene_to_stids)
             pinned = set().union(*pins.values()) if pins else set()
+            for c in group:
+                check_pins(len(pinned), int(c["pinned"]), pid, drug)
             dist = hops_from(adj, pinned)
             for c in group:
                 ro = readout_uuids(site_stids.get((c["uniprot"], int(c["position"])), ()), s2u)
