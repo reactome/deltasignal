@@ -7,6 +7,8 @@ DS_PERTURB_UI_DOWN at the forms the curator bench pins, one solve per drug per p
 korkut format) is the mean over the nodes that are, or contain, its EWAS, pinned nodes left out. Stimuli are not
 solved. The case log has no measured column: scoring is a separate, registered step.
 
+CPPA_SHARD=i/n runs every n-th pathway from the i-th and writes cppa_predict_cases.iofn.tsv (concatenate the shards).
+
 Usage: DS_CATALOG_ROOT=<build> cppa_bench.py DRUG_TARGETS_TSV ACC_GENE_TSV READOUTS_TSV OUT_DIR
 """
 import csv
@@ -62,6 +64,11 @@ def main():
           f"{len(drugs)} drugs, {len(readouts)} readouts; PREDICT ONLY (values unread)", flush=True)
     rows, solves, conv = [], 0, 0
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())
+    shard = os.environ.get("CPPA_SHARD", "")          # "i/n": every n-th pathway from the i-th, to run in parallel
+    if shard:
+        i, n = map(int, shard.split("/"))
+        pathways = pathways[i::n]
+        print(f"Shard {shard}: {len(pathways)} pathways", flush=True)
     for pdir in pathways:
         stid_to_uuids = bm.load_stid_to_uuids(pdir)
         ro_nodes = {name: list(dict.fromkeys(u for s in st for u in stid_to_uuids.get(s, [])))
@@ -111,7 +118,8 @@ def main():
     if after.get("build_id") != build.name:
         raise SystemExit(f"the API switched to {after.get('build_id')!r} during the run; nothing recorded")
     out_dir.mkdir(parents=True, exist_ok=True)
-    with open(out_dir / "cppa_predict_cases.tsv", "w", newline="") as f:
+    name = f"cppa_predict_cases.{shard.replace('/', 'of')}.tsv" if shard else "cppa_predict_cases.tsv"
+    with open(out_dir / name, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()), delimiter="\t")
         w.writeheader()
         w.writerows(rows)
