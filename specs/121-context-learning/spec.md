@@ -88,3 +88,26 @@ Anonymised CPPA compounds ("MEK inhibitor-01") are drugs like any other; their t
   the kinobeads subset and not synonyms (a synonym another protein shares would pin the wrong protein).
 - **Predictions** (`bench/cppa_bench.py`, values-blind): the frozen model, one solve per drug per top-level network, as
   korkut_bench. Stimuli are not solved in this phase.
+
+## Amendment 2 (2026-10-28): phase 2, expression gating, registered before it is built or run
+
+**Cell lines to expression.** A CPPA cell line takes the DepMap 24Q2 model whose stripped or full name equals its own
+(normalised as the split normalises names); otherwise the DepMap line whose name is the longest prefix of it, at least
+4 characters (a derived line: resistant, engineered, labelled; e.g. A375 for A375BR); otherwise none. Measured before
+registration from names only: 97 lines exact, 56 by parent, 164 none; 5,291 + 247 of the 6,990 single-drug samples have
+expression. Samples without expression keep the frozen prediction and are reported separately.
+
+**The rule.** In a cell line, a gene with log2(TPM + 1) < 1 (TPM below 1) is absent. Every network node that is, or
+contains, a protein of an absent gene (resolved as the bench resolves a target gene, `pin_occurrences` at scope `all`)
+is pinned at baseline (UI 1) for that cell line: a complex that cannot form carries no change, while the cell's own
+baseline is the reference, so absence is not a knockout. The drug's target pins win where they overlap. One solve per
+(drug, cell line, network); the readout and scoring are as in phase 1. No parameter is fitted; the threshold is the
+conventional TPM 1 and is not tuned.
+
+**Hypotheses (training portion only; development).**
+- G1: on training samples with expression, the gated model's per-drug correlation (fold arm) beats the frozen model's
+  on the same samples (bootstrap over drugs, interval for gated − frozen excludes 0).
+- G2: the gated model's false-change share (training samples, change threshold fixed in phase 1) is lower than the
+  frozen model's.
+Whatever G1-G2 show, the gated model is one of the arms scored once at the end; G1-G2 decide only whether phase 3
+builds on it. The curator benchmark has no cell line, so this rule cannot touch it.
