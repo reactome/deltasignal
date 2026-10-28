@@ -84,6 +84,7 @@ Anonymised CPPA compounds ("MEK inhibitor-01") are drugs like any other; their t
   ChEMBL binding; anonymised compounds take their named class; a few CPPA misspellings corrected; ChEMBL's hyphenated
   code numbers tried): 114 drugs have a target Reactome knows: 58 training, 35 of the 52 test drugs, 21 seen. The other
   17 test drugs (cytotoxics and tool compounds without a signalling target) cannot be predicted and are not scored.
-- **Accession to gene**: Release 97's full export (32,041 pairs), not the kinobeads subset.
+- **Accession to gene**: each human protein's primary gene name in Release 97 (11,469 accessions, none ambiguous), not
+  the kinobeads subset and not synonyms (a synonym another protein shares would pin the wrong protein).
 - **Predictions** (`bench/cppa_bench.py`, values-blind): the frozen model, one solve per drug per top-level network, as
   korkut_bench. Stimuli are not solved in this phase.
