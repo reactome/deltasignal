@@ -154,7 +154,9 @@ def predict(hpn_dir, phospho_csv, out_dir):
         for stim, ligands in STIMULI.items():
             a_pins = {u: bm.PERTURB_UI_UP for g in ligands for u in pins.get(g, [])}
             b_pins = {**a_pins, **{u: bm.PERTURB_UI_DOWN for u in target_pins}}
-            act_a = solve(parsed, a_pins, pid) if a_pins else {}
+            # A is solved even with no ligand pinned, so B is compared with the solver's own baseline, not a
+            # constant: their 1e-15 differences are rounding, not effects (amendment 4)
+            act_a = solve(parsed, a_pins, pid)
             act_b = solve(parsed, b_pins, pid)
             for sp in species:
                 ro = [u for u in readout_uuids(stids[sp], stid_to_uuids) if u not in b_pins]
