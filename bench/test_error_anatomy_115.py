@@ -28,3 +28,10 @@ def test_bands_and_direction():
     assert b["1-5"] == {"cases": 2, "changed": 2, "model_calls": 2, "model_calls_right": 1,
                         "both_changed": 2, "direction_agrees": 1}
     assert b["21-40"]["model_calls"] == 1 and b["21-40"]["model_calls_right"] == 0
+
+
+def test_a_case_missing_from_the_hops_table_is_refused():
+    import pytest
+    rows = [row("down", "down", "down", ro="a"), row("down", "down", "down", ro="b")]
+    with pytest.raises(SystemExit):
+        anatomy(rows, {("P", "d", "a"): "2"}, ("pathway_id", "drug_set", "readout"))
