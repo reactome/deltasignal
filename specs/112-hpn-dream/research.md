@@ -118,3 +118,14 @@ The bootstrap uses 10,000 resamples of the 30 contexts, numpy seed 112. It does 
   top 13 and does not reach the top 6. Reachability alone, the wiring without the solver, places 11th. It has a wider
   interval, reaching 19th. So the solver's contribution is real but modest. The caveats in the Leaderboard section
   still apply.
+
+## Amendment 4 result (2026-10-28): the corrected inputs give the same scores
+
+Re-run at cb71cef on the same build (`results/cb71cef/hpn112_amend4/`; 208 solves, A now always solved), with the
+corrected site map:
+- **Scores unchanged:** DeltaSignal 0.693, reachability 0.667 (to four decimals as before); rank validation passes
+  with no failure; 10th by mean rank (bootstrap 7th–13th) and by mean AUROC; reachability 11th.
+- **What changed:** AKT pS473/pT308, AMPK pT172 and GSK3 pS9 now read their paralogs' curated sites (136 readout rows
+  gain nodes; e.g. AKT pS473 in R-HSA-1257604 reads 13 nodes, not 5). No readout's best-pathway score moves: the
+  AKT readouts' maximum comes from pathways whose effect is already at the ceiling (13.8). The 36 noise scores
+  amendment 1 recorded are now exactly 0, so the scoring floor no longer decides any value.
