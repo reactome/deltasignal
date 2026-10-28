@@ -6,13 +6,16 @@ The protocol is pre-registered in specs/113-interaction-edges/spec.md. In short:
 - `predict` (no P100 value is read): each probe is scored by its protein for each compound with targets
   (p100_targets.py):
     A  1 if, in one network of the frozen catalog, a node holding a target reaches a node holding the probe's
-       protein along logic_network.csv edges (length >= 0), else 0;
+       protein along the network's edges (length >= 0), else 0. The network is read as the solver reads it,
+       logic_network.csv with boundary_edges.csv (specs/044), and set-pool nodes hold no protein of their own
+       (their member_leaves list every member of the set); both since specs/113 amendment 1;
     B  2 if A; else 1 if A succeeds once the targets are widened by their IntAct partners and the probe by its
        protein's IntAct partners; else 0;
     C  IntAct distance from a target to the probe's protein: 0-1 hops 2, 2 hops 1, else 0.
 - `score`: per (compound, cell line) at the highest dose, a probe is changed if its replicate median is at least
   3 x 1.4826 x MAD of the cell line's DMSO wells from their median. AUROC per context (ties half), mean over
-  contexts, a bootstrap over compounds, and a random-interaction control for B.
+  contexts, a bootstrap over compounds, and a random-interaction control for B (degree-preserving rewiring of the
+  interaction graph, specs/113 amendment 1).
 
 Usage:
   p100_bench.py predict CATALOG TARGETS_TSV ANALYTE_GZ INTERACTIONS_CSV OUT_DIR
@@ -32,6 +35,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dataset_roles  # noqa: E402
 from hpn_dream_bench import auroc  # noqa: E402
+from network_files import open_network  # noqa: E402
 
 DATASET = "lincs_p100"
 HUMAN = "9606"
@@ -69,11 +73,13 @@ def network_reach(catalog):
                 leaf[r["leaf_stid"]] = acc(r["reference_stid"].split(":", 1)[1])
         holds = {}
         for r in csv.DictReader(open(net / "nodes.csv")):
+            if (r.get("node_kind") or "") == "set_pool":
+                continue
             ps = {leaf[x] for x in r["member_leaves"].split("|") if x in leaf}
             if ps:
                 holds[r["uuid"]] = ps
         out = collections.defaultdict(set)
-        for r in csv.DictReader(open(net / "logic_network.csv")):
+        for r in csv.DictReader(open_network(net)):
             out[r["source_id"]].add(r["target_id"])
         nodes_of = collections.defaultdict(set)
         for n, ps in holds.items():
@@ -154,11 +160,24 @@ def predict(catalog, targets_tsv, analyte_gz, interactions_csv, out_dir):
     print(json.dumps(summary, indent=1))
 
 
-def permuted(partners, rng):
-    """Partner sets relabelled by a permutation of the proteins that have interactions (degrees kept)."""
-    ids = sorted(partners)
-    pi = dict(zip(ids, (ids[i] for i in rng.permutation(len(ids)))))
-    return {pi[a]: {pi[b] for b in bs} for a, bs in partners.items()}
+def permuted(partners, rng, swaps_per_edge=10):
+    """The interaction graph rewired by double-edge swaps: every protein keeps its own partners' count (specs/113
+    amendment 1; relabelling, the registered code, kept only the degree multiset, so hubs lost their degree)."""
+    edges = sorted({tuple(sorted((a, b))) for a, bs in partners.items() for b in bs})
+    adj = {a: set(bs) for a, bs in partners.items()}
+    n = len(edges)
+    picks, flips = rng.integers(0, n, (swaps_per_edge * n, 2)).tolist(), (rng.random(swaps_per_edge * n) < 0.5).tolist()
+    for (i, j), flip in zip(picks, flips):
+        (a, b), (c, d) = edges[i], edges[j]
+        if flip:
+            c, d = d, c
+        # a-b, c-d -> a-d, c-b; refused if it makes a self-loop or a repeated edge
+        if len({a, b, c, d}) < 4 or d in adj[a] or b in adj[c]:
+            continue
+        adj[a].remove(b), adj[b].remove(a), adj[c].remove(d), adj[d].remove(c)
+        adj[a].add(d), adj[d].add(a), adj[c].add(b), adj[b].add(c)
+        edges[i], edges[j] = tuple(sorted((a, d))), tuple(sorted((c, b)))
+    return adj
 
 
 def read_gctx(path):
@@ -183,23 +202,32 @@ def truth(inst_gz, level4_gctx):
     col = {c: i for i, c in enumerate(cols)}
     with gzip.open(inst_gz, "rt") as f:
         all_inst = list(csv.DictReader(f, delimiter="\t"))
-    inst = [r for r in all_inst if r["inst_id"] in col]
-    # every matrix column must be a listed instance; listed instances absent from the matrix were left out upstream
-    if len(inst) != len(cols):
-        raise SystemExit(f"{len(inst)} instances match the matrix's {len(cols)} columns ({len(all_inst)} listed)")
+    # every matrix column must be listed exactly once; listed instances absent from the matrix were left out upstream
+    listed = collections.Counter(r["inst_id"] for r in all_inst)
+    twice = sorted(i for i, n in listed.items() if n > 1)
+    unlisted = sorted(set(cols) - set(listed))
+    if twice or unlisted:
+        raise SystemExit(f"instance table: {len(twice)} ids listed twice, {len(unlisted)} matrix columns not listed")
     dmso = collections.defaultdict(list)
     top = {}
-    for r in inst:
-        if r["pert_type"] == "ctl_vehicle":
+    # the highest dose is the highest LISTED for the context, so a context whose top-dose wells were left out is
+    # dropped rather than scored at a lower dose (spec 113: "at the highest dose given there")
+    for r in all_inst:
+        if r["pert_type"] == "ctl_vehicle" and r["inst_id"] in col:
             dmso[r["cell_id"]].append(col[r["inst_id"]])
         elif r["pert_type"] == "trt_cp":
             k, d = (r["pert_id"], r["cell_id"]), float(r["pert_dose"])
+            if d != d:
+                raise SystemExit(f"{r['inst_id']}: dose {r['pert_dose']!r} is not a number")
             if k not in top or d > top[k][0]:
                 top[k] = (d, [])
-            if d == top[k][0]:
+            if d == top[k][0] and r["inst_id"] in col:
                 top[k][1].append(col[r["inst_id"]])
+    dropped = sorted(k for k, (_, idx) in top.items() if not idx)
+    if dropped:
+        print(f"{len(dropped)} contexts have no top-dose well in the matrix and are not scored", file=sys.stderr)
     out = {}
-    for (pid, cell), (_, idx) in sorted(top.items()):
+    for (pid, cell), (_, idx) in sorted((k, v) for k, v in top.items() if v[1]):
         ref = m[dmso[cell]]
         vec = {}
         for j, probe in enumerate(rows):
@@ -269,6 +297,12 @@ def score(inst_gz, level4_gctx, out_dir, catalog=None, interactions_csv=None, ta
     if catalog:
         reach, partners = network_reach(catalog), load_partners(interactions_csv)
         tg, pr = load_targets(targets_tsv), probes(analyte_gz)
+        # the control's inputs must reproduce the stored B, or the draws are ranked against another target map
+        names = sorted(pr)
+        for pid in pred:
+            got = scores_a_b(tg.get(pid, set()), [pr[n] for n in names], reach, partners)
+            if any(pred[pid][n]["B"] != float(ab[1]) for n, ab in zip(names, got) if n in pred[pid]):
+                raise SystemExit(f"{pid}: the control's inputs do not reproduce the stored B predictions")
         crng, draws = np.random.default_rng(SEED), []
         for _ in range(CONTROLS):
             pp = permuted(partners, crng)
