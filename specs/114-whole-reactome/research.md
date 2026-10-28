@@ -145,3 +145,7 @@ scored cases. These measures were chosen after the results; specs/114 registered
 
 On both measures the model is above always-NOT and about level with reachability. When it calls a change on korkut,
 it is right about one time in ten.
+
+**Amendment 3 (2026-10-28): P100 re-scored with the corrected reach (specs/113 amendment 1).** Score A on the
+top-level build is 0.503 [0.496, 0.509] (was 0.498 [0.493, 0.503]); B 0.511, B − A +0.008 [0.003, 0.012]. The interval
+still includes 0.5, so H4 still fails. Output `results/833abd6/p100/` under `20261027-1346_8b6527e_top114`.
