@@ -1,6 +1,6 @@
 # specs/120: how hard a drug inhibits its target, fitted from the other drugs (training round 3)
 
-**Status:** registered 2026-10-28, before any arm at a depth other than 0 was run on either dataset.
+**Status:** registered 2026-10-28, before any arm at a depth other than 0 was run on either dataset. **Result: H1-H3 fail** (research.md). The frozen default stays 0.
 
 Adam, 2026-10-28, on specs/119: "nothing until the paper ... continue". Still no Reactome Release 98 and no new
 datasets.
