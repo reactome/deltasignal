@@ -12,7 +12,9 @@ import collections
 import csv
 import json
 import random
+import re
 import sys
+from fractions import Fraction
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -51,9 +53,29 @@ def merge(arms):
     return rows, dropped
 
 
+def exact_balanced_accuracy(pairs):
+    """balanced_accuracy as a Fraction, so two depths with equal scores tie exactly (float sums can differ by an ulp)."""
+    rec = [Fraction(sum(p == c for p, m in pairs if m == c), n)
+           for c in ("down", "not", "up") if (n := sum(m == c for _, m in pairs))]
+    return sum(rec) / len(rec)
+
+
 def choose(train, depths):
     """The depth whose call scores the highest balanced accuracy on train; ties go to the smaller depth."""
-    return max(depths, key=lambda d: (balanced_accuracy([(r["calls"][d], r["measured"]) for r in train]), -d))
+    return max(depths, key=lambda d: (exact_balanced_accuracy([(r["calls"][d], r["measured"]) for r in train]), -d))
+
+
+def recorded_depth(cases_tsv, kind):
+    """DS_PERTURB_UI_DOWN from the Protocol line the arm's ARM.json recorded for this axis."""
+    for parent in Path(cases_tsv).resolve().parents[:2]:
+        arm = parent / "ARM.json"
+        if arm.exists():
+            line = json.load(open(arm)).get(f"{kind}_protocol") or ""
+            m = re.search(r"DS_PERTURB_UI_DOWN=(\S+)", line)
+            if not m:
+                raise SystemExit(f"{arm}: no DS_PERTURB_UI_DOWN in its {kind} Protocol line")
+            return float(m.group(1))
+    raise SystemExit(f"{cases_tsv}: no ARM.json beside it or one level up")
 
 
 def r2(train, test):
@@ -120,7 +142,15 @@ def summarize(preds, seed=120, n_boot=2000):
 def main():
     kind, specs = sys.argv[1], sys.argv[2:]
     dataset_roles.require_role({"korkut": "korkut2015", "decryptm": "decryptm1"}[kind], "fit")
-    arms = {float(s.split("=", 1)[0]): load(s.split("=", 1)[1], kind) for s in specs}
+    arms = {}
+    for spec in specs:
+        label, path = spec.split("=", 1)
+        depth = recorded_depth(path, kind)
+        if float(label) != depth:
+            raise SystemExit(f"{path} was run at DS_PERTURB_UI_DOWN={depth:g}, not {label}")
+        if depth in arms:
+            raise SystemExit(f"two arms at depth {depth:g}")
+        arms[depth] = load(path, kind)
     assert 0.0 in arms, "the frozen arm (depth 0) is the control"
     rows, dropped = merge(arms)
     preds, chosen = lodo(rows, kind)
