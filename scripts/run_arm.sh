@@ -51,14 +51,14 @@ NAME=$1; shift
 # A leading '-' is refused: `run_arm.sh --help` used to start a real arm named
 # "--help" on the current catalog (2026-10-09).
 [[ "$NAME" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || die "NAME must be [A-Za-z0-9._-]+ and not start with '-' (usage: scripts/run_arm.sh NAME [--server K=V]... [--bench K=V]... [--port N] [--catalog ID] [--max-edges N])"
-SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=100000; AXES=(); DCASES=""; DPHOSPHO=""
+MAX_EDGES_SET=""; SERVER=(); BENCH=(); PORT=8090; LIMIT=(); CATALOG_ID=""; MAX_EDGES=100000; AXES=(); DCASES=""; DPHOSPHO=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --server) [[ "${2:-}" == DS_*=* ]] || die "--server needs DS_NAME=value"; SERVER+=("$2"); shift 2 ;;
     --bench)  [[ "${2:-}" == *=* ]] || die "--bench needs NAME=value"; BENCH+=("$2"); shift 2 ;;
     --port)   PORT=$2; shift 2 ;;
     --limit)  LIMIT=(--limit "$2"); shift 2 ;;
-    --max-edges) [[ "${2:-}" =~ ^[0-9]+$ ]] || die "--max-edges needs a number"; MAX_EDGES=$2; shift 2 ;;
+    --max-edges) [[ "${2:-}" =~ ^[0-9]+$ ]] || die "--max-edges needs a number"; MAX_EDGES=$2; MAX_EDGES_SET=1; shift 2 ;;
     --catalog) [ -n "${2:-}" ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
     # specs/062: which benches to run (default curator and experimental).
     # korkut_predict never opens the korkut2015 values; korkut scores them.
@@ -73,7 +73,20 @@ done
 for gt in "${AXES[@]}"; do
   [ "$gt" != decryptm ] || { [ -n "$DCASES" ] && [ -n "$DPHOSPHO" ]; } \
     || die "--axis decryptm needs --decryptm-cases and --decryptm-phospho"
+  # the drug benches solve every network: a limit would be recorded and not applied
+  case "$gt" in korkut|korkut_predict|decryptm)
+    [ ${#LIMIT[@]} -eq 0 ] && [ -z "$MAX_EDGES_SET" ] || die "--limit and --max-edges apply only to the curator and experimental axes" ;;
+  esac
 done
+# decryptm inputs are recorded only for a decryptm arm, and hashed now, before
+# hours of solving, so a file replaced mid-run cannot be recorded as scored
+DCASES_SHA=""; DPHOSPHO_SHA=""
+if [[ " ${AXES[*]} " == *" decryptm "* ]]; then
+  DCASES_SHA=$(sha256sum "$DCASES" | cut -d' ' -f1) && DPHOSPHO_SHA=$(sha256sum "$DPHOSPHO" | cut -d' ' -f1) \
+    || die "cannot hash the decryptm inputs"
+else
+  [ -z "$DCASES$DPHOSPHO" ] || die "--decryptm-cases / --decryptm-phospho given without --axis decryptm"
+fi
 
 # Nothing may reach an arm except what the command line names. A DS_* exported
 # in the caller's shell would reach the benchmark directly, and would resolve
@@ -123,12 +136,14 @@ for kv in "${BENCH[@]}"; do
   esac
   grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" \
     || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py at $SHA"; }
-  # The korkut bench uses only the pinning and the perturbation level from
+  # The korkut and decryptm benches use only the pinning, the perturbation
+  # level, the class cutoffs, the pin-network root and the solve timeout from
   # that script; any other bench knob would be recorded and inert there.
+  DRUG_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT"
   for gt in "${AXES[@]}"; do
     case "$gt" in korkut|korkut_predict|decryptm)
-      case " DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN " in *" $n "*) ;;
-        *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads DS_PIN_SCOPE, DS_PIN_ROOT_IGNORE, DS_PERTURB_UI_DOWN)" ;;
+      case " $DRUG_KNOBS " in *" $n "*) ;;
+        *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $DRUG_KNOBS)" ;;
       esac ;;
     esac
   done
@@ -182,8 +197,8 @@ for gt in "${AXES[@]}"; do
   esac || { echo "run_arm: $gt benchmark failed; see $OUT/$gt.log" >&2; status=1; break; }
 done
 
-ARM_LIMIT="${LIMIT[1]:-}" ARM_DCASES="$DCASES" ARM_DPHOSPHO="$DPHOSPHO" python3 - "$OUT" "$NAME" "$SHA" "$BID" "$STARTED" "$status" "${SERVER[*]:-}" "${BENCH[*]:-}" <<'PY'
-import datetime, hashlib, json, os, re, sys
+ARM_LIMIT="${LIMIT[1]:-}" ARM_DCASES="$DCASES" ARM_DPHOSPHO="$DPHOSPHO" ARM_DCASES_SHA="$DCASES_SHA" ARM_DPHOSPHO_SHA="$DPHOSPHO_SHA" python3 - "$OUT" "$NAME" "$SHA" "$BID" "$STARTED" "$status" "${SERVER[*]:-}" "${BENCH[*]:-}" <<'PY'
+import datetime, json, os, re, sys
 out, name, sha, bid, started, status, server, bench = sys.argv[1:]
 rec = {"name": name, "commit": sha, "build": bid, "started": started,
        "finished": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -192,8 +207,8 @@ rec = {"name": name, "commit": sha, "build": bid, "started": started,
        "bench_overrides": bench.split() if bench else []}
 for key, env in (("decryptm_cases", "ARM_DCASES"), ("decryptm_phospho", "ARM_DPHOSPHO")):
     path = os.environ.get(env)
-    if path:
-        rec[key] = {"path": path, "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest()}
+    if path:      # hashed by the shell before the arm ran
+        rec[key] = {"path": path, "sha256": os.environ[env + "_SHA"]}
 for gt in ("curator", "experimental", "korkut", "korkut_predict", "decryptm"):
     log = os.path.join(out, f"{gt}.log")
     if os.path.exists(log):
@@ -211,5 +226,6 @@ for gt in ("curator", "experimental", "korkut", "korkut_predict", "decryptm"):
 json.dump(rec, open(os.path.join(out, "ARM.json"), "w"), indent=2)
 print(json.dumps(rec, indent=2))
 PY
+[ $? -eq 0 ] || die "ARM.json was not written; the results in $OUT are unrecorded"
 [ "$status" = "0" ] || exit 1
 echo "run_arm: done -> $OUT"
