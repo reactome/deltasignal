@@ -35,7 +35,7 @@ model's 1,323 change calls are right (reachability 16.1%).
 | no route | 11,483 | 7% | 61 | 0% | — |
 
 Within 20 hops the model gets the **direction** right in 76-87% of the cases where both it and the measurement call a
-change, but it calls a change for 76% of those readouts (3,431 of 4,613) while 13% change: it cannot say **which**
+change, but it calls a change for 74% of those readouts (3,431 of 4,613) while 13% change: it cannot say **which**
 readouts move. Beyond 20 hops it calls UP 712 times and DOWN 214, while measured changes there are mostly DOWN (108 of
 128); its calls there are worse than chance (balanced accuracy 0.27 at 21-40 hops, 0.19 beyond). 61 change calls have
 no route in the bench's adjacency (not traced).
@@ -64,7 +64,7 @@ The deficiency is in what a generic network plus a full-strength perturbation ca
    24 h).
 2. **Long routes are wrong.** Past about 20 hops the calls are mostly UP and worse than chance: de-repression and loop
    artefacts accumulate along long paths through the large networks (the rail class of specs/108).
-3. **Coverage.** 64% of korkut cases and 56% of decryptM cases have no route from a target; 17-25% of errors are
+3. **Coverage.** 64% of korkut cases and 63% of decryptM cases have no route from a target; 17-25% of errors are
    changed readouts there.
 
 Candidate changes (each would be a new spec, pre-registered, fitted only on FIT data and judged on unseen data): a
