@@ -273,11 +273,13 @@ def rank(team_aucs_json, leaderboard_csv, out_dir, boot=10000, seed=112):
         rank_ok = any(abs(ra - mean_rank[t] - k / len(contexts)) <= 1e-3 for k in range(4))
         if not (auc_ok and rank_ok):
             bad.append({"team": t, "mean_auroc": [mean_auc[t], a], "mean_rank": [mean_rank[t], ra]})
-    on_both = sorted((t for t in teams if t in sheet), key=lambda t: mean_rank[t])
-    # teams tied on our mean rank may stand in either order: the removed entries break such ties on the sheet
-    if any(int(sheet[y]["Final rank"]) < int(sheet[x]["Final rank"]) and mean_rank[y] > mean_rank[x] + 1e-9
-           for x, y in zip(on_both, on_both[1:])):
-        bad.append({"problem": "team order differs from the sheet's final ranks"})
+    on_both = sorted(t for t in teams if t in sheet)
+    # every pair, not adjacent ones (ties make an adjacent check non-transitive and dependent on input order); teams
+    # tied on our mean rank may stand in either order: the removed entries break such ties on the sheet. Each team in
+    # an inverted pair counts against the two-team budget.
+    inverted = sorted({t for x in on_both for y in on_both for t in (x, y)
+                       if mean_rank[x] < mean_rank[y] - 1e-9 and int(sheet[x]["Final rank"]) > int(sheet[y]["Final rank"])})
+    bad += [{"team": t, "problem": "order differs from the sheet's final ranks"} for t in inverted]
     bad += [{"team": t, "problem": "not on the sheet"} for t in teams if t not in sheet]
     result = {"teams": len(teams), "sheet_teams": len(sheet), "contexts": len(contexts), "validation_failures": bad}
     if len(bad) > 2:

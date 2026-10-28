@@ -127,6 +127,22 @@ def test_rank_validation_amendment_3(tmp_path):
     assert len(fails("2,t1,0.6123,2.05\n1,MLBHKKG,0.7,1\n")) == 1      # not a whole thirtieth
     assert fails("2,t1,0.6123,2.0667\n1,MLBHKKG,0.7,1\n") == []         # two thirtieths, printed to 4 decimals
     assert len(fails("2,t1,0.6123,2.1333\n1,MLBHKKG,0.7,1\n")) == 1     # four thirtieths
-    assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 1         # order differs
+    assert len(fails("1,t1,0.6123,2\n2,MLBHKKG,0.7,1\n")) == 2         # order differs: both teams count
     (tmp_path / "aucs.json").write_text(json.dumps({ctx: {"t1": 0.7, "ML_BHK_KG": 0.7} for ctx in ctxs}))
     assert fails("2,t1,0.7,1.0333\n1,MLBHKKG,0.7,1\n") == []           # tied here, ordered on the sheet
+
+
+def test_rank_order_check_is_pairwise_and_order_free(tmp_path):
+    # a and b tie on every context, c is last; the sheet puts a below c. An adjacent-only check passed this when
+    # the input listed a before b (review 2026-10-28).
+    ctxs = [f"{c}_{s}" for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    per = [{"cell": c, "stimulus": s, "deltasignal": 0.65, "reachability": 0.5}
+           for c in h.CELL_LINES for s in h.OFFICIAL[c]]
+    (tmp_path / "score.json").write_text(json.dumps({"per_context": per}))
+    (tmp_path / "lb.csv").write_text("Final rank,Team name,mean AUROC,mean Rank\n3,a,0.8,1\n1,b,0.8,1\n2,c,0.6,3\n")
+    for order in (("a", "b", "c"), ("b", "a", "c")):
+        vals = {"a": 0.8, "b": 0.8, "c": 0.6}
+        (tmp_path / "aucs.json").write_text(json.dumps({ctx: {t: vals[t] for t in order} for ctx in ctxs}))
+        h.rank(tmp_path / "aucs.json", tmp_path / "lb.csv", tmp_path, boot=2)
+        fails = json.loads((tmp_path / "rank.json").read_text())["validation_failures"]
+        assert sorted(f["team"] for f in fails) == ["a", "c"]
