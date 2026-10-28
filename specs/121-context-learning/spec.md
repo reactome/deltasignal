@@ -63,3 +63,12 @@ portions are read once, at the end, for all registered arms together.
 Each phase registers its own hypotheses and gate before it runs, as a numbered amendment here.
 
 **What it is not.** No Reactome Release 98 (still held back). No change to a default without Adam's decision.
+
+## The split, as drawn (2026-10-28)
+
+`split_121.py` at this commit, seed 121; output kept at `~/deltasignal-catalogs/analysis/121/split.tsv`, SHA-256
+`7dec6c069db69bd4c3099fbcf2bf1f028cca8892a6824a0abf44676a6f2a1234`. Drugs: 79 training, 52 test, 23 seen (training
+only), 10 stimuli (training only). Cell lines: 238 training, 79 test. Single-compound samples: training 3,740; Test A
+(unseen drug) 873; Test B (unseen cell line) 2,029; Test C (both) 348. Two name checks were made before the split was
+used: bafilomycin is LINCS P100's bafilomycin A1, so it is a seen drug; I-BET726 and I-BET762 are different compounds.
+Anonymised CPPA compounds ("MEK inhibitor-01") are drugs like any other; their targets come from the class named.
