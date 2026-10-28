@@ -115,10 +115,18 @@ Score A (curated reach AUROC over contexts) on the top-level build is **0.498** 
 - **H3 fails.** On korkut the model's accuracy (0.723) beats reachability's (0.631) but not always-NOT's (0.913).
 - **H4 fails.** P100 score A is 0.498, and its interval includes 0.5.
 
-**Reading.** The whole of Reactome adds cases but does not change the pattern from the 92 pathways. Wherever the
-measured call is "unchanged", the model beats reachability, because it predicts NOT for most reachable sites. On the
-regulated sites the model loses, by more than it did on the 92 pathways: on top-level decryptM, 118 regulated cases
-are right only under reachability and 4 only under the model. Both benches stay below always-NOT. Larger networks also
-give more conflicting calls: 42% of korkut units get different calls from different top-level networks. These
-networks are larger and overlap, and 21 of 814 korkut solves did not converge, against none on the 92 pathways. Why
-the model calls NOT on reachable regulated sites was not traced here. The cases are in the logs listed above.
+**Reading.** The whole of Reactome adds cases but does not change the pattern from the 92 pathways. On cases measured
+unchanged, the model beats reachability because it predicts NOT for most reachable sites. On the regulated sites the
+model loses, by more than it did on the 92 pathways: on top-level decryptM, 118 regulated cases are right only under
+reachability and 4 only under the model. Both benches stay below always-NOT. Larger networks also give more
+conflicting calls: 42% of korkut units get different calls from different top-level networks. These networks are
+larger and overlap, and 21 of 814 korkut solves did not converge, against none on the 92 pathways.
+
+**Amendment 1 (2026-10-27, after the results): what the 118 decryptM cases are.** The first reading above said the
+model calls NOT on reachable regulated sites. That was an inference from the totals, written before any case was
+looked at, and it is mostly wrong. Of the 118 regulated cases right only under reachability, **73 are inversions**
+(measured DOWN, model UP) and 45 are NOT calls. The inversions are mostly ERBB-family inhibitors (afatinib 19,
+gefitinib 18, lapatinib 12) and SHP099 (9), 68 of 73 in Signal Transduction, and they include ERK1/2 activation-loop sites
+(MAPK3 T202/Y204, MAPK1 T185/Y187). Over all 725 regulated cases: 391 are not reachable in the network they are scored in (305 measured
+DOWN, 86 UP), so the model cannot get them there; reachability calls only DOWN, so it gets none of the 111
+measured UP. No case was traced through a network here.
