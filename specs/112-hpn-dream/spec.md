@@ -124,3 +124,21 @@ reported beside the place. Amendment 2's prediction stands unchanged.
 teams, because the ±1e-6 written above is finer than the sheet prints mean rank (three or four decimals, e.g. 7.7333
 for 7 + 22/30). The rank check is now: the sheet's mean rank equals ours plus k/30 for some k in 0–3, within ±0.001
 (amendment 2's precision). DeltaSignal's and reachability's ranks were not computed by the failed run.
+
+## Amendment 4 (2026-10-28, after scoring): two input errors found by code review, corrected and re-scored
+
+A review of everything since the freeze found two errors in this test's inputs, not in the frozen model.
+- **Site map.** Several antibodies were mapped to the nominal residue on every paralog, though paralogs carry the
+  homologous site at a different number, so those entries could never match a curated phospho-form: AKT2 and AKT3
+  (S474/T309, S472/T305), GSK3A (S21, the residue matching GSK3B S9), PRKAA1 (T183), ACACB (S222), and the
+  pan-PKC hydrophobic motif (PRKCA S657, PRKCB S660/S661, PRKCD S664, PRKCE S729, PRKCH S675, PRKCQ S695). The
+  corrected residues were checked in the Release 97 database (each except PRKCH S675 and ACACA S79 is curated). The
+  JNK note is corrected (residue 185 is a tyrosine; nothing was added).
+- **Unstimulated baseline.** Where no stimulus ligand is in a network (always for PBS), condition A was not solved and
+  B was compared with a constant 0.01. The 1e-15 to 3.6e-14 "effects" amendment 1 recorded come from that, not from
+  unreachable readouts. A is now always solved.
+
+Registered before the re-run: `predict`, `score` and `rank` are re-run on the same build at the commit that makes these
+changes, with every other setting unchanged. The original 0.693 (10th) stays the scored-once result of the frozen model
+and is reported first; the corrected figures are reported beside it as a correction. HPN-DREAM is FIT since the first
+scoring, so the re-run is not a second test, and whichever way it moves, it changes no rule.
