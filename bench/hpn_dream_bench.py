@@ -43,6 +43,7 @@ from urllib.request import urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "analysis"))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
+import drug_activity as da  # noqa: E402
 import dataset_roles  # noqa: E402
 from decryptm_bench import git_state, readout_uuids  # noqa: E402
 from decryptm_coverage import RESIDUE, neo4j_rows  # noqa: E402
@@ -118,17 +119,19 @@ def predict(hpn_dir, phospho_csv, out_dir):
     genes = sorted({TARGET} | {g for gs in STIMULI.values() for g in gs})
     gene_to_stids = bm.neo4j_gene_to_stids(genes)
     pathways = [r["id"] for r in csv.DictReader(open(build / "pathways.tsv"), delimiter="\t")]
-    print(f"Protocol: HPN-DREAM SC1A, DS_PIN_SCOPE={bm.PIN_SCOPE} "
+    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
+    print(f"Protocol: HPN-DREAM SC1A, DS_DRUG_ACTION={da.DRUG_ACTION} DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_UP={bm.PERTURB_UI_UP:g} "
           f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g}; build {build.name}; code {sha}; "
           f"dataset hpn_dream registered {role}", flush=True)
     rows, solves = [], 0
     rules = collections.Counter()
 
-    def solve(parsed, pins, pid):
+    def solve(parsed, pins, pid, payload=None, extra=None):
         nonlocal solves
         obs = {u: [v, bm.PIN_CONFIDENCE] for u, v in sorted(pins.items())}
-        res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"])
+        obs.update(extra or {})
+        res = bm.solve_via_ds_api(payload, obs, network_id=None if payload else parsed["network_id"])
         if res.get("status") != "success":
             raise SystemExit(f"{pid}: solve failed: {res.get('message')}")
         bm.refuse_unless_default_model(res, pid)
@@ -157,7 +160,12 @@ def predict(hpn_dir, phospho_csv, out_dir):
             # A is solved even with no ligand pinned, so B is compared with the solver's own baseline, not a
             # constant: their 1e-15 differences are rounding, not effects (amendment 4)
             act_a = solve(parsed, a_pins, pid)
-            act_b = solve(parsed, b_pins, pid)
+            if da.DRUG_ACTION == "knockout":
+                act_b = solve(parsed, b_pins, pid)
+            else:      # specs/122: the inhibitor cuts the target's catalyst / regulator edges; nothing is pinned
+                _, cut_obs, payload, _ = da.perturb(bm, pdir, parsed, [TARGET], gene_to_stids, stid_to_uuids, units)
+                b_pins = dict(a_pins)
+                act_b = solve(parsed, a_pins, pid, payload, cut_obs)
             for sp in species:
                 ro = [u for u in readout_uuids(stids[sp], stid_to_uuids) if u not in b_pins]
                 if not ro:
