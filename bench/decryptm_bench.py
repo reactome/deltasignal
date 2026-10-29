@@ -35,6 +35,7 @@ from urllib.request import urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "analysis"))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
+import drug_activity as da  # noqa: E402
 import dataset_roles  # noqa: E402
 import protocol_stats  # noqa: E402
 from decryptm_coverage import RESIDUE, neo4j_rows  # noqa: E402
@@ -210,7 +211,8 @@ def main():
     by_pathway = collections.defaultdict(lambda: collections.defaultdict(list))
     for c in cases:
         by_pathway[c["pathway_id"]][(c["drug"], c["targets"])].append(c)
-    print(f"Protocol: decryptM drug bench, DS_PIN_SCOPE={bm.PIN_SCOPE} "
+    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
+    print(f"Protocol: decryptM drug bench, DS_DRUG_ACTION={da.DRUG_ACTION} DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} "
           f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} DS_KO_AGG=mean(unpinned) "
           f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
@@ -229,14 +231,13 @@ def main():
             raise SystemExit(f"{pid}: the API's network shares no uuid with {pdir}")
         adj = bm.build_adjacency(pdir)
         for (drug, targets), group in sorted(by_pathway[pid].items()):
-            g2u = {g: [u for s in gene_to_stids.get(g, []) for u in stid_to_uuids.get(s, [])]
-                   for g in targets.split(";")}
-            pins, _ = bm.pin_occurrences(pdir, g2u, gene_to_stids)
-            pinned = set().union(*pins.values()) if pins else set()
+            # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges
+            pins, obs, payload, roots = da.perturb(bm, pdir, parsed, targets.split(";"), gene_to_stids,
+                                                   stid_to_uuids, units)
+            pinned = roots if da.DRUG_ACTION == "knockout" else set()
             activities, reach = {}, set()
-            if pinned and any(c["measured"] != "conflict" for c in group):
-                obs = {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(pinned)}
-                res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"])
+            if roots and any(c["measured"] != "conflict" for c in group):
+                res = bm.solve_via_ds_api(payload, obs, network_id=None if payload else parsed["network_id"])
                 if res.get("status") != "success":
                     raise SystemExit(f"{pid} {drug}: solve failed: {res.get('message')}")
                 bm.refuse_unless_default_model(res, pid)
@@ -245,7 +246,7 @@ def main():
                              if k.endswith("_rule") or k in ("self_inhibitor_leaves", "cycle_carriers",
                                                              "scc_order"))
                 activities = res.get("node_activities", {})
-                reach = bm.reachable_from(adj, pinned)
+                reach = bm.reachable_from(adj, roots)
             for c in group:
                 ro = readout_uuids(site_stids.get((c["uniprot"], int(c["position"])), ()), stid_to_uuids)
                 if c["measured"] == "conflict":

@@ -26,6 +26,7 @@ from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
+import drug_activity as da  # noqa: E402
 import dataset_roles  # noqa: E402
 from decryptm_bench import git_state  # noqa: E402
 
@@ -140,7 +141,8 @@ def main():
     site_to_stids = neo4j_site_stids(sites)
     r_stids = readout_stids(readouts, gene_to_stids, site_to_stids)
 
-    print(f"Protocol: korkut2015 drug-set bench (specs/062), DS_PIN_SCOPE={bm.PIN_SCOPE} "
+    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
+    print(f"Protocol: korkut2015 drug-set bench (specs/062), DS_DRUG_ACTION={da.DRUG_ACTION} DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
           f"readout=mean(unpinned) cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; measured |log2| >= "
           f"{THRESHOLD:.3f}; build {build.name}; code {sha}; dataset korkut2015 ({DATA}) registered {role}; "
@@ -160,24 +162,24 @@ def main():
             g2u = {g: [u for s in gene_to_stids.get(g, []) for u in stid_to_uuids.get(s, [])] for g in genes}
             if not any(g2u.values()):
                 continue
-            pins, _ = bm.pin_occurrences(pdir, g2u, gene_to_stids)
-            pinned = set().union(*pins.values()) if pins else set()
-            if not pinned:
-                continue
             if parsed is None:
                 parsed = bm.parse_pathway_via_ds_api(pdir.name)
                 adj = bm.build_adjacency(pdir)
                 if parsed.get("status") != "success":
                     raise SystemExit(f"{pdir.name}: parse failed: {parsed.get('message')}")
-            obs = {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(pinned)}
-            res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"])
+            # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges
+            pins, obs, payload, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units)
+            if not roots:
+                continue
+            pinned = roots if da.DRUG_ACTION == "knockout" else set()
+            res = bm.solve_via_ds_api(payload, obs, network_id=None if payload else parsed["network_id"])
             if res.get("status") != "success":
                 raise SystemExit(f"{pdir.name} {ds}: solve failed: {res.get('message')}")
             bm.refuse_unless_default_model(res, pdir.name)
             solves += 1
             conv += bool(res.get("converged"))
             act = res.get("node_activities", {})
-            reach = bm.reachable_from(adj, pinned)
+            reach = bm.reachable_from(adj, roots)
             for name, nodes in sorted(ro_nodes.items()):
                 free = [u for u in nodes if u not in pinned]
                 if not free:
