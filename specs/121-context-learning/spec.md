@@ -111,3 +111,16 @@ conventional TPM 1 and is not tuned.
   frozen model's.
 Whatever G1-G2 show, the gated model is one of the arms scored once at the end; G1-G2 decide only whether phase 3
 builds on it. The curator benchmark has no cell line, so this rule cannot touch it.
+
+## Amendment 3 (2026-10-28): from the training portion, before any test portion is read
+
+Phase 1 scored the frozen model on the training portion (development; `score_121.py`; numbers kept with the private
+analysis, `~/deltasignal-catalogs/analysis/121/research_private.md`). Two decisions follow, both registered before any
+test value is read:
+- **Change threshold** for the secondary balanced accuracy: |delta-p| ≥ log2(1.5), korkut's threshold (specs/062),
+  for consistency rather than tuned.
+- **A secondary endpoint by time.** On the training portion the model's correlation is concentrated in samples treated
+  for 12 hours or less and falls in samples treated for 16 hours or more, as expected of a model of signalling without
+  feedback or gene expression. The primary endpoint is unchanged (all samples). Added as a secondary: the same
+  correlation on test samples with a parsed treatment time of 12 hours or less (`5min`, `30min`, `4hr`, `0.5hr`,
+  `3d`, ... parsed as minutes, hours or days; an unparsed time is left out of this endpoint).
