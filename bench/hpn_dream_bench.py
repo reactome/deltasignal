@@ -127,11 +127,10 @@ def predict(hpn_dir, phospho_csv, out_dir):
     rows, solves = [], 0
     rules = collections.Counter()
 
-    def solve(parsed, pins, pid, payload=None, extra=None):
+    def solve(parsed, pins, pid, cut=None):
         nonlocal solves
         obs = {u: [v, bm.PIN_CONFIDENCE] for u, v in sorted(pins.items())}
-        obs.update(extra or {})
-        res = bm.solve_via_ds_api(payload, obs, network_id=None if payload else parsed["network_id"])
+        res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"], edge_redirects=cut)
         if res.get("status") != "success":
             raise SystemExit(f"{pid}: solve failed: {res.get('message')}")
         bm.refuse_unless_default_model(res, pid)
@@ -163,9 +162,9 @@ def predict(hpn_dir, phospho_csv, out_dir):
             if da.DRUG_ACTION == "knockout":
                 act_b = solve(parsed, b_pins, pid)
             else:      # specs/122: the inhibitor cuts the target's catalyst / regulator edges; nothing is pinned
-                _, cut_obs, payload, _ = da.perturb(bm, pdir, parsed, [TARGET], gene_to_stids, stid_to_uuids, units)
+                _, _, cut, _ = da.perturb(bm, pdir, parsed, [TARGET], gene_to_stids, stid_to_uuids, units)
                 b_pins = dict(a_pins)
-                act_b = solve(parsed, a_pins, pid, payload, cut_obs)
+                act_b = solve(parsed, a_pins, pid, cut)
             for sp in species:
                 ro = [u for u in readout_uuids(stids[sp], stid_to_uuids) if u not in b_pins]
                 if not ro:

@@ -168,6 +168,39 @@ const SRV = DeltaSignal
         end
     end
 
+    # specs/122: edge_redirects on a cached network solve exactly as the same network POSTed with each cut edge
+    # taking its input from a block node pinned at 0; an edge the network does not have is refused.
+    @testset "/api/solve edge_redirects" begin
+        post(path, b) = SRV.HTTP.Request("POST", path, ["Content-Type" => "application/json"], b)
+        parsed = SRV.JSON3.read(String(SRV.parse_handler(post("/api/parse", "")).body))
+        e = parsed[:edges][1]
+        p, c = String(e[:parent_uuid]), String(e[:child_uuid])
+        u = String(parsed[:nodes][end][:uuid])
+        body = """{"network_id": "$(parsed[:network_id])", "observations": {"$u": [50.0, 1.0]},
+                   "edge_redirects": [["$p", "$c"]]}"""
+        r = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", body)).body))
+        @test r[:status] == "success"
+        @test r[:edge_redirects] == 1
+        b = "drugblock:$p:$c"
+        src = first(n for n in parsed[:nodes] if String(n[:uuid]) == p)
+        nodes = [Dict(String(k) => v for (k, v) in pairs(n)) for n in parsed[:nodes]]
+        push!(nodes, Dict("uuid" => b, "name" => "drug block", "reactome_id" => nothing,
+                          "entity_type" => src[:entity_type], "baseline" => src[:baseline], "set_id" => nothing))
+        edges = [Dict(String(k) => v for (k, v) in pairs(x)) for x in parsed[:edges]]
+        edges[1]["parent_uuid"] = b
+        inline = SRV.JSON3.write(Dict("network" => Dict("nodes" => nodes, "edges" => edges,
+                                                          "pathways" => parsed[:pathways]),
+                                      "observations" => Dict(u => [50.0, 1.0], b => [0.0, 1.0])))
+        q = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", inline)).body))
+        @test q[:status] == "success"
+        @test Dict(r[:node_activities]) == Dict(q[:node_activities])
+        bad = """{"network_id": "$(parsed[:network_id])", "observations": {"$u": [50.0, 1.0]},
+                  "edge_redirects": [["no-such-node", "$c"]]}"""
+        resp = SRV.solve_handler(post("/api/solve", bad))
+        @test resp.status == 400
+        @test occursin("edge_redirects", String(resp.body))
+    end
+
     # specs/044: an uploaded network is saved under its part name, so the
     # sibling rule cannot find boundary_edges.csv; it is its own part.
     @testset "/api/parse reads an uploaded boundary_edges part" begin

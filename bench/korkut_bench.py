@@ -168,11 +168,11 @@ def main():
                 if parsed.get("status") != "success":
                     raise SystemExit(f"{pdir.name}: parse failed: {parsed.get('message')}")
             # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges
-            pins, obs, payload, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units)
+            pins, obs, cut, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units)
             if not roots:
                 continue
             pinned = roots if da.DRUG_ACTION == "knockout" else set()
-            res = bm.solve_via_ds_api(payload, obs, network_id=None if payload else parsed["network_id"])
+            res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"], edge_redirects=cut)
             if res.get("status") != "success":
                 raise SystemExit(f"{pdir.name} {ds}: solve failed: {res.get('message')}")
             bm.refuse_unless_default_model(res, pdir.name)

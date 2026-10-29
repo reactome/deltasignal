@@ -99,20 +99,17 @@ def payload_extras(parsed):
 def perturb(bm, pathway_dir, parsed, genes, gene_to_stids, stid_to_uuids, units):
     """How a drug with target `genes` enters one network's solve, under DS_DRUG_ACTION.
 
-    Returns (pins, observations, payload, reach_sources): `pins` {gene: [uuids]} as the knockout bench pins them
-    (also the reachability comparator's sources in both modes, so the comparator does not move); observations for the
-    solve; payload None to solve the cached network, else the redirected network to POST. Under `activity` nothing is
-    pinned for the drug, so the target's own forms are scored."""
+    Returns (pins, observations, edge_redirects, reach_sources): `pins` {gene: [uuids]} as the knockout bench pins
+    them (also the reachability comparator's sources in both modes, so the comparator does not move); observations
+    for the solve; the edges to cut, sent with the cached network's id (the server redirects each to a block node it
+    pins at 0; `redirected` builds the same network client-side, which test_api_errors.jl shows solves identically).
+    Under `activity` nothing is pinned for the drug, so the target's own forms are scored."""
     g2u = {g: [u for s in gene_to_stids.get(g, []) for u in stid_to_uuids.get(s, [])] for g in genes}
     if not any(g2u.values()):
-        return {}, {}, None, set()
+        return {}, {}, set(), set()
     pins, _ = bm.pin_occurrences(pathway_dir, g2u, gene_to_stids)
     roots = set().union(*pins.values()) if pins else set()
     if DRUG_ACTION == "knockout":
-        return pins, {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(roots)}, None, roots
+        return pins, {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(roots)}, set(), roots
     leaves = set().union(*(set(gene_to_stids.get(g, [])) for g in genes))
-    cut = cut_edges(pathway_dir, leaves, units)
-    if not cut:
-        return pins, {}, None, roots
-    payload, obs = redirected(parsed, cut, payload_extras(parsed))
-    return pins, {u: [v, bm.PIN_CONFIDENCE] for u, (v, _) in obs.items()}, payload, roots
+    return pins, {}, cut_edges(pathway_dir, leaves, units), roots

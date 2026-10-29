@@ -162,6 +162,7 @@ const OBS_CONFLICT_ERROR = "A node is observed twice with different values; send
 const OBS_UNKNOWN_ERROR = "No observation matched a node in this network. Check that the uuids come from the same catalog build as the network."
 const NODE_BASELINE_ERROR = "Each network node baseline must be a finite number in (0, 1]."
 const UPLOAD_ERROR = "Upload requires both a 'logic_network' and a 'uuid_mapping' file part."
+const EDGE_REDIRECT_ERROR = "edge_redirects must be a list of [parent_uuid, child_uuid] pairs, each an edge of this network."
 const UNKNOWN_NETWORK_ERROR = "Unknown network_id. The server cache is per-process and is cleared on restart; call /api/parse again."
 const NO_NETWORK_ERROR = "Request must provide a network: a pathway_id, an uploaded network, an inline network, or a known network_id."
 
@@ -186,6 +187,7 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
         # test_api_errors.jl asserts this list covers them all.
         elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR || msg == NODE_BASELINE_ERROR ||
                msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR ||
+               msg == EDGE_REDIRECT_ERROR ||
                msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
@@ -787,6 +789,42 @@ function parse_handler(req)
 end
 
 # Solve steady-state endpoint
+"""
+    redirect_edges(network, pairs) -> (network, block_uuids)
+
+specs/122: a drug that blocks its target's activity. Each listed edge (parent, child) keeps its type and sign but takes
+its input from a new node of its own, which the caller pins at 0; the cached network is not modified. Lets a client
+solve by `network_id` and send only the edges to cut, instead of POSTing the whole modified network for each drug.
+Every pair must name an edge of the network.
+"""
+function redirect_edges(network::DeltaSignal.ReactionNetwork, pairs)
+    want = Set{Tuple{String, String}}((String(p[1]), String(p[2])) for p in pairs)
+    nodes = copy(network.nodes)
+    edges = DeltaSignal.LogicNetworkEdge[]
+    found = Set{Tuple{String, String}}()
+    blocks = String[]
+    for e in network.edges
+        k = (e.parent_uuid, e.child_uuid)
+        if k in want
+            b = "drugblock:" * k[1] * ":" * k[2]
+            if !haskey(nodes, b)
+                src = network.nodes[k[1]]
+                nodes[b] = DeltaSignal.NetworkNode(b, nothing, src.entity_type, nothing, "drug block", src.baseline)
+                push!(blocks, b)
+            end
+            push!(edges, DeltaSignal.LogicNetworkEdge(b, e.child_uuid, e.is_and, e.is_positive, e.stoichiometry,
+                                                      e.edge_type))
+            push!(found, k)
+        else
+            push!(edges, e)
+        end
+    end
+    length(found) == length(want) || throw(ArgumentError(EDGE_REDIRECT_ERROR))
+    fields = (f === :nodes ? nodes : f === :edges ? edges : getfield(network, f)
+              for f in fieldnames(DeltaSignal.ReactionNetwork))
+    return DeltaSignal.ReactionNetwork(fields...), blocks
+end
+
 function solve_handler(req)
     try
         # Parse request body
@@ -826,6 +864,16 @@ function solve_handler(req)
             )
         end
         
+        # specs/122 (additive): edges to cut for a drug's activity, each redirected to a block node pinned at 0
+        redirects_raw = get(request_data, :edge_redirects, nothing)
+        block_uuids = String[]
+        if redirects_raw !== nothing
+            (redirects_raw isa AbstractVector && all(p -> p isa AbstractVector && length(p) == 2 &&
+                                                       all(x -> x isa AbstractString, p), redirects_raw)) ||
+                throw(ArgumentError(EDGE_REDIRECT_ERROR))
+            network, block_uuids = redirect_edges(network, redirects_raw)
+        end
+
         # Create observations from request perturbations
         observations = Dict{String, Tuple{Float64, Float64}}()
         
@@ -870,6 +918,11 @@ function solve_handler(req)
             end
         end
         
+        for b in block_uuids
+            haskey(observations, b) && throw(ArgumentError(OBS_CONFLICT_ERROR))
+            observations[b] = (0.0, 1.0)
+        end
+
         # Membership. The solver drops observations whose uuid is not in the
         # network (`haskey(uuid_to_idx, uuid) || continue`), silently — so a
         # stale or mistyped uuid perturbs nothing and still returns 200. Report
@@ -908,6 +961,7 @@ function solve_handler(req)
             # Named explicitly so a caller can tell "perturbation had no effect"
             # from "perturbation was never applied".
             "unknown_observations" => unknown_observations,
+            "edge_redirects" => length(block_uuids),   # specs/122
             "influence_scores" => influence_scores,
             "converged" => solver_result.converged,
             "iterations" => solver_result.iterations,

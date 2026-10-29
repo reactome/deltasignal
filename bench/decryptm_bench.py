@@ -232,12 +232,12 @@ def main():
         adj = bm.build_adjacency(pdir)
         for (drug, targets), group in sorted(by_pathway[pid].items()):
             # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges
-            pins, obs, payload, roots = da.perturb(bm, pdir, parsed, targets.split(";"), gene_to_stids,
+            pins, obs, cut, roots = da.perturb(bm, pdir, parsed, targets.split(";"), gene_to_stids,
                                                    stid_to_uuids, units)
             pinned = roots if da.DRUG_ACTION == "knockout" else set()
             activities, reach = {}, set()
             if roots and any(c["measured"] != "conflict" for c in group):
-                res = bm.solve_via_ds_api(payload, obs, network_id=None if payload else parsed["network_id"])
+                res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"], edge_redirects=cut)
                 if res.get("status") != "success":
                     raise SystemExit(f"{pid} {drug}: solve failed: {res.get('message')}")
                 bm.refuse_unless_default_model(res, pid)

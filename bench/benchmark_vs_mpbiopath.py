@@ -852,7 +852,7 @@ def load_curator(pathway_name: str, ground_truth: str = "curator"):
     return header, rows
 
 
-def solve_via_ds_api(network_json: dict, observations: dict, network_id=None):
+def solve_via_ds_api(network_json: dict, observations: dict, network_id=None, edge_redirects=None):
     """Call deltasignal /api/solve.
 
     When ``network_id`` is given (from a prior /api/parse), send only the
@@ -864,6 +864,8 @@ def solve_via_ds_api(network_json: dict, observations: dict, network_id=None):
         payload = {"network_id": network_id, "observations": observations}
     else:
         payload = {"network": network_json, "observations": observations}
+    if edge_redirects:    # specs/122: edges the server redirects to block nodes it pins at 0
+        payload["edge_redirects"] = [list(e) for e in sorted(edge_redirects)]
     body = json.dumps(payload).encode()
     req = Request(f"{DS_BASE}/api/solve",
                   data=body,
