@@ -88,7 +88,11 @@ def main():
     readouts = [r for r in read_tsv(readouts_tsv) if r["kind"] != "exclude"]
     all_genes = {r["gene"] for r in csv.DictReader(open(acc_gene), delimiter="\t")}
     expr = expression_rows(expr_csv, {m for m, _ in cell_model.values() if m}, all_genes)
-    gene_to_stids = bm.neo4j_gene_to_stids(sorted(all_genes))
+    # targets and readouts resolve exactly as in cppa_bench (the frozen arm); absent genes use the one-pass table
+    target_genes = sorted({g for _, gs in drugs.values() for g in gs})
+    readout_genes = sorted({s.split(":")[0] for r in readouts for s in r["sites"].split(",")})
+    gene_to_stids = bm.neo4j_gene_to_stids(sorted(set(target_genes) | set(readout_genes)))
+    gene_ewas = expression_gate.human_gene_ewas()
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
     r_stids = readout_stids(readouts, gene_to_stids, neo4j_site_stids(sites))
@@ -96,7 +100,7 @@ def main():
     for c, (m, _) in cell_model.items():
         if m in expr:
             gs = {g for g, v in expr[m].items() if v < THRESHOLD}
-            absent[c] = set().union(*(set(gene_to_stids.get(g, [])) for g in gs)) if gs else set()
+            absent[c] = set().union(*(set(gene_ewas.get(g, [])) for g in gs)) if gs else set()
     pairs = [(d, c) for d, c in pairs if c in absent]
     print(f"Protocol: CPPA gated predictions (specs/121 amendment 2), portion {portion}, log2(TPM+1) < {THRESHOLD:g} "
           f"absent, DS_PIN_SCOPE={bm.PIN_SCOPE} DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} "
