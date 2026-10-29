@@ -27,3 +27,10 @@ def test_per_drug_means_samples():
     preds = {"fold": {("D", "a"): 1.0, ("D", "b"): 0.0, ("D", "c"): -1.0}}
     samples = [{"drug": "D", "values": {"a": 1, "b": 0, "c": -1}}, {"drug": "D", "values": {"a": -1, "b": 0, "c": 1}}]
     assert s.per_drug(samples, preds, {"a", "b", "c"})["fold"]["D"] == pytest.approx(0.0)
+
+
+def test_per_drug_gated_uses_the_samples_cell_line():
+    gated = {"fold": {("D", "C1", "a"): 1.0, ("D", "C1", "b"): 0.0, ("D", "C1", "c"): -1.0}}
+    samples = [{"drug": "D", "cell_line": "C1", "values": {"a": 2, "b": 0, "c": -2}},
+               {"drug": "D", "cell_line": "C2", "values": {"a": -2, "b": 0, "c": 2}}]        # C2 has no gated prediction
+    assert s.per_drug_gated(samples, gated, {"a", "b", "c"})["fold"]["D"] == pytest.approx(1.0)

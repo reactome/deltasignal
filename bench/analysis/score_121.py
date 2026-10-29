@@ -42,6 +42,35 @@ def predictions(case_logs):
     return {a: {k: sum(v) / len(v) for k, v in d.items()} for a, d in acc.items()}
 
 
+def gated_predictions(case_logs):
+    """{arm: {(drug, cell line, readout): value}} from cppa_gated_bench logs, means over pathways as predictions()."""
+    acc = collections.defaultdict(lambda: collections.defaultdict(list))
+    for path in case_logs:
+        for r in csv.DictReader(open(path), delimiter="\t"):
+            if r["status"] != "scored":
+                continue
+            k = (r["drug"], r["cell_line"], r["readout"])
+            ui = float(r["pred_ui"])
+            acc["fold"][k].append(max(-CLIP, min(CLIP, math.log2(ui))) if ui > 0 else -CLIP)
+            acc["call"][k].append(CALL[r["predicted"]])
+            acc["reach"][k].append(-1.0 if r["reach_predicted"] == "down" else 0.0)
+    return {a: {k: sum(v) / len(v) for k, v in d.items()} for a, d in acc.items()}
+
+
+def per_drug_gated(samples, gated, readouts):
+    """As per_drug, for gated predictions keyed by (drug, cell line, readout); a sample whose pair has no gated
+    prediction is left out (it keeps the frozen prediction, scored by per_drug)."""
+    out = collections.defaultdict(lambda: collections.defaultdict(list))
+    for s in samples:
+        for arm, p in gated.items():
+            pairs = [(p[(s["drug"], s["cell_line"], a)], v) for a, v in s["values"].items()
+                     if a in readouts and (s["drug"], s["cell_line"], a) in p]
+            c = pearson([x for x, _ in pairs], [y for _, y in pairs])
+            if c is not None:
+                out[arm][s["drug"]].append(c)
+    return {arm: {d: sum(v) / len(v) for d, v in by.items()} for arm, by in out.items()}
+
+
 def pearson(x, y):
     n = len(x)
     if n < 3:
