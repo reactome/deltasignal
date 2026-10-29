@@ -7,7 +7,7 @@ DS_PERTURB_UI_DOWN at the forms the curator bench pins, one solve per drug per p
 korkut format) is the mean over the nodes that are, or contain, its EWAS, pinned nodes left out. Stimuli are not
 solved. The case log has no measured column: scoring is a separate, registered step.
 
-CPPA_SHARD=i/n runs every n-th pathway from the i-th and writes cppa_predict_cases.iofn.tsv (concatenate the shards).
+CPPA_PATHWAYS=R-HSA-1,R-HSA-2 runs only those pathways (a trace). CPPA_SHARD=i/n runs every n-th pathway from the i-th and writes cppa_predict_cases.iofn.tsv (concatenate the shards).
 
 Usage: DS_CATALOG_ROOT=<build> cppa_bench.py DRUG_TARGETS_TSV ACC_GENE_TSV READOUTS_TSV OUT_DIR
 """
@@ -67,6 +67,9 @@ def main():
           f"{len(drugs)} drugs, {len(readouts)} readouts; PREDICT ONLY (values unread)", flush=True)
     rows, solves, conv = [], 0, 0
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())
+    only = {x for x in os.environ.get("CPPA_PATHWAYS", "").split(",") if x}     # a trace: these pathways only
+    if only:
+        pathways = [p for p in pathways if p.name in only]
     shard = os.environ.get("CPPA_SHARD", "")          # "i/n": every n-th pathway from the i-th, to run in parallel
     if shard:
         i, n = map(int, shard.split("/"))
