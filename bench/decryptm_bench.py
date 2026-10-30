@@ -51,9 +51,10 @@ def readout_uuids(site_stids, stid_to_uuids):
     return list(dict.fromkeys(u for s in sorted(site_stids) for u in stid_to_uuids.get(s, ())))
 
 
-def score_case(readout, pinned, activities, reach):
-    """(status, pred_ui, predicted, reachability prediction) for one case."""
-    if not pinned:
+def score_case(readout, pinned, activities, reach, perturbed=None):
+    """(status, pred_ui, predicted, reachability prediction) for one case. `perturbed` (default: `pinned`) says
+    whether the drug reaches this network at all: under DS_DRUG_ACTION=activity nothing is pinned (specs/122)."""
+    if not (pinned if perturbed is None else perturbed):
         return "no_pin", None, None, None
     if not readout:
         return "no_readout", None, None, None
@@ -252,7 +253,7 @@ def main():
                 if c["measured"] == "conflict":
                     status, ui, pred, rp = "conflict", None, None, None
                 else:
-                    status, ui, pred, rp = score_case(ro, pinned, activities, reach)
+                    status, ui, pred, rp = score_case(ro, pinned, activities, reach, perturbed=roots)
                 rows.append({**c, "status": status, "pinned": len(pinned),
                              # a multi-target drug may have targets with no root form in this pathway
                              "targets_pinned": ";".join(sorted(g for g, us in pins.items() if us)),
