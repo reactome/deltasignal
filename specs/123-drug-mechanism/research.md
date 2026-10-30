@@ -9,7 +9,7 @@ CPPA, decryptM and HPN-DREAM solve each drug on its own, so a `mechanism` predic
 predictions identical to `ff81b6a/hpn112_activity` file for file, as composition says. The CPPA `mechanism` run at `c00308e`
 completed shard 2 of 4 before a memory reap stopped every run (2026-10-30); its 10,735 cases are identical to the
 composed predictions for the same pathways (status, value and call), which checks the composition. The korkut run,
-needed for the drug pairs that mix the two actions, was stopped too and has not been re-run.
+needed for the drug pairs that mix the two actions, was stopped too; it was re-run alone and is reported below.
 
 | check | knockout | mechanism | mechanism − knockout (95%) | verdict |
 |---|---|---|---|---|
@@ -17,10 +17,31 @@ needed for the drug pairs that mix the two actions, was stopped too and has not 
 | M1, `DS_DRUG_MECHANISM_UNKNOWN=activity` (reported) | – | – | interval above 0 | would pass |
 | M2: decryptM balanced accuracy (18 drugs) | 0.365 | 0.359 | [−0.010, +0.002] | no harm |
 | M2: HPN-DREAM mean AUROC | 0.6930 | 0.6925 | [−0.0010, −0.00002] | **fails** (AZD8055 is labelled activity, so this is specs/122's result) |
-| korkut, drug sets of one mechanism only (preview) | 0.392 | 0.400 | [+0.002, +0.013] | – (mixed sets running) |
+| M2: korkut balanced accuracy, each arm's scored cases | 0.396 | 0.402 | [+0.002, +0.010] | no harm |
 
 On the 46 CPPA training drugs with a known label, `mechanism` and `activity` score almost the same; the gain `activity`
 has over `knockout` on all 76 drugs is mostly in anonymised compounds the labels leave `unknown`.
+
+## korkut, the real run (2026-10-30)
+
+`dab1132/a123_mechanism_korkut` on `20261027-1346_8b6527e_top114`, one server, every other setting the default. Scored
+as specs/122 (balanced accuracy over each arm's scored cases, paired bootstrap over drugs, seed 123, 2,000 resamples);
+the same script reproduces specs/122's activity figures exactly (0.396 → 0.379, [−0.035, −0.004]).
+
+| korkut subset | cases (knockout / mechanism) | knockout | mechanism | mechanism − knockout (95%) |
+|---|---|---|---|---|
+| all sets, each arm's scored cases (**M2**) | 17,836 / 17,860 | 0.396 | 0.402 | +0.006 [+0.002, +0.010] |
+| all sets, cases scored in all three arms | 17,836 | 0.396 | 0.402 | +0.006 [+0.002, +0.010] |
+| sets of one action (both drugs knockout, or both activity) | 10,021 / 10,037 | 0.393 | 0.400 | +0.007 [+0.002, +0.013] |
+| mixed sets (one drug of each; 32 pairs) | 7,815 / 7,823 | 0.402 | 0.407 | +0.004 [+0.001, +0.007] |
+
+Against `activity` (each arm's cases): 0.379 → 0.402, +0.023 [+0.012, +0.041]. The knockout-labelled AKTi 1/2 (AK)
+and SB216763 (ST) keep their pins, so their own targets' readouts stay unscored as under knockout (24 more cases than
+knockout, 336 fewer than activity). Converged: knockout 16,639 of 17,836, mechanism 16,663 of 17,860.
+
+**Verdict on M2: korkut no harm (positive), decryptM no harm, HPN-DREAM fails by a hair** (its one drug, AZD8055, is
+labelled activity, so its result is specs/122's). With M1 failing as registered, `mechanism` is **not adoptable as
+registered**; the decision is Adam's.
 
 ## Traced: drugs whose `activity` loss the mechanism reading did not explain (CPPA training)
 
