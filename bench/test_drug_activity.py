@@ -34,3 +34,56 @@ def test_redirect_keeps_the_edge_and_holds_its_source_at_zero():
     assert [e["parent_uuid"] for e in payload["edges"]] == ["drugblock:mek:r1", "mek"]
     assert obs == {"drugblock:mek:r1": [0.0, 1.0]}
     assert len(payload["nodes"]) == 3 and parsed["edges"][0]["parent_uuid"] == "mek"     # the original is untouched
+
+
+TABLE = "# test\naxis\tdrug\tlabel\nkorkut\tAK\tknockout\nkorkut\t901\tactivity\nkorkut\tRY\tunknown\ncppa\tAK\tactivity\n"
+
+
+def test_mechanism_labels_per_axis(tmp_path, monkeypatch):
+    (tmp_path / "t.tsv").write_text(TABLE)
+    monkeypatch.setattr(da, "DRUG_ACTION", "mechanism")
+    monkeypatch.setattr(da, "MECHANISM_UNKNOWN", "knockout")
+    assert da.drug_actions("korkut", ["AK", "901", "RY"], tmp_path / "t.tsv") == \
+        {"AK": "knockout", "901": "activity", "RY": "knockout"}
+    monkeypatch.setattr(da, "MECHANISM_UNKNOWN", "activity")
+    assert da.drug_actions("korkut", ["RY"], tmp_path / "t.tsv") == {"RY": "activity"}
+    assert da.drug_actions("cppa", ["AK"], tmp_path / "t.tsv") == {"AK": "activity"}     # rows of its own axis
+
+
+def test_mechanism_refuses_an_unlabelled_drug(tmp_path, monkeypatch):
+    (tmp_path / "t.tsv").write_text(TABLE)
+    monkeypatch.setattr(da, "DRUG_ACTION", "mechanism")
+    import pytest
+    with pytest.raises(SystemExit, match="no korkut label"):
+        da.drug_actions("korkut", ["AK", "PLX"], tmp_path / "t.tsv")
+
+
+def test_other_modes_ignore_the_table(monkeypatch):
+    monkeypatch.setattr(da, "DRUG_ACTION", "activity")
+    assert da.drug_actions("korkut", ["AK"], "/nonexistent") == {"AK": "activity"}
+
+
+def test_knockout_wins_a_gene_two_members_share():
+    assert da.gene_actions([("activity", ["MAP2K1", "AKT1"]), ("knockout", ["AKT1"])]) == \
+        {"MAP2K1": "activity", "AKT1": "knockout"}
+
+
+def test_mixed_perturbation_pins_knockout_genes_and_cuts_activity_genes(tmp_path):
+    _net(tmp_path)
+
+    class BM:
+        PERTURB_UI_DOWN, PIN_CONFIDENCE = 0.0, 1.0
+
+        @staticmethod
+        def pin_occurrences(pdir, g2u, gene_to_stids):
+            return {g: us for g, us in g2u.items() if us}, None
+
+    g2s = {"MEK1": ["LMEK"], "ERK1": ["LERK"]}
+    s2u = {"LMEK": ["mek"], "LERK": ["erk"]}
+    units = {("R1", "MEK"): None, ("R2", "RAFMEK"): {"LRAF"}, ("R3", "MEKERK"): {"LMEK"}}
+    pins, obs, cut, roots = da.perturb(BM, tmp_path, None, ["ERK1", "MEK1"], g2s, s2u, units,
+                                       {"MEK1": "activity", "ERK1": "knockout"})
+    assert obs == {"erk": [0.0, 1.0]} and cut == {("mek", "r1"), ("mekerk", "r3")} and roots == {"mek", "erk"}
+    # a single action string reproduces specs/122's two modes
+    assert da.perturb(BM, tmp_path, None, ["MEK1"], g2s, s2u, units, "knockout")[1:3] == ({"mek": [0.0, 1.0]}, set())
+    assert da.perturb(BM, tmp_path, None, ["MEK1"], g2s, s2u, units, "activity")[1] == {}

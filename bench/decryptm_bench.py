@@ -212,8 +212,9 @@ def main():
     by_pathway = collections.defaultdict(lambda: collections.defaultdict(list))
     for c in cases:
         by_pathway[c["pathway_id"]][(c["drug"], c["targets"])].append(c)
-    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
-    print(f"Protocol: decryptM drug bench, DS_DRUG_ACTION={da.DRUG_ACTION} DS_PIN_SCOPE={bm.PIN_SCOPE} "
+    actions = da.drug_actions("decryptm", sorted({c["drug"] for c in cases}))
+    units = da.active_units() if da.needs_units() else {}
+    print(f"Protocol: decryptM drug bench, DS_DRUG_ACTION={da.describe()} DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} "
           f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} DS_KO_AGG=mean(unpinned) "
           f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
@@ -234,8 +235,8 @@ def main():
         for (drug, targets), group in sorted(by_pathway[pid].items()):
             # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges
             pins, obs, cut, roots = da.perturb(bm, pdir, parsed, targets.split(";"), gene_to_stids,
-                                                   stid_to_uuids, units)
-            pinned = roots if da.DRUG_ACTION == "knockout" else set()
+                                                   stid_to_uuids, units, actions[drug])
+            pinned = set(obs)
             activities, reach = {}, set()
             if roots and any(c["measured"] != "conflict" for c in group):
                 res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"], edge_redirects=cut)

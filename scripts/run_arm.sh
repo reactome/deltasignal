@@ -140,13 +140,15 @@ for kv in "${BENCH[@]}"; do
   # The korkut and decryptm benches use only the pinning, the perturbation
   # level, the class cutoffs, the pin-network root and the solve timeout from
   # that script; any other bench knob would be recorded and inert there.
-  DRUG_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT DS_DRUG_ACTION"
+  DRUG_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT DS_DRUG_ACTION DS_DRUG_MECHANISM_UNKNOWN DS_DRUG_MECHANISM_TABLE"
   for gt in "${AXES[@]}"; do
     case "$gt" in korkut|korkut_predict|decryptm)
       case " $DRUG_KNOBS " in *" $n "*) ;;
         *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $DRUG_KNOBS)" ;;
       esac ;;
-    *) [ "$n" != DS_DRUG_ACTION ] || { git worktree remove --force "$WT"; die "DS_DRUG_ACTION applies only to the drug axes (specs/122), not $gt"; } ;;
+    *) case "$n" in DS_DRUG_ACTION|DS_DRUG_MECHANISM_*)
+         git worktree remove --force "$WT"; die "$n applies only to the drug axes (specs/122, 123), not $gt" ;;
+       esac ;;
     esac
   done
 done

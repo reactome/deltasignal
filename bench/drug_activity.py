@@ -4,6 +4,10 @@ For target genes G, a `catalyst` or `regulator` edge from node S into reaction R
 and the catalyst activity or regulation S stands for has an active unit holding a protein of G, or has none. A cut
 edge is redirected to a new source node held at 0 (dropping it would let the reaction run as if it needed no
 catalyst). Nothing is pinned for the drug itself. Genetic perturbations never use this.
+
+specs/123: DS_DRUG_ACTION=mechanism picks knockout or activity per drug from its documented mechanism, read from the
+label table DS_DRUG_MECHANISM_TABLE (default drug_mechanism.tsv beside this file: axis, drug, label, ...); a drug
+labelled `unknown` takes DS_DRUG_MECHANISM_UNKNOWN (default knockout).
 """
 import csv
 import os
@@ -14,9 +18,56 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from network_files import open_network  # noqa: E402
 
 DRUG_ACTION = os.environ.get("DS_DRUG_ACTION", "knockout")
-if DRUG_ACTION not in ("knockout", "activity"):
-    raise SystemExit(f"DS_DRUG_ACTION={DRUG_ACTION!r}: must be knockout or activity (specs/122)")
+if DRUG_ACTION not in ("knockout", "activity", "mechanism"):
+    raise SystemExit(f"DS_DRUG_ACTION={DRUG_ACTION!r}: must be knockout, activity (specs/122) or mechanism (specs/123)")
+MECHANISM_TABLE = Path(os.environ.get("DS_DRUG_MECHANISM_TABLE", Path(__file__).resolve().with_name("drug_mechanism.tsv")))
+MECHANISM_UNKNOWN = os.environ.get("DS_DRUG_MECHANISM_UNKNOWN", "knockout")
+if MECHANISM_UNKNOWN not in ("knockout", "activity"):
+    raise SystemExit(f"DS_DRUG_MECHANISM_UNKNOWN={MECHANISM_UNKNOWN!r}: must be knockout or activity (specs/123)")
 CUT_TYPES = ("catalyst", "regulator")
+
+
+def needs_units():
+    """Whether some drug may be modelled as an activity inhibitor (active_units is a Neo4j query)."""
+    return DRUG_ACTION != "knockout"
+
+
+def describe():
+    """DS_DRUG_ACTION for a Protocol line; under `mechanism`, the label table and its checksum too."""
+    if DRUG_ACTION != "mechanism":
+        return DRUG_ACTION
+    import hashlib
+    digest = hashlib.sha256(MECHANISM_TABLE.read_bytes()).hexdigest()[:12]
+    return f"mechanism (labels {MECHANISM_TABLE.name} sha256 {digest}, unknown={MECHANISM_UNKNOWN})"
+
+
+def drug_actions(axis, drugs, table=None):
+    """{drug: knockout | activity} for one bench's drugs under DS_DRUG_ACTION; under `mechanism`, each drug's label
+    from the table (rows of this axis), `unknown` as DS_DRUG_MECHANISM_UNKNOWN. A drug missing from the table is an
+    error, so an arm cannot silently fall back."""
+    if DRUG_ACTION != "mechanism":
+        return {d: DRUG_ACTION for d in drugs}
+    labels = {}
+    with open(table or MECHANISM_TABLE) as f:
+        for r in csv.DictReader((line for line in f if not line.startswith("#")), delimiter="\t"):
+            if r["axis"] == axis:
+                if r["label"] not in ("knockout", "activity", "unknown"):
+                    raise SystemExit(f"{table or MECHANISM_TABLE}: {axis} {r['drug']}: label {r['label']!r}")
+                labels[r["drug"]] = r["label"]
+    missing = sorted(set(drugs) - set(labels))
+    if missing:
+        raise SystemExit(f"DS_DRUG_ACTION=mechanism: no {axis} label for {missing} in {table or MECHANISM_TABLE}")
+    return {d: MECHANISM_UNKNOWN if labels[d] == "unknown" else labels[d] for d in drugs}
+
+
+def gene_actions(members):
+    """{gene: action} for a drug set given [(action, genes)] per member drug; a gene some member knocks out is
+    knocked out (a pin at 0 already removes what the cut would)."""
+    out = {}
+    for action, genes in members:
+        for g in genes:
+            out[g] = "knockout" if "knockout" in (action, out.get(g)) else action
+    return out
 
 
 def active_units():
@@ -96,20 +147,26 @@ def payload_extras(parsed):
                                        "carrier_loops", "pools", "node_leaves")}
 
 
-def perturb(bm, pathway_dir, parsed, genes, gene_to_stids, stid_to_uuids, units):
-    """How a drug with target `genes` enters one network's solve, under DS_DRUG_ACTION.
+def perturb(bm, pathway_dir, parsed, genes, gene_to_stids, stid_to_uuids, units, action=None):
+    """How a drug with target `genes` enters one network's solve: `action` is knockout or activity for every gene, or
+    {gene: action} (specs/123); None means DS_DRUG_ACTION, which must then be knockout or activity.
 
     Returns (pins, observations, edge_redirects, reach_sources): `pins` {gene: [uuids]} as the knockout bench pins
-    them (also the reachability comparator's sources in both modes, so the comparator does not move); observations
-    for the solve; the edges to cut, sent with the cached network's id (the server redirects each to a block node it
-    pins at 0; `redirected` builds the same network client-side, which test_api_errors.jl shows solves identically).
-    Under `activity` nothing is pinned for the drug, so the target's own forms are scored."""
+    them (also the reachability comparator's sources under every action, so the comparator does not move);
+    observations for the solve, whose keys are the nodes actually pinned (the knocked-out genes' roots); the edges to
+    cut for the activity genes, sent with the cached network's id (the server redirects each to a block node it pins
+    at 0; `redirected` builds the same network client-side, which test_api_errors.jl shows solves identically).
+    An activity gene is not pinned, so its own forms are scored."""
     g2u = {g: [u for s in gene_to_stids.get(g, []) for u in stid_to_uuids.get(s, [])] for g in genes}
     if not any(g2u.values()):
         return {}, {}, set(), set()
+    action = DRUG_ACTION if action is None else action
+    by_gene = action if isinstance(action, dict) else {g: action for g in genes}
+    if set(by_gene.values()) - {"knockout", "activity"} or set(genes) - set(by_gene):
+        raise ValueError(f"perturb needs knockout or activity for every gene, got {by_gene}")
     pins, _ = bm.pin_occurrences(pathway_dir, g2u, gene_to_stids)
     roots = set().union(*pins.values()) if pins else set()
-    if DRUG_ACTION == "knockout":
-        return pins, {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(roots)}, set(), roots
-    leaves = set().union(*(set(gene_to_stids.get(g, [])) for g in genes))
-    return pins, {}, cut_edges(pathway_dir, leaves, units), roots
+    held = {u for g, us in pins.items() if by_gene[g] == "knockout" for u in us}
+    obs = {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(held)}
+    leaves = set().union(*(set(gene_to_stids.get(g, [])) for g in genes if by_gene[g] == "activity"))
+    return pins, obs, cut_edges(pathway_dir, leaves, units) if leaves else set(), roots

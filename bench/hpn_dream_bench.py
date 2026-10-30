@@ -53,6 +53,7 @@ CELL_LINES = ("BT20", "BT549", "MCF7", "UACC812")
 STIMULI = {"EGF": ["EGF"], "FGF1": ["FGF1"], "HGF": ["HGF"], "IGF1": ["IGF1"], "Insulin": ["INS"],
            "NRG1": ["NRG1"], "PBS": [], "Serum": ["EGF", "FGF1", "HGF", "IGF1", "INS", "NRG1"]}
 TARGET = "MTOR"
+DRUG = "AZD8055"      # the held-out inhibitor of sub-challenge 1A (specs/112)
 # The challenge's final scoring (DREAMTools D8C1, HPNScoringNetwork_ranking.valid_ligands_final):
 # BT20 Insulin and BT549 NRG1 had no significant team and were left out.
 OFFICIAL = {"UACC812": ["PBS", "Serum", "NRG1", "Insulin", "HGF", "EGF", "FGF1", "IGF1"],
@@ -119,8 +120,9 @@ def predict(hpn_dir, phospho_csv, out_dir):
     genes = sorted({TARGET} | {g for gs in STIMULI.values() for g in gs})
     gene_to_stids = bm.neo4j_gene_to_stids(genes)
     pathways = [r["id"] for r in csv.DictReader(open(build / "pathways.tsv"), delimiter="\t")]
-    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
-    print(f"Protocol: HPN-DREAM SC1A, DS_DRUG_ACTION={da.DRUG_ACTION} DS_PIN_SCOPE={bm.PIN_SCOPE} "
+    action = da.drug_actions("hpn_dream", [DRUG])[DRUG]
+    units = da.active_units() if action == "activity" else {}
+    print(f"Protocol: HPN-DREAM SC1A, DS_DRUG_ACTION={da.describe()} DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_UP={bm.PERTURB_UI_UP:g} "
           f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g}; build {build.name}; code {sha}; "
           f"dataset hpn_dream registered {role}", flush=True)
@@ -159,10 +161,11 @@ def predict(hpn_dir, phospho_csv, out_dir):
             # A is solved even with no ligand pinned, so B is compared with the solver's own baseline, not a
             # constant: their 1e-15 differences are rounding, not effects (amendment 4)
             act_a = solve(parsed, a_pins, pid)
-            if da.DRUG_ACTION == "knockout":
+            if action == "knockout":
                 act_b = solve(parsed, b_pins, pid)
             else:      # specs/122: the inhibitor cuts the target's catalyst / regulator edges; nothing is pinned
-                _, _, cut, _ = da.perturb(bm, pdir, parsed, [TARGET], gene_to_stids, stid_to_uuids, units)
+                _, _, cut, _ = da.perturb(bm, pdir, parsed, [TARGET], gene_to_stids, stid_to_uuids, units,
+                                          action)
                 b_pins = dict(a_pins)
                 act_b = solve(parsed, a_pins, pid, cut)
             for sp in species:
