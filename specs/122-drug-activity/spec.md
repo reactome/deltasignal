@@ -1,6 +1,6 @@
 # specs/122: a drug blocks its target's activity, not its abundance
 
-**Status:** registered 2026-10-28, before any code or arm. Adam, 2026-10-28, on the specs/121 trace: "we need to
+**Status:** registered 2026-10-28, before any code or arm. **Result: A1 passes, A2 fails (korkut, HPN-DREAM); not adoptable as registered** (research.md). Adam, 2026-10-28, on the specs/121 trace: "we need to
 change delta signal then. we need to know why this is happening", then "ok" to this plan. The freeze (specs/111) is
 lifted for this change by that decision.
 
