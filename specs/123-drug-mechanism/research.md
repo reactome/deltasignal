@@ -6,8 +6,10 @@ CPPA, decryptM and HPN-DREAM solve each drug on its own, so a `mechanism` predic
 `knockout` or `activity` prediction for that drug; the composition below uses those runs (CPPA `8276c28/cppa_frozen`,
 `ff81b6a`+`597463d/cppa_activity`; decryptM `a47898d/s114_top_kb`, `f491284/a122_activity_dm`; korkut
 `a47898d/s114_top_kb`, `597463d/a122_activity`). The HPN-DREAM `mechanism` run (`ac2db81/hpn112_mechanism`) gives
-predictions identical to `ff81b6a/hpn112_activity` file for file, as composition says. The CPPA and korkut `mechanism`
-runs at `c00308e` are in progress and will replace this section.
+predictions identical to `ff81b6a/hpn112_activity` file for file, as composition says. The CPPA `mechanism` run at `c00308e`
+completed shard 2 of 4 before a memory reap stopped every run (2026-10-30); its 10,735 cases are identical to the
+composed predictions for the same pathways (status, value and call), which checks the composition. The korkut run,
+needed for the drug pairs that mix the two actions, was stopped too and has not been re-run.
 
 | check | knockout | mechanism | mechanism − knockout (95%) | verdict |
 |---|---|---|---|---|
