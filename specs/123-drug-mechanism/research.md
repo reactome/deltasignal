@@ -27,5 +27,13 @@ has over `knockout` on all 76 drugs is mostly in anonymised compounds the labels
 - **Dasatinib**: its own readouts include Src's autophosphorylation and its CSK site, which fall; the knockout's
   exaggerated fall of the target's own forms carried the per-sample correlation.
 - **Palbociclib**: a defect in the activity rule. In Cell Cycle (R-HSA-1640170) cutting CDK4/6's catalyst and
-  regulator edges predicts p-Rb S807/S811 **33× up**; knockout predicts it down, as measured. Under trace.
+  regulator edges predicts p-Rb S807/S811 **33× up**; knockout predicts it down, as measured. Traced in Mitotic G1
+  (frozen build, same rails: hyperphosphorylated RB1 55×, p-S807/p-S811-RB1 82×). Reactome curates the cyclin D:CDK4/6
+  set (R-HSA-8949896) both as the catalyst of RB1 phosphorylation and as a **negative regulator** of "RB1 binds and
+  inhibits E2F1/2/3:DP1/2" (the regulation is the consequence of that phosphorylation). The activity rule cuts both: 25
+  negative-regulator edges are redirected to blocks held at 0, which under `divide` de-represses their reactions to the
+  10× ceiling, and the RB1 / E2F / cyclin E:CDK2 loop rails up (cyclin E:CDK2 makes hyperphosphorylated RB1 without
+  CDK4/6). Cutting a target's *negative* regulations treats "the drug removes the target's inhibition of X" as a
+  full release; a knockout pin does the same, but it also removes the target's other forms, which kept the loop low.
+  The exact chain around the rail is not yet followed node by node.
 - **AMG900**: four samples; knockout's upward calls on mitotic markers (FoxM1, cyclin B1) happen to match.
