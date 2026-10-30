@@ -87,3 +87,12 @@ def test_mixed_perturbation_pins_knockout_genes_and_cuts_activity_genes(tmp_path
     # a single action string reproduces specs/122's two modes
     assert da.perturb(BM, tmp_path, None, ["MEK1"], g2s, s2u, units, "knockout")[1:3] == ({"mek": [0.0, 1.0]}, set())
     assert da.perturb(BM, tmp_path, None, ["MEK1"], g2s, s2u, units, "activity")[1] == {}
+
+
+def test_the_committed_table_labels_every_korkut_drug_and_hpn_dream(monkeypatch):
+    monkeypatch.setattr(da, "DRUG_ACTION", "mechanism")
+    import csv as _csv
+    codes = [r["code"] for r in _csv.DictReader((l for l in open(Path(__file__).parent / "analysis/062/drugs.tsv")
+                                                  if not l.startswith("#")), delimiter="\t")]
+    assert set(da.drug_actions("korkut", codes).values()) <= {"knockout", "activity"}
+    assert da.drug_actions("hpn_dream", ["AZD8055"]) == {"AZD8055": "activity"}

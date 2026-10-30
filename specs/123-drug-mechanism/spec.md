@@ -51,3 +51,12 @@ analysis; this repository records verdicts and public-dataset aggregates.
 
 **Adoption** (Adam's decision) needs M1 and M2. If adopted, `mechanism` becomes the drug benches' default and the
 specs/121 phase-3 learning starts from it.
+
+## Labels frozen (2026-10-30, before any arm)
+
+The labelling agent read only the drug list and public literature. Public datasets: `bench/drug_mechanism.tsv`
+(korkut 8 activity / 2 knockout / 2 unknown; decryptM 14 / 4 / 0; HPN-DREAM's AZD8055 activity). CPPA: a private table
+(sha256 `3f97b5b7e462…`), 114 drugs, 45 unknown (mostly anonymised compounds such as the eight "MEKINHIBITOR" entries).
+Within the MEK inhibitors the literature splits: trametinib blocks RAF's phosphorylation of MEK (knockout); PD0325901,
+selumetinib, refametinib and cobimetinib do not (activity). Five labels are low-confidence (chloroquine, chloropyramine,
+mitoxantrone, podophyllotoxin, AUY); they stand as assigned.
