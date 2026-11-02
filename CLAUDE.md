@@ -1099,6 +1099,12 @@ for the last feature that touched it rather than re-deriving from the code.
   More cases are scored (korkut 11,062 → 17,836; decryptM 2,334 → 5,096), but the pattern does not change: decryptM
   regulated 187 vs reachability 301 of 725, korkut 0.723 below always-NOT 0.913, P100 reach 0.498.
   `run_arm.sh --axis decryptm --decryptm-cases F --decryptm-phospho F` runs the decryptM bench.
+- `specs/124-ceiling-sensitivity/` — how much rests on the 100× ceiling (every node rests at 0.01 of the top), measured
+  with `DS_BASELINE` (default unchanged; control reproduces the frozen run case for case). 1,000×: 2 held-out curator and
+  1 experimental call change; 30× with the dose separated (amendment 1): 2. Magnitudes move (> 10% for 15% of curator,
+  40% of experimental readouts). The 80× over-expression dose changes more calls than the ceiling. Traced: the
+  ceiling-decided calls are ratios of bounds one step upstream (a railed catalyst or inhibitor against a substrate at
+  the depletion floor or near zero). Nothing adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
