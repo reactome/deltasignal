@@ -74,3 +74,20 @@ its over-expression cases are reported separately from its knockouts. c1000 chan
 - Whatever P5 shows applies to every correlation-type score (CPPA, decryptM magnitudes): those are reported with the
   ceiling named.
 - No ceiling is chosen from these scores: the curator and experimental sets are SELECT data (specs/051).
+
+## Amendment 1 (2026-11-02, after D0 and the first reading, before these arms run)
+
+c30 and c10 change two things at once, the ceiling and the over-expression dose (24× and 8×). The registration flagged
+this only for c10. A trace shows that at least one c30 change is the dose alone: MIB1 over-expression in NOTCH1 reads
+2.075 at 80× and exactly 1.000 at 24× and at 8× under the default ceiling. Two dose-only arms at the default ceiling
+separate the two effects:
+
+| arm | `DS_BASELINE` | ceiling | over-expression pin |
+|---|---|---|---|
+| `d24` | 0.01 | 100× | 24× (`--bench DS_PERTURB_UI_UP=24`) |
+| `d8` | 0.01 | 100× | 8× (`--bench DS_PERTURB_UI_UP=8`) |
+
+Read: a c30 (c10) change that d24 (d8) also shows is a dose effect. A change in c30 (c10) but not in d24 (d8) is a
+ceiling effect at that dose. The ceiling-only contrasts are c30 vs d24 and c10 vs d8. P1 and P2 are still read as
+registered, against c100; the decomposition is reported beside them. c1000 needs no dose arm, because its pin stays
+at 80×.
