@@ -1,8 +1,8 @@
 # specs/126: Lun et al. 2019 as the reserve test
 
-**Status:** registered 2026-11-02. Adam, 2026-11-02, on the dataset survey: "I don't see any reason why Lun 2019
+**Status:** registered 2026-11-02; data acquired and sealed the same day (below). Adam, 2026-11-02, on the dataset survey: "I don't see any reason why Lun 2019
 shouldn't be used as the reserve. stick to best practices. make sure to be as thorough as possible. no rushing to
-conclusions." `bench/datasets.tsv` lists it as TEST from today. Nothing has been downloaded, and no value has been read.
+conclusions." `bench/datasets.tsv` lists it as TEST from today. No value has been read.
 
 **Why a reserve.** Every dataset we hold has shaped the rules, or will shape a learned model (specs/051, 125). The CPPA
 test portions are the one clean test left, and one scoring spends them. A reserve chosen now, before any learning, by
@@ -48,21 +48,47 @@ against UniProt.
 Two sites are not curated in Release 97: RELA S529 and MTOR S2448. Two readouts are total-protein only (cyclin B1 and
 non-phospho β-catenin). The frozen build lacks p70S6K, MARCKS and 4E-BP1.
 
-**Perturbation coverage is not yet known.** It needs Table S1, the list of 649 proteins. Table S1 is a design file but
-a download, so it waits for Adam's approval.
+**Perturbations** (Table S1 identifiers only; `~/deltasignal-catalogs/analysis/126/poi_coverage.py`): 649 proteins
+(541 kinases, 108 phosphatases; 9 without a UniProt accession). A protein is *in* a network if a node holds it.
 
-## Open before anything else
+| build | proteins in some network | sharing a network with at least one readout site | (protein, readout site) pairs sharing a network |
+|---|---|---|---|
+| frozen 92 pathways | 280 / 649 (233 kinases, 47 phosphatases) | 252 | 1,545 / 18,172 |
+| whole Reactome (28 top-level) | 467 / 649 (387 kinases, 80 phosphatases) | 449 | 7,141 / 18,172 |
 
-1. **Do the data exist?** The Mendeley record's metadata reports a size of 0 and an empty file list through the public
-   API. The web page shows only a "Download All" button. This may be an API quirk, or the files may be hosted
-   elsewhere. Confirming it needs a download.
-2. **Acquisition and sealing**, proposed and awaiting Adam's approval:
-   - download the data record and Table S1 once, to `~/deltasignal-catalogs/external/lun2019/` (outside the repo);
-   - record each file's sha256 and size in this spec;
-   - make the data files unreadable (`chmod 000`) until the scoring spec is registered;
-   - read only Table S1 and the file names.
-3. **HEK293T resting levels.** HEK293T may not be in CPPA or DepMap. Its resting levels will come from class defaults
-   or another source chosen before unsealing.
+Sharing a network is not a route, and a protein in a network is not necessarily one we can perturb at a root. Both are
+for the scoring spec.
+
+## Acquisition and sealing (Adam's approval, 2026-11-02: "I give me ok")
+
+Everything is outside the repository, under `~/deltasignal-catalogs/external/lun2019/`.
+
+- **Data archive.** `3kh7ypz232-1.zip` from `https://data.mendeley.com/public-api/zip/3kh7ypz232/download/1`.
+  1,622,521,237 bytes; sha256 `eec89b2dca31b7a6bc89fb77dc1bc50d99d6fe2c635f39c96bdd97feeb202deb`. Mode 000: it cannot
+  be read until the scoring spec is registered and the file is deliberately unsealed. Nothing has been extracted.
+  The public API's "size 0" was a quirk of its metadata; the files exist.
+- **Contents, by name only** (`archive_listing.txt`, read from the zip directory, no member opened):
+  - `Repositories of raw data/Screening data/`: `complete_dat.csv` (655 MB, the per-cell screen), `bindat_perbin.csv`,
+    `bindat_persample.csv`;
+  - `Repositories of raw data/one-hour time course data/`: the same three files;
+  - `Repositories of pre-analyzed data/`: `Data S1A.zip`, `Data S1B.zip`, `Data S1C.zip`, `Data S1 description.docx`.
+
+  The binned and pre-analyzed files may hold the authors' processing or results. Which files the scoring reads, and
+  how, is decided in the scoring spec. The A375 drug subset does not appear by name.
+- **Design tables.** These come from the publisher's CDN (`ars.els-cdn.com`, PII S1097276519303132). PMC's own links
+  returned an HTML bot-check page, which was caught by its size and type and deleted.
+  - `mmc2.xlsx` is Table S1, the list of proteins of interest: 83,574 bytes, sha256 `8172ba51c04d12069fc8c330deb0b5ad59bb2b54fb6e326ce1d7b82966aef690`.
+    Its columns (`ID, marker, library_t, GENE, GENE_ID, Entry, Gene_names, Entry_name, AccessionList, Protein_names`,
+    plus one empty column) are identifiers only. The headers were read first to confirm that, then the rows.
+  - `mmc3.xlsx` is Table S2, the antibody panel: 13,141 bytes, sha256 `6c743966e429859f64bd0d9c18fb143562d44f572f5d8e2fe6d78db5fe98b7be`.
+    Only its headers have been read.
+  - Tables S3–S7 (mmc4–mmc8) were not downloaded.
+
+## Still open
+
+- **Antibody coordinates.** Check the translations against Table S2's UniProt entries and UniProt numbering before
+  the scoring spec.
+- **HEK293T resting levels.** Is HEK293T in DepMap or CPPA? If not, choose the source before unsealing.
 
 ## Scoring: to be registered before the data are opened, not now
 
