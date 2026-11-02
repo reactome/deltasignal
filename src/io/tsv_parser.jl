@@ -301,10 +301,23 @@ function parse_uuid_mapping(filepath::String)::Dict{String, NetworkNode}
             String(row.entity_type),
             set_id,
             display_name,
-            0.01,  # Spec x₀ = 0.01 (= 1 on UI scale, the "normal" baseline).
+            resting_baseline(),  # Spec x₀ = 0.01 (= 1 on UI scale, the "normal" baseline); specs/124
         )
     end
     return nodes
+end
+
+"""
+    resting_baseline() -> Float64
+
+The internal level every parsed node rests at: `DS_BASELINE`, default 0.01 (the design spec's x₀, 1 on the UI scale).
+The internal scale tops out at 1, so the ceiling on any node is 1 / `DS_BASELINE` fold (100× by default). specs/124
+varies it to measure how much predictions depend on that ceiling; the UI scale stays internal × 100.
+"""
+function resting_baseline()::Float64
+    b = _float_env("DS_BASELINE", 0.01)
+    (0.0 < b <= 0.5) || throw(ArgumentError("DS_BASELINE=$b must lie in (0, 0.5]."))
+    return b
 end
 
 """
@@ -329,7 +342,7 @@ function parse_uuid_mapping_generator(df::DataFrame)::Dict{String, NetworkNode}
             "unknown",
             nothing,
             stable_id === nothing ? uuid : stable_id,
-            0.01,  # Spec x₀ = 0.01 (= 1 on UI scale, the "normal" baseline).
+            resting_baseline(),  # Spec x₀ = 0.01 (= 1 on UI scale, the "normal" baseline); specs/124
         )
     end
     return nodes

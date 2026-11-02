@@ -84,6 +84,16 @@ if not (0.0 <= PERTURB_UI_DOWN < 1.0 < PERTURB_UI_UP <= 100.0):
         "'overexpression' below it would silently invert the perturbation.")
 PIN_CONFIDENCE = 1.0
 
+# specs/124: the internal level every node rests at (the server's DS_BASELINE, default 0.01). The internal scale tops
+# out at 1, so the ceiling is 1 / BASELINE fold. The two pins above are folds; a fold f is sent as UI f * BASELINE * 100
+# (identical at the default), and the over-expression pin is held to 0.8 of the top where 80x does not fit. Every solve
+# must report the same resting_baseline, or the run stops.
+BASELINE = float(os.environ.get("DS_BASELINE", 0.01))
+if not (0.0 < BASELINE <= 0.5):
+    raise SystemExit(f"DS_BASELINE={BASELINE} must lie in (0, 0.5].")
+CEILING = 1.0 / BASELINE
+PERTURB_FOLD_UP = min(PERTURB_UI_UP, 0.8 * CEILING)
+
 # How to collapse a key-output's multiple UUID activities into one prediction.
 # "mean" since 2026-09-26 (specs/027): a readout with several node copies
 # is read as the pool average. "max" hid a knockdown whenever a copy the
@@ -1264,7 +1274,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
         uuids = gene_to_uuids.get(gene, [])
         ds_result = None
         if uuids:
-            ui_value = PERTURB_UI_DOWN if direction == DOWN else PERTURB_UI_UP
+            ui_value = (PERTURB_UI_DOWN if direction == DOWN else PERTURB_FOLD_UP) / CEILING * 100.0
             obs = {u: [ui_value, PIN_CONFIDENCE] for u in uuids}
             try:
                 ds_result = solve_via_ds_api(network_payload, obs, network_id=solve_network_id)
@@ -1276,6 +1286,10 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
 
         if ds_result:
             refuse_unless_default_model(ds_result, pathway_name)
+            served = ds_result.get("resting_baseline", 0.01)   # a server from before specs/124 rests at 0.01
+            if abs(float(served) - BASELINE) > 1e-12 * BASELINE:
+                raise SystemExit(f"{pathway_name}: the server rests nodes at {served}, this bench expects "
+                                 f"DS_BASELINE={BASELINE}; set both (run_arm.sh --server and --bench).")
         if ds_result:
             SOLVE_TALLY["solves"] += 1
             SOLVE_TALLY[f"carrier_loop_rule={ds_result.get('carrier_loop_rule', 'unknown')}"] += 1
@@ -1406,19 +1420,19 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             #   min     — all contexts must hold (strict; sensitive to knockouts)
             #   extreme — the value deviating most from baseline (handles UP&DOWN)
             if uuids and ko_uuids:
-                vals = [activities.get(u, 0.01) for u in ko_uuids]
+                vals = [activities.get(u, BASELINE) for u in ko_uuids]
                 if KO_AGG == "mean_entity" and ko_uuids is key_output_uuids.get(ko):
-                    agg = entity_mean({u: activities.get(u, 0.01) for u in ko_uuids},
+                    agg = entity_mean({u: activities.get(u, BASELINE) for u in ko_uuids},
                                       key_output_groups.get(ko) or [ko_uuids])
                 elif KO_AGG in ("mean", "mean_entity"):
                     agg = sum(vals) / len(vals)
                 elif KO_AGG == "min":
                     agg = min(vals)
                 elif KO_AGG == "extreme":
-                    agg = max(vals, key=lambda v: abs(v - 0.01))
+                    agg = max(vals, key=lambda v: abs(v - BASELINE))
                 else:
                     agg = max(vals)
-                pred_ui = agg * 100.0
+                pred_ui = agg * CEILING   # fold over rest; CEILING is exactly 100.0 at the default
                 predicted = classify(pred_ui)
             else:
                 pred_ui = 1.0  # default NORMAL
@@ -1578,6 +1592,7 @@ def main():
     print(f"Running benchmark on {len(pathways)} pathway(s) …", flush=True)
     print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE}{' DS_PIN_ROOT_IGNORE=' + PIN_ROOT_IGNORE if PIN_ROOT_IGNORE else ''} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
           f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG} "
+          f"DS_BASELINE={BASELINE:g} (ceiling {CEILING:g}x, over-expression pin {PERTURB_FOLD_UP:g}x) "
           f"DS_SKIP_EDGE_TYPES={','.join(sorted(SKIP_EDGE_TYPES)) or '-'} "
           f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER} "
           f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT or '-'} context={context_label()}", flush=True)
