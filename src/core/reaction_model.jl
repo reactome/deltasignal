@@ -658,7 +658,7 @@ function index_reactions(
                       for k in inh_orig]
 
         push!(raw, (
-            target_idx=target_idx, baseline=get(baselines, r.target_uuid, 0.01),
+            target_idx=target_idx, baseline=get(resting_baseline, baselines, r.target_uuid),
             act_indices=act_indices, act_is_and=act_is_and,
             act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
             act_group=act_group,
@@ -883,7 +883,7 @@ function index_reactions(
                     if u == OWN_SOURCE_GATED
                         push!(src, (0, Inf))   # amendment 3: gated for the whole solve
                     elseif haskey(uuid_to_idx, u)
-                        push!(src, (uuid_to_idx[u], get(baselines, u, 0.01)))
+                        push!(src, (uuid_to_idx[u], get(resting_baseline, baselines, u)))
                     end
                 end
             end

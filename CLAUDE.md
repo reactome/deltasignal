@@ -629,6 +629,9 @@ env vars only override for benchmark sweeps:
   tolerance is iterated that many more sweeps from its last iterate and the
   fallback retried, up to N times; the best state is kept.
   Reports `nonconv_restarts_max`, `nonconv_restarts`, `nonconv_restart_rescued`.
+- `DS_BASELINE=0.01` (default; specs/124): the internal level every parsed node rests at. The internal scale
+  tops out at 1, so the ceiling on any node is 1 / `DS_BASELINE` fold (100x). Measured only as a sensitivity analysis
+  (bench `DS_BASELINE` must match; the over-expression pin is min(80, 0.8 x ceiling) fold). Reports `resting_baseline`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -1115,7 +1118,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty-four files contain assertions; the
+**Most of the test suite cannot fail.** Twenty-five files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -1139,6 +1142,7 @@ other seven execute code and print output.
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
+| `test/test_resting_baseline.jl` | 23 | specs/124, added 2026-11-02 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 61 | |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |

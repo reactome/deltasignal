@@ -180,6 +180,9 @@ Response:
 ```
 - **`node_activities`**: `uuid → activity` on the **0–1 internal scale**
   (`× 100` for display — see Conventions).
+- **`resting_baseline`** (additive, specs/124): the internal level every node of a catalog network rests at,
+  `DS_BASELINE` on the server (default `0.01`, i.e. 1 on the UI scale). The top of the internal scale is 1, so the
+  ceiling on any node is 1 / `resting_baseline` fold. A client turning `node_activities` into folds divides by it.
 - **`self_inhibitors`** (additive, specs/022): the number of inhibitor slots FLAGGED as self-contained (the inhibitor contains one of its own reaction's inputs AND is reachable from it in the network). A flagged slot is damped only when the inhibitor moves with that input. On by default (`DS_SELF_INHIBITOR_WEIGHT=0.1`; `off` disables it).
 - **`drug_rule`** / **`drugs_held`** (additive, specs/032): `"inert"`
   (default since 2026-10-13, specs/055), `"propagate"`, or `"inert: no drug table"`, and how many drug-derived

@@ -375,7 +375,7 @@ function solve_steady_state(
                                                catalyst_pairs = cat_pairs)
         first_pass = pfull(reactions)
         down(u) = haskey(first_pass.node_activities, u) &&
-                  first_pass.node_activities[u] < get(baseline_activities, u, 0.01) * (1 - 1e-6)
+                  first_pass.node_activities[u] < get(resting_baseline, baseline_activities, u) * (1 - 1e-6)
         # amendment 5: node-copy own products are left free (as `full`); removing
         # or capping them made TP53 oscillate in every form tried.
         removed = Set{Tuple{String, String}}()
@@ -434,6 +434,7 @@ function solve_steady_state(
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
     result.diagnostics["rna_twin_rule"] = rna_twin_rule        # specs/100
     result.diagnostics["rna_twin_edges"] = rna_twin_edges
+    result.diagnostics["resting_baseline"] = resting_baseline()   # specs/124
     result.diagnostics["sequestration_rule"] = sequestration_rule
     result.diagnostics["sequestration_edges"] = sequestration_edges
     result.diagnostics["own_entity_depletions"] = length(own_entity)
@@ -2407,7 +2408,7 @@ function solve_steady_state_penalty(
         # this is where the uuid -> index mapping lives.
         baseline_vec = Vector{Float64}(undef, n)
         @inbounds for (i, uuid) in enumerate(all_nodes)
-            baseline_vec[i] = get(baseline_activities, uuid, 0.01)
+            baseline_vec[i] = get(resting_baseline, baseline_activities, uuid)
         end
         ipools, n_skipped = cycle_pools === nothing ? (IndexedPool[], 0) :
                             index_pools(cycle_pools, uuid_to_idx, rxns_idx, cycle_phi;
@@ -2502,7 +2503,7 @@ function solve_steady_state_penalty(
         xp = copy(x)
         bvec = Vector{Float64}(undef, n)
         @inbounds for (i, uuid) in enumerate(all_nodes)
-            bvec[i] = get(baseline_activities, uuid, 0.01)
+            bvec[i] = get(resting_baseline, baseline_activities, uuid)
         end
         d = update_pools!(xp, solved_final, shared_pool_nodes(solved_final), rxns_idx, bvec, obs_set,
                           eval_config; carriers = cycle_carriers)
