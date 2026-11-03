@@ -101,3 +101,9 @@ def test_units_collapse_a_site_repeated_across_pathways():
     m = db.compare(rows)
     assert (m["n"], m["units"], m["reach_only"], m["unit_reach_better"]) == (5, 1, 5, 1)
     assert m["mcnemar_p"] < 0.07 and m["unit_mcnemar_p"] == 1.0
+
+
+def test_readout_uuids_reads_only_own_nodes_in_a_context_build():
+    s2u = {"R-HSA-P1": ["a", "q1"], "R-HSA-P2": ["q2"]}
+    assert db.readout_uuids({"R-HSA-P1", "R-HSA-P2"}, s2u, own={"a", "b"}) == ["a"]
+    assert db.readout_uuids({"R-HSA-P1", "R-HSA-P2"}, s2u, own=None) == ["a", "q1", "q2"]

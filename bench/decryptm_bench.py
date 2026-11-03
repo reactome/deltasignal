@@ -46,9 +46,11 @@ NAMES = {bm.DOWN: "down", bm.NORMAL: "not", bm.UP: "up"}
 CODE = {v: k for k, v in NAMES.items()}
 
 
-def readout_uuids(site_stids, stid_to_uuids):
-    """Every node that is, or contains, one of the site's phospho EWAS, in order."""
-    return list(dict.fromkeys(u for s in sorted(site_stids) for u in stid_to_uuids.get(s, ())))
+def readout_uuids(site_stids, stid_to_uuids, own=None):
+    """Every node that is, or contains, one of the site's phospho EWAS, in order. In a context build (specs/056,
+    specs/132) only the pathway's own nodes (`own`) are read."""
+    return list(dict.fromkeys(u for s in sorted(site_stids) for u in stid_to_uuids.get(s, ())
+                              if own is None or u in own))
 
 
 def score_case(readout, pinned, activities, reach, perturbed=None):
@@ -224,6 +226,7 @@ def main():
     for pid in sorted(by_pathway):
         pdir = build / pid
         stid_to_uuids = bm.load_stid_to_uuids(pdir)
+        own = bm.context_own_uuids(pdir)
         parsed = bm.parse_pathway_via_ds_api(pdir.name)
         if parsed.get("status") != "success":
             raise SystemExit(f"{pid}: parse failed: {parsed.get('message')}")
@@ -250,7 +253,7 @@ def main():
                 activities = res.get("node_activities", {})
                 reach = bm.reachable_from(adj, roots)
             for c in group:
-                ro = readout_uuids(site_stids.get((c["uniprot"], int(c["position"])), ()), stid_to_uuids)
+                ro = readout_uuids(site_stids.get((c["uniprot"], int(c["position"])), ()), stid_to_uuids, own)
                 if c["measured"] == "conflict":
                     status, ui, pred, rp = "conflict", None, None, None
                 else:

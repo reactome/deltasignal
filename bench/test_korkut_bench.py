@@ -64,3 +64,11 @@ def test_measured_calls_refuses_misaligned_columns(tmp_path, monkeypatch):
     (tmp_path / "expr.csv").write_text("0.1,0.9\n-0.7,0.1\n")
     m = kb.measured_calls(kb.THRESHOLD, design)
     assert m[(("NT",), "p21")] == "up" and m[(("AK",), "p53")] == "down"
+
+
+def test_readout_nodes_reads_only_own_nodes_in_a_context_build():
+    r_stids = {"AKT_pS473": ["R-HSA-1"], "MAPK_pT202": ["R-HSA-2"]}
+    s2u = {"R-HSA-1": ["p1", "q1", "p1"], "R-HSA-2": ["q2"]}
+    assert kb.readout_nodes(r_stids, s2u) == {"AKT_pS473": ["p1", "q1"], "MAPK_pT202": ["q2"]}
+    # a readout only a neighbour pathway holds is not P's readout
+    assert kb.readout_nodes(r_stids, s2u, own={"p1"}) == {"AKT_pS473": ["p1"]}
