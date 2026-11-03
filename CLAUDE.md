@@ -1115,7 +1115,12 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/128-edge-curves/` — response curves on edges by class (`DS_EDGE_CURVES`), the first stage of the learnable
   model (specs/125): today's model is the identity setting (exact on every axis); smoothing inhibition changes almost
   nothing; every contraction loses curator calls (all classes at slope 0.75: held-out −599, experimental −114, all
-  correct changes read NORMAL) and gains on korkut (+353, fewer change calls). Nothing adopted.
+  correct changes read NORMAL) and gains on korkut (+353, fewer change calls). Nothing adopted. By balanced accuracy
+  the korkut gain is +0.006 (addendum).
+- `specs/129-class-curve-fit/` — stage 3a: one curve shared by the activating classes, chosen from a 12-point (K, h)
+  grid by perturbation-grouped CV on experimental + korkut balanced accuracy (curator reported, not a gate). Full-data
+  choice f^0.75, but CV gain −0.0004 [−0.028, 0.030]: its in-sample gain is a few perturbations (RBL1/RBL2, SR drugs).
+  The identity stays the candidate; nothing adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
