@@ -84,16 +84,21 @@ Everything is outside the repository, under `~/deltasignal-catalogs/external/lun
     Only its headers have been read.
   - Tables S3–S7 (mmc4–mmc8) were not downloaded.
 
-## Still open
+## Resolved 2026-11-02
 
-- **Antibody coordinates.** Check the translations against Table S2's UniProt entries and UniProt numbering before
-  the scoring spec.
-- **HEK293T resting levels.** Is HEK293T in DepMap or CPPA? If not, choose the source before unsealing.
+- **Antibody coordinates.** Checked against Table S2 (genes and UniProt entries) and the canonical UniProt sequences
+  (the residue at every coordinate confirmed) and Release 97's phospho-EWAS. Corrections: MAP2K3 S189 → S218 (short
+  isoform numbering); RPS6KB1 T389 → T412 on the canonical sequence (Reactome curates both; both kept); STAT5B and
+  PRKAA2 dropped (Table S2 lists STAT5A and PRKAA1 only); p38 β/γ/δ, RSK2/3 added (Table S2 lists them). MAPK8 has no
+  phospho-EWAS in Release 97. Readout coverage is unchanged (28 / 30 sites in the whole-Reactome networks); pairs sharing a
+  network become 1,578 (frozen) and 7,045 (whole Reactome). The panel is `bench/analysis/127/readouts.tsv`.
+- **HEK293T resting levels.** HEK293T is in neither CPPA nor DepMap 24Q2 (DepMap's HEK TE, ACH-000049, is a different
+  line: HEK cells immortalised with hTERT and SV40 early region). The frozen model needs none. For a learned model, the
+  candidates are the Human Protein Atlas cell-line RNA (HEK293) or a published HEK293 proteome; either is a new download
+  and needs Adam's approval, decided before scoring.
+- **Scoring:** registered in specs/127.
 
-## Scoring: to be registered before the data are opened, not now
-
-These are questions only. The scoring will be decided after the learned-model plan (specs/125) settles, and before any
-file is opened:
+## Scoring questions (as first posed; answered in specs/127)
 
 - **Condition.** Basal, 18 h after transfection, is close to a steady state and fits the steady-state model. EGF 10 min
   needs the time model.

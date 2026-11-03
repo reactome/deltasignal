@@ -8,7 +8,7 @@
 #                  variant nodes the largest pathway, R-HSA-194315, is 46,710
 #                  edges, which 40000 would skip silently; specs/046)
 #   --catalog ID   run against builds/ID instead of `current` (a variant build)
-#   --axis A       curator, experimental, korkut, korkut_predict or decryptm (repeatable;
+#   --axis A       curator, experimental, korkut, korkut_predict, decryptm or lun_predict (repeatable;
 #                  default curator and experimental)
 #   --decryptm-cases FILE --decryptm-phospho FILE
 #                  the decryptm axis's case table (decryptm_coverage.py) and Neo4j
@@ -62,8 +62,9 @@ while [ $# -gt 0 ]; do
     --catalog) [ -n "${2:-}" ] || die "--catalog needs a build id"; CATALOG_ID=$2; shift 2 ;;
     # specs/062: which benches to run (default curator and experimental).
     # korkut_predict never opens the korkut2015 values; korkut scores them.
-    --axis) case "${2:-}" in curator|experimental|korkut|korkut_predict|decryptm) AXES+=("$2") ;;
-              *) die "--axis must be curator, experimental, korkut, korkut_predict or decryptm" ;; esac; shift 2 ;;
+    # lun_predict (specs/127) only predicts: Lun 2019 is scored once, by bench/lun_score.py.
+    --axis) case "${2:-}" in curator|experimental|korkut|korkut_predict|decryptm|lun_predict) AXES+=("$2") ;;
+              *) die "--axis must be curator, experimental, korkut, korkut_predict, decryptm or lun_predict" ;; esac; shift 2 ;;
     --decryptm-cases) [ -f "${2:-}" ] || die "--decryptm-cases needs an existing file"; DCASES=$(readlink -f "$2"); shift 2 ;;
     --decryptm-phospho) [ -f "${2:-}" ] || die "--decryptm-phospho needs an existing file"; DPHOSPHO=$(readlink -f "$2"); shift 2 ;;
     *) die "unknown argument $1" ;;
@@ -74,7 +75,7 @@ for gt in "${AXES[@]}"; do
   [ "$gt" != decryptm ] || { [ -n "$DCASES" ] && [ -n "$DPHOSPHO" ]; } \
     || die "--axis decryptm needs --decryptm-cases and --decryptm-phospho"
   # the drug benches solve every network: a limit would be recorded and not applied
-  case "$gt" in korkut|korkut_predict|decryptm)
+  case "$gt" in korkut|korkut_predict|decryptm|lun_predict)
     [ ${#LIMIT[@]} -eq 0 ] && [ -z "$MAX_EDGES_SET" ] || die "--limit and --max-edges apply only to the curator and experimental axes" ;;
   esac
 done
@@ -140,11 +141,16 @@ for kv in "${BENCH[@]}"; do
   # The korkut and decryptm benches use only the pinning, the perturbation
   # level, the class cutoffs, the pin-network root and the solve timeout from
   # that script; any other bench knob would be recorded and inert there.
+  LUN_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_UP DS_BASELINE DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT"
   DRUG_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT DS_DRUG_ACTION DS_DRUG_MECHANISM_UNKNOWN DS_DRUG_MECHANISM_TABLE"
   for gt in "${AXES[@]}"; do
     case "$gt" in korkut|korkut_predict|decryptm)
       case " $DRUG_KNOBS " in *" $n "*) ;;
         *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $DRUG_KNOBS)" ;;
+      esac ;;
+    lun_predict)
+      case " $LUN_KNOBS " in *" $n "*) ;;
+        *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $LUN_KNOBS)" ;;
       esac ;;
     *) case "$n" in DS_DRUG_ACTION|DS_DRUG_MECHANISM_*)
          git worktree remove --force "$WT"; die "$n applies only to the drug axes (specs/122, 123), not $gt" ;;
@@ -191,6 +197,9 @@ for gt in "${AXES[@]}"; do
       kflag=(); [ "$gt" = korkut_predict ] && kflag=(--predict-only)
       env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
         "$PY" "$WT/bench/korkut_bench.py" "${kflag[@]}" "$OUT" > "$OUT/$gt.log" 2>&1 ;;
+    lun_predict)
+      env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
+        "$PY" "$WT/bench/lun_bench.py" "$OUT" > "$OUT/$gt.log" 2>&1 ;;
     decryptm)
       env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
         "$PY" "$WT/bench/decryptm_bench.py" "$DCASES" "$DPHOSPHO" "$OUT/decryptm" > "$OUT/$gt.log" 2>&1 ;;
@@ -213,7 +222,7 @@ for key, env in (("decryptm_cases", "ARM_DCASES"), ("decryptm_phospho", "ARM_DPH
     path = os.environ.get(env)
     if path:      # hashed by the shell before the arm ran
         rec[key] = {"path": path, "sha256": os.environ[env + "_SHA"]}
-for gt in ("curator", "experimental", "korkut", "korkut_predict", "decryptm"):
+for gt in ("curator", "experimental", "korkut", "korkut_predict", "decryptm", "lun_predict"):
     log = os.path.join(out, f"{gt}.log")
     if os.path.exists(log):
         text = open(log).read()
