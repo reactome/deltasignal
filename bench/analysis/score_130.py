@@ -58,9 +58,11 @@ def control_baselines(unpacked, split_tsv):
                     continue
                 for a, v in zip(header[1:], cells[1:]):
                     try:
-                        acc[(set_id, cl)][a].append(float(v))
+                        x = float(v)
                     except ValueError:
-                        pass
+                        continue
+                    if math.isfinite(x):
+                        acc[(set_id, cl)][a].append(x)
     return {k: {a: sum(v) / len(v) for a, v in by.items()} for k, by in acc.items()}
 
 
