@@ -129,22 +129,24 @@ for kv in "${SERVER[@]}"; do
   grep -rqE "(_env\(|ENV, |ENV\[)\"$n\"" "$WT/src" \
     || { git worktree remove --force "$WT"; die "$n is not read by the solver (src/) at $SHA"; }
 done
+[ ${#AXES[@]} -gt 0 ] || AXES=(curator experimental)   # the default, set here so the checks below see it
 for kv in "${BENCH[@]}"; do
   n=${kv%%=*}
   case "$n" in DS_CATALOG_ROOT|DELTASIGNAL_BASE)
     git worktree remove --force "$WT"; die "$n is set by run_arm.sh itself and cannot be overridden" ;;
   esac
-  grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" \
-    || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py at $SHA"; }
+  grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" "$WT/bench/drug_activity.py" \
+    || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py or bench/drug_activity.py at $SHA"; }
   # The korkut and decryptm benches use only the pinning, the perturbation
   # level, the class cutoffs, the pin-network root and the solve timeout from
   # that script; any other bench knob would be recorded and inert there.
-  DRUG_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT"
+  DRUG_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT DS_DRUG_ACTION"
   for gt in "${AXES[@]}"; do
     case "$gt" in korkut|korkut_predict|decryptm)
       case " $DRUG_KNOBS " in *" $n "*) ;;
         *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $DRUG_KNOBS)" ;;
       esac ;;
+    *) [ "$n" != DS_DRUG_ACTION ] || { git worktree remove --force "$WT"; die "DS_DRUG_ACTION applies only to the drug axes (specs/122), not $gt"; } ;;
     esac
   done
 done

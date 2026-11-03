@@ -1150,7 +1150,7 @@ other seven execute code and print output.
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
 | `test/test_resting_baseline.jl` | 23 | specs/124, added 2026-11-02 |
 | `test/test_cli_observations.jl` | 50 | |
-| `test/test_api_errors.jl` | 61 | |
+| `test/test_api_errors.jl` | 69 | specs/122 edge redirects added 2026-10-29 |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |
 | `test/test_worked_example.jl` | 9 | |

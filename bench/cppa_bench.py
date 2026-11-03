@@ -7,7 +7,7 @@ DS_PERTURB_UI_DOWN at the forms the curator bench pins, one solve per drug per p
 korkut format) is the mean over the nodes that are, or contain, its EWAS, pinned nodes left out. Stimuli are not
 solved. The case log has no measured column: scoring is a separate, registered step.
 
-CPPA_SHARD=i/n runs every n-th pathway from the i-th and writes cppa_predict_cases.iofn.tsv (concatenate the shards).
+CPPA_PATHWAYS=R-HSA-1,R-HSA-2 runs only those pathways (a trace). CPPA_SHARD=i/n runs every n-th pathway from the i-th and writes cppa_predict_cases.iofn.tsv (concatenate the shards).
 
 Usage: DS_CATALOG_ROOT=<build> cppa_bench.py DRUG_TARGETS_TSV ACC_GENE_TSV READOUTS_TSV OUT_DIR
 """
@@ -20,6 +20,7 @@ from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
+import drug_activity as da  # noqa: E402
 from decryptm_bench import git_state  # noqa: E402
 from korkut_bench import NAMES, neo4j_site_stids, read_tsv, readout_stids  # noqa: E402
 
@@ -58,12 +59,17 @@ def main():
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
     r_stids = readout_stids(readouts, gene_to_stids, neo4j_site_stids(sites))
-    print(f"Protocol: CPPA single-drug predictions (specs/121), DS_PIN_SCOPE={bm.PIN_SCOPE} "
+    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
+    print(f"Protocol: CPPA single-drug predictions (specs/121), DS_DRUG_ACTION={da.DRUG_ACTION} "
+          f"DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
           f"readout=mean(unpinned) cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
           f"{len(drugs)} drugs, {len(readouts)} readouts; PREDICT ONLY (values unread)", flush=True)
     rows, solves, conv = [], 0, 0
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())
+    only = {x for x in os.environ.get("CPPA_PATHWAYS", "").split(",") if x}     # a trace: these pathways only
+    if only:
+        pathways = [p for p in pathways if p.name in only]
     shard = os.environ.get("CPPA_SHARD", "")          # "i/n": every n-th pathway from the i-th, to run in parallel
     if shard:
         i, n = map(int, shard.split("/"))
@@ -81,24 +87,24 @@ def main():
             g2u = {g: [u for s in gene_to_stids.get(g, []) for u in stid_to_uuids.get(s, [])] for g in genes}
             if not any(g2u.values()):
                 continue
-            pins, _ = bm.pin_occurrences(pdir, g2u, gene_to_stids)
-            pinned = set().union(*pins.values()) if pins else set()
-            if not pinned:
-                continue
             if parsed is None:
                 parsed = bm.parse_pathway_via_ds_api(pdir.name)
                 adj = bm.build_adjacency(pdir)
                 if parsed.get("status") != "success":
                     raise SystemExit(f"{pdir.name}: parse failed: {parsed.get('message')}")
-            obs = {u: [bm.PERTURB_UI_DOWN, bm.PIN_CONFIDENCE] for u in sorted(pinned)}
-            res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"])
+            # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges instead
+            pins, obs, cut, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units)
+            if not roots:
+                continue
+            pinned = roots if da.DRUG_ACTION == "knockout" else set()
+            res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"], edge_redirects=cut)
             if res.get("status") != "success":
                 raise SystemExit(f"{pdir.name} {drug}: solve failed: {res.get('message')}")
             bm.refuse_unless_default_model(res, pdir.name)
             solves += 1
             conv += bool(res.get("converged"))
             act = res.get("node_activities", {})
-            reach = bm.reachable_from(adj, pinned)
+            reach = bm.reachable_from(adj, roots)
             for name, nodes in sorted(ro_nodes.items()):
                 free = [u for u in nodes if u not in pinned]
                 if not free:

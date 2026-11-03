@@ -124,3 +124,14 @@ test value is read:
   feedback or gene expression. The primary endpoint is unchanged (all samples). Added as a secondary: the same
   correlation on test samples with a parsed treatment time of 12 hours or less (`5min`, `30min`, `4hr`, `0.5hr`,
   `3d`, ... parsed as minutes, hours or days; an unparsed time is left out of this endpoint).
+
+## Amendment 4 (2026-10-29): phase 2 result (training portion)
+
+Expression gating was run for the 282 training (drug, cell line) pairs with DepMap expression (`cppa_gated_bench.py`,
+code `ff81b6a`; every solve converged). **G1 fails**: on the same training samples, the gated model's per-drug
+correlation is not higher than the frozen model's (the interval includes 0; the point estimate is slightly lower).
+**G2 holds descriptively**: gating halves the model's change calls, and the share of them that are false falls. The
+calls it removes are mostly on readouts that barely move, which the correlation hardly weighs. Numbers are in the
+private analysis under the CPPA terms. As registered, the gated model remains one of the arms scored once at the end;
+phase 3 does not build on gating. Adam, 2026-10-29: expression "really isn't a measure of protein level at different
+parts of a pathway"; phase 3 will use CPPA's own baseline protein measurements (p0) as cell features instead.

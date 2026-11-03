@@ -15,6 +15,23 @@ from pathlib import Path
 NEVER = {"set_pool", "variant_pool", "reaction"}
 
 
+def human_gene_ewas():
+    """{gene name: [EWAS stIds]} for every human protein, in one pass (any of its gene names, as
+    benchmark_vs_mpbiopath.neo4j_gene_to_stids matches; that function scans every reference entity once per gene,
+    which for all ~11,000 genes kept Neo4j busy for hours)."""
+    from py2neo import Graph
+    import benchmark_vs_mpbiopath as bm
+    graph = Graph(bm.NEO4J_URL, auth=(bm.NEO4J_USER, bm.NEO4J_PASSWORD))
+    rows = graph.run(
+        """
+        MATCH (pe:EntityWithAccessionedSequence {speciesName: 'Homo sapiens'})-[:referenceEntity]->(re)
+        WHERE re.geneName IS NOT NULL
+        UNWIND re.geneName AS g
+        RETURN g AS gene, COLLECT(DISTINCT pe.stId) AS stids
+        """).data()
+    return {r["gene"]: r["stids"] for r in rows}
+
+
 def entity_leaves(stids):
     """{stId: {leaf stIds below it}} for sets and complexes (members, candidates and components, recursively), from
     the local Reactome Neo4j. A leaf (protein, small molecule) has no entry: it is its own leaf."""

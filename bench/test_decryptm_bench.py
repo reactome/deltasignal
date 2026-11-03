@@ -21,6 +21,8 @@ def test_score_case_excludes_pins_and_trivial_units():
     assert db.score_case(["p"], {"p"}, acts, {"p"})[0] == "trivial"
     assert db.score_case([], {"p"}, acts, {"p"})[0] == "no_readout"
     assert db.score_case(["r1"], set(), acts, set())[0] == "no_pin"
+    # specs/122: under activity nothing is pinned, but the drug reaches the network through its target's roots
+    assert db.score_case(["r1"], set(), acts, set(), perturbed={"p"})[0] == "scored"
     # unreached readout: reachability says NORMAL; a missing activity reads baseline
     st, ui, pred, rp = db.score_case(["zz"], {"p"}, acts, {"p"})
     assert (ui, pred, rp) == (1.0, db.bm.NORMAL, db.bm.NORMAL)

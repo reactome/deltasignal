@@ -165,6 +165,12 @@ Solve the steady state under a set of perturbations. JSON body:
   `0–1`. Confidence `> 0` pins the node as a hard constraint; `0` ignores it.
   A uuid repeated in the object with **different** values is a `400`
   (two contradictory measurements are a conflict); an exact repeat is fine.
+- **`edge_redirects`** (optional, specs/122): a list of `[parent_uuid, child_uuid]`
+  edges of the network to cut, as a drug blocking its target's activity. Each
+  keeps its type and sign but takes its input from a new block node the server
+  pins at 0; the cached network is not modified. An edge the network does not
+  have is a `400`. The response reports how many block nodes it added
+  (`edge_redirects`).
 
 Response:
 ```json
