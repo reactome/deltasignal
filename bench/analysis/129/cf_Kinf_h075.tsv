@@ -1,0 +1,5 @@
+# specs/129 grid point (registered in specs/129-class-curve-fit/spec.md)
+class	K	h
+input	inf	0.75
+catalyst	inf	0.75
+regulator_pos	inf	0.75

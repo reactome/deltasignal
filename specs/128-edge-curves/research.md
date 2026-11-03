@@ -68,3 +68,9 @@ What this tells stage 3:
    cross-validation on FIT data and the locked tests; this result says that choice decides the outcome, so it should be
    confirmed (Adam's decision), and curator agreement reported, not used as a no-harm gate.
 4. **Inhibition is already where a curve would put it** (P2): the open parameters are on the activating side.
+
+## Addendum (2026-11-03): balanced accuracy
+
+Re-read by three-class balanced accuracy (specs/129 research §0), the korkut gain of `ec_all75` is +0.006 (0.413 →
+0.419), not a pull toward strong contraction: reading 1 above holds for raw accuracy only. Experimental balanced accuracy
+is highest under `ec_sub90` (0.689 → 0.702) and falls under `ec_all75` (0.667).
