@@ -1,0 +1,7 @@
+# specs/128 arm table (registered in specs/128-edge-curves/spec.md)
+class	K	h
+input	inf	1
+catalyst	inf	1
+regulator_pos	inf	1
+regulator_neg	divide	1
+depletion	divide	1

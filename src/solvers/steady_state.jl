@@ -435,6 +435,10 @@ function solve_steady_state(
     result.diagnostics["rna_twin_rule"] = rna_twin_rule        # specs/100
     result.diagnostics["rna_twin_edges"] = rna_twin_edges
     result.diagnostics["resting_baseline"] = resting_baseline()   # specs/124
+    # specs/128: which edge curves ran, and how many edges each curved class holds
+    curves = resolve_reaction_eval_config().edge_curves
+    result.diagnostics["edge_curve_rule"] = curves.desc
+    result.diagnostics["edge_curve_slots"] = curves.on ? edge_curve_slots(network, curves) : Dict{String, Int}()
     result.diagnostics["sequestration_rule"] = sequestration_rule
     result.diagnostics["sequestration_edges"] = sequestration_edges
     result.diagnostics["own_entity_depletions"] = length(own_entity)

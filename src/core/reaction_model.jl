@@ -86,11 +86,20 @@ struct Reaction
     # The specs/083 self-activator rule damps only regulator and catalyst slots;
     # an entity that is also an input of the same reaction keeps its input slot.
     activator_is_input::Vector{Bool}
+
+    # Per-activator slot class for the specs/128 edge curves (SLOT_* in edge_curves.jl), from the edge type.
+    activator_class::Vector{UInt8}
 end
 
 # Constructor for callers that predate `activator_is_input`: no slot is an input.
 Reaction(t, a, i, d, s, p, pr, g, aa, ia, ac, as, ag) =
     Reaction(t, a, i, d, s, p, pr, g, aa, ia, ac, as, ag, fill(false, length(a)))
+
+# Constructor for callers that predate `activator_class` (specs/128): the class from the role flags; a slot that is
+# neither input, assembly nor catalyst is identity, since a positive regulator cannot be told from them.
+Reaction(t, a, i, d, s, p, pr, g, aa, ia, ac, as, ag, ai::Vector{Bool}) =
+    Reaction(t, a, i, d, s, p, pr, g, aa, ia, ac, as, ag, ai,
+             UInt8[(ai[k] || as[k]) ? SLOT_INPUT : ac[k] ? SLOT_CATALYST : SLOT_IDENTITY for k in eachindex(a)])
 
 # Back-compat outer constructor: callers predating the per-activator catalyst
 # flag (the biological-realism / feedback / compartmentalization enhancement
@@ -184,6 +193,7 @@ function create_reaction_from_edges(
     activator_is_assembly = Bool[]
     activator_group = Int[]
     activator_is_input = Bool[]
+    activator_class = UInt8[]        # specs/128
     group_ids = Dict{String, Int}()   # base stable id -> dense group id
     inhibitors = String[]
     inhibitor_is_and = Bool[]
@@ -197,6 +207,7 @@ function create_reaction_from_edges(
             push!(activator_is_and, edge.is_and)
             push!(activator_is_catalyst, edge.edge_type == "catalyst")
             push!(activator_is_input, edge.edge_type == "input")
+            push!(activator_class, slot_class(edge.edge_type))
             # `composition` (complex -> complex that contains it, emitted by LNG
             # along Reactome's hasComponent hierarchy) shares assembly's
             # limiting-reactant semantics: a container cannot exceed the
@@ -244,7 +255,7 @@ function create_reaction_from_edges(
     # so per-edge weights stay aligned with the deduplicated vectors.
     if _bool_env("DS_DEDUP_ACTIVATORS", false) && length(activators) > 1
         seen = Dict{String, Int}()
-        d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]; d_grp = Int[]; d_inp = Bool[]
+        d_act = String[]; d_and = Bool[]; d_cat = Bool[]; d_asm = Bool[]; d_grp = Int[]; d_inp = Bool[]; d_cls = UInt8[]
         for k in eachindex(activators)
             src = activators[k]
             j = get(seen, src, 0)
@@ -255,6 +266,7 @@ function create_reaction_from_edges(
                 push!(d_asm, activator_is_assembly[k])
                 push!(d_grp, activator_group[k])
                 push!(d_inp, activator_is_input[k])
+                push!(d_cls, activator_class[k])
                 seen[src] = length(d_act)
             else
                 # Merge deterministically so the result cannot depend on edge
@@ -272,6 +284,9 @@ function create_reaction_from_edges(
                 d_cat[j] |= activator_is_catalyst[k]
                 d_asm[j] &= activator_is_assembly[k]
                 d_inp[j] |= activator_is_input[k]
+                # specs/128: a merged slot takes the first non-identity class in the order input, catalyst, regulator
+                c1, c2 = d_cls[j], activator_class[k]
+                d_cls[j] = c1 == SLOT_IDENTITY ? c2 : c2 == SLOT_IDENTITY ? c1 : min(c1, c2)
                 # A composition edge parallel to a plain activator from the same
                 # source repeats a fold the plain edge already carries, so the
                 # plain role wins: the group survives only if EVERY duplicate is
@@ -286,6 +301,7 @@ function create_reaction_from_edges(
         activator_is_catalyst, activator_is_assembly = d_cat, d_asm
         activator_group = d_grp
         activator_is_input = d_inp
+        activator_class = d_cls
     end
 
     # Reaction-level fallback flag (preserved for any legacy caller).
@@ -312,6 +328,7 @@ function create_reaction_from_edges(
         activator_is_assembly,
         activator_group,
         activator_is_input,
+        activator_class,
     )
 end
 
@@ -480,6 +497,7 @@ struct IndexedReaction
                                             # activator (a regulator or catalyst) CONTAINS
                                             # and is computed from. Empty when
                                             # DS_SELF_ACTIVATOR_WEIGHT=off.
+    activator_class::Vector{UInt8}          # per-activator slot class (specs/128 edge curves)
 end
 
 """
@@ -592,6 +610,7 @@ function index_reactions(
         act_is_assembly = Bool[]
         act_group = Int[]
         act_orig = Int[]
+        act_class = UInt8[]
         for (k, uuid) in enumerate(r.activator_uuids)
             haskey(uuid_to_idx, uuid) || continue
             push!(act_indices, uuid_to_idx[uuid])
@@ -600,6 +619,7 @@ function index_reactions(
             push!(act_is_assembly, k <= length(r.activator_is_assembly) ? r.activator_is_assembly[k] : false)
             push!(act_group, k <= length(r.activator_group) ? r.activator_group[k] : 0)
             push!(act_orig, k)
+            push!(act_class, k <= length(r.activator_class) ? r.activator_class[k] : SLOT_IDENTITY)
         end
         # specs/083: per activator, the inputs it contains and is computed from
         # only regulator/catalyst slots, as the pairs are built (review 2026-10-22:
@@ -661,7 +681,7 @@ function index_reactions(
             target_idx=target_idx, baseline=get(resting_baseline, baselines, r.target_uuid),
             act_indices=act_indices, act_is_and=act_is_and,
             act_is_catalyst=act_is_catalyst, act_is_assembly=act_is_assembly,
-            act_group=act_group,
+            act_group=act_group, act_class=act_class,
             inh_indices=inh_indices, inh_is_and=inh_is_and, inh_shared=inh_shared,
             dep_indices=dep_indices, act_shared=act_shared,
             sub_indices=sub_indices, params=params,
@@ -914,7 +934,7 @@ function index_reactions(
             rec.act_is_assembly, comp_redundant, rec.act_group,
             rec.inh_indices, rec.inh_is_and, in_loop, in_transcription, rec.inh_shared,
             rec.dep_indices, closure_dep[ri], dep_own, dep_src,
-            rec.sub_indices, rec.params, rec.act_shared,
+            rec.sub_indices, rec.params, rec.act_shared, rec.act_class,
         ))
     end
     if stats !== nothing
@@ -1036,6 +1056,7 @@ struct ReactionEvalConfig
     set_pool_mode::String            # specs/033: how a set pool combines its members.
     self_activator_weight::Float64   # < 0 = off; default 0.1 since specs/083 was adopted.
     depletion_combine::String        # specs/103: "product" (default) | "share".
+    edge_curves::EdgeCurves          # specs/128: off by default.
 end
 
 """
@@ -1429,7 +1450,17 @@ function resolve_reaction_eval_config()::ReactionEvalConfig
         # `share` reads them as consumers of one pool, b/mean(x_k) (mass action
         # with equal baseline shares).
         _mode_env("DS_DEPLETION_COMBINE", "product"),
+        # specs/128 (specs/125 stage 1): response curves by edge class; `off` is today's model.
+        edge_curves_env(),
     )
+    if cfg.edge_curves.inh !== nothing && cfg.inhibition_mode != "divide"
+        throw(ArgumentError("DS_EDGE_CURVES gives regulator_neg a curve, which replaces the divide form; it needs " *
+                            "DS_INHIBITION_MODE=divide, not $(cfg.inhibition_mode)."))
+    end
+    if cfg.edge_curves.dep !== nothing && cfg.depletion_combine == "share"
+        throw(ArgumentError("DS_EDGE_CURVES gives depletion a curve, which DS_DEPLETION_COMBINE=share does not read; " *
+                            "set one of them."))
+    end
     if cfg.loop_gain < 1.0 && cfg.loop_elasticity < 1.0
         throw(ArgumentError("DS_LOOP_GAIN and DS_LOOP_ELASTICITY are two ways to pull a loop " *
                             "towards 1; set one of them."))
@@ -1621,6 +1652,7 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
     #                {0↔2, 1↔1} integer inversion. Default for benchmark.
     inhibition_mode = config.inhibition_mode
     bl = T(rxn.target_baseline)
+    curves = config.edge_curves
 
     and_vals = T[]
     and_wts = Float64[]
@@ -1717,6 +1749,13 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             n=p.activator_sensitivity_n[k],
             K_α=p.activator_sensitivity_K[k],
         )
+        # specs/128: the slot's response curve, after every rule has decided what it reads
+        if curves.on && k <= length(rxn.activator_class)
+            cls = rxn.activator_class[k]
+            if curve_active(curves, cls)
+                transformed = bl * curve_fold(transformed / bl, curves.K[cls], curves.h[cls])
+            end
+        end
         if comp_limit_mode && k <= length(rxn.activator_group) && rxn.activator_group[k] > 0
             # Limiter: the container cannot exceed this component. Fold capped
             # at 1, so an over-expressed component never lifts the container.
@@ -2211,7 +2250,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
                 x_new = clamp(bl * exp(l_eff), zero(T), one(T))
                 x_inh = clamp(x_new, min(x_inh, bl), max(x_inh, bl))
             end
-            h_k = (bl + eps_T) / (x_inh + eps_T)
+            h_k = curves.inh === nothing ? (bl + eps_T) / (x_inh + eps_T) :
+                  curve_inhibit(x_inh / bl, curves.inh[1], curves.inh[2])   # specs/128
             apply_floor = floor_scope == "all" ||
                           (floor_scope == "loops" && rxn.inhibitor_in_short_loop[k]) ||
                           (floor_scope == "transcription" && rxn.inhibitor_transcriptional[k])
@@ -2231,8 +2271,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         # division safe as x_inh -> 0, which is why DS_INHIBITOR_EPS can be
         # numerically tiny. Ten is an assumption, not a measurement — a
         # tighter value was tried and rejected (2x cost 39 cases on 23,788),
-        # but it has never been justified from data either.
-        clamp(result, zero(T), T(10.0))
+        # but it has never been justified from data either. Under a specs/128
+        # curve each edge carries its own bound, 1 + k^m, instead.
+        curves.inh === nothing ? clamp(result, zero(T), T(10.0)) : max(result, zero(T))
     elseif inhibition_mode == "devspec"
         beta_env = config.devspec_beta_raw
         β = T(parse(Float64, beta_env))
@@ -2316,7 +2357,8 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
             raw_dep = (supply !== nothing && k <= length(rxn.depletion_break) && rxn.depletion_break[k]) ?
                       supply[i_dep] : x[i_dep]      # recycling closure: entry value, no feedback
             x_dep = clamp(raw_dep, zero(T), one(T))
-            f_dep = (bl + eps_dep) / (x_dep + eps_dep)
+            f_dep = curves.dep === nothing ? (bl + eps_dep) / (x_dep + eps_dep) :
+                    curve_inhibit(x_dep / bl, curves.dep[1], curves.dep[2])   # specs/128
             capped = false
             if suppress_only && k <= length(rxn.depletion_own_product) &&
                rxn.depletion_own_product[k]
@@ -2349,7 +2391,9 @@ function compute_reaction_output_vec(x::AbstractVector{T}, rxn::IndexedReaction;
         #
         # 1/h_max_dep makes the bound symmetric in log space: depletion may
         # suppress at most as hard as it may de-repress.
-        H_dep = clamp(H_dep, T(config.depletion_h_min), h_max_dep)
+        # specs/128: under a curve each edge carries its own de-repression bound, 1 + k^m; the floor stays.
+        H_dep = curves.dep === nothing ? clamp(H_dep, T(config.depletion_h_min), h_max_dep) :
+                max(H_dep, T(config.depletion_h_min))
     end
 
     # Same rationale as the dict-version compute_reaction_output above:

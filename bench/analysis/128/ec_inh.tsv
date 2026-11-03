@@ -1,0 +1,4 @@
+# specs/128 arm table (registered in specs/128-edge-curves/spec.md)
+class	K	h
+regulator_neg	9	1
+depletion	9	1

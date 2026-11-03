@@ -1001,6 +1001,8 @@ function solve_handler(req)
             "rna_twin_rule" => get(solver_result.diagnostics, "rna_twin_rule", "off"),   # specs/100
             "rna_twin_edges" => get(solver_result.diagnostics, "rna_twin_edges", 0),
             "resting_baseline" => get(solver_result.diagnostics, "resting_baseline", nothing),   # specs/124
+            "edge_curve_rule" => get(solver_result.diagnostics, "edge_curve_rule", "off"),   # specs/128
+            "edge_curve_slots" => get(solver_result.diagnostics, "edge_curve_slots", Dict{String, Int}()),
             # specs/107 (additive): metabolite pools and multi-step carriers
             "metabolite_pools_rule" => get(solver_result.diagnostics, "metabolite_pools_rule", "off"),
             "metabolite_pools" => get(solver_result.diagnostics, "metabolite_pools", 0),
