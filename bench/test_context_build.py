@@ -215,6 +215,11 @@ def test_curated_build_is_feed_in_and_an_empty_link_file_builds_the_control(tmp_
     cb.main([str(b), str(tmp_path / "c0"), "--curated", str(tmp_path / "empty.tsv"), str(tmp_path / "s_q.tsv"),
              "--centres", str(tmp_path / "centres.tsv")])
     assert sorted(_edges(tmp_path / "c0" / "R-HSA-1")) == sorted(_edges(b / "R-HSA-1"))
+    # every table the solver reads travels with the bundle (specs/100's RNA table was once left behind)
+    (b / "R-HSA-1" / "rnas.csv").write_text("stable_id,schema_class,name,reactome_release\nR-E,EWAS,E mRNA,97\n")
+    cb.main([str(b), str(tmp_path / "c0r"), "--curated", str(tmp_path / "empty.tsv"), str(tmp_path / "s_q.tsv"),
+             "--centres", str(tmp_path / "centres.tsv")])
+    assert (tmp_path / "c0r" / "R-HSA-1" / "rnas.csv").read_text() == (b / "R-HSA-1" / "rnas.csv").read_text()
 
 
 def test_curated_set_handoff_bridges_each_member_to_the_same_member(tmp_path):

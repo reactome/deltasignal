@@ -55,7 +55,7 @@ PREFIXED = {"pools.csv": ("pool_id",), "pool_carriers.csv": ("pool_id",),
             "pool_transitions.csv": ("pool_id", "path_id"), "carrier_loops.csv": ("loop_id",)}
 UNION = ("nodes.csv", "stid_to_uuid_mapping.csv", "entity_reaction_proxy_mapping.csv",
          "containment.csv", "cofactors.csv", "drugs.csv", "pathogens.csv", "carrier_loops.csv",
-         "pools.csv", "pool_carriers.csv", "pool_transitions.csv", "boundary_edges.csv")
+         "pools.csv", "pool_carriers.csv", "pool_transitions.csv", "boundary_edges.csv", "rnas.csv")
 EDGE_HEAD = ["source_id", "target_id", "pos_neg", "and_or", "edge_type", "stoichiometry", "edge_reaction_id"]
 
 
@@ -263,7 +263,7 @@ def build_one(base, out, P, nbrs, bridges, prune=True, feedback=True):
                 allr.append(r)
         if head is None:
             continue
-        if t in ("cofactors.csv", "drugs.csv", "pathogens.csv", "containment.csv"):
+        if t in ("cofactors.csv", "drugs.csv", "pathogens.csv", "containment.csv", "rnas.csv"):
             allr = list({tuple(r[c] for c in head): r for r in allr}.values())
         with open(d / t, "w", newline="") as f:
             w = csv.DictWriter(f, head, lineterminator="\n")
