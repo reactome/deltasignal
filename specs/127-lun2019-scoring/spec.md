@@ -28,6 +28,10 @@ reaches stage 5, when to score the frozen model alone is Adam's decision.
 - **Perturbations:** the basal screen: each of the 649 proteins of interest (Table S1) over-expressed in HEK293T, no
   EGF, 18 h. Not in the primary score: the EGF condition, the 1 h time course, the kinase–phosphatase pairs, the
   kinase-dead mutants and the A375 subset (secondary analyses below).
+- **Proteins** are genes (`bench/analysis/127/pois.tsv`, Table S1's identifiers). A gene with several constructs
+  (clones marked P1/P2, isoforms marked I1/I2: 13 genes) is one protein; its E is the median over all their samples.
+  A construct marked as a mutant (`CYCS (Mu-F86)`) is left out. Nine entries without a UniProt accession (pseudogenes,
+  LOC and FLJ entries) cannot be in a network and count only in the whole panel.
 - **Readouts:** the 32 scorable markers of `bench/analysis/127/readouts.tsv` (Table S2, checked against UniProt and
   Release 97 on 2026-11-02). GAPDH, cleaved PARP, p-HH3 and GFP are excluded. A readout covering several genes (p-ERK1/2,
   p-AKT, p-p38, ...) is one readout; its model value is the mean over its sites' nodes, as specs/062.
