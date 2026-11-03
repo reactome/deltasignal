@@ -1121,6 +1121,11 @@ for the last feature that touched it rather than re-deriving from the code.
   grid by perturbation-grouped CV on experimental + korkut balanced accuracy (curator reported, not a gate). Full-data
   choice f^0.75, but CV gain −0.0004 [−0.028, 0.030]: its in-sample gain is a few perturbations (RBL1/RBL2, SR drugs).
   The identity stays the candidate; nothing adopted.
+- `specs/131-edge-weights/` — stage 3b: a strength per edge, fitted through a linear-response surrogate of the propagator
+  (`bench/surrogate_131.py`, gradients by implicit differentiation at the fixed point, `bench/fit_131.py`). S1: the surrogate
+  matches the solver on 91% of korkut and 71% of experimental cases (the gap is the loop rules), so S2 ran on korkut alone
+  (amendment 1). S2 fails: CV gain +0.005 [−0.0005, 0.010] by drug set; about 2,400 of 27,000 free edges get any signal.
+  S3 not built; nothing adopted.
 - `specs/130-readout-baseline/` — stage 2a: a readout's measured resting level in the cell (CPPA controls, p0) as a
   measurement model on the frozen prediction, background quantile chosen by CV over CPPA training drugs. CV gain's
   interval includes 0 and balanced accuracy falls: not carried forward. Numbers private (CPPA terms).
