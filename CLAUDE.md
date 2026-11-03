@@ -632,6 +632,13 @@ env vars only override for benchmark sweeps:
 - `DS_BASELINE=0.01` (default; specs/124): the internal level every parsed node rests at. The internal scale
   tops out at 1, so the ceiling on any node is 1 / `DS_BASELINE` fold (100x). Measured only as a sensitivity analysis
   (bench `DS_BASELINE` must match; the over-expression pin is min(80, 0.8 x ceiling) fold). Reports `resting_baseline`.
+- `DS_EDGE_CURVES=off` (default; specs/128, specs/125 stage 1) | path of a curve table: each reaction slot reads its
+  input's fold through a curve by edge class, after every structural rule. Activating (`input` incl. assembly and
+  composition, `catalyst`, `regulator_pos`): g(f) = f^h (1 + K^h) / (f^h + K^h), 1 at rest, 0 at a knockout, at most
+  1 + K^h; K = inf, h = 1 is today's identity. Inhibiting (`regulator_neg` under `divide`, `depletion`):
+  (1 + k^m) / (1 + k^m f^m); `divide` keeps today's form. Under a curve the 10x reaction-level de-repression caps give
+  way to each edge's own bound; the depletion floor stays. Output and identity links are never curved. Reports
+  `edge_curve_rule` and `edge_curve_slots`. Measured only; nothing fitted or adopted.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -1105,6 +1112,10 @@ for the last feature that touched it rather than re-deriving from the code.
   40% of experimental readouts). The 80× over-expression dose changes more calls than the ceiling. Traced: the
   ceiling-decided calls are ratios of bounds one step upstream (a railed catalyst or inhibitor against a substrate at
   the depletion floor or near zero). Nothing adopted.
+- `specs/128-edge-curves/` — response curves on edges by class (`DS_EDGE_CURVES`), the first stage of the learnable
+  model (specs/125): today's model is the identity setting (exact on every axis); smoothing inhibition changes almost
+  nothing; every contraction loses curator calls (all classes at slope 0.75: held-out −599, experimental −114, all
+  correct changes read NORMAL) and gains on korkut (+353, fewer change calls). Nothing adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -1124,7 +1135,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty-five files contain assertions; the
+**Most of the test suite cannot fail.** Twenty-six files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -1149,6 +1160,7 @@ other seven execute code and print output.
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
 | `test/test_resting_baseline.jl` | 23 | specs/124, added 2026-11-02 |
+| `test/test_edge_curves.jl` | 72 | specs/128, added 2026-11-02 |
 | `test/test_cli_observations.jl` | 50 | |
 | `test/test_api_errors.jl` | 69 | specs/122 edge redirects added 2026-10-29 |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
