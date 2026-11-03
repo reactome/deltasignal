@@ -1,6 +1,6 @@
 # specs/131: learning a strength per edge (specs/125 stage 3b), feasibility first
 
-**Status:** registered 2026-11-03, before any code. Adam, 2026-11-03: "ok" to trying per-edge learning, small and sparse
+**Status:** registered 2026-11-03, before any code. **Result: S1 fails (experimental); S2 on korkut (amendment 1) fails, CV gain +0.005 [−0.0005, 0.010]; S3 not built** (research.md). Adam, 2026-11-03: "ok" to trying per-edge learning, small and sparse
 first, after specs/128–130 found that every way of making the model call fewer or smaller changes trades correct
 change calls for correct no-change calls. What the model lacks is which readouts respond; a strength per edge, learned
 where data reach, is the part of specs/125 that could supply it.
