@@ -31,7 +31,15 @@ the bench scores P's readouts on P's own nodes only.
 Under `--feed-in`, no bridge leaves P: neighbours only feed P's roots, and
 the context cannot close a cycle through P.
 
+Under `--curated LINKS S_Q` (specs/132) bridges come only from Reactome's curated handoffs, never from identity:
+LINKS (bench/analysis/curated_links_132.py) lists pairs (r in P, s outside P, entity e an output of s and an input,
+catalyst or regulator of r); S_Q names the pathway holding s (its lowest ancestor with a diagram). A bridge runs from
+Q's copy of e that s outputs to P's copy of e that feeds r and is a root in P. Feed-in only, no hub rule, centres
+limited by `--centres` (the scored pathways); `--l2` keeps only pairs whose s lies in a pathway P's diagrams
+encapsulate. With an empty LINKS it builds each centre alone (the control).
+
 Usage: context_build.py BASE_BUILD OUT_BUILD [--hub 5] [--feed-in] [--census]
+       context_build.py BASE_BUILD OUT_BUILD --curated LINKS S_Q --centres LIST [--l2]
 """
 import argparse
 import collections
@@ -113,6 +121,59 @@ def plan(base, hub):
         if into or out:
             bridges[(P, Q)] = {"in": into, "out": out, "edges": qe}
     return [p.name for p in paths], bridges, n_paths
+
+
+def plan_curated(base, links, s_q, centres, l2_only=False):
+    """Bridges from curated handoffs only: {(P, Q): {"in": [(src, dst)], "out": [], "edges": Q's reduced edges}},
+    plus one census row per handoff pair and entity (why it did or did not make a bridge)."""
+    q_of = {r["s"]: r["q_diagram"] for r in csv.DictReader(open(s_q), delimiter="\t")}
+    links = [r for r in csv.DictReader(open(links), delimiter="\t") if r["pathway"] in centres
+             and (r["l2"] == "True" or not l2_only)]
+    info, ents, roots = {}, {}, {}
+
+    def get(name):
+        if name not in info:
+            d = base / name
+            v = load(d)
+            v["typed"] = [(r["source_id"], r["target_id"], r["edge_type"], r.get("edge_reaction_id") or "")
+                          for r in rows(d / "logic_network.csv")[1]]
+            info[name] = v
+            ents[name] = {r["uuid"]: r["diagram_entity_id"] for r in rows(d / "nodes.csv")[1]}
+            roots[name] = set(ents[name]) - {t for _, t, _ in v["edges"]}
+        return info[name]
+
+    bridges, census = {}, []
+    for L in links:
+        P, Q, e = L["pathway"], q_of.get(L["s"]), L["entity"]
+        row = dict(L, q=Q or "", status="")
+        if not Q or not (base / Q / "nodes.csv").exists():
+            row["status"] = "no_source_network"; census.append(row); continue
+        if Q == P:
+            row["status"] = "source_is_centre"; census.append(row); continue
+        vp, vq = get(P), get(Q)
+        held = set()
+        for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
+            held |= {r["stable_id"] for r in rows(base / P / t)[1]}
+        if e in held:
+            row["status"] = "held_entity"; census.append(row); continue
+        role = "regulator" if L["role"].startswith("regulator") else L["role"]
+        dst = sorted({a for a, b, t, rid in vp["typed"] if rid == L["r"] and t == role and ents[P].get(a) == e})
+        src = sorted({b for a, b, t, rid in vq["typed"] if rid == L["s"] and t == "output" and ents[Q].get(b) == e})
+        if not dst:
+            row["status"] = "entity_not_at_r_in_centre"
+        elif not src:
+            row["status"] = "entity_not_output_of_s_in_source"
+        elif not any(u in roots[P] for u in dst):
+            row["status"] = "centre_copy_not_root"
+        else:
+            row["status"] = "bridged"
+            if (P, Q) not in bridges:
+                bridges[(P, Q)] = {"in": [], "out": [], "edges": reduced_edges(vq, vp["reactions"])}
+            bridges[(P, Q)]["in"] += [(a, b) for a in src for b in dst if b in roots[P]]
+        census.append(row)
+    for b in bridges.values():
+        b["in"] = sorted(set(b["in"]))
+    return bridges, census
 
 
 def kept_nodes(qd, srcs, qe):
@@ -227,8 +288,13 @@ def main(argv=None):
     ap.add_argument("--feed-in", dest="feedback", action="store_false",
                     help="no bridge out of P: neighbours only feed P's roots, so no cross-pathway cycle")
     ap.add_argument("--only", action="append", default=[], help="build only these pathways (checks)")
+    ap.add_argument("--curated", nargs=2, metavar=("LINKS", "S_Q"), help="specs/132: bridge curated handoffs only")
+    ap.add_argument("--centres", help="specs/132: pathway list (bench/catalog_pathways.tsv format) to build")
+    ap.add_argument("--l2", action="store_true", help="specs/132: only handoffs from pathways P's diagrams encapsulate")
     a = ap.parse_args(argv)
     base = Path(a.base).resolve()
+    if a.curated:
+        return main_curated(a, base)
     names, bridges, n_paths = plan(base, a.hub)
     nbr = collections.defaultdict(set)
     for (x, y), bs in bridges.items():
@@ -266,6 +332,44 @@ def main(argv=None):
     b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""), "context_of": base.name, "context_hub": a.hub,
               "context_pruned": a.prune, "context_feedback": a.feedback, "context": tot,
               "pathways_built": len(tot), "status": "complete" if not a.only else "partial"})
+    json.dump(b, open(out / "BUILD.json", "w"), indent=1)
+
+
+def main_curated(a, base):
+    if not a.centres:
+        sys.exit("--curated needs --centres")
+    centres = [l.split("\t")[0] for l in open(a.centres) if l.startswith("R-HSA")]
+    bridges, census = plan_curated(base, a.curated[0], a.curated[1], set(centres), a.l2)
+    nbr = collections.defaultdict(set)
+    for (p, q), b in bridges.items():
+        nbr[p].add(q)
+    print(f"centres {len(centres)}; handoff rows {len(census)}; "
+          + "; ".join(f"{k} {v}" for k, v in sorted(collections.Counter(r['status'] for r in census).items())))
+    print(f"centres with a bridge {len(nbr)}; bridges {sum(len(b['in']) for b in bridges.values())}")
+    if a.census or not a.out:
+        return
+    out = Path(a.out).resolve()
+    if out.exists():
+        sys.exit(f"{out} exists")
+    out.mkdir(parents=True)
+    with open(out / "curated_census.tsv", "w", newline="") as f:
+        w = csv.DictWriter(f, list(census[0]) if census else ["status"], delimiter="\t", lineterminator="\n")
+        w.writeheader(); w.writerows(census)
+    tot = {}
+    for p in centres:
+        tot[p] = {"neighbours": sorted(nbr[p]),
+                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, True, False)}
+    b = json.load(open(base / "BUILD.json"))
+    repo = Path(__file__).resolve().parent.parent
+    sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+                         capture_output=True, text=True).stdout.strip() or "unknown"
+    dirty = bool(subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--", "bench/context_build.py"],
+                                capture_output=True, text=True).stdout.strip())
+    b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""),
+              "context_of": base.name, "context_rule": "curated_l2" if a.l2 else "curated_l1",
+              "context_links": a.curated[0], "context_pruned": True, "context_feedback": False, "context": tot,
+              "pathway_list": a.centres, "pathways_requested": len(centres), "pathways_built": len(tot),
+              "status": "complete"})
     json.dump(b, open(out / "BUILD.json", "w"), indent=1)
 
 
