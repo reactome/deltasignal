@@ -1,0 +1,44 @@
+# Lun 2019 CyTOF panel (specs/126, 127): Table S2 (mmc3.xlsx) targets only; no values. korkut readout format.
+# Checked 2026-11-02 against Table S2's gene / UniProt columns and the canonical UniProt sequence (residue at each
+# coordinate confirmed), and against Release 97 phospho-EWAS coordinates. Genes are those Table S2 lists (STAT5A only;
+# PRKAA1 only; p38 alpha-delta; RSK1-3; JNK1-3). Vendor numbering translated: MEK1 Ser217/221 -> S218/S222 (MEK2 S222/S226);
+# MKK3 Ser189 (short isoform) -> S218; SRC Tyr418 -> Y419; ITK 'Tyr551' -> Y512; p70S6K Thr389 -> T412 canonical
+# (Reactome also curates T389, p70 numbering; both kept). Not curated in Release 97: RELA S529, MTOR S2448; MAPK8 has no
+# phospho EWAS. The first, unchecked version is in specs/126 (coverage table).
+readout	kind	sites	note
+p-CREB/ATF1	phospho	CREB1:133,ATF1:63
+p-STAT5	phospho	STAT5A:694
+p-SRC	phospho	SRC:419
+p-FAK	phospho	PTK2:397
+p-MEK1/2	phospho	MAP2K1:222,MAP2K2:226
+p-MAPKAPK2	phospho	MAPKAPK2:334
+p-p70S6K	phospho	RPS6KB1:412,RPS6KB1:389
+p-MKK4	phospho	MAP2K4:257,MAP2K4:261
+p-STAT1	phospho	STAT1:727
+p-p53	phospho	TP53:15
+p-NFkB	phospho	RELA:529
+p-p38	phospho	MAPK14:180,MAPK14:182,MAPK11:180,MAPK11:182,MAPK12:183,MAPK12:185,MAPK13:180,MAPK13:182
+p-AMPKa	phospho	PRKAA1:183
+p-AKT	phospho	AKT1:473,AKT2:474,AKT3:472
+p-ERK1/2	phospho	MAPK3:202,MAPK3:204,MAPK1:185,MAPK1:187
+p-MARCKS	phospho	MARCKS:167,MARCKS:170
+cyclin B1	total	CCNB1
+p-GSK3b	phospho	GSK3B:9
+p-MKK3/6	phospho	MAP2K3:218,MAP2K6:207
+p-PDK1	phospho	PDPK1:241
+p-BTK/ITK	phospho	BTK:551,ITK:512
+p-p90RSK	phospho	RPS6KA1:380,RPS6KA2:377,RPS6KA3:386
+p-SMAD2/3	phospho	SMAD2:465,SMAD2:467,SMAD3:423,SMAD3:425
+beta-catenin	total	CTNNB1
+p-STAT3	phospho	STAT3:705
+p-JNK	phospho	MAPK8:183,MAPK8:185,MAPK9:183,MAPK9:185,MAPK10:221,MAPK10:223
+p-PLCg2	phospho	PLCG2:759
+p-HH3	exclude		cell-cycle marker
+p-S6	phospho	RPS6:235,RPS6:236
+cleaved PARP	exclude		apoptosis marker (cleavage)
+p-mTOR	phospho	MTOR:2448
+p-c-RAF	phospho	RAF1:259
+p-RB	phospho	RB1:807,RB1:811
+p-4EBP1	phospho	EIF4EBP1:37,EIF4EBP1:46
+GAPDH	exclude		loading marker
+GFP	exclude		over-expression dose (perturbation, not a readout)
