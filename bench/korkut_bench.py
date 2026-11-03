@@ -141,12 +141,13 @@ def main():
     site_to_stids = neo4j_site_stids(sites)
     r_stids = readout_stids(readouts, gene_to_stids, site_to_stids)
 
-    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
-    print(f"Protocol: korkut2015 drug-set bench (specs/062), DS_DRUG_ACTION={da.DRUG_ACTION} DS_PIN_SCOPE={bm.PIN_SCOPE} "
+    units = da.active_units() if da.needs_units() else {}
+    print(f"Protocol: korkut2015 drug-set bench (specs/062), DS_DRUG_ACTION={da.describe()} DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
           f"readout=mean(unpinned) cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; measured |log2| >= "
           f"{THRESHOLD:.3f}; build {build.name}; code {sha}; dataset korkut2015 ({DATA}) registered {role}; "
           f"{'PREDICT ONLY (values unread)' if predict_only else 'scoring'}", flush=True)
+    actions = da.drug_actions("korkut", sorted(drugs))
     rows, solves, conv = [], 0, 0
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())
     for pdir in pathways:
@@ -167,11 +168,13 @@ def main():
                 adj = bm.build_adjacency(pdir)
                 if parsed.get("status") != "success":
                     raise SystemExit(f"{pdir.name}: parse failed: {parsed.get('message')}")
-            # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges
-            pins, obs, cut, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units)
+            # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges;
+            # specs/123: each member drug by its own action
+            action = da.gene_actions([(actions[c], drugs[c]) for c in ds])
+            pins, obs, cut, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units, action)
             if not roots:
                 continue
-            pinned = roots if da.DRUG_ACTION == "knockout" else set()
+            pinned = set(obs)
             res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"], edge_redirects=cut)
             if res.get("status") != "success":
                 raise SystemExit(f"{pdir.name} {ds}: solve failed: {res.get('message')}")

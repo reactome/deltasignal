@@ -1,0 +1,35 @@
+# specs/123: each drug's mechanism label (knockout | activity | unknown), assigned from the literature by an agent
+# that read only drug names and target genes (no prediction, score or measurement), 2026-10-30. Frozen before any
+# specs/123 arm; not edited after scoring. korkut drugs by expr_index code (bench/analysis/062/drugs.tsv).
+axis	drug	label	rule	mechanism	source	confidence
+korkut	901	activity	activity-allosteric	Allosteric non-ATP-competitive MEK1/2 inhibitor; does not block RAF phosphorylation of MEK (p-MEK accumulates)	Hatzivassiliou 2013 Nature doi:10.1038/nature12441; Molecules 2013 BRAF-MEK1 assay PMC6269693	medium
+korkut	AK	knockout	K2	PH-domain-dependent allosteric AKT1/2 inhibitor; blocks PDK1-mediated Thr308/Ser473 phosphorylation	Barnett 2005 Biochem J 385:399 (PMC1134710)	high
+korkut	HN	activity	activity-catalytic	Hydroxamic-acid HDAC inhibitor chelating the catalytic zinc (N-hydroxy-7-(2-naphthylthio)heptanamide)	Sigma-Aldrich 382172 / HNHA CAS 926908-04-5 product record	medium
+korkut	NT	activity	activity-PPI	cis-imidazoline occupying the p53-binding pocket of MDM2; blocks effector binding, MDM2 itself intact	Vassilev 2004 Science 303:844	high
+korkut	P6	activity	activity-ATP-competitive	Tetracyclic pyridone pan-JAK inhibitor binding the ATP pocket	PDB 2B7A (JAK2 kinase domain with tetracyclic pyridone)	medium
+korkut	PLX	activity	activity-ATP-competitive	ATP-competitive BRAF(V600E) inhibitor	Tsai 2008 PNAS 105:3041	high
+korkut	RO	activity	activity-ATP-competitive	Bisindolylmaleimide VIII, reversible ATP-competitive PKC inhibitor	Sigma/Merck 557508 product record	medium
+korkut	RY	unknown	unknown	Anonymised table name; identity of the CDK4 compound not determinable	n/a	high
+korkut	SR	unknown	unknown	Anonymised table name; identity of the SRC compound not determinable	n/a	high
+korkut	ST	knockout	K2	Binds the STAT3 SH2 domain; blocks STAT3 activation, dimerisation and nuclear translocation	Schust 2006 Chem Biol 13:1235 doi:10.1016/j.chembiol.2006.09.018	high
+korkut	Tm	activity	activity-allosteric	Rapalog: FKBP12-drug complex binds mTOR FRB and blocks mTORC1 substrate phosphorylation	Rapalog mechanism; Chresta 2010 Cancer Res 70:288 (rapalog contrast)	high
+korkut	ZS	activity	activity-ATP-competitive	ATP-competitive pan-class I PI3K inhibitor	Yaguchi 2006 JNCI 98:545	high
+decryptm	AZD4547	activity	activity-ATP-competitive	ATP-competitive FGFR1-3 inhibitor	Gavine 2012 Cancer Res 72:2045	high
+decryptm	AZD8055	activity	activity-ATP-competitive	ATP-competitive mTOR kinase inhibitor (mTORC1/2)	Chresta 2010 Cancer Res 70:288	high
+decryptm	Afatinib	activity	activity-ATP-competitive-covalent	Irreversible ATP-site inhibitor; covalent adduct with EGFR Cys797 / HER2 Cys805, blocks kinase activity	Solca 2012 JPET 343:342 (PMC3846413)	high
+decryptm	Dactolisib	activity	activity-ATP-competitive	ATP-competitive dual PI3K/mTOR inhibitor	Maira 2008 Mol Cancer Ther 7:1851	high
+decryptm	Dasatinib	activity	activity-ATP-competitive	Type I ATP-competitive SRC/ABL-family inhibitor	Lombardo 2004 J Med Chem 47:6658	high
+decryptm	Gefitinib	activity	activity-ATP-competitive	Reversible ATP-competitive EGFR kinase inhibitor	Wakeling 2002 Cancer Res 62:5749	high
+decryptm	Imatinib	activity	activity-ATP-competitive	Type II ATP-competitive ABL/KIT/PDGFR inhibitor (DFG-out)	Schindler 2000 Science 289:1938	high
+decryptm	Lapatinib	activity	activity-ATP-competitive	ATP-competitive EGFR/HER2 inhibitor binding the inactive kinase conformation	Wood 2004 Cancer Res 64:6652	high
+decryptm	MK2206	knockout	K2	Allosteric PH-domain AKT inhibitor; blocks Thr308/Ser473 phosphorylation and membrane activation	Hirai 2010 Mol Cancer Ther 9:1956 doi:10.1158/1535-7163.MCT-09-1012	high
+decryptm	Nintedanib	activity	activity-ATP-competitive	ATP-competitive triple angiokinase (VEGFR/FGFR/PDGFR) inhibitor	Hilberg 2008 Cancer Res 68:4774	high
+decryptm	PD325901	activity	activity-allosteric	Allosteric non-ATP-competitive MEK1/2 inhibitor; leaves RAF-mediated MEK phosphorylation in place	Hatzivassiliou 2013 Nature doi:10.1038/nature12441	medium
+decryptm	Pertuzumab	knockout	K3	Antibody binding HER2 domain II; sterically blocks HER2 heterodimerisation	Franklin 2004 Cancer Cell 5:317 (ErbB2-pertuzumab structure)	high
+decryptm	Pictilisib	activity	activity-ATP-competitive	ATP-competitive class I PI3K inhibitor	Folkes 2008 J Med Chem 51:5522; mycancergenome pictilisib entry	high
+decryptm	Refametinib	activity	activity-allosteric	Allosteric non-ATP-competitive MEK1/2 inhibitor; monotherapy raises feedback MEK phosphorylation	Schmieder 2013 Neoplasia 15:1161 (PMC3819632)	medium
+decryptm	SHP099	knockout	K2	Allosteric SHP2 inhibitor stabilising the closed auto-inhibited conformation; blocks SH2-mediated activation	Chen 2016 Nature 535:148 doi:10.1038/nature18621	high
+decryptm	Selumetinib	activity	activity-allosteric	Allosteric non-ATP-competitive MEK1/2 inhibitor; induces phospho-MEK accumulation	Friday 2008 Cancer Res 68:6145 (p-MEK accumulation)	high
+decryptm	Tideglusib	activity	activity-non-ATP-competitive	Irreversible non-ATP-competitive GSK-3beta inhibitor acting at the catalytic site (Cys199 region)	Dominguez 2012 J Biol Chem, PMID 22102280	medium
+decryptm	Trastuzumab	knockout	K3	Antibody binding HER2 domain IV; disrupts ligand-independent HER2/HER3 dimers and HER2 activation	Junttila 2009 Cancer Cell 15:429, PMID 19411071	high
+hpn_dream	AZD8055	activity	activity-ATP-competitive	ATP-competitive mTOR kinase inhibitor (mTORC1/2)	Chresta 2010 Cancer Res 70:288	high

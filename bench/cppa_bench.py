@@ -52,6 +52,7 @@ def main():
         raise SystemExit(f"the API serves {served.get('build_id')!r}, not {build.name!r}")
 
     drugs = drug_genes(drug_targets, acc_gene)
+    actions = da.drug_actions("cppa", sorted(drugs))
     readouts = [r for r in read_tsv(readouts_tsv) if r["kind"] != "exclude"]
     target_genes = sorted({g for _, gs in drugs.values() for g in gs})
     readout_genes = sorted({s.split(":")[0] for r in readouts for s in r["sites"].split(",")})
@@ -59,8 +60,8 @@ def main():
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
     r_stids = readout_stids(readouts, gene_to_stids, neo4j_site_stids(sites))
-    units = da.active_units() if da.DRUG_ACTION == "activity" else {}
-    print(f"Protocol: CPPA single-drug predictions (specs/121), DS_DRUG_ACTION={da.DRUG_ACTION} "
+    units = da.active_units() if da.needs_units() else {}
+    print(f"Protocol: CPPA single-drug predictions (specs/121), DS_DRUG_ACTION={da.describe()} "
           f"DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
           f"readout=mean(unpinned) cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
@@ -93,10 +94,11 @@ def main():
                 if parsed.get("status") != "success":
                     raise SystemExit(f"{pdir.name}: parse failed: {parsed.get('message')}")
             # specs/122: knockout pins the target's root forms; activity cuts its catalyst / regulator edges instead
-            pins, obs, cut, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units)
+            pins, obs, cut, roots = da.perturb(bm, pdir, parsed, genes, gene_to_stids, stid_to_uuids, units,
+                                               actions[drug])
             if not roots:
                 continue
-            pinned = roots if da.DRUG_ACTION == "knockout" else set()
+            pinned = set(obs)
             res = bm.solve_via_ds_api(None, obs, network_id=parsed["network_id"], edge_redirects=cut)
             if res.get("status") != "success":
                 raise SystemExit(f"{pdir.name} {drug}: solve failed: {res.get('message')}")
