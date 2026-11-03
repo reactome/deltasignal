@@ -1121,6 +1121,9 @@ for the last feature that touched it rather than re-deriving from the code.
   grid by perturbation-grouped CV on experimental + korkut balanced accuracy (curator reported, not a gate). Full-data
   choice f^0.75, but CV gain −0.0004 [−0.028, 0.030]: its in-sample gain is a few perturbations (RBL1/RBL2, SR drugs).
   The identity stays the candidate; nothing adopted.
+- `specs/130-readout-baseline/` — stage 2a: a readout's measured resting level in the cell (CPPA controls, p0) as a
+  measurement model on the frozen prediction, background quantile chosen by CV over CPPA training drugs. CV gain's
+  interval includes 0 and balanced accuracy falls: not carried forward. Numbers private (CPPA terms).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
