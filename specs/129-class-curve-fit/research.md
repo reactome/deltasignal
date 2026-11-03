@@ -72,9 +72,10 @@ while korkut balanced accuracy moves only 0.413 → 0.424.
 
 ## Where the chosen curve's in-sample gain comes from (traced)
 
-`cf_Kinf_h075` against `cf_off`: experimental 88 cases change class, **net −31 cases right**, yet balanced accuracy
-rises 0.035, because 21 of the fixes are measured "no change" (a small class, weighted up) and the 64 losses are correct
-changes weakened to NORMAL (29 DOWN, 23 UP and 12 direction-crossed cases). The gains concentrate in RBL1 and RBL2 in
+`cf_Kinf_h075` against `cf_off`: experimental 88 cases change class, 22 fixed and 53 broken, **net −31 cases right**,
+yet balanced accuracy rises 0.035: 21 of the fixes are measured "no change" (84 of 796 cases, so each weighs about four
+times a change case), and the losses are almost all correct changes weakened to NORMAL (29 DOWN, 23 UP). Twelve
+direction-wrong calls became NORMAL and stay wrong. The gains concentrate in RBL1 and RBL2 in
 Mitotic G1 (+17 of the positive net); the losses are spread (ERBB3 −9, KIT −7, WNT5A −5, MDM2 −4, WNT1 −4, CCND1 −4).
 korkut: net +220, 199 of them DOWN → NOT on measured no-change, concentrated in drug sets containing SR. A gain this
 concentrated in a few perturbations is what the grouped folds remove: the fold without RBL1/RBL2 chose `cf_off`.
