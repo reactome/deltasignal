@@ -72,3 +72,41 @@ def test_readout_nodes_reads_only_own_nodes_in_a_context_build():
     assert kb.readout_nodes(r_stids, s2u) == {"AKT_pS473": ["p1", "q1"], "MAPK_pT202": ["q2"]}
     # a readout only a neighbour pathway holds is not P's readout
     assert kb.readout_nodes(r_stids, s2u, own={"p1"}) == {"AKT_pS473": ["p1"]}
+
+
+def _edge(s, t, kind):
+    return {"source_id": s, "target_id": t, "edge_type": kind}
+
+
+def test_abundance_copies_keep_starting_and_translated_copies_only():
+    # A (start) binds B in r1 -> A:B; A is phosphorylated in r2 -> pA; mRNA m is translated in r3 -> A2 (a new copy);
+    # pA is degraded by D (depletion: not a source); a set variant V feeds pool Q (identity edge: Q is made from V)
+    rows = [_edge("A", "r1", "input"), _edge("B", "r1", "input"), _edge("r1", "AB", "output"),
+            _edge("A", "r2", "input"), _edge("K", "r2", "catalyst"), _edge("r2", "pA", "output"),
+            _edge("m", "r3", "input"), _edge("r3", "A2", "output"),
+            _edge("D", "pA", "depletion"), _edge("V", "Q", "variant_pool")]
+    nodes = ["A", "AB", "pA", "A2", "V", "Q"]
+    assert kb.abundance_copies(nodes, rows) == ["A", "A2", "V"]
+
+
+def test_abundance_copies_catalyst_in_set_is_not_a_source():
+    # the protein catalysing a reaction that makes another of its copies does not make that copy from itself
+    rows = [_edge("X", "r", "input"), _edge("A", "r", "catalyst"), _edge("r", "A3", "output")]
+    assert kb.abundance_copies(["A", "A3"], rows) == ["A", "A3"]
+
+
+def test_abundance_copies_loop_without_start_has_none():
+    rows = [_edge("pA", "r1", "input"), _edge("r1", "A", "output"), _edge("A", "r2", "input"), _edge("r2", "pA", "output")]
+    assert kb.abundance_copies(["A", "pA"], rows) == []
+
+
+def test_total_readout_nodes_leaves_forms_and_phospho_alone(tmp_path, monkeypatch):
+    ro = {"AKT": ["A", "AB"], "AKTpS473": ["pA"]}
+    monkeypatch.setattr(kb, "TOTAL_READOUT", "forms")
+    assert kb.total_readout_nodes(ro, {"AKT"}, tmp_path) is ro
+    monkeypatch.setattr(kb, "TOTAL_READOUT", "abundance")
+    (tmp_path / "logic_network.csv").write_text(
+        "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n"
+        "A,r1,pos,and,input,1,R1\nB,r1,pos,and,input,1,R1\nr1,AB,pos,and,output,1,R1\n")
+    out = kb.total_readout_nodes(ro, {"AKT"}, tmp_path)
+    assert out == {"AKT": ["A"], "AKTpS473": ["pA"]}

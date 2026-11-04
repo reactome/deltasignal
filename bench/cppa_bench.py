@@ -22,7 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
 import drug_activity as da  # noqa: E402
 from decryptm_bench import git_state  # noqa: E402
-from korkut_bench import NAMES, neo4j_site_stids, read_tsv, readout_stids  # noqa: E402
+from korkut_bench import (NAMES, TOTAL_READOUT, neo4j_site_stids, read_tsv, readout_nodes, readout_stids,  # noqa: E402
+                          total_gene_stids, total_readout_nodes)
 
 
 def drug_genes(drug_targets_tsv, acc_gene_tsv):
@@ -59,12 +60,13 @@ def main():
     gene_to_stids = bm.neo4j_gene_to_stids(sorted(set(target_genes) | set(readout_genes)))
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
-    r_stids = readout_stids(readouts, gene_to_stids, neo4j_site_stids(sites))
+    r_stids = readout_stids(readouts, total_gene_stids(readouts, gene_to_stids), neo4j_site_stids(sites))
+    totals = {r["readout"] for r in readouts if r["kind"] == "total"}
     units = da.active_units() if da.needs_units() else {}
     print(f"Protocol: CPPA single-drug predictions (specs/121), DS_DRUG_ACTION={da.describe()} "
           f"DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
-          f"readout=mean(unpinned) cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
+          f"readout=mean(unpinned) DS_TOTAL_READOUT={TOTAL_READOUT} cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; "
           f"{len(drugs)} drugs, {len(readouts)} readouts; PREDICT ONLY (values unread)", flush=True)
     rows, solves, conv = [], 0, 0
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())
@@ -78,11 +80,10 @@ def main():
         print(f"Shard {shard}: {len(pathways)} pathways", flush=True)
     for pdir in pathways:
         stid_to_uuids = bm.load_stid_to_uuids(pdir)
-        ro_nodes = {name: list(dict.fromkeys(u for s in st for u in stid_to_uuids.get(s, [])))
-                    for name, st in r_stids.items()}
-        ro_nodes = {k: v for k, v in ro_nodes.items() if v}
+        ro_nodes = readout_nodes(r_stids, stid_to_uuids)
         if not ro_nodes:
             continue
+        ro_nodes = total_readout_nodes(ro_nodes, totals, pdir)     # specs/134
         parsed = None
         for drug, (role, genes) in drugs.items():
             g2u = {g: [u for s in gene_to_stids.get(g, []) for u in stid_to_uuids.get(s, [])] for g in genes}
@@ -109,7 +110,9 @@ def main():
             reach = bm.reachable_from(adj, roots)
             for name, nodes in sorted(ro_nodes.items()):
                 free = [u for u in nodes if u not in pinned]
-                if not free:
+                if not nodes:
+                    status, ui, pred, rp = "no_copy", None, None, None
+                elif not free:
                     status, ui, pred, rp = "trivial", None, None, None
                 else:
                     ui = 100.0 * sum(act.get(u, 0.01) for u in free) / len(free)

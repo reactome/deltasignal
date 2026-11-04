@@ -35,6 +35,13 @@ MAPS = Path(__file__).resolve().parent / "analysis" / "062"
 THRESHOLD = math.log2(1.5)        # registered primary
 THRESHOLD_SECONDARY = math.log2(1.15)
 NAMES = {bm.DOWN: "down", bm.NORMAL: "not", bm.UP: "up"}
+# specs/134: what a total-protein antibody reads. forms: every node that is, or contains, any EWAS of the gene;
+# protein: only protein EWAS (no DNA / mRNA); abundance: protein, and only copies nothing makes from the readout's own
+# nodes (starting copies, translated protein), since binding or modification does not change how much protein there is.
+TOTAL_READOUT = os.environ.get("DS_TOTAL_READOUT", "forms")
+if TOTAL_READOUT not in ("forms", "protein", "abundance"):
+    raise SystemExit(f"DS_TOTAL_READOUT={TOTAL_READOUT!r}: expected forms, protein or abundance")
+IDENTITY_EDGES = {"specialization", "variant_pool", "variant_split"}
 
 
 def readout_nodes(r_stids, stid_to_uuids, own=None):
@@ -43,6 +50,55 @@ def readout_nodes(r_stids, stid_to_uuids, own=None):
     ro = {name: list(dict.fromkeys(u for s in st for u in stid_to_uuids.get(s, []) if own is None or u in own))
           for name, st in r_stids.items()}
     return {k: v for k, v in ro.items() if v}
+
+
+def abundance_copies(nodes, network_rows):
+    """specs/134: the members of `nodes` that nothing makes from `nodes`: no reaction producing one takes an input in
+    `nodes`, and no identity edge into one comes from `nodes`. Depletion is not a source. Order kept."""
+    inside = set(nodes)
+    inputs, producers, made = collections.defaultdict(set), collections.defaultdict(set), set()
+    for e in network_rows:
+        if e["edge_type"] == "input":
+            inputs[e["target_id"]].add(e["source_id"])
+        elif e["edge_type"] == "output":
+            producers[e["target_id"]].add(e["source_id"])
+        elif e["edge_type"] in IDENTITY_EDGES and e["source_id"] in inside:
+            made.add(e["target_id"])
+    return [u for u in nodes if u not in made and not any(inputs[r] & inside for r in producers[u])]
+
+
+def total_readout_nodes(ro_nodes, totals, pathway_dir):
+    """specs/134: under DS_TOTAL_READOUT=abundance, each total readout's nodes cut to its abundance copies; a readout
+    left with none maps to [] (status no_copy). Other settings, and phospho readouts, unchanged."""
+    if TOTAL_READOUT != "abundance" or not any(k in totals for k in ro_nodes):
+        return ro_nodes
+    with bm.open_network(pathway_dir) as f:
+        rows = list(csv.DictReader(f))
+    return {k: (abundance_copies(v, rows) if k in totals else v) for k, v in ro_nodes.items()}
+
+
+def neo4j_protein_stids(genes):
+    """{gene: [stIds]} of the gene's protein EWAS (reference entity a ReferenceGeneProduct, isoforms included)."""
+    from py2neo import Graph
+    graph = Graph(bm.NEO4J_URL, auth=(bm.NEO4J_USER, bm.NEO4J_PASSWORD))
+    rows = graph.run(
+        """
+        UNWIND $names AS gene
+        MATCH (re:ReferenceGeneProduct)<-[:referenceEntity]-(pe:EntityWithAccessionedSequence)
+        WHERE gene IN re.geneName
+        RETURN gene AS gene, COLLECT(DISTINCT pe.stId) AS stids
+        """,
+        names=list(genes),
+    ).data()
+    return {r["gene"]: r["stids"] for r in rows}
+
+
+def total_gene_stids(readouts, gene_to_stids):
+    """The gene -> stIds map a total readout reads: every reference entity (forms) or proteins only (specs/134)."""
+    if TOTAL_READOUT == "forms":
+        return gene_to_stids
+    genes = sorted({g for r in readouts if r["kind"] == "total" for g in r["sites"].split(",")})
+    return neo4j_protein_stids(genes)
 
 
 def read_tsv(path):
@@ -147,12 +203,13 @@ def main():
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
     site_to_stids = neo4j_site_stids(sites)
-    r_stids = readout_stids(readouts, gene_to_stids, site_to_stids)
+    r_stids = readout_stids(readouts, total_gene_stids(readouts, gene_to_stids), site_to_stids)
+    totals = {r["readout"] for r in readouts if r["kind"] == "total"}
 
     units = da.active_units() if da.needs_units() else {}
     print(f"Protocol: korkut2015 drug-set bench (specs/062), DS_DRUG_ACTION={da.describe()} DS_PIN_SCOPE={bm.PIN_SCOPE} "
           f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
-          f"readout=mean(unpinned) cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; measured |log2| >= "
+          f"readout=mean(unpinned) DS_TOTAL_READOUT={TOTAL_READOUT} cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; measured |log2| >= "
           f"{THRESHOLD:.3f}; build {build.name}; code {sha}; dataset korkut2015 ({DATA}) registered {role}; "
           f"{'PREDICT ONLY (values unread)' if predict_only else 'scoring'}", flush=True)
     actions = da.drug_actions("korkut", sorted(drugs))
@@ -163,6 +220,7 @@ def main():
         ro_nodes = readout_nodes(r_stids, stid_to_uuids, bm.context_own_uuids(pdir))
         if not ro_nodes:
             continue
+        ro_nodes = total_readout_nodes(ro_nodes, totals, pdir)
         parsed = None
         for ds in drug_sets:
             genes = sorted({g for c in ds for g in drugs[c]})
@@ -191,7 +249,9 @@ def main():
             reach = bm.reachable_from(adj, roots)
             for name, nodes in sorted(ro_nodes.items()):
                 free = [u for u in nodes if u not in pinned]
-                if not free:
+                if not nodes:
+                    status, ui, pred, rp = "no_copy", None, None, None
+                elif not free:
                     status, ui, pred, rp = "trivial", None, None, None
                 else:
                     ui = 100.0 * sum(act.get(u, 0.01) for u in free) / len(free)
