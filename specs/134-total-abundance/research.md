@@ -48,4 +48,23 @@ the antibody does not measure; most are lost.
 - Q3 holds: `protein` moves 61 of 7,497 total cases (0.8%).
 - Q4 refuted: the gate fails; balanced accuracy +0.0024 with an interval across 0, while accuracy gains +0.049.
 - Q5 holds: every remaining total change call comes from synthesis copies, and 40 of 1,881 are right.
-- Q6: CPPA training, see R4.
+- Q6 holds on both parts, see R4.
+
+## R4. CPPA training portion (2026-11-04)
+
+Build `20261027-1346_8b6527e_top114`, code `289cae5`, `DS_TOTAL_READOUT=abundance`, 3 servers; control the frozen CPPA
+run (`8276c28/cppa_frozen`, the default readout, whose code this spec does not change). Re-scored here, the control
+reproduces the stored frozen training score exactly. Convergence is identical in both runs. Scored on the training
+portion only, with `score_121.py` (primary) and a paired secondary (balanced accuracy at |delta-p| ≥ log2(1.5), on
+(sample, antibody) pairs both runs predict, interval from resampling drugs). The test portions stay sealed. Numbers are
+kept with the private analysis (`~/deltasignal-catalogs/analysis/134/`) under the CPPA terms.
+
+- Primary (per-drug correlation): moves by much less than 0.01 and much less than its interval's half-width. The
+  no-harm condition holds.
+- Secondary (balanced accuracy): rises, and its interval lies above 0. Phospho predictions are identical, as on
+  korkut.
+
+So Q6 holds. The CPPA training portion was not looked at when the rule was chosen, so this is the independent check the
+spec names, and it agrees with the rule's direction. It does not change the registered gate, which is on korkut and
+fails. **Not adopted** under the registration; adoption is Adam's decision. A real test is one scoring on the CPPA
+test portions or Lun 2019.

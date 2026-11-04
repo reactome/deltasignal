@@ -1150,10 +1150,11 @@ for the last feature that touched it rather than re-deriving from the code.
   while korkut raw accuracy falls (115 of 162 unique changes broken: PIP3's AKT overcalls carried on); every changed
   case follows a curated chain; past one hop only PI Metabolism's lipid rails are added. Not adopted.
 - `specs/134-total-abundance/` — a total-protein antibody reads abundance, not forms: bench `DS_TOTAL_READOUT`
-  (`forms` default | `protein` | `abundance`, korkut and CPPA benches only) reads only protein copies that nothing makes
-  from the protein itself (starting and translated copies, not bound or modified forms). korkut: accuracy +0.049, but the
-  gate fails on balanced accuracy (+0.0024 [−0.0067, +0.0104]). Every total change call left comes from a copy the
-  pathway makes, and 40 of 1,881 are right: the model keeps no stock of a protein it only makes. Not adopted.
+  (`forms` default | `protein` | `abundance`, korkut and CPPA benches only) reads only protein copies that nothing
+  makes from the protein itself (starting and translated copies, not bound or modified forms). korkut: accuracy
+  +0.049, but the gate fails on balanced accuracy (+0.0024 [−0.0067, +0.0104]); the CPPA training check holds
+  (secondary rises). Every total change call left comes from a copy the pathway makes, and 40 of 1,881 are right: the
+  model keeps no stock of a protein it only makes. Not adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

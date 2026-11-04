@@ -1,6 +1,8 @@
 # specs/134: a total-protein antibody reads how much protein there is, not which forms it is in
 
-**Status:** registered 2026-11-04, before any code or count for the rule. Follows specs/133's conclusion that the
+**Status:** measured 2026-11-04 (research.md R1–R4). The korkut gate fails (balanced +0.0024 [−0.0067, +0.0104];
+accuracy +0.049); the CPPA training check (Q6) holds. Not adopted under the registration; adoption is Adam's.
+Registered 2026-11-04, before any code or count for the rule. Follows specs/133's conclusion that the
 remaining korkut errors belong to single pathways (Adam: "okay go ahead").
 
 ## What was seen (control, before the rule)
