@@ -241,10 +241,13 @@ root and gained `recycled_supply` edges the solve never had (review
 2026-10-22, L1CAM: 13 edges).
 """
 function solved_carrier_network(network::ReactionNetwork)
-    # specs/133: context bridges set aside from the rules as the solve does
-    net, held = split_context_bridges(first(split_recycle_edges(first(apply_material_loops(network)))),
-                                      context_bridge_order())
-    restore_context_bridges(first(apply_sequestration(first(apply_rna_twins(first(apply_recycled_twins(
+    # specs/133: context bridges set aside from the rules as the solve does, and (amendment 1) no rule edge between
+    # two pathways
+    order = context_bridge_order()
+    origin = order == "last" ? network.node_origin : nothing
+    net, held = split_context_bridges(first(split_recycle_edges(first(apply_material_loops(network)))), order)
+    ruled = first(apply_sequestration(first(apply_rna_twins(first(apply_recycled_twins(
         first(apply_carrier_loops(net, carrier_loop_mode())),
-        recycled_twin_mode())), rna_twin_mode())), sequestration_mode())), held)
+        recycled_twin_mode())), rna_twin_mode())), sequestration_mode()))
+    restore_context_bridges(first(drop_cross_origin_edges(ruled, origin)), held)
 end

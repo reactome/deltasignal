@@ -365,6 +365,13 @@ def build_one(base, out, P, nbrs, bridges, prune=True, feedback=True):
                 n += 1
     with open(d / "context_own.csv", "w", newline="") as f:
         f.write("uuid\n" + "".join(r["uuid"] + "\n" for r in rows(base / P / "nodes.csv")[1]))
+    # specs/133 amendment 1: each node's pathway, so the solver's identity rules stay inside one pathway
+    with open(d / "context_origin.csv", "w", newline="") as f:
+        f.write("uuid,pathway\n")
+        for q in members:
+            for r in rows(base / q / "nodes.csv")[1]:
+                if kept[q] is None or keep_row("nodes.csv", r, kept[q]):
+                    f.write(f"{r['uuid']},{q}\n")
     return n
 
 

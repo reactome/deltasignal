@@ -283,3 +283,7 @@ def test_transitive_build_writes_every_hop_feed_in(tmp_path):
     assert ("ra", "rs0", "input") in e                                   # Q2's ancestors of its bridge source
     assert not any(t == "context_bridge" and s.startswith("p") for s, _, t in e)
     assert json.load(open(tmp_path / "t" / "BUILD.json"))["context_rule"] == "curated_transitive"
+    # specs/133 amendment 1: every node's pathway, so the solver keeps identity rules inside one pathway
+    origin = dict(line.split(",") for line in (tmp_path / "t" / "R-HSA-1" / "context_origin.csv").read_text().split()[1:])
+    assert origin["pe"] == "R-HSA-1" and origin["qe"] == "R-HSA-2" and origin["rg"] == "R-HSA-3"
+    assert {n for s, t, _ in e for n in (s, t)} <= set(origin)          # every node in the bundle has one

@@ -584,8 +584,10 @@ env vars only override for benchmark sweeps:
   refuses it, so re-run an older build with `--server DS_RNA_TWIN=off`.
 - `DS_CONTEXT_BRIDGE_ORDER=first` (default; as specs/056 and specs/132 ran) | `last` (specs/133): in a context build,
   `context_bridge` edges are set aside before every structural rule (twins, carrier loops, pair tests) and added back
-  for the solve, so a bridged starting copy stays one. No effect without bridges. Reports `context_bridge_order` and
-  `context_bridges`.
+  for the solve, so a bridged starting copy stays one. Under `last`, amendment 1: an edge a rule draws between two
+  pathways' nodes (the bundle's `context_origin.csv`; identity twins joined an imported p-AKT to TP53's own) is dropped,
+  so pathways meet only at curated bridges. No effect without bridges. Reports `context_bridge_order`,
+  `context_bridges` and `context_cross_edges`.
 - `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` | `sole_direct` (specs/063,
   all **refuted**: held-out −1,180 / −1,686 / −1,121): a binding whose complex nothing in the pathway uses
   (only dissociation sinks) gains a depletion edge from the complex to its
@@ -1178,7 +1180,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 133 | specs/040, added 2026-09-28; catalyst loops (specs/109) 2026-10-26 |
 | `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 108 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23; context bridge order (specs/133) 2026-11-03 |
+| `test/test_recycled_twin.jl` | 114 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23; context bridge order (specs/133) 2026-11-03, amendment 1 2026-11-04 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |

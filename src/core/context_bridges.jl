@@ -14,6 +14,13 @@ component twins in Cell Cycle Checkpoints.
 
 A network without bridges solves identically under both. The solve reports `context_bridge_order` and
 `context_bridges` (bridge edges in the network).
+
+Amendment 1: setting bridges aside is not enough. Rules that join copies of one entity by identity (specs/059 recycled
+twins, specs/049 carrier twins, specs/084 component twins, specs/100 RNA twins) also joined a pathway's copy to another
+pathway's copy of the same entity: in TP53 transcription, PIP3's imported p-AKT1 gained a twin edge from TP53's own
+p-AKT1, a loop back into the context through a shared molecule. Under `last`, a context bundle's `context_origin.csv`
+(the pathway each node was built from) is read and every edge a rule drew between two pathways is dropped, so each
+pathway's rules see only its own copies. Reported as `context_cross_edges`.
 """
 
 const CONTEXT_BRIDGE_EDGE = "context_bridge"
@@ -44,4 +51,24 @@ function restore_context_bridges(network::ReactionNetwork, held::Vector{LogicNet
                            network.containment, network.drug_stids, network.pools,
                            network.pathogen_stids, network.carrier_loops, network.node_leaves,
                            network.rna_stids)
+end
+
+"""
+Under `last` (`origin` from `context_origin.csv`, else `nothing`): `network` without its edges between nodes of two
+pathways, and how many were dropped (specs/133 amendment 1). A context bundle's own edges cross pathways only at
+context bridges, which are set aside when this runs, so every edge dropped is one a structural rule drew.
+"""
+function drop_cross_origin_edges(network::ReactionNetwork, origin::Union{Nothing, Dict{String, String}})
+    origin === nothing && return network, 0
+    function crosses(e)
+        a, b = get(origin, e.parent_uuid, nothing), get(origin, e.child_uuid, nothing)
+        return a !== nothing && b !== nothing && a != b
+    end
+    kept = [e for e in network.edges if !crosses(e)]
+    n = length(network.edges) - length(kept)
+    n == 0 && return network, 0
+    return ReactionNetwork(network.nodes, kept, network.set_mappings, network.cofactor_stids,
+                           network.containment, network.drug_stids, network.pools,
+                           network.pathogen_stids, network.carrier_loops, network.node_leaves,
+                           network.rna_stids), n
 end

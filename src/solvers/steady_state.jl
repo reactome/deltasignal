@@ -103,6 +103,9 @@ function solve_steady_state(
 )::SolverResult
     
     start_time = time()
+    # specs/133 amendment 1: each node's pathway in a context bundle, read before anything rebuilds the network
+    bridge_order = context_bridge_order()
+    node_origin = bridge_order == "last" ? network.node_origin : nothing
     # specs/107: metabolite pools and multi-step carriers join the pool and
     # carrier-loop tables. First, because a rebuilt network drops `leaf_refs`.
     network, material_report = apply_material_loops(network)
@@ -110,7 +113,6 @@ function solve_steady_state(
     network, recycle_pairs = split_recycle_edges(network)
     # specs/133: under DS_CONTEXT_BRIDGE_ORDER=last no structural rule below sees a context bridge;
     # they are added back for the solve, after every rule
-    bridge_order = context_bridge_order()
     network, held_bridges = split_context_bridges(network, bridge_order)
 
     # Cofactor handling is a MODELLING choice made here, not upstream: the
@@ -188,6 +190,8 @@ function solve_steady_state(
     zpinned = Dict{String, Float64}(u => v for (u, (v, c)) in observations if c > OBS_CONFIDENCE_TOL)
     zheld, zero_supply_rule, zero_supply_leaves = zero_supply_uuids(network, zpinned, zmode)
 
+    # specs/133 amendment 1: no rule may join two pathways; only the curated bridges do
+    network, context_cross_edges = drop_cross_origin_edges(network, node_origin)
     # Convert network to reactions (specs/133: with any context bridges set aside above)
     solve_network = restore_context_bridges(network, held_bridges)
     reactions = convert_to_reaction_network(solve_network)
@@ -440,6 +444,7 @@ function solve_steady_state(
     result.diagnostics["rna_twin_rule"] = rna_twin_rule        # specs/100
     result.diagnostics["context_bridge_order"] = bridge_order   # specs/133
     result.diagnostics["context_bridges"] = count(e -> e.edge_type == CONTEXT_BRIDGE_EDGE, solve_network.edges)
+    result.diagnostics["context_cross_edges"] = context_cross_edges
     result.diagnostics["rna_twin_edges"] = rna_twin_edges
     result.diagnostics["resting_baseline"] = resting_baseline()   # specs/124
     # specs/128: which edge curves ran, and how many edges each curved class holds

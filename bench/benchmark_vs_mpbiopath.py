@@ -1312,6 +1312,7 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
             # specs/133: which order the solver's rules saw context bridges in
             SOLVE_TALLY[f"context_bridge_order={ds_result.get('context_bridge_order', 'unknown')}"] += 1
             SOLVE_TALLY["context_bridges"] += int(ds_result.get("context_bridges") or 0)
+            SOLVE_TALLY["context_cross_edges"] += int(ds_result.get("context_cross_edges") or 0)
             # specs/107: metabolite pools and multi-step carriers (off by default)
             SOLVE_TALLY[f"metabolite_pools_rule={ds_result.get('metabolite_pools_rule', 'unknown')}"] += 1
             SOLVE_TALLY["metabolite_pools"] += int(ds_result.get("metabolite_pools") or 0)
@@ -1692,7 +1693,8 @@ def main():
     if "on" in rnrules and args.limit is None and SOLVE_TALLY["rna_twin_edges"] == 0:
         raise SystemExit("DS_RNA_TWIN=on but no solve added an RNA supply edge; the arm is the control.")
     corders = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("context_bridge_order="))
-    print(f"Context bridges: order {'/'.join(corders) or 'unknown'}, {SOLVE_TALLY['context_bridges']} edge-solves (specs/133)")
+    print(f"Context bridges: order {'/'.join(corders) or 'unknown'}, {SOLVE_TALLY['context_bridges']} edge-solves, "
+          f"{SOLVE_TALLY['context_cross_edges']} cross-pathway rule edges dropped (specs/133)")
     trules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("recycled_twin_rule="))
     print(f"\nDepletion: own-product rule {'/'.join(drules) or 'unknown'}, {SOLVE_TALLY['own_source_depletions']} "
           f"gated edge-solves; recycled twins {'/'.join(trules) or 'unknown'}, {SOLVE_TALLY['recycled_twin_edges']} "

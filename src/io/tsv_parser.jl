@@ -126,6 +126,10 @@ struct ReactionNetwork
     # DS_CARRIER_MULTISTEP=wide|compartment, before anything rebuilds the network
     # (a rebuild that omits it drops it).
     leaf_refs::Union{Nothing, Dict{String, LeafRef}}
+    # uuid -> the pathway it was built from, from a context bundle's `context_origin.csv` (specs/133 amendment 1,
+    # bench/context_build.py). `nothing` = not a context bundle. Read only under DS_CONTEXT_BRIDGE_ORDER=last, before
+    # anything rebuilds the network (a rebuild that omits it drops it).
+    node_origin::Union{Nothing, Dict{String, String}}
 
     ReactionNetwork(nodes, edges, set_mappings,
                     cofactor_stids = Set{String}(),
@@ -136,9 +140,10 @@ struct ReactionNetwork
                     carrier_loops = nothing,
                     node_leaves = nothing,
                     rna_stids = nothing,
-                    leaf_refs = nothing) =
+                    leaf_refs = nothing,
+                    node_origin = nothing) =
         new(nodes, edges, set_mappings, cofactor_stids, containment, drug_stids, pools, pathogen_stids,
-            carrier_loops, node_leaves, rna_stids, leaf_refs)
+            carrier_loops, node_leaves, rna_stids, leaf_refs, node_origin)
 end
 
 """
@@ -451,6 +456,7 @@ function parse_complete_network(
     rnas = parse_rna_list(logic_network_path)                       # specs/100
     carrier_loops = parse_carrier_loops(logic_network_path)
     leaf_refs = parse_leaf_refs(logic_network_path)                 # specs/107
+    node_origin = parse_node_origin(logic_network_path)             # specs/133 amendment 1
     # specs/052: read only by DS_ZERO_SUPPLY_MODE=hold, which is not adopted. A
     # malformed node table must not take a pathway out of service under `off`
     # (the pool-table precedent below); it is reported and dropped.
@@ -492,7 +498,7 @@ function parse_complete_network(
         end
         return ReactionNetwork(network.nodes, network.edges, network.set_mappings,
                                Set{String}(), containment, drugs, pools, pathogens, carrier_loops,
-                               node_leaves, rnas, leaf_refs)
+                               node_leaves, rnas, leaf_refs, node_origin)
     end
     println("Found $(length(stids)) cofactor species declared by the bundle")
 
@@ -521,7 +527,8 @@ function parse_complete_network(
     end
 
     return ReactionNetwork(network.nodes, network.edges, network.set_mappings, stids,
-                           containment, drugs, pools, pathogens, carrier_loops, node_leaves, rnas, leaf_refs)
+                           containment, drugs, pools, pathogens, carrier_loops, node_leaves, rnas, leaf_refs,
+                           node_origin)
 end
 
 """
@@ -560,6 +567,28 @@ function parse_leaf_refs(logic_network_path::String)::Union{Nothing, Dict{String
         (ismissing(r.leaf_stid) || ismissing(r.reference_stid)) && continue
         mods = with_mods ? (ismissing(r.modifications) ? "" : String(r.modifications)) : nothing
         out[String(r.leaf_stid)] = (String(r.reference_stid), mods)
+    end
+    return out
+end
+
+"""
+specs/133 amendment 1: a context bundle's `context_origin.csv` (`uuid,pathway`), the pathway each node was built
+from. `nothing` when there is no such file (not a context bundle, or one built before the amendment).
+"""
+function parse_node_origin(logic_network_path::String)::Union{Nothing, Dict{String, String}}
+    path = joinpath(dirname(logic_network_path), "context_origin.csv")
+    isfile(path) || return nothing
+    df = CSV.read(path, DataFrame; types = String)
+    for c in ("uuid", "pathway")
+        c in names(df) || throw(ArgumentError("$path has no `$c` column; it is not a context origin table"))
+    end
+    out = Dict{String, String}()
+    for r in eachrow(df)
+        (ismissing(r.uuid) || ismissing(r.pathway)) && continue
+        prev = get(out, String(r.uuid), nothing)
+        prev === nothing || prev == r.pathway ||
+            throw(ArgumentError("$path gives $(r.uuid) two pathways ($prev, $(r.pathway))"))
+        out[String(r.uuid)] = String(r.pathway)
     end
     return out
 end
