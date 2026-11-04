@@ -85,3 +85,40 @@ First-run scores, kept as the record of the defect, not as results (rule+F again
 The corrected arms are `s133_A1` and `s133_T1` (bundles `.A1`, `.T1`, identical to `.A`, `.T` but for
 `context_origin.csv`; code 3541e6a). The control is not re-run: c0 has no bridges and no origin table, so the amendment
 cannot change it.
+
+## R4: A1 and T1 (amendment 1), and the source pathways that were not themselves (2026-11-04)
+
+Arms `s133_A1`, `s133_T1` (code 3541e6a), against c0. Logs: "order last", 3,908–7,490 cross-pathway rule edges dropped
+over all solves. Rule + F (the decision):
+
+| arm | experimental fixed / broken / wrong→wrong | curator held-out | korkut | decryptM | pooled gain [95%] |
+|---|---|---|---|---|---|
+| A1+F | 5 / 0 / 10 | 12 / 4 | 71 / 250 | 0 / 22 | +0.0141 [+0.0037, +0.0254] |
+| T1+F | 5 / 0 / 10 | 12 / 6 | 71 / 250 | 0 / 22 | +0.0141 [+0.0037, +0.0254] |
+
+Accuracy / macro-F1 (rule+F minus c0): experimental +0.0063 / +0.0064, curator +0.0003 / +0.0005, korkut −0.0162 /
++0.0008, decryptM −0.0122 / −0.0065. The gate passes on balanced accuracy while korkut's raw accuracy falls: by unique
+(drug set, readout) korkut is 30 fixed / 115 broken. Q4 holds: 306 of the 355 korkut changes are AKT readouts, and 324
+of the 337 that have a PIP3 case repeat *PIP3 activates AKT signaling*'s own answer, which is wrong there (PIP3 alone
+calls 655 korkut readouts DOWN, 515 measured unchanged). T adds nothing over A on the gated sets.
+
+**These are not results either.** Every experimental case T1+F changes is PTEN in *Transcriptional Regulation by TP53*,
+and against specs/132 L1 the overexpression cases moved to wrong (BAX, NDRG1, BTG2 DOWN; BIRC5 UP; measured the
+reverse) while knockout read DOWN too. Traced (scratch Julia: every rule edge compared between orders, then the route):
+
+1. Between `first` and `last`+amendment 1 the only differences are cross-pathway identity edges present under `first`:
+   RNA twins joining TP53's and PIP3's PTEN mRNA both ways, recycled twins of GDP, GTP, H+, O2, cardiolipin and PE
+   between pathways, carrier and component twins from TP53 into *HDR* copies. specs/132's "PTEN 9 / 0" leaned on
+   those.
+2. With them gone, the bridge sources, PIP3's p-AKT1/2/3 [cytosol], sit at the 100× ceiling under PTEN knockout AND
+   overexpression. PIP3 solved alone reads PTEN overexpression DOWN (0.17×) and knockout UP (83.5×), correctly. The PIP3
+   in the bundle was not PIP3: the builder (specs/056's design) removes from a source pathway every reaction of the
+   pathway it feeds. TP53 transcription holds PTEN's transcription and translation, so the imported PIP3 lost exactly
+   the PTEN machinery specs/095 and 100 fixed. (`--no-prune` changes nothing here: `main_curated` always pruned.)
+
+Amendment 2 (`--whole`) enters each source pathway whole. `bench/analysis/source_check_133.jl` pins three starting
+copies of each source pathway in turn and compares every one of its nodes with the pathway solved alone: in `.A2` the
+worst |log ratio| over 49 (bundle, source) pairs is 2.2e-4 (solver tolerance). The TP53 trace under `.A2`: PTEN
+knockout puts p-AKT at 50–100×, TP53 tetramers fall to 0.28–0.53×, BAX 0.44× (measured DOWN); overexpression puts p-AKT
+near 0, TP53 tetramers 1.15–1.32×, BAX 1.21× (measured UP). The signal now runs the curated route, PTEN ⊣ PIP3 → AKT
+(PIP3 pathway) → bridge → AKT → MDM2 ⊣ TP53 → BAX (TP53 pathway). Arms `s133_A2`, `s133_T2` (code 5869e98).
