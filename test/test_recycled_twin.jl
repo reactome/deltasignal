@@ -288,6 +288,46 @@ end
 end
 
 
+# specs/133: a context bridge B -> R (another pathway's producer of R's entity). Under `first` the bridge is an
+# in-edge, R stops being a root and the recycled twin R -> Y goes, so T cannot follow B; under `last` the rules run
+# without the bridge, the twin stays, and the bridge is added back for the solve.
+@testset "context bridges set aside from the structural rules (specs/133)" begin
+    br = DS.LogicNetworkEdge("B", "R", false, true, 1.0, "context_bridge")
+    base = fixture(extra = [br])
+    net = DS.ReactionNetwork(merge(base.nodes, Dict(nd("B", "R-B"))), base.edges, base.set_mappings,
+                             base.cofactor_stids, base.containment, base.drug_stids, base.pools,
+                             base.pathogen_stids, base.carrier_loops, base.node_leaves, base.rna_stids)
+    run(order, n = net) = with_env("DS_CONTEXT_BRIDGE_ORDER" => order, "DS_RECYCLED_TWIN" => "on") do
+        DS.solve_steady_state(n, Dict("B" => (5.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty"))
+    end
+    with_env("DS_CONTEXT_BRIDGE_ORDER" => nothing) do
+        @test DS.context_bridge_order() == "first"          # default: as specs/056 and specs/132 ran
+    end
+    first_ = run("first")
+    @test first_.diagnostics["context_bridge_order"] == "first" && first_.diagnostics["context_bridges"] == 1
+    @test first_.diagnostics["recycled_twin_edges"] == 0     # the bridge made R a non-root
+    @test fold(first_, "R") ≈ 5.0 rtol = 1e-6
+    @test fold(first_, "T") ≈ 1.0 atol = 1e-6
+    last_ = run("last")
+    @test last_.diagnostics["context_bridge_order"] == "last" && last_.diagnostics["context_bridges"] == 1
+    @test last_.diagnostics["recycled_twin_edges"] == 1      # rules ran without the bridge
+    @test fold(last_, "R") ≈ 5.0 rtol = 1e-6                 # and the bridge is solved
+    @test fold(last_, "T") ≈ 5.0 rtol = 1e-6
+    # without a bridge both orders give the same solve
+    plain = fixture()
+    a = with_env(() -> DS.solve_steady_state(plain, Dict("R" => (3.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty")),
+                 "DS_CONTEXT_BRIDGE_ORDER" => "first")
+    b = with_env(() -> DS.solve_steady_state(plain, Dict("R" => (3.0, 1.0)), DS.SteadyStateParams(1.0, 0.1, 2000, 1e-9, "penalty")),
+                 "DS_CONTEXT_BRIDGE_ORDER" => "last")
+    @test a.node_activities == b.node_activities && b.diagnostics["context_bridges"] == 0
+    # the influence network applies the same order
+    @test count(x -> x.edge_type == "recycled_supply",
+                with_env(() -> DS.solved_carrier_network(net).edges, "DS_CONTEXT_BRIDGE_ORDER" => "last")) == 1
+    with_env("DS_CONTEXT_BRIDGE_ORDER" => "late") do
+        @test_throws ArgumentError DS.context_bridge_order()
+    end
+end
+
 # specs/100: a root copy of an RNA reads its transcribed copies. G is transcribed
 # (tx) into M2; M1, a root copy of the same mRNA (R-M), is translated (tl) into P.
 @testset "RNA twins: a root mRNA copy reads its transcribed copy (specs/100)" begin
