@@ -136,8 +136,11 @@ for kv in "${BENCH[@]}"; do
   case "$n" in DS_CATALOG_ROOT|DELTASIGNAL_BASE)
     git worktree remove --force "$WT"; die "$n is set by run_arm.sh itself and cannot be overridden" ;;
   esac
-  grep -qE "environ(\.get\(|\[)\"$n\"" "$WT/bench/benchmark_vs_mpbiopath.py" "$WT/bench/drug_activity.py" \
-    || { git worktree remove --force "$WT"; die "$n is not read by bench/benchmark_vs_mpbiopath.py or bench/drug_activity.py at $SHA"; }
+  # a korkut-only knob (specs/134 DS_TOTAL_READOUT) counts only when a korkut axis runs
+  READERS=("$WT/bench/benchmark_vs_mpbiopath.py" "$WT/bench/drug_activity.py")
+  case " ${AXES[*]} " in *" korkut"*) READERS+=("$WT/bench/korkut_bench.py") ;; esac
+  grep -qE "environ(\.get\(|\[)\"$n\"" "${READERS[@]}" \
+    || { git worktree remove --force "$WT"; die "$n is not read by ${READERS[*]#$WT/} at $SHA"; }
   # The korkut and decryptm benches use only the pinning, the perturbation
   # level, the class cutoffs, the pin-network root and the solve timeout from
   # that script; any other bench knob would be recorded and inert there.
@@ -145,15 +148,17 @@ for kv in "${BENCH[@]}"; do
   DRUG_KNOBS="DS_PIN_SCOPE DS_PIN_ROOT_IGNORE DS_PERTURB_UI_DOWN DS_DOWN_CUTOFF DS_UP_CUTOFF DS_PIN_NETWORK_ROOT DS_SOLVE_TIMEOUT DS_DRUG_ACTION DS_DRUG_MECHANISM_UNKNOWN DS_DRUG_MECHANISM_TABLE"
   for gt in "${AXES[@]}"; do
     case "$gt" in korkut|korkut_predict|decryptm)
-      case " $DRUG_KNOBS " in *" $n "*) ;;
-        *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $DRUG_KNOBS)" ;;
+      KNOBS="$DRUG_KNOBS"
+      [ "$gt" = decryptm ] || KNOBS="$KNOBS DS_TOTAL_READOUT"    # specs/134: korkut's total antibodies
+      case " $KNOBS " in *" $n "*) ;;
+        *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $KNOBS)" ;;
       esac ;;
     lun_predict)
       case " $LUN_KNOBS " in *" $n "*) ;;
         *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $LUN_KNOBS)" ;;
       esac ;;
-    *) case "$n" in DS_DRUG_ACTION|DS_DRUG_MECHANISM_*)
-         git worktree remove --force "$WT"; die "$n applies only to the drug axes (specs/122, 123), not $gt" ;;
+    *) case "$n" in DS_DRUG_ACTION|DS_DRUG_MECHANISM_*|DS_TOTAL_READOUT)
+         git worktree remove --force "$WT"; die "$n applies only to the drug axes (specs/122, 123, 134), not $gt" ;;
        esac ;;
     esac
   done
