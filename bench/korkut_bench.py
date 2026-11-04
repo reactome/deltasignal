@@ -77,28 +77,32 @@ def total_readout_nodes(ro_nodes, totals, pathway_dir):
     return {k: (abundance_copies(v, rows) if k in totals else v) for k, v in ro_nodes.items()}
 
 
-def neo4j_protein_stids(genes):
-    """{gene: [stIds]} of the gene's protein EWAS (reference entity a ReferenceGeneProduct, isoforms included)."""
+def neo4j_protein_stids(gene_to_stids):
+    """{gene: [stIds]}: the gene's stIds that are protein EWAS (reference entity a ReferenceGeneProduct, isoforms
+    included). Filters the gene-name match by stId through the PhysicalEntity index (matching 353 CPPA genes by name,
+    or by stId under the unindexed EWAS label, did not finish)."""
     from py2neo import Graph
     graph = Graph(bm.NEO4J_URL, auth=(bm.NEO4J_USER, bm.NEO4J_PASSWORD))
+    stids = sorted({s for v in gene_to_stids.values() for s in v})
     rows = graph.run(
         """
-        UNWIND $names AS gene
-        MATCH (re:ReferenceGeneProduct)<-[:referenceEntity]-(pe:EntityWithAccessionedSequence)
-        WHERE gene IN re.geneName
-        RETURN gene AS gene, COLLECT(DISTINCT pe.stId) AS stids
+        UNWIND $stids AS s
+        MATCH (pe:PhysicalEntity {stId: s}) WHERE pe:EntityWithAccessionedSequence
+        MATCH (pe)-[:referenceEntity]->(:ReferenceGeneProduct)
+        RETURN COLLECT(DISTINCT pe.stId) AS stids
         """,
-        names=list(genes),
+        stids=stids,
     ).data()
-    return {r["gene"]: r["stids"] for r in rows}
+    keep = set(rows[0]["stids"]) if rows else set()
+    return {g: [s for s in v if s in keep] for g, v in gene_to_stids.items() if any(s in keep for s in v)}
 
 
 def total_gene_stids(readouts, gene_to_stids):
     """The gene -> stIds map a total readout reads: every reference entity (forms) or proteins only (specs/134)."""
     if TOTAL_READOUT == "forms":
         return gene_to_stids
-    genes = sorted({g for r in readouts if r["kind"] == "total" for g in r["sites"].split(",")})
-    return neo4j_protein_stids(genes)
+    genes = {g for r in readouts if r["kind"] == "total" for g in r["sites"].split(",")}
+    return neo4j_protein_stids({g: v for g, v in gene_to_stids.items() if g in genes})
 
 
 def read_tsv(path):
