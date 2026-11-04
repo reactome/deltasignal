@@ -23,6 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
 from holdout_report import TUNING_PATHWAYS  # noqa: E402
 
