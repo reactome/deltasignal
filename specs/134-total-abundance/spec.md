@@ -77,3 +77,33 @@ opening either is Adam's decision.
 - **Q6.** CPPA training: secondary balanced accuracy rises; the primary correlation moves by less than 0.01.
 
 Nothing changes a default; adoption is Adam's.
+
+## Amendment 1 (2026-11-04): the rule as written, implemented
+
+**Found by tracing, after R1–R4.** Total AKT under an AKT inhibitor in *Signaling by VEGF* reads 0 under `abundance`,
+though every copy it reads has no producing reaction: they are starting complexes of AKT with PIP3 and PDPK1, which the
+network builds from AKT's starting copy through `assembly` edges (boundary decomposition, specs/030). The code tested
+only `output` edges from reactions and the three identity edges, so a complex assembled from the protein, or a
+protein released from a complex holding it (`dissociation`), counted as an abundance copy. The rule above says such a
+complex does not ("a complex formed by binding the protein ... does not"). R2's conclusion that every remaining total
+change call comes from a synthesis copy is wrong for the same reason: re-counted with the copies classed by their
+in-edges, 1,278 of the 1,881 come from readouts whose copies all have no in-edge in the reaction graph (R5).
+
+**The corrected rule** (no other change): a node of P is made from P if a reaction producing it takes an input in P,
+or if any material or identity edge into it comes from P: `assembly`, `dissociation`, `recycle`, `released_twin`,
+`set_member`, `specialization`, `variant_pool`, `variant_split`. Catalyst, regulator and depletion edges are not
+sources, as before. Same setting (`DS_TOTAL_READOUT=abundance`), same statuses.
+
+**Arms:** korkut `k134_abund_a1` against the R1 control `k134_forms` (unchanged code path, so its predictions stand);
+CPPA training `abundance` (amendment 1) against `8276c28/cppa_frozen`, numbers private. **Gate:** unchanged.
+
+**Honest limit.** The correction is post hoc on korkut cases, though it implements the registered text rather than a
+new idea; korkut still cannot confirm it, and CPPA training has now been looked at once (R4).
+
+**Predictions** (before the arms run):
+- **Q7.** Phospho identical again.
+- **Q8.** Total change calls fall well below R1's 1,881; those left are mostly (a) synthesis copies and (b) a drug's own
+  target, whose copies the knockout pin still reaches (an inhibitor modelled as removal).
+- **Q9.** Accuracy rises above R1's 0.700; the gate still fails (balanced accuracy within ±0.01 of forms, interval
+  across 0), because the correct DOWN calls on totals were already lost in R1.
+- **Q10.** CPPA training: no harm on the primary; secondary balanced accuracy still above forms.
