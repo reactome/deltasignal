@@ -36,7 +36,11 @@ LINKS (bench/analysis/curated_links_132.py) lists pairs (r in P, s outside P, en
 catalyst or regulator of r); S_Q names the pathway holding s (its lowest ancestor with a diagram). A bridge runs from
 Q's copy of e that s outputs to P's copy of e that feeds r and is a root in P. Feed-in only, no hub rule, centres
 limited by `--centres` (the scored pathways); `--l2` keeps only pairs whose s lies in a pathway P's diagrams
-encapsulate. With an empty LINKS it builds each centre alone (the control).
+encapsulate. With an empty LINKS it builds each centre alone (the control). `--whole` (specs/133 amendment 2): a source
+pathway is neither reduced nor pruned, so it solves as it does alone.
+
+Under `--curated LINKS S_Q --transitive` (specs/133) handoffs are followed back as far as they go, as a tree per centre
+(`plan_transitive`); LINKS comes from bench/analysis/closure_133.py, whose `extracellular` handoffs are never bridged.
 
 Usage: context_build.py BASE_BUILD OUT_BUILD [--hub 5] [--feed-in] [--census]
        context_build.py BASE_BUILD OUT_BUILD --curated LINKS S_Q --centres LIST [--l2]
@@ -123,7 +127,7 @@ def plan(base, hub):
     return [p.name for p in paths], bridges, n_paths
 
 
-def plan_curated(base, links, s_q, centres, l2_only=False, members=None):
+def plan_curated(base, links, s_q, centres, l2_only=False, members=None, whole=False):
     """Bridges from curated handoffs only: {(P, Q): {"in": [(src, dst)], "out": [], "edges": Q's reduced edges}},
     plus one census row per handoff pair and entity (why it did or did not make a bridge). `members` (a TSV of
     entity, member) lists each handed-off set's members: the generator expands a set into its members, so a set
@@ -150,39 +154,116 @@ def plan_curated(base, links, s_q, centres, l2_only=False, members=None):
 
     bridges, census = {}, []
     for L in links:
-        P, Q, e = L["pathway"], q_of.get(L["s"]), L["entity"]
+        P, Q = L["pathway"], q_of.get(L["s"])
         row = dict(L, q=Q or "", status="")
         if not Q or not (base / Q / "nodes.csv").exists():
             row["status"] = "no_source_network"; census.append(row); continue
         if Q == P:
             row["status"] = "source_is_centre"; census.append(row); continue
         vp, vq = get(P), get(Q)
-        held = set()
-        for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
-            held |= {r["stable_id"] for r in rows(base / P / t)[1]}
-        if e in held:
-            row["status"] = "held_entity"; census.append(row); continue
-        ids = {e} if e in ents[P].values() or not mem[e] else mem[e] - held
-        role = "regulator" if L["role"].startswith("regulator") else L["role"]
-        # an input edge carries its reaction's stId; a catalyst or regulator edge carries none and points at the
-        # reaction node, whose diagram entity is the reaction
-        dst = sorted({a for a, b, t, rid in vp["typed"] if t == role and ents[P].get(a) in ids
-                      and (rid == L["r"] if role == "input" else ents[P].get(b) == L["r"])})
-        src = sorted({b for a, b, t, rid in vq["typed"] if rid == L["s"] and t == "output" and ents[Q].get(b) in ids})
-        if not dst:
-            row["status"] = "entity_not_at_r_in_centre"
-        elif not src:
-            row["status"] = "entity_not_output_of_s_in_source"
-        elif not any(u in roots[P] for u in dst):
-            row["status"] = "centre_copy_not_root"
-        else:
-            row["status"] = "bridged"
+        row["status"], pairs = match_link(L, base / P, vp, vq, ents[P], ents[Q], roots[P], mem)
+        if pairs:
             if (P, Q) not in bridges:
-                bridges[(P, Q)] = {"in": [], "out": [], "edges": reduced_edges(vq, vp["reactions"])}
-            bridges[(P, Q)]["in"] += [(a, b) for a in src for b in dst if b in roots[P] and ents[Q][a] == ents[P][b]]
+                bridges[(P, Q)] = {"in": [], "out": [],
+                                   "edges": vq["edges"] if whole else reduced_edges(vq, vp["reactions"])}
+            bridges[(P, Q)]["in"] += pairs
         census.append(row)
     for b in bridges.values():
         b["in"] = sorted(set(b["in"]))
+    return bridges, census
+
+
+def match_link(L, xdir, vx, vq, ex, eq, roots_x, mem):
+    """(census status, [(src in Q, dst in X)]) for one curated handoff (s in Q precedes r in X through entity e):
+    Q's copies of e that s outputs, bridged to X's copies of e that feed r and are in `roots_x`. A set entity is matched
+    member to same member."""
+    e = L["entity"]
+    held = set()
+    for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
+        held |= {r["stable_id"] for r in rows(xdir / t)[1]}
+    if e in held:
+        return "held_entity", []
+    ids = {e} if e in ex.values() or not mem[e] else mem[e] - held
+    role = "regulator" if L["role"].startswith("regulator") else L["role"]
+    # an input edge carries its reaction's stId; a catalyst or regulator edge carries none and points at the
+    # reaction node, whose diagram entity is the reaction
+    dst = sorted({a for a, b, t, rid in vx["typed"] if t == role and ex.get(a) in ids
+                  and (rid == L["r"] if role == "input" else ex.get(b) == L["r"])})
+    src = sorted({b for a, b, t, rid in vq["typed"] if rid == L["s"] and t == "output" and eq.get(b) in ids})
+    if not dst:
+        return "entity_not_at_r_in_centre", []
+    if not src:
+        return "entity_not_output_of_s_in_source", []
+    if not any(u in roots_x for u in dst):
+        return "centre_copy_not_root", []
+    return "bridged", [(a, b) for a in src for b in dst if b in roots_x and eq[a] == ex[b]]
+
+
+def plan_transitive(base, links, s_q, centres, members=None, whole=False):
+    """specs/133: curated handoffs followed back as far as they go, as a tree per centre P. Depth 0 is P; a pathway Q
+    joins at depth d+1 when a handoff runs from Q into a root copy that a depth-d pathway X keeps (every root of P;
+    for X != P a root among X's kept nodes, the ancestors of its own bridge sources). Each pathway joins once, at its
+    least depth, and bridges run only from depth d+1 into depth d, so the context has no cycle. A joining pathway loses
+    the reactions of every pathway at a lower depth. Handoffs flagged `extracellular` (cell-to-cell signals) are never
+    bridged. Returns ({(P, Q): {"in": [(src in Q, dst)], "out": [], "edges": Q's reduced edges}}, census rows with
+    the centre, the receiving pathway and Q's depth). Under `whole` (amendment 2) no pathway is reduced."""
+    mem = collections.defaultdict(set)
+    if members:
+        for r in csv.DictReader(open(members), delimiter="\t"):
+            mem[r["entity"]].add(r["member"])
+    q_of = {r["s"]: r["q_diagram"] for r in csv.DictReader(open(s_q), delimiter="\t")}
+    by_x = collections.defaultdict(list)
+    for r in csv.DictReader(open(links), delimiter="\t"):
+        by_x[r["pathway"]].append(r)
+    info, ents = {}, {}
+
+    def get(name):
+        if name not in info:
+            d = base / name
+            v = load(d)
+            v["typed"] = [(r["source_id"], r["target_id"], r["edge_type"], r.get("edge_reaction_id") or "")
+                          for r in rows(d / "logic_network.csv")[1]]
+            info[name] = v
+            ents[name] = {r["uuid"]: r["diagram_entity_id"] for r in rows(d / "nodes.csv")[1]}
+        return info[name]
+
+    bridges, census = {}, []
+    for P in sorted(centres):
+        vp = get(P)
+        depth, edges = {P: 0}, {P: vp["edges"]}
+        seen_rx = set(vp["reactions"])           # reactions of every pathway joined so far
+        allowed = {P: set(ents[P]) - {t for _, t, _ in vp["edges"]}}
+        level = [P]
+        while level:
+            joined = collections.defaultdict(list)       # Q -> its bridges this round
+            for X in level:
+                vx = get(X)
+                for L in sorted(by_x.get(X, []), key=lambda r: (r["r"], r["s"], r["entity"])):
+                    Q = q_of.get(L["s"])
+                    row = dict(L, centre=P, q=Q or "", depth=depth[X] + 1, status="")
+                    if L.get("extracellular") == "True":
+                        row["status"] = "extracellular"
+                    elif not Q or not (base / Q / "nodes.csv").exists():
+                        row["status"] = "no_source_network"
+                    elif Q in depth and depth[Q] <= depth[X]:
+                        row["status"] = "source_already_joined"
+                    else:
+                        row["status"], pairs = match_link(L, base / X, vx, get(Q), ents[X], ents[Q], allowed[X], mem)
+                        joined[Q] += pairs
+                    census.append(row)
+            nxt = []
+            for Q in sorted(q for q, ps in joined.items() if ps):
+                vq = get(Q)
+                qe = vq["edges"] if whole else reduced_edges(vq, seen_rx)
+                depth[Q], edges[Q] = depth[level[0]] + 1, qe
+                srcs = sorted({a for a, _ in joined[Q]})
+                kept = kept_nodes(base / Q, srcs, qe)
+                allowed[Q] = kept - {t for _, t, _ in qe}
+                bridges[(P, Q)] = {"in": sorted(set(joined[Q])), "out": [], "edges": qe}
+                nxt.append(Q)
+            for Q in nxt:
+                seen_rx |= get(Q)["reactions"]
+            level = nxt
     return bridges, census
 
 
@@ -286,6 +367,13 @@ def build_one(base, out, P, nbrs, bridges, prune=True, feedback=True):
                 n += 1
     with open(d / "context_own.csv", "w", newline="") as f:
         f.write("uuid\n" + "".join(r["uuid"] + "\n" for r in rows(base / P / "nodes.csv")[1]))
+    # specs/133 amendment 1: each node's pathway, so the solver's identity rules stay inside one pathway
+    with open(d / "context_origin.csv", "w", newline="") as f:
+        f.write("uuid,pathway\n")
+        for q in members:
+            for r in rows(base / q / "nodes.csv")[1]:
+                if kept[q] is None or keep_row("nodes.csv", r, kept[q]):
+                    f.write(f"{r['uuid']},{q}\n")
     return n
 
 
@@ -302,6 +390,10 @@ def main(argv=None):
     ap.add_argument("--centres", help="specs/132: pathway list (bench/catalog_pathways.tsv format) to build")
     ap.add_argument("--members", help="specs/132: entity, member TSV (analysis/set_members_132.py)")
     ap.add_argument("--l2", action="store_true", help="specs/132: only handoffs from pathways P's diagrams encapsulate")
+    ap.add_argument("--whole", action="store_true",
+                    help="specs/133 amendment 2: with --curated, source pathways enter whole (not reduced, not pruned)")
+    ap.add_argument("--transitive", action="store_true",
+                    help="specs/133: with --curated, follow handoffs back as a tree (LINKS from closure_133.py)")
     a = ap.parse_args(argv)
     base = Path(a.base).resolve()
     if a.curated:
@@ -350,7 +442,10 @@ def main_curated(a, base):
     if not a.centres:
         sys.exit("--curated needs --centres")
     centres = [l.split("\t")[0] for l in open(a.centres) if l.startswith("R-HSA")]
-    bridges, census = plan_curated(base, a.curated[0], a.curated[1], set(centres), a.l2, a.members)
+    if a.transitive:
+        bridges, census = plan_transitive(base, a.curated[0], a.curated[1], set(centres), a.members, a.whole)
+    else:
+        bridges, census = plan_curated(base, a.curated[0], a.curated[1], set(centres), a.l2, a.members, a.whole)
     nbr = collections.defaultdict(set)
     for (p, q), b in bridges.items():
         nbr[p].add(q)
@@ -369,7 +464,7 @@ def main_curated(a, base):
     tot = {}
     for p in centres:
         tot[p] = {"neighbours": sorted(nbr[p]),
-                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, True, False)}
+                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, not a.whole, False)}
     b = json.load(open(base / "BUILD.json"))
     repo = Path(__file__).resolve().parent.parent
     sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
@@ -377,8 +472,10 @@ def main_curated(a, base):
     dirty = bool(subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--", "bench/context_build.py"],
                                 capture_output=True, text=True).stdout.strip())
     b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""),
-              "context_of": base.name, "context_rule": "curated_l2" if a.l2 else "curated_l1",
-              "context_links": a.curated[0], "context_members": a.members, "context_pruned": True, "context_feedback": False, "context": tot,
+              "context_of": base.name,
+              "context_rule": "curated_transitive" if a.transitive else "curated_l2" if a.l2 else "curated_l1",
+              "context_links": a.curated[0], "context_members": a.members, "context_pruned": not a.whole,
+              "context_whole": a.whole, "context_feedback": False, "context": tot,
               "pathway_list": a.centres, "pathways_requested": len(centres), "pathways_built": len(tot),
               "status": "complete"})
     json.dump(b, open(out / "BUILD.json", "w"), indent=1)

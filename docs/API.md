@@ -261,6 +261,11 @@ Response:
   carried. They join a modification cycle (a protein returning to the complex it
   starts in) into one component for its pool, and are never read as inputs. 0 for
   networks built without the generator's `LNG_RECYCLE_POOLS`.
+- **`context_bridge_order`**, **`context_bridges`** (additive, specs/133): `"first"` (default) or `"last"`
+  (`DS_CONTEXT_BRIDGE_ORDER`: whether `context_bridge` edges are set aside from the structural rules), and how many
+  such edges the solved network carried. 0 outside a context build (`bench/context_build.py`).
+- **`context_cross_edges`** (additive, specs/133 amendment 1): under `"last"`, how many edges the structural rules drew
+  between nodes of two different pathways of a context bundle (its `context_origin.csv`) and the solve dropped.
 - **`cycle_shared_nodes`** (additive, specs/049): intermediates and step
   reaction nodes that more than one pool passes through. Each is written once,
   from the flux of every pool through it. It is 0 unless the bundle was built

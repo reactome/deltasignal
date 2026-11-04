@@ -75,8 +75,8 @@ def main():
     control, arm = c.load_all(c_res, c_bundle), c.load_all(a_res, a_bundle)
     census = defaultdict(list)
     for row in csv.DictReader(open(a_bundle / "curated_census.tsv"), delimiter="\t"):
-        if row["status"] == "bridged":
-            census[row["pathway"]].append(row)
+        if row["status"] == "bridged":     # specs/133 --transitive: a deeper bridge belongs to its centre's tree
+            census[row.get("centre") or row["pathway"]].append(row)
     members = defaultdict(set)
     for row in csv.DictReader(open(members_tsv), delimiter="\t"):
         members[row["entity"]].add(row["member"])

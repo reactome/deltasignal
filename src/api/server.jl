@@ -1028,6 +1028,9 @@ function solve_handler(req)
             "cycle_rule" => get(solver_result.diagnostics, "cycle_rule", "unknown"),
             "cycle_pools_solved" => get(solver_result.diagnostics, "cycle_pools_solved", 0),
             "recycle_edges" => get(solver_result.diagnostics, "recycle_edges", 0),   # specs/081
+            "context_bridge_order" => get(solver_result.diagnostics, "context_bridge_order", "unknown"),   # specs/133
+            "context_bridges" => get(solver_result.diagnostics, "context_bridges", 0),
+            "context_cross_edges" => get(solver_result.diagnostics, "context_cross_edges", 0),   # specs/133 amendment 1
             # specs/039 amendment 2 (additive): pools with multi-step paths, the
             # carrier rule ("on"/"off") and how many carrier nodes it held.
             "cycle_pools_multistep" => get(solver_result.diagnostics, "cycle_pools_multistep", 0),

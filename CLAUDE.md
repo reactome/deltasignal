@@ -582,6 +582,12 @@ env vars only override for benchmark sweeps:
   solver-only), so TP53 raising PTEN transcription reaches translation. Reports `rna_twin_rule`
   and `rna_twin_edges`; a bundle without the table reports `on: no RNA table` and the bench
   refuses it, so re-run an older build with `--server DS_RNA_TWIN=off`.
+- `DS_CONTEXT_BRIDGE_ORDER=first` (default; as specs/056 and specs/132 ran) | `last` (specs/133): in a context build,
+  `context_bridge` edges are set aside before every structural rule (twins, carrier loops, pair tests) and added back
+  for the solve, so a bridged starting copy stays one. Under `last`, amendment 1: an edge a rule draws between two
+  pathways' nodes (the bundle's `context_origin.csv`; identity twins joined an imported p-AKT to TP53's own) is dropped,
+  so pathways meet only at curated bridges. No effect without bridges. Reports `context_bridge_order`,
+  `context_bridges` and `context_cross_edges`.
 - `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` | `sole_direct` (specs/063,
   all **refuted**: held-out −1,180 / −1,686 / −1,121): a binding whose complex nothing in the pathway uses
   (only dissociation sinks) gains a depletion edge from the complex to its
@@ -1135,6 +1141,14 @@ for the last feature that touched it rather than re-deriving from the code.
   (L1+F pooled +0.011 [−0.001, 0.025]); identity matching (specs/056) is the only arm below 0. Traced (R3a): the p-AKT
   handoff from PIP3 is right (PTEN in TP53 transcription 9 / 0); wrong are IL4/IL21 (cytokines between cell types) and
   bridges that change which nodes are roots. Reactome's cell-type annotation labels no event (R5).
+- `specs/133-transitive-connections/` — Adam's rule (2026-11-03): a pathway's own answer where it routes, else all of
+  Reactome's curated connections, followed back as a tree (`context_build.py --curated --transitive --whole`,
+  extracellular handoffs never bridged, solver `DS_CONTEXT_BRIDGE_ORDER=last`). Two construction defects found by
+  tracing and fixed: identity twins joined copies across pathways (amendment 1, `context_origin.csv`), and source
+  pathways were reduced and pruned so they were not themselves (amendment 2, `--whole`); both have checks
+  (`origin_check_133.jl`, `source_check_133.jl`). Then the gate passes (+0.015 [+0.004, +0.027]) on balanced accuracy
+  while korkut raw accuracy falls (115 of 162 unique changes broken: PIP3's AKT overcalls carried on); every changed
+  case follows a curated chain; past one hop only PI Metabolism's lipid rails are added. Not adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -1174,7 +1188,7 @@ other seven execute code and print output.
 | `test/test_self_fed.jl` | 133 | specs/040, added 2026-09-28; catalyst loops (specs/109) 2026-10-26 |
 | `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 96 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23 |
+| `test/test_recycled_twin.jl` | 114 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23; context bridge order (specs/133) 2026-11-03, amendment 1 2026-11-04 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
