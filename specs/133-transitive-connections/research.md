@@ -124,3 +124,74 @@ Insulin receptor* into *Signaling by Type 1 IGF1R*'s bundle), 4.6 in four, 1.1 f
 knockout puts p-AKT at 50–100×, TP53 tetramers fall to 0.28–0.53×, BAX 0.44× (measured DOWN); overexpression puts p-AKT
 near 0, TP53 tetramers 1.15–1.32×, BAX 1.21× (measured UP). The signal now runs the curated route, PTEN ⊣ PIP3 → AKT
 (PIP3 pathway) → bridge → AKT → MDM2 ⊣ TP53 → BAX (TP53 pathway). Arms `s133_A2`, `s133_T2` (code 5869e98).
+
+## R5: A2 and T2 (both amendments), every changed case traced (2026-11-04)
+
+Arms `s133_A2` (code 5869e98) and T2 (`s133_T2` korkut and decryptM at 5869e98; curator and experimental re-run as
+`s133_T2b` at e67114c with `--max-edges 150000`, because T2's TP53 transcription bundle has 101,254 edges and the default
+100,000 skipped it; `src/` and `bench/` are identical between the two commits; merged for scoring in
+`analysis/133/s133_T2m`). Logs: order last; 62,000–74,000 cross-pathway rule edges dropped over all solves (whole source
+pathways share many entities, so amendment 1 carries real weight). Against c0:
+
+| | experimental fixed / broken / w→w | curator held-out | korkut | decryptM | pooled gain [95%] | gate |
+|---|---|---|---|---|---|---|
+| A2 rule | 10 / 14 / 9 | 13 / 18 | 97 / 395 | 2 / 33 | +0.0052 [−0.0053, +0.0161] | fails |
+| **A2+F** | **6 / 0 / 5** | **12 / 4** | **71 / 250** | **0 / 22** | **+0.0147 [+0.0039, +0.0265]** | passes |
+| T2 rule | 9 / 14 / 19 | 13 / 32 | 97 / 395 | 2 / 33 | +0.0046 [−0.0059, +0.0156] | fails |
+| **T2+F** | **5 / 0 / 15** | **12 / 6** | **71 / 250** | **0 / 22** | **+0.0141 [+0.0037, +0.0254]** | passes |
+
+Accuracy / macro-F1, rule+F minus c0: A2 experimental +0.0075 / +0.0069, curator +0.0004 / +0.0006, korkut −0.0162 /
++0.0008, decryptM −0.0122 / −0.0065; T2 experimental +0.0063 / +0.0072, curator +0.0003 / +0.0005, korkut and decryptM as
+A2. Korkut once per (drug set, readout): 162 changed, 30 fixed / 115 broken / 17 wrong→wrong (both arms). Without F the
+combination breaks 14 experimental cases the pathway alone routed: F is doing real work.
+
+### The traced groups (`trace_132.py`; private `analysis/133/trace_A2F.tsv`, `trace_T2F.tsv`)
+
+1. **PTEN → PIP3 → p-AKT → TP53 (experimental, TP53 transcription): done right.** A2+F: PTEN knockout BAX, PUMA, BTG2
+   DOWN and BIRC5, CDC25C UP; overexpression BAX UP; all as measured (6 fixed). The route runs PIP3's own answer
+   through the curated handoff (AKT phosphorylates MDM2). The 5 wrong→wrong are NOXA (PMAIP1), CASP6, TP53I3, PLK2 and
+   the CDKN1A mRNA, which the experiment measured UP under PTEN knockout while BAX, PUMA and BTG2 fell in the same
+   experiment; no one curated route gives both, and the model gives the curated one. A ground-truth question, not a rule.
+2. **TP53 → BAX/BID (curator, Intrinsic Pathway for Apoptosis): done right.** 12 fixed. The 2 "broken" are Activated BAX,
+   which the curators call NORMAL under TP53 knockout and overexpression while calling its downstream (cytochrome c
+   release, apoptosome) DOWN and UP: their own answers disagree.
+3. **AKT into RUNX2 (curator): right in construction, judged against a single pathway.** SRC (and, in T2, MAPK1) reach
+   MMP13 through PI3K/AKT in PIP3 and the curated AKT → RUNX2 phosphorylation; the curators, judging RUNX2 alone,
+   said NORMAL. 2 broken (A2), 4 (T2).
+4. **p-AKT handoff into TP53, Mitotic G1, RUNX2, ERBB2, S Phase (korkut): right in construction, the answer is PIP3's
+   and PIP3 is wrong.** 306 of 355 changes are AKT readouts; 324 of the 337 with a PIP3 case repeat PIP3's own answer
+   exactly. PIP3 alone calls 655 korkut readouts DOWN, 515 of them measured unchanged. The error is in one pathway.
+5. **VEGF's PIP3 into Rho GTPases (decryptM, 19 of 22): right in construction, the cell is not signalling.** PI3K
+   inhibitors and dasatinib cut VEGFR2:PI3K's PIP3 that feeds the WAVE complex, and every downstream site reads DOWN;
+   measured unchanged. decryptM's cells are not stimulated with VEGF; the model treats every pathway as active at rest.
+6. **Depth 2 imports PI Metabolism's rails (T2 only): right in construction, the answer is PI Metabolism's and it is
+   wrong.** *PI Metabolism* hands PI4P and PI5P to PIP3's PIP2 synthesis. Solved alone, it puts PI4P at 62× under PTEN
+   knockout and 23× under overexpression (PI5P 99× and 2.4×): its lipid interconversion loops rail either way
+   (specs/107 rule 1, not adopted). Through PIP3 that flips PTEN overexpression back to wrong (BAX DOWN) and adds PML's
+   cases inverted (PML → PTEN regulation → PI Metabolism → PIP3). Every case T2 changes beyond A2 is this.
+
+No group is wrong in construction any more. The two defects that were (identity twins across pathways; source pathways
+that were not themselves) are amendments 1 and 2, each with a check that passes.
+
+### Predictions
+
+- **Q1** (ATM back under A): holds (R3).
+- **Q2** (IL-4/13 losses gone): holds (R3).
+- **Q3** (experimental ceiling rises by less than half over L1): **refuted** for T, 15 → 24 (+60%); holds for A (15).
+  None of T's nine extra reachable cases is fixed (group 6).
+- **Q4** (most korkut changes are AKT readouts repeating PIP3's answer): holds (group 4).
+- **Q5** (the gate fails): **refuted.** A2+F and T2+F pass on pooled balanced accuracy. The pass rests on korkut, where
+  raw accuracy falls (−0.016) and by unique (drug set, readout) 115 changes are broken to 30 fixed; balanced accuracy
+  rewards the few correct DOWN calls more than it charges the many wrong ones. Experimental is a handful of PTEN cases.
+  And the gate is not blind: these datasets' traces chose the fixes.
+
+### What this says
+
+The combination is now done right: each pathway answers as itself, pathways meet only at Reactome's curated handoffs,
+and every changed case follows a curated chain. Done right, it mostly carries single-pathway errors further: PIP3's AKT
+overcalls, PI Metabolism's lipid rails, pathways the cell is not running. Following the chain past one hop (T) adds only
+group 6. The few gains it makes are real biology (PTEN through AKT to TP53's targets; TP53 to BAX/BID).
+
+Not adopted; nothing changes a default. Adoption is Adam's decision. A confirmation would be one scoring on data these
+traces have not touched (Lun 2019 or the CPPA test portions), which is also Adam's decision. The levers this points at
+lie inside single pathways: PIP3's AKT readouts under drugs (korkut), and PI Metabolism's interconversion loops.
