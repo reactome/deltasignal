@@ -287,3 +287,24 @@ def test_transitive_build_writes_every_hop_feed_in(tmp_path):
     origin = dict(line.split(",") for line in (tmp_path / "t" / "R-HSA-1" / "context_origin.csv").read_text().split()[1:])
     assert origin["pe"] == "R-HSA-1" and origin["qe"] == "R-HSA-2" and origin["rg"] == "R-HSA-3"
     assert {n for s, t, _ in e for n in (s, t)} <= set(origin)          # every node in the bundle has one
+
+
+def test_whole_keeps_a_source_pathway_as_it_is_alone(tmp_path):
+    # specs/133 amendment 2: Q also holds P's reaction R1 (its own copy qr) and a branch S2 -> F that never reaches P.
+    # By default Q loses R1 (reduced) and S2 (pruned); under --whole it enters whole, so it solves as it does alone.
+    b = _curated_fixture(tmp_path)
+    q = b / "R-HSA-2"
+    with open(q / "nodes.csv", "a") as f:
+        f.write("qr,reaction,R-R1,,,,\nqy,simple_entity,R-Y,,,,\n")
+    with open(q / "logic_network.csv", "a") as f:
+        f.write("qe,qr,pos,and,input,1,R-R1\nqr,qy,pos,and,output,1,R-R1\n")
+    for flag, out in (([], "d"), (["--whole"], "w")):
+        cb.main([str(b), str(tmp_path / out), "--curated", str(tmp_path / "links.tsv"), str(tmp_path / "s_q.tsv"),
+                 "--centres", str(tmp_path / "centres.tsv")] + flag)
+    d, w = set(_edges(tmp_path / "d" / "R-HSA-1")), set(_edges(tmp_path / "w" / "R-HSA-1"))
+    assert ("qe", "pe", "context_bridge") in d and ("qe", "pe", "context_bridge") in w      # same bridges
+    assert ("qe", "qr", "input") not in d and ("qs2", "qf", "output") not in d
+    assert {("qe", "qr", "input"), ("qr", "qy", "output"), ("qs2", "qf", "output")} <= w
+    assert {e for e in w if e[2] != "context_bridge"} == set(_edges(b / "R-HSA-1")) | set(_edges(q))
+    bj = json.load(open(tmp_path / "w" / "BUILD.json"))
+    assert bj["context_whole"] is True and bj["context_pruned"] is False

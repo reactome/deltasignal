@@ -36,7 +36,8 @@ LINKS (bench/analysis/curated_links_132.py) lists pairs (r in P, s outside P, en
 catalyst or regulator of r); S_Q names the pathway holding s (its lowest ancestor with a diagram). A bridge runs from
 Q's copy of e that s outputs to P's copy of e that feeds r and is a root in P. Feed-in only, no hub rule, centres
 limited by `--centres` (the scored pathways); `--l2` keeps only pairs whose s lies in a pathway P's diagrams
-encapsulate. With an empty LINKS it builds each centre alone (the control).
+encapsulate. With an empty LINKS it builds each centre alone (the control). `--whole` (specs/133 amendment 2): a source
+pathway is neither reduced nor pruned, so it solves as it does alone.
 
 Under `--curated LINKS S_Q --transitive` (specs/133) handoffs are followed back as far as they go, as a tree per centre
 (`plan_transitive`); LINKS comes from bench/analysis/closure_133.py, whose `extracellular` handoffs are never bridged.
@@ -126,7 +127,7 @@ def plan(base, hub):
     return [p.name for p in paths], bridges, n_paths
 
 
-def plan_curated(base, links, s_q, centres, l2_only=False, members=None):
+def plan_curated(base, links, s_q, centres, l2_only=False, members=None, whole=False):
     """Bridges from curated handoffs only: {(P, Q): {"in": [(src, dst)], "out": [], "edges": Q's reduced edges}},
     plus one census row per handoff pair and entity (why it did or did not make a bridge). `members` (a TSV of
     entity, member) lists each handed-off set's members: the generator expands a set into its members, so a set
@@ -163,7 +164,8 @@ def plan_curated(base, links, s_q, centres, l2_only=False, members=None):
         row["status"], pairs = match_link(L, base / P, vp, vq, ents[P], ents[Q], roots[P], mem)
         if pairs:
             if (P, Q) not in bridges:
-                bridges[(P, Q)] = {"in": [], "out": [], "edges": reduced_edges(vq, vp["reactions"])}
+                bridges[(P, Q)] = {"in": [], "out": [],
+                                   "edges": vq["edges"] if whole else reduced_edges(vq, vp["reactions"])}
             bridges[(P, Q)]["in"] += pairs
         census.append(row)
     for b in bridges.values():
@@ -197,14 +199,14 @@ def match_link(L, xdir, vx, vq, ex, eq, roots_x, mem):
     return "bridged", [(a, b) for a in src for b in dst if b in roots_x and eq[a] == ex[b]]
 
 
-def plan_transitive(base, links, s_q, centres, members=None):
+def plan_transitive(base, links, s_q, centres, members=None, whole=False):
     """specs/133: curated handoffs followed back as far as they go, as a tree per centre P. Depth 0 is P; a pathway Q
     joins at depth d+1 when a handoff runs from Q into a root copy that a depth-d pathway X keeps (every root of P;
     for X != P a root among X's kept nodes, the ancestors of its own bridge sources). Each pathway joins once, at its
     least depth, and bridges run only from depth d+1 into depth d, so the context has no cycle. A joining pathway loses
     the reactions of every pathway at a lower depth. Handoffs flagged `extracellular` (cell-to-cell signals) are never
     bridged. Returns ({(P, Q): {"in": [(src in Q, dst)], "out": [], "edges": Q's reduced edges}}, census rows with
-    the centre, the receiving pathway and Q's depth)."""
+    the centre, the receiving pathway and Q's depth). Under `whole` (amendment 2) no pathway is reduced."""
     mem = collections.defaultdict(set)
     if members:
         for r in csv.DictReader(open(members), delimiter="\t"):
@@ -252,7 +254,7 @@ def plan_transitive(base, links, s_q, centres, members=None):
             nxt = []
             for Q in sorted(q for q, ps in joined.items() if ps):
                 vq = get(Q)
-                qe = reduced_edges(vq, seen_rx)
+                qe = vq["edges"] if whole else reduced_edges(vq, seen_rx)
                 depth[Q], edges[Q] = depth[level[0]] + 1, qe
                 srcs = sorted({a for a, _ in joined[Q]})
                 kept = kept_nodes(base / Q, srcs, qe)
@@ -388,6 +390,8 @@ def main(argv=None):
     ap.add_argument("--centres", help="specs/132: pathway list (bench/catalog_pathways.tsv format) to build")
     ap.add_argument("--members", help="specs/132: entity, member TSV (analysis/set_members_132.py)")
     ap.add_argument("--l2", action="store_true", help="specs/132: only handoffs from pathways P's diagrams encapsulate")
+    ap.add_argument("--whole", action="store_true",
+                    help="specs/133 amendment 2: with --curated, source pathways enter whole (not reduced, not pruned)")
     ap.add_argument("--transitive", action="store_true",
                     help="specs/133: with --curated, follow handoffs back as a tree (LINKS from closure_133.py)")
     a = ap.parse_args(argv)
@@ -439,9 +443,9 @@ def main_curated(a, base):
         sys.exit("--curated needs --centres")
     centres = [l.split("\t")[0] for l in open(a.centres) if l.startswith("R-HSA")]
     if a.transitive:
-        bridges, census = plan_transitive(base, a.curated[0], a.curated[1], set(centres), a.members)
+        bridges, census = plan_transitive(base, a.curated[0], a.curated[1], set(centres), a.members, a.whole)
     else:
-        bridges, census = plan_curated(base, a.curated[0], a.curated[1], set(centres), a.l2, a.members)
+        bridges, census = plan_curated(base, a.curated[0], a.curated[1], set(centres), a.l2, a.members, a.whole)
     nbr = collections.defaultdict(set)
     for (p, q), b in bridges.items():
         nbr[p].add(q)
@@ -460,7 +464,7 @@ def main_curated(a, base):
     tot = {}
     for p in centres:
         tot[p] = {"neighbours": sorted(nbr[p]),
-                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, True, False)}
+                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, not a.whole, False)}
     b = json.load(open(base / "BUILD.json"))
     repo = Path(__file__).resolve().parent.parent
     sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
@@ -470,7 +474,8 @@ def main_curated(a, base):
     b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""),
               "context_of": base.name,
               "context_rule": "curated_transitive" if a.transitive else "curated_l2" if a.l2 else "curated_l1",
-              "context_links": a.curated[0], "context_members": a.members, "context_pruned": True, "context_feedback": False, "context": tot,
+              "context_links": a.curated[0], "context_members": a.members, "context_pruned": not a.whole,
+              "context_whole": a.whole, "context_feedback": False, "context": tot,
               "pathway_list": a.centres, "pathways_requested": len(centres), "pathways_built": len(tot),
               "status": "complete"})
     json.dump(b, open(out / "BUILD.json", "w"), indent=1)
