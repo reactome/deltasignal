@@ -118,7 +118,9 @@ reverse) while knockout read DOWN too. Traced (scratch Julia: every rule edge co
 
 Amendment 2 (`--whole`) enters each source pathway whole. `bench/analysis/source_check_133.jl` pins three starting
 copies of each source pathway in turn and compares every one of its nodes with the pathway solved alone: in `.A2` the
-worst |log ratio| over 49 (bundle, source) pairs is 2.2e-4 (solver tolerance). The TP53 trace under `.A2`: PTEN
+worst |log ratio| over 49 (bundle, source) pairs is 2.2e-4 (solver tolerance). The same check on `.A1` (reduced and
+pruned): 13 of the 49 pairs differ by more than 1% on nodes both hold, the worst |log ratio| 16 (*Signaling by
+Insulin receptor* into *Signaling by Type 1 IGF1R*'s bundle), 4.6 in four, 1.1 for PIP3 in TP53's. The TP53 trace under `.A2`: PTEN
 knockout puts p-AKT at 50–100×, TP53 tetramers fall to 0.28–0.53×, BAX 0.44× (measured DOWN); overexpression puts p-AKT
 near 0, TP53 tetramers 1.15–1.32×, BAX 1.21× (measured UP). The signal now runs the curated route, PTEN ⊣ PIP3 → AKT
 (PIP3 pathway) → bridge → AKT → MDM2 ⊣ TP53 → BAX (TP53 pathway). Arms `s133_A2`, `s133_T2` (code 5869e98).
