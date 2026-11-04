@@ -72,3 +72,70 @@ resolved in the bundle, which the benches do. The count is therefore read from t
 readouts and the bundle's reachability; the bench's `no_path` and korkut/decryptM reach columns), and it is computed
 and written down before any accuracy figure is read. The stop rule only stops; it chooses nothing, so reading it from
 the same runs cannot bias a gate.
+
+## R3. The arms (2026-11-03): no rule passes
+
+Arms at solver 0102aaa (bundles rebuilt with `rnas.csv`, which the first bundles lacked; the bench refused them under
+`DS_RNA_TWIN=on`), scored by `bench/analysis/combine_132.py` (dcabf4f, tested). Results under
+`builds/20261103-1700_8b6527e_ctx132.{c0,l1,l2}/results/0102aaa/s132_{c0,l1,l2}`; scores in
+`~/deltasignal-catalogs/analysis/132/score_{l1,l2}.json`.
+
+**Control.** `s132_c0` reproduces the frozen model (`cf_off`, d210ae3; decryptM `s114_f92_hand`) on every case:
+experimental 849, curator 24,100, korkut 11,626, decryptM 1,862, 0 differ. Rebuilding the 92 networks in the
+variant build changes nothing, so every difference below is the bridges.
+
+**Ceiling (read first).** Control's wrong cases with no route in P alone but a route through the rule:
+
+| | experimental (RAF aside) | korkut | decryptM | curator held-out |
+|---|---|---|---|---|
+| L1 | 15 / 194 (7.7%) | 106 / 3,945 (2.7%) | 0 / 671 | 12 / 1,703 (0.7%) |
+| L2 | 15 / 194 (7.7%) | 81 / 3,945 (2.1%) | 0 / 671 | 12 / 1,703 (0.7%) |
+
+Above 2% on experimental and korkut, so the stop rule does not apply; the arms are read.
+
+**Candidate gate** (pooled three-class balanced accuracy, experimental RAF aside + korkut, arm − control, 95% interval
+resampling perturbations within dataset, 10,000, seed 132):
+
+| arm | pooled gain | 95% interval | experimental | korkut | gate |
+|---|---|---|---|---|---|
+| L1 | +0.0023 | [−0.0107, +0.0159] | +0.0057 (14 fixed / 8 broken) | +0.0084 (72 / 534) | fails |
+| L1+F | +0.0114 | [−0.0011, +0.0252] | +0.0047 (9 / 4) | +0.0174 (69 / 322) | fails |
+| L2 | +0.0001 | [−0.0113, +0.0122] | +0.0057 (14 / 8) | +0.0040 (53 / 435) | fails |
+| L2+F | +0.0084 | [−0.0018, +0.0200] | +0.0047 (9 / 4) | +0.0121 (50 / 249) | fails |
+
+Reported, not gated: decryptM balanced −0.009 (L1: 2 fixed / 42 broken), −0.005 under F; curator held-out L1 −80
+(14 / 94), L1+F −58 (12 / 70), L2 and L2+F +6 (6 / 0). **No rule passes, so nothing goes to stage 5.**
+
+**Traced: experimental (L1 = L2: every experimental change comes through an L2 handoff).**
+- Gains: PTEN knockout and over-expression in *Transcriptional Regulation by TP53* (9 fixed, 5 wrong both ways),
+  through the p-AKT handoff from *PIP3 activates AKT signaling*; TP53's own network has no route from PTEN. AKT1/AKT2
+  knockouts and BRCA1 knockout there gain 5 more (they had a route, but read NORMAL alone).
+- Losses: ATM knockout and over-expression in *Cell Cycle Checkpoints* (4). The control was right without a route
+  that reachability sees: the route is specs/084's solver-only component-twin edges from ATM's starting copies. A
+  bridge into p-ATM's root copy gives it an in-edge, it stops being a starting copy, and the twin edges go. **Bridging
+  changes which nodes are roots, and every root-based solver rule (twins, pins) moves with it.** The same blind spot
+  makes F read these cases as "no route" and take the arm's answer. SRC over-expression in *Mitotic G1* (3): SRC is
+  pinned in the neighbour too; F keeps the control there.
+
+**Traced: curator held-out (guard).** 90 of L1's 94 losses are in *Interleukin-4 and Interleukin-13 signaling*
+(IRF4 38, STAT6 32, STAT3 20), all through its one bridge: IL4 handed from *Affinity selection of immunoglobulins*,
+where IRF4, STAT6 and STAT3 drive IL4 production, so every IL-4 readout moves where the curators said NORMAL. The
+registered sample of 20 broken cases (seed 132) is all IL-4/13; all 20 are carried by the curated connection, as every
+change in a feed-in bundle is by construction, so that classification separates nothing. The useful finding is what
+the connection is: **IL4 is secreted by T follicular helper cells and acts on B cells: a curated precedingEvent
+between two cell types**, the free-ligand class P2 warned of. A one-cell model wires one cell's output to another
+cell's input through it. The other 4: TP53 in intrinsic apoptosis (2), SRC in RUNX2 (2).
+
+**Traced: korkut.** 687 changes; 522 of the broken are NORMAL → a change call on readouts measured "not", mostly in
+*Transcriptional Regulation by TP53* (251) and *Mitotic G1* (129); 71 correct "down" calls are gained. Balanced
+accuracy rises a little while raw accuracy falls by 462: the trade specs/128–131 kept finding, here in the other
+direction (more change calls).
+
+**Predictions.**
+- P1 (L1 reaches more wrong cases per bridge than specs/056): R4.
+- P2 (few free ligands among the bridges): **supported by count, but the one free-ligand bridge (IL4) causes 90 of 94
+  curator losses.** Few is not enough; one cross-cell ligand is enough to do the damage.
+- P3 (gains concentrate in cell-cycle pathways): **not supported.** The gains are in TP53 transcription (PTEN, AKT);
+  the cell-cycle pathways lose (ATM in checkpoints, SRC in Mitotic G1).
+- P4 (F matters more on korkut than experimental): **supported.** F doubles korkut's gain (+0.008 → +0.017) and
+  barely moves experimental (+0.006 → +0.005).
