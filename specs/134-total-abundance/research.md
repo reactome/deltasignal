@@ -104,7 +104,7 @@ build; all 1,493 solves converged. Against R1's control `k134_forms`, on cases s
 
 | | cases | balanced acc. | accuracy | macro-F1 | change calls (wrong) | fixed / broken |
 |---|---|---|---|---|---|---|
-| control | 10,493 | 0.4239 | 0.6738 | 0.3545 | 3,394 (2,912) | |
+| control | 10,493 | 0.4239 | 0.6738 | 0.3545 | 3,394 (2,950) | |
 | abundance, amendment 1 | 10,493 | 0.4411 | 0.7961 | 0.4027 | 1,956 (1,576) | 1,503 / 219 |
 | difference | | **+0.0172 [+0.0007, +0.0324]** | +0.122 | +0.048 | | |
 | RAF set aside: difference | 9,905 | **+0.0212 [+0.0038, +0.0373]** | +0.138 | +0.056 | | 1,491 / 129 |
