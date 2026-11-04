@@ -88,3 +88,20 @@ used here (Lun 2019, or the CPPA test portions), and opening either is Adam's de
 - **Q5.** The gate fails (the experimental gain is a handful of PTEN cases; korkut loses on raw accuracy).
 
 Nothing here changes a default; `DS_CONTEXT_BRIDGE_ORDER` defaults to today's behaviour. Lun 2019 stays sealed.
+
+## Amendment 1 (2026-11-04, before any score of A or T was read)
+
+**Found while checking arm A** (research R3): under `last`, the bridged starting copy of p-AKT1/2/3 in *Transcriptional
+Regulation by TP53* is a starting copy again, and specs/059's recycled-twin rule, which joins copies of one entity by
+identity, gave PIP3's imported copy of p-AKT an in-edge from TP53's copy. With the bridge restored that is a loop
+PIP3 → TP53 → PIP3: the context fed back, which the rule forbids, and the two pathways were joined by a shared molecule,
+which specs/132's principle forbids. It moved 5 PTEN cases (4 to wrong). Under `first` the same kind of edge can form
+from any unbridged starting copy, so specs/056 and specs/132 arms may hold some too (counted in R3).
+
+**Change.** A context bundle records each node's pathway (`context_origin.csv`, uuid → pathway, written by
+`context_build.py`). Under `DS_CONTEXT_BRIDGE_ORDER=last` the solver drops every edge a structural rule added between
+nodes of two different pathways, so each pathway's rules act on its own copies, as when it is built alone; pathways
+meet only at curated bridges. Reported as `context_cross_edges` (edges dropped). `first` is unchanged. Checked by
+running the rules on each pathway's part separately and comparing with the filtered result, bundle by bundle.
+
+A and T are re-run with this; the first runs are kept and reported (R3) as the record of the defect.
