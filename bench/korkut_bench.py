@@ -37,6 +37,14 @@ THRESHOLD_SECONDARY = math.log2(1.15)
 NAMES = {bm.DOWN: "down", bm.NORMAL: "not", bm.UP: "up"}
 
 
+def readout_nodes(r_stids, stid_to_uuids, own=None):
+    """{readout: its nodes, in order}, readouts with none left out. In a context build (specs/056, specs/132) only the
+    pathway's own nodes (`own`) are read."""
+    ro = {name: list(dict.fromkeys(u for s in st for u in stid_to_uuids.get(s, []) if own is None or u in own))
+          for name, st in r_stids.items()}
+    return {k: v for k, v in ro.items() if v}
+
+
 def read_tsv(path):
     return list(csv.DictReader((l for l in open(path) if not l.startswith("#")), delimiter="\t"))
 
@@ -152,9 +160,7 @@ def main():
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())
     for pdir in pathways:
         stid_to_uuids = bm.load_stid_to_uuids(pdir)
-        ro_nodes = {name: list(dict.fromkeys(u for s in st for u in stid_to_uuids.get(s, [])))
-                    for name, st in r_stids.items()}
-        ro_nodes = {k: v for k, v in ro_nodes.items() if v}
+        ro_nodes = readout_nodes(r_stids, stid_to_uuids, bm.context_own_uuids(pdir))
         if not ro_nodes:
             continue
         parsed = None

@@ -152,3 +152,93 @@ def test_feed_in_adds_no_bridge_out_of_the_centre(tmp_path):
     assert ("px", "qx", "context_bridge") in fb and ("qy", "py", "context_bridge") in fb
     assert ("qy", "py", "context_bridge") in fi and ("px", "qx", "context_bridge") not in fi
     assert json.loads((tmp_path / "in" / "BUILD.json").read_text())["context_feedback"] is False
+
+
+def _typed(b, name, nodes, edges):
+    """A pathway whose edges carry type and reaction id: (src, dst, edge_type, reaction stId)."""
+    d = b / name
+    d.mkdir(parents=True)
+    (d / "nodes.csv").write_text(NODES + "".join(f"{u},{k},{st},,,,\n" for u, k, st in nodes))
+    (d / "stid_to_uuid_mapping.csv").write_text("uuid,stable_id\n" + "".join(f"{u},{st}\n" for u, _, st in nodes))
+    (d / "logic_network.csv").write_text(NET + "".join(f"{a},{t},pos,and,{et},1,{rid}\n" for a, t, et, rid in edges))
+    (d / "cofactors.csv").write_text("stable_id,molecule,chebi_id,name,in_network,reactome_release\n")
+
+
+def _curated_fixture(tmp_path):
+    b = tmp_path / "base"
+    b.mkdir()
+    (b / "BUILD.json").write_text(json.dumps({"build_id": "base", "status": "complete"}))
+    # P: E (root) is an input of reaction R1 -> Y; F (root) is also in P. Q: G -> S1 -> E, and S2 -> F.
+    _typed(b, "R-HSA-1", [("pe", "simple_entity", "R-E"), ("pr", "reaction", "R-R1"), ("py", "simple_entity", "R-Y"),
+                          ("pf", "simple_entity", "R-F"), ("pc", "simple_entity", "R-C")],
+           [("pe", "pr", "input", "R-R1"), ("pr", "py", "output", "R-R1"), ("pf", "pr", "input", "R-R1"),
+            ("pc", "pr", "catalyst", "")])
+    _typed(b, "R-HSA-2", [("qg", "simple_entity", "R-G"), ("qs", "reaction", "R-S1"), ("qe", "simple_entity", "R-E"),
+                          ("qs2", "reaction", "R-S2"), ("qf", "simple_entity", "R-F"), ("qc", "simple_entity", "R-C")],
+           [("qg", "qs", "input", "R-S1"), ("qs", "qe", "output", "R-S1"), ("qs2", "qf", "output", "R-S2"),
+            ("qs", "qc", "output", "R-S1")])
+    (tmp_path / "links.tsv").write_text("pathway\tr\ts\tq\tentity\trole\tl2\n"
+                                        "R-HSA-1\tR-R1\tR-S1\tx\tR-E\tinput\tFalse\n"
+                                        # a catalyst edge carries no reaction id; it points at the reaction node
+                                        "R-HSA-1\tR-R1\tR-S1\tx\tR-C\tcatalyst\tFalse\n")
+    (tmp_path / "s_q.tsv").write_text("s\tq_diagram\tname\nR-S1\tR-HSA-2\tQ\n")
+    (tmp_path / "centres.tsv").write_text("id\tpathway_name\nR-HSA-1\tP\n")
+    return b
+
+
+def test_curated_bridges_only_the_handed_off_entity(tmp_path):
+    b = _curated_fixture(tmp_path)
+    bridges, census = cb.plan_curated(b, tmp_path / "links.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"})
+    # E is curated as handed from S1 to R1: bridged. F is in both pathways but no curated handoff names it: not.
+    assert bridges[("R-HSA-1", "R-HSA-2")]["in"] == [("qc", "pc"), ("qe", "pe")]
+    assert [r["status"] for r in census] == ["bridged", "bridged"]
+    # identity matching would bridge F too; the curated mode never does
+    _, ident, _ = cb.plan(b, hub=5)
+    assert ("qf", "pf") in ident[("R-HSA-1", "R-HSA-2")]["in"]
+
+
+def test_curated_l2_drops_pairs_outside_encapsulated_pathways(tmp_path):
+    b = _curated_fixture(tmp_path)
+    bridges, census = cb.plan_curated(b, tmp_path / "links.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"}, l2_only=True)
+    assert bridges == {} and census == []
+
+
+def test_curated_build_is_feed_in_and_an_empty_link_file_builds_the_control(tmp_path):
+    b = _curated_fixture(tmp_path)
+    cb.main([str(b), str(tmp_path / "c1"), "--curated", str(tmp_path / "links.tsv"), str(tmp_path / "s_q.tsv"),
+             "--centres", str(tmp_path / "centres.tsv")])
+    e = _edges(tmp_path / "c1" / "R-HSA-1")
+    assert ("qe", "pe", "context_bridge") in e and ("qg", "qs", "input") in e
+    assert not any(t == "context_bridge" and s.startswith("p") for s, _, t in e)
+    assert not (tmp_path / "c1" / "R-HSA-2").exists()            # only centres are built
+    (tmp_path / "empty.tsv").write_text("pathway\tr\ts\tq\tentity\trole\tl2\n")
+    cb.main([str(b), str(tmp_path / "c0"), "--curated", str(tmp_path / "empty.tsv"), str(tmp_path / "s_q.tsv"),
+             "--centres", str(tmp_path / "centres.tsv")])
+    assert sorted(_edges(tmp_path / "c0" / "R-HSA-1")) == sorted(_edges(b / "R-HSA-1"))
+    # every table the solver reads travels with the bundle (specs/100's RNA table was once left behind)
+    (b / "R-HSA-1" / "rnas.csv").write_text("stable_id,schema_class,name,reactome_release\nR-E,EWAS,E mRNA,97\n")
+    cb.main([str(b), str(tmp_path / "c0r"), "--curated", str(tmp_path / "empty.tsv"), str(tmp_path / "s_q.tsv"),
+             "--centres", str(tmp_path / "centres.tsv")])
+    assert (tmp_path / "c0r" / "R-HSA-1" / "rnas.csv").read_text() == (b / "R-HSA-1" / "rnas.csv").read_text()
+
+
+def test_curated_set_handoff_bridges_each_member_to_the_same_member(tmp_path):
+    b = _curated_fixture(tmp_path)
+    # the handed-off entity R-SET is a set; the generator expanded it, so only its members have nodes
+    with open(b / "R-HSA-1" / "nodes.csv", "a") as f:
+        f.write("pm1,simple_entity,R-M1,,,,\n")
+    with open(b / "R-HSA-1" / "logic_network.csv", "a") as f:
+        f.write("pm1,pr,pos,and,input,1,R-R1\n")
+    with open(b / "R-HSA-2" / "nodes.csv", "a") as f:
+        f.write("qm1,simple_entity,R-M1,,,,\nqm2,simple_entity,R-M2,,,,\n")
+    with open(b / "R-HSA-2" / "logic_network.csv", "a") as f:
+        f.write("qs,qm1,pos,and,output,1,R-S1\nqs,qm2,pos,and,output,1,R-S1\n")
+    (tmp_path / "set.tsv").write_text("pathway\tr\ts\tq\tentity\trole\tl2\nR-HSA-1\tR-R1\tR-S1\tx\tR-SET\tinput\tFalse\n")
+    (tmp_path / "members.tsv").write_text("entity\tmember\tentity_class\nR-SET\tR-M1\tDefinedSet\nR-SET\tR-M2\tDefinedSet\n")
+    bridges, census = cb.plan_curated(b, tmp_path / "set.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"},
+                                      members=tmp_path / "members.tsv")
+    assert bridges[("R-HSA-1", "R-HSA-2")]["in"] == [("qm1", "pm1")]
+    assert [r["status"] for r in census] == ["bridged"]
+    # without the member table the set has no node in P
+    _, census = cb.plan_curated(b, tmp_path / "set.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"})
+    assert [r["status"] for r in census] == ["entity_not_at_r_in_centre"]

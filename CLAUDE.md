@@ -1129,6 +1129,12 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/130-readout-baseline/` — stage 2a: a readout's measured resting level in the cell (CPPA controls, p0) as a
   measurement model on the frozen prediction, background quantile chosen by CV over CPPA training drugs. CV gain's
   interval includes 0 and balanced accuracy falls: not carried forward. Numbers private (CPPA terms).
+- `specs/132-curated-connections/` — pathways joined only through Reactome's curated connections (cross-pathway
+  `precedingEvent`, `hasEncapsulatedEvent`), never by shared molecules (Adam, 2026-11-03). Bridges into a pathway's
+  root copies (`context_build.py --curated`); with F, a pathway's own answer stands wherever it routes. No rule passes
+  (L1+F pooled +0.011 [−0.001, 0.025]); identity matching (specs/056) is the only arm below 0. Traced (R3a): the p-AKT
+  handoff from PIP3 is right (PTEN in TP53 transcription 9 / 0); wrong are IL4/IL21 (cytokines between cell types) and
+  bridges that change which nodes are roots. Reactome's cell-type annotation labels no event (R5).
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
