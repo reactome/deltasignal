@@ -1,6 +1,9 @@
 # specs/132: connecting pathways through Reactome's curated connections
 
-**Status:** registered 2026-11-03, before any code or count.
+**Status:** registered 2026-11-03, before any code or count. Measured 2026-11-03 (research.md R2–R5): no rule passes
+the candidate gate; nothing goes to stage 5. Identity matching (specs/056) is the only arm below 0 (P1 supported).
+Decision (Adam): a pathway answers alone where it routes, otherwise through the curated connections; every changed
+case traced (R3a) for the next rule.
 
 ## The principle (Adam, 2026-11-03)
 
