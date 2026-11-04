@@ -107,3 +107,10 @@ new idea; korkut still cannot confirm it, and CPPA training has now been looked 
 - **Q9.** Accuracy rises above R1's 0.700; the gate still fails (balanced accuracy within ±0.01 of forms, interval
   across 0), because the correct DOWN calls on totals were already lost in R1.
 - **Q10.** CPPA training: no harm on the primary; secondary balanced accuracy still above forms.
+
+## Decision (Adam, 2026-11-04)
+
+Adopt amendment 1's rule as the korkut and CPPA bench default ("adopt as it is fixing something and the accuracy is
+significantly improved and the balanced accuracy is going in the right direction"), conditional on the CPPA training
+check (Q10) showing no harm on the primary endpoint. `DS_TOTAL_READOUT=forms` stays, to reproduce earlier numbers.
+Headline korkut and CPPA numbers before and after are not comparable (cases leave scoring) and are reported both ways.
