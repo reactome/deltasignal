@@ -41,7 +41,10 @@ NAMES = {bm.DOWN: "down", bm.NORMAL: "not", bm.UP: "up"}
 TOTAL_READOUT = os.environ.get("DS_TOTAL_READOUT", "forms")
 if TOTAL_READOUT not in ("forms", "protein", "abundance"):
     raise SystemExit(f"DS_TOTAL_READOUT={TOTAL_READOUT!r}: expected forms, protein or abundance")
-IDENTITY_EDGES = {"specialization", "variant_pool", "variant_split"}
+# Material or identity edges that make their target from their source (specs/134 amendment 1: assembly and
+# dissociation too, so a complex built from the protein, or a protein released from one, is not an abundance copy).
+MADE_FROM_EDGES = {"assembly", "dissociation", "recycle", "released_twin", "set_member",
+                   "specialization", "variant_pool", "variant_split"}
 
 
 def readout_nodes(r_stids, stid_to_uuids, own=None):
@@ -54,7 +57,8 @@ def readout_nodes(r_stids, stid_to_uuids, own=None):
 
 def abundance_copies(nodes, network_rows):
     """specs/134: the members of `nodes` that nothing makes from `nodes`: no reaction producing one takes an input in
-    `nodes`, and no identity edge into one comes from `nodes`. Depletion is not a source. Order kept."""
+    `nodes`, and no material or identity edge into one comes from `nodes` (amendment 1). Catalyst, regulator and
+    depletion are not sources. Order kept."""
     inside = set(nodes)
     inputs, producers, made = collections.defaultdict(set), collections.defaultdict(set), set()
     for e in network_rows:
@@ -62,7 +66,7 @@ def abundance_copies(nodes, network_rows):
             inputs[e["target_id"]].add(e["source_id"])
         elif e["edge_type"] == "output":
             producers[e["target_id"]].add(e["source_id"])
-        elif e["edge_type"] in IDENTITY_EDGES and e["source_id"] in inside:
+        elif e["edge_type"] in MADE_FROM_EDGES and e["source_id"] in inside:
             made.add(e["target_id"])
     return [u for u in nodes if u not in made and not any(inputs[r] & inside for r in producers[u])]
 

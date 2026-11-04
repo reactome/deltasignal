@@ -95,6 +95,14 @@ def test_abundance_copies_catalyst_in_set_is_not_a_source():
     assert kb.abundance_copies(["A", "A3"], rows) == ["A", "A3"]
 
 
+def test_abundance_copies_assembled_and_released_copies_are_made():
+    # specs/134 amendment 1: a starting complex A:P built from A (assembly), A released from the bound complex A:Q
+    # (dissociation) and a set pool S of A (set_member) are made from A; a complex built only from partners is not
+    rows = [_edge("A", "AP", "assembly"), _edge("P", "AP", "assembly"), _edge("AQ", "A4", "dissociation"),
+            _edge("A", "S", "set_member"), _edge("P", "PR", "assembly")]
+    assert kb.abundance_copies(["A", "AP", "AQ", "A4", "S"], rows) == ["A", "AQ"]
+
+
 def test_abundance_copies_loop_without_start_has_none():
     rows = [_edge("pA", "r1", "input"), _edge("r1", "A", "output"), _edge("A", "r2", "input"), _edge("r2", "pA", "output")]
     assert kb.abundance_copies(["A", "pA"], rows) == []
