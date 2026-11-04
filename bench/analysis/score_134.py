@@ -15,7 +15,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 CLASSES = ("up", "not", "down")
-READOUTS = Path(__file__).resolve().parents[1] / "bench" / "analysis" / "062" / "readouts.tsv"
+READOUTS = Path(__file__).resolve().parent / "062" / "readouts.tsv"
 
 
 def load(path):
