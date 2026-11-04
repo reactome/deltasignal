@@ -1141,6 +1141,14 @@ for the last feature that touched it rather than re-deriving from the code.
   (L1+F pooled +0.011 [−0.001, 0.025]); identity matching (specs/056) is the only arm below 0. Traced (R3a): the p-AKT
   handoff from PIP3 is right (PTEN in TP53 transcription 9 / 0); wrong are IL4/IL21 (cytokines between cell types) and
   bridges that change which nodes are roots. Reactome's cell-type annotation labels no event (R5).
+- `specs/133-transitive-connections/` — Adam's rule (2026-11-03): a pathway's own answer where it routes, else all of
+  Reactome's curated connections, followed back as a tree (`context_build.py --curated --transitive --whole`,
+  extracellular handoffs never bridged, solver `DS_CONTEXT_BRIDGE_ORDER=last`). Two construction defects found by
+  tracing and fixed: identity twins joined copies across pathways (amendment 1, `context_origin.csv`), and source
+  pathways were reduced and pruned so they were not themselves (amendment 2, `--whole`); both have checks
+  (`origin_check_133.jl`, `source_check_133.jl`). Then the gate passes (+0.015 [+0.004, +0.027]) on balanced accuracy
+  while korkut raw accuracy falls (115 of 162 unique changes broken: PIP3's AKT overcalls carried on); every changed
+  case follows a curated chain; past one hop only PI Metabolism's lipid rails are added. Not adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

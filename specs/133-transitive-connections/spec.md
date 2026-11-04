@@ -1,6 +1,9 @@
 # specs/133: the pathway alone where it can, all of Reactome's curated connections where it cannot
 
-**Status:** registered 2026-11-03, before any code or count for it. Follows specs/132 R3a.
+**Status:** registered 2026-11-03, before any code or count for it. Follows specs/132 R3a. Amendments 1–2
+(2026-11-04) fixed two construction defects found by tracing. Measured (research R5): A2+F and T2+F pass the gate on
+balanced accuracy (+0.015 [+0.004, +0.027]) while korkut raw accuracy falls; every changed case traced, none wrong in
+construction; depth past one hop adds only PI Metabolism's rails. Not adopted; nothing changes a default.
 
 ## The decision (Adam, 2026-11-03)
 
