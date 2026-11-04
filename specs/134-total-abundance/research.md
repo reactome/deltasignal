@@ -96,3 +96,42 @@ depletion) and by whether the readout's gene is a target of the case's drugs:
 and its partners, which move with the partners or, for a drug's own target, with the knockout pin. Synthesis copies
 account for about 600. R2's "every change call left comes from a copy the pathway makes" and Q5's "holds" are
 withdrawn; the trace of p85 and p21 stands as an example of the synthesis class.
+
+## R6. Amendment 1 arms
+
+korkut: code `f03d0f9`, `run_arm.sh --axis korkut --bench DS_TOTAL_READOUT=abundance`, arm `k134_abund_a1`, frozen
+build; all 1,493 solves converged. Against R1's control `k134_forms`, on cases scored in both (`score_134.py`):
+
+| | cases | balanced acc. | accuracy | macro-F1 | change calls (wrong) | fixed / broken |
+|---|---|---|---|---|---|---|
+| control | 10,493 | 0.4239 | 0.6738 | 0.3545 | 3,394 (2,912) | |
+| abundance, amendment 1 | 10,493 | 0.4411 | 0.7961 | 0.4027 | 1,956 (1,576) | 1,503 / 219 |
+| difference | | **+0.0172 [+0.0007, +0.0324]** | +0.122 | +0.048 | | |
+| RAF set aside: difference | 9,905 | **+0.0212 [+0.0038, +0.0373]** | +0.138 | +0.056 | | 1,491 / 129 |
+
+R1 with RAF set aside, for comparison: +0.0029 [−0.0069, +0.0113].
+
+**The registered gate passes**, with and without RAF. On totals alone, balanced accuracy falls (−0.030
+[−0.065, +0.006]; RAF set aside −0.022 [−0.056, +0.015]) while accuracy rises 0.671 → 0.856: the correct DOWN calls
+on totals are lost, and the pooled gain is the "not" class recovered on totals while phospho recall is unchanged.
+Phospho predictions are identical.
+
+569 control-scored cases leave scoring (504 `trivial`, 65 `no_copy`), 528 of them a drug's own target whose every
+abundance copy the drug's knockout pins (total AKT under an AKT inhibitor); the control was wrong on 522 of them. They
+are left out of both arms, as registered, so they do not enter the difference; an inhibitor modelled as removal cannot
+predict its target's abundance, and here the bench now says so instead of reading the knockout.
+
+Remaining total change calls, classed as in R5 but with boundary edges included (starting = no in-edge at all):
+
+| copies | drug target? | cases | change calls | right |
+|---|---|---|---|---|
+| starting only | no | 5,572 | 0 | 0 |
+| starting and made | no / yes | 578 / 36 | 250 / 36 | 3 / 0 |
+| made only | no / yes | 730 / 12 | 407 / 2 | 10 / 0 |
+
+Every remaining total change call (695, 13 right) is on a readout with a copy the pathway makes from something else
+(translation; a protein produced by a reaction with no input holding it). R2's account holds once the rule is
+implemented as written.
+
+Predictions: Q7 holds. Q8 holds for (a), synthesis copies; (b) is refuted, only 38 of 695 are a drug's own target,
+because most such cases leave scoring. Q9 is refuted: the gate passes. Q10: CPPA training, pending (R7).
