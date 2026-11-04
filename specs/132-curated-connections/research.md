@@ -165,7 +165,7 @@ bridge's tail, its head reaches the readout) and names each by its census row. O
    *TP53 transcription* 9 fixed, 0 broken, 5 wrong both ways. Korkut: 327 of 428 changes are AKT, AKTpS473 and
    AKTpT308 readouts in the receiving pathways, and **279 of them repeat exactly what *PIP3 activates AKT signaling*
    itself predicts for that drug set and readout**. That pathway's own AKT calls are mostly wrong on korkut (down where
-   "not" in 79 of 191 scored; pS473/pT308 measured up 17 times, the feedback rebound). The combination copies one
+   "not" in 79 of 171 scored; pS473/pT308 measured up 17 times, the feedback rebound). The combination copies one
    pathway's existing error into four more, and korkut scores each copy as a separate case.
 2. **IL4 from *Affinity selection of immunoglobulins* into *IL-4/13 signaling*.** A ligand secreted by one cell type
    acting on another: **not right for a one-cell model.** Curator 66 broken, korkut 12 broken (Fibronectin), 0 fixed.
