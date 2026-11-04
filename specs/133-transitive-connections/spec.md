@@ -105,3 +105,23 @@ meet only at curated bridges. Reported as `context_cross_edges` (edges dropped).
 running the rules on each pathway's part separately and comparing with the filtered result, bundle by bundle.
 
 A and T are re-run with this; the first runs are kept and reported (R3) as the record of the defect.
+
+## Amendment 2 (2026-11-04, after the corrected runs A1/T1 were scored, before any rule choice)
+
+**Found tracing A1/T1** (research R4): every PTEN overexpression case in *Transcriptional Regulation by TP53* still read
+wrong, now DOWN in both directions. The bridge sources, *PIP3 activates AKT signaling*'s p-AKT1/2/3, sat at the 100×
+ceiling under both PTEN knockout and overexpression, while PIP3 solved alone reads PTEN overexpression DOWN (0.17×) and
+the knockout UP. The PIP3 inside the bundle was not PIP3: the builder (specs/056's design, kept by specs/132 and this
+spec) removes from a source pathway every reaction of the pathways it feeds, and TP53 transcription holds PTEN's
+transcription and translation, which are what make PIP3 alone read PTEN right (specs/095, 100). Pruning a source to the
+ancestors of its bridge sources is also not exact once the solver's twin rules add in-edges from non-ancestors.
+
+That breaks the decision itself: "use the pathway's answer" must mean the source pathway's own answer too.
+
+**Change.** `context_build.py --whole`: a source pathway enters the bundle whole, not reduced and not pruned, so it solves
+exactly as alone except for the bridges it receives itself (deeper tree levels under T). Copies of a shared reaction in
+two pathways are distinct nodes and meet only at curated bridges, as amendment 1 requires. The tree is unchanged (which
+roots may receive deeper handoffs is still decided by ancestry, now over the whole pathway). Checked: for the one-hop
+bundle, every source pathway's nodes take the same values as that pathway solved alone, under the same pins.
+
+Arms `A2`, `T2` (bundles `.A2`, `.T2`); A1/T1 are kept as the record. Gate, predictions and F unchanged.
