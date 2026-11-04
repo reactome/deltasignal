@@ -242,3 +242,44 @@ def test_curated_set_handoff_bridges_each_member_to_the_same_member(tmp_path):
     # without the member table the set has no node in P
     _, census = cb.plan_curated(b, tmp_path / "set.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"})
     assert [r["status"] for r in census] == ["entity_not_at_r_in_centre"]
+
+
+def _transitive_fixture(tmp_path):
+    b = _curated_fixture(tmp_path)
+    # Q2 makes G (S0), which Q's S1 takes: a handoff into Q's root copy qg, two hops from P
+    _typed(b, "R-HSA-3", [("ra", "simple_entity", "R-A"), ("rs0", "reaction", "R-S0"), ("rg", "simple_entity", "R-G")],
+           [("ra", "rs0", "input", "R-S0"), ("rs0", "rg", "output", "R-S0")])
+    head = "pathway\tr\ts\tq\tentity\trole\tl2\textracellular\n"
+    (tmp_path / "tlinks.tsv").write_text(
+        head + "R-HSA-1\tR-R1\tR-S1\tx\tR-E\tinput\tFalse\tFalse\n"
+        "R-HSA-2\tR-S1\tR-S0\tx\tR-G\tinput\tFalse\tFalse\n"
+        # P's R1 feeding back into Q: Q already joined above P's depth, so never bridged (no cycle)
+        "R-HSA-2\tR-S1\tR-R1\tx\tR-G\tinput\tFalse\tFalse\n"
+        # a cell-to-cell signal: listed, never bridged
+        "R-HSA-1\tR-R1\tR-S2\tx\tR-F\tinput\tFalse\tTrue\n")
+    (tmp_path / "ts_q.tsv").write_text("s\tq_diagram\tname\nR-S1\tR-HSA-2\tQ\nR-S0\tR-HSA-3\tQ2\nR-R1\tR-HSA-1\tP\n"
+                                       "R-S2\tR-HSA-2\tQ\n")
+    return b
+
+
+def test_transitive_follows_handoffs_back_as_a_tree(tmp_path):
+    b = _transitive_fixture(tmp_path)
+    bridges, census = cb.plan_transitive(b, tmp_path / "tlinks.tsv", tmp_path / "ts_q.tsv", {"R-HSA-1"})
+    assert bridges[("R-HSA-1", "R-HSA-2")]["in"] == [("qe", "pe")]
+    assert bridges[("R-HSA-1", "R-HSA-3")]["in"] == [("rg", "qg")]          # depth 2, into Q's kept root
+    status = {(r["pathway"], r["s"]): (r["status"], r["depth"]) for r in census}
+    assert status[("R-HSA-1", "R-S1")] == ("bridged", 1)
+    assert status[("R-HSA-2", "R-S0")] == ("bridged", 2)
+    assert status[("R-HSA-2", "R-R1")][0] == "source_already_joined"
+    assert status[("R-HSA-1", "R-S2")][0] == "extracellular"
+
+
+def test_transitive_build_writes_every_hop_feed_in(tmp_path):
+    b = _transitive_fixture(tmp_path)
+    cb.main([str(b), str(tmp_path / "t"), "--curated", str(tmp_path / "tlinks.tsv"), str(tmp_path / "ts_q.tsv"),
+             "--centres", str(tmp_path / "centres.tsv"), "--transitive"])
+    e = _edges(tmp_path / "t" / "R-HSA-1")
+    assert ("qe", "pe", "context_bridge") in e and ("rg", "qg", "context_bridge") in e
+    assert ("ra", "rs0", "input") in e                                   # Q2's ancestors of its bridge source
+    assert not any(t == "context_bridge" and s.startswith("p") for s, _, t in e)
+    assert json.load(open(tmp_path / "t" / "BUILD.json"))["context_rule"] == "curated_transitive"
