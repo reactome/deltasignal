@@ -182,3 +182,30 @@ What follows (registered before any run, in the spec): exclude handoffs of an ex
 signals); never let a bridge change root status (roots computed without context bridges, for pins and solver rules);
 connect through all of Reactome (connections followed transitively), not one hop; score korkut both per case and once
 per (drug set, readout), so one pathway's answer copied into several is not counted several times.
+
+## R4: the identity-matched comparison (specs/056 `ctxin`), and P1 (2026-11-03)
+
+`ctxin` re-run on the frozen build's feed-in bundles (`20261026-1349_8b6527e.ctx5in`, results `ec9cec2/s132_ctxin`),
+scored with `combine_132.py` against c0 (c0 reproduces the frozen model case for case, R3):
+
+| | bridges | ceiling: experimental / korkut / decryptM / curator | pooled gain [95%] | experimental | korkut |
+|---|---|---|---|---|---|
+| ctxin | 1,025 into 80 pathways | 9 / 84 / 26 / 48 | −0.0100 [−0.0205, −0.0003] | −0.0168 (9 / 17) | −0.0059 (182 / 732) |
+| ctxin+F | | | −0.0004 [−0.0070, +0.0065] | −0.0063 (6 / 3) | +0.0028 (49 / 515) |
+| L1 (R3) | 74 into 27 pathways | 15 / 106 / 0 / 12 | +0.0023 [−0.0107, +0.0159] | +0.0057 (14 / 8) | +0.0084 (72 / 534) |
+
+Curator held-out: ctxin −142 (34 / 176), ctxin+F −135; decryptM ctxin −0.016, ctxin+F +0.013 (21 / 26).
+
+**P1 supported.** Per bridge, L1 reaches 0.20 wrong experimental cases and 1.4 korkut (ctxin 0.009 and 0.08): with 14×
+fewer bridges it reaches more wrong experimental and korkut cases outright. Identity matching is the only arm whose
+interval lies wholly below 0; it reaches more decryptM and curator cases, and loses them. This is the measured form of
+the principle the spec opens with.
+
+## R5: does Reactome say which cell a handoff happens in? (Adam, 2026-11-03)
+
+Adam pointed to Reactome's cell-lineage annotation. Release 97 (Neo4j): 37 `CellType`s, 14 `CellLineagePath`s,
+26 `CellDevelopmentStep`s; 122 physical entities carry a `cellType`, mostly in *Developmental Cell Lineages*; **no
+event carries one**. None of the 48 entities L1 bridges carries a `cellType`; the IL4 reaction names its cell only in
+its name (*Expression of IL4 in T follicular help cells*). So the lineage annotation cannot yet mark a cross-cell
+handoff in the pathways benchmarked here. The compartment can: of the 48 bridged entities exactly two are in the
+extracellular region, IL4 and IL21, both cytokines that T follicular helper cells secrete onto B cells.
