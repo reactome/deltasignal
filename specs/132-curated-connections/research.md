@@ -139,3 +139,46 @@ direction (more change calls).
   the cell-cycle pathways lose (ATM in checkpoints, SRC in Mitotic G1).
 - P4 (F matters more on korkut than experimental): **supported.** F doubles korkut's gain (+0.008 → +0.017) and
   barely moves experimental (+0.006 → +0.005).
+
+## R3a: every case L1+F changes, traced to the connection it crossed (2026-11-03)
+
+Decision (Adam, 2026-11-03): **a pathway answers on its own wherever it can (it routes from the perturbation to the
+readout); where it cannot, the answer comes from the pathways combined through Reactome's curated connections.** Then
+each case that rule changes is looked at, to see whether the combination is being done right. This section does that
+for L1+F, which is that rule with one hop of connections (specs/132 registered no neighbours of neighbours).
+
+Accuracy and macro-F1 beside balanced accuracy (arm minus control, cases valid in both):
+
+| | experimental (RAF aside) | curator held-out | korkut | decryptM |
+|---|---|---|---|---|
+| L1 accuracy / macro-F1 | +0.0075 / +0.0079 | −0.0043 / −0.0046 | −0.0418 / −0.0091 | −0.0222 / −0.0069 |
+| L1+F | +0.0063 / +0.0058 | −0.0031 / −0.0033 | −0.0229 / −0.0022 | −0.0122 / −0.0065 |
+| L2 | +0.0075 / +0.0079 | +0.0003 / +0.0005 | −0.0345 / −0.0079 | −0.0216 / −0.0066 |
+| L2+F | +0.0063 / +0.0058 | +0.0003 / +0.0005 | −0.0180 / −0.0020 | −0.0117 / −0.0062 |
+
+`bench/analysis/trace_132.py` lists, for each changed case, the bridges on its route (the case's sources reach the
+bridge's tail, its head reaches the readout) and names each by its census row. Output (private):
+`~/deltasignal-catalogs/analysis/132/trace_l1F.tsv`. The changes fall into five groups:
+
+1. **p-AKT handed from *PIP3 activates AKT signaling*** (PDPK1 phosphorylates AKT → AKT phosphorylates MDM2, TSC2,
+   p21/p27, BAD, USP8, RUNX2). Same cell, the signalling form, a curated handoff: **done right.** Experimental: PTEN in
+   *TP53 transcription* 9 fixed, 0 broken, 5 wrong both ways. Korkut: 327 of 428 changes are AKT, AKTpS473 and
+   AKTpT308 readouts in the receiving pathways, and **279 of them repeat exactly what *PIP3 activates AKT signaling*
+   itself predicts for that drug set and readout**. That pathway's own AKT calls are mostly wrong on korkut (down where
+   "not" in 79 of 191 scored; pS473/pT308 measured up 17 times, the feedback rebound). The combination copies one
+   pathway's existing error into four more, and korkut scores each copy as a separate case.
+2. **IL4 from *Affinity selection of immunoglobulins* into *IL-4/13 signaling*.** A ligand secreted by one cell type
+   acting on another: **not right for a one-cell model.** Curator 66 broken, korkut 12 broken (Fibronectin), 0 fixed.
+3. **No bridge on the route, yet the answer changed** (ATM in *Cell Cycle Checkpoints*, 4 experimental broken; 21
+   korkut AKT readouts in *TP53 transcription*). A bridge gave a starting node an in-edge, so it stopped being a starting
+   node and the solver rules that hang on starting nodes (specs/084 twins) changed. **Not right:** a connection should
+   add supply, never change which nodes are starting nodes.
+4. **TP53 → BAX, BID transcription (*TP53 Regulates Transcription of Cell Death Genes*) into intrinsic apoptosis.**
+   Curator TP53 knockout and over-expression 12 fixed, 2 broken (one readout).
+5. **Other korkut readouts in *TP53 transcription*** (ATR, TSC2, p21, AMPK, cyclins; 75 broken) through the p-AKT
+   handoff: drugs on the PI3K/AKT side now move TP53 targets that were measured unchanged. Not yet traced to a cause.
+
+What follows (registered before any run, in the spec): exclude handoffs of an extracellular entity (cell-to-cell
+signals); never let a bridge change root status (roots computed without context bridges, for pins and solver rules);
+connect through all of Reactome (connections followed transitively), not one hop; score korkut both per case and once
+per (drug set, readout), so one pathway's answer copied into several is not counted several times.
