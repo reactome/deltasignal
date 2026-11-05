@@ -1181,6 +1181,8 @@ for the last feature that touched it rather than re-deriving from the code.
 - `specs/137-matched-cutoff/` — the model calls a change at 15% (0.85 / 1.15, MP-BioPath's convention), korkut and CPPA
   secondary at 50% (log2 1.5). Registered: on an axis whose truth has a stated fold threshold, call at that threshold
   (no fitting); rescored offline from `pred_ui` (`bench/analysis/score_137.py`). Curator and experimental unchanged.
+  Gate fails: balanced +0.0017 [−0.0022, +0.0046]; 145 of 150 moved calls fixed, but half the change calls read ≤ 0.01
+  (knockouts read through to zero) and UP AUROC is 0.43. Not adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

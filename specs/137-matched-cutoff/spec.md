@@ -1,6 +1,7 @@
 # specs/137: call a change at the size the dataset measures one
 
-**Status:** registered 2026-11-05, before any rescoring (Adam: "the miss match should probably have its own spec and be
+**Status:** measured 2026-11-05 (research.md R1): the gate fails (balanced +0.0017 [−0.0022, +0.0046]); 145 of the 150
+moved calls are fixed, but only 8% of change calls sit between the cutoffs. Not adopted. Registered 2026-11-05, before any rescoring (Adam: "the miss match should probably have its own spec and be
 looked into"). Follows specs/135 and specs/136, which both ended at the mismatch.
 
 ## The mismatch
