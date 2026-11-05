@@ -51,6 +51,11 @@ For a training sample s (set σ, cell line c, drug d):
   gate reads the marker's resting level, and its delta-p shares that control, so scoring it would score the gate on
   regression to the mean.
 
+**Predictions scored** (added before scoring): the current CPPA default, specs/134 amendment 2 (build
+`20261027-1346_8b6527e_top114`, run `e4809b8/cppa134_abundance`), as specs/121's `fold` arm. The specs/121 frozen run
+(`8276c28/cppa_frozen`) is scored beside it as a robustness check, not a gate. P1 compares each with its own specs/121
+figure.
+
 ## Judge (fixed now)
 
 **Primary for this spec: three-class balanced accuracy** at |delta-p| ≥ log2 1.5 (specs/121 amendment 3), pooled over
