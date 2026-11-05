@@ -115,3 +115,37 @@ Adopt amendment 1's rule as the korkut and CPPA bench default ("adopt as it is f
 significantly improved and the balanced accuracy is going in the right direction"), conditional on the CPPA training
 check (Q10) showing no harm on the primary endpoint. `DS_TOTAL_READOUT=forms` stays, to reproduce earlier numbers.
 Headline korkut and CPPA numbers before and after are not comparable (cases leave scoring) and are reported both ways.
+
+## Amendment 2 (2026-11-04): a set or pool of the protein's copies carries it
+
+**Found by tracing, after R7** (specs/135's census of the 695 total change calls left in R6). In *RAF/MAP kinase
+cascade* (R-HSA-5673001), total SRC, fibronectin, BRAF and RAF1 each keep one made copy, the activated
+RAF:scaffold:MAP2K:MAPK complex (R-HSA-5672720), made by R-HSA-5672972 from the RAF/MAPK scaffolds set and the
+activated RAF complexes. Neo4j has p-Y530-SRC, FN1 and both RAFs inside it, through the set's focal-adhesion member and
+the RAF dimers. The network gives each set a pool node, fed by `variant_pool` / `set_member` edges from its member
+copies; the pool node is not a readout node, so amendment 1's test ("an input in P") never sees that the input holds
+the protein. The complex is a bound form and the rule says it is not an abundance copy. 168 change calls come from it,
+none right.
+
+**The corrected rule** (no other change): a node *carries* P if it is in P, or is the target of a `set_member`,
+`variant_pool`, `variant_split`, `specialization` or `released_twin` edge from a node that carries P (a set, pool or
+identity copy of the protein's copies is the protein). A node of P is made from P if a reaction producing it takes an
+input that carries P, or if an edge of amendment 1's material or identity set comes from a node that carries P. Only
+identity edges spread "carries"; a complex or a released partner never does, so a protein released from a complex is
+not treated as its partner.
+
+**Arms:** korkut `k134_abund_a2` against `k134_abund_a1` (R6); CPPA training `abundance` (amendment 2) against the R7
+run (`7cb140c/cppa134_abundance`), numbers private.
+
+**How it is judged.** It implements the registered text, as amendment 1 did, so it is judged on faithfulness: every
+case that moves must be one whose readout loses a copy built through a set or pool of the protein (checked case by case
+by script), and CPPA training must show no harm on the primary. The korkut gate is reported, not applied. Adoption is
+Adam's.
+
+**Predictions** (before the arms run):
+- **Q11.** Phospho identical.
+- **Q12.** The 168 change calls on SRC, fibronectin, BRAF and RAF1 in RAF/MAP kinase cascade read NOT. Fewer than 50
+  change calls move anywhere else.
+- **Q13.** Accuracy rises by about 0.015; balanced accuracy rises with RAF kept and moves by less than 0.003 with RAF
+  set aside (the cases are all RAF).
+- **Q14.** CPPA training: no harm on the primary.
