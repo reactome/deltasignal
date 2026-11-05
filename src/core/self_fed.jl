@@ -89,6 +89,20 @@ function self_inhibitor_leaves()::Bool
     return value == "1"
 end
 
+"""
+specs/136 arm L. `DS_SELF_ACTIVATOR_LEAVES`: `0` (default) | `1`. Under `1` the
+specs/083 pair test also accepts a positive catalyst or regulator that shares a
+non-cofactor leaf with its reaction's input when a carrier of that leaf reaches
+both (built from the same species), as specs/040 rule B does for inhibitors:
+PDPK1:PIP3 catalysing the phosphorylation of AKT:PIP3 counts PIP3 once.
+"""
+function self_activator_leaves()::Bool
+    value = get(ENV, "DS_SELF_ACTIVATOR_LEAVES", "0")
+    value in ("0", "1") || throw(ArgumentError(
+        "DS_SELF_ACTIVATOR_LEAVES must be 0 or 1; got $(repr(value))"))
+    return value == "1"
+end
+
 # "Off baseline" for entry detection. Upstream values at rest are products of
 # exact 1.0 folds, so anything above float noise is a signal.
 const SELF_FED_TOL = 1e-12

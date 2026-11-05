@@ -201,7 +201,7 @@ function solve_steady_state(
     # shared leaves; `self_leaf_pairs` counts the slots only that clause flags.
     self_shared, self_rule, self_leaf_pairs, self_copy_pairs = self_inhibitor_setup(network)
     # specs/083: activators built from their own reaction's input
-    self_act, self_act_rule = self_activator_setup(network)
+    self_act, self_act_rule, self_act_leaf_pairs = self_activator_setup(network)
     # specs/060 amendment 1: depleters whose entity contains their target's.
     own_entity = own_entity_depletion_pairs(network)
     # specs/061: entity-own pairs gated at solve time on their source copies.
@@ -407,6 +407,8 @@ function solve_steady_state(
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
     result.diagnostics["self_activator_rule"] = self_act_rule   # specs/083
+    result.diagnostics["self_activator_leaves"] = self_activator_leaves() ? "on" : "off"   # specs/136
+    result.diagnostics["self_activator_leaf_pairs"] = self_act_leaf_pairs
     # specs/103: how several depletion edges into one node combine, and how many
     # reactions have more than one (the only ones `share` changes).
     result.diagnostics["depletion_combine"] = resolve_reaction_eval_config().depletion_combine
@@ -497,17 +499,21 @@ function self_inhibitor_setup(network::ReactionNetwork)
 end
 
 """
-specs/083. `(map, rule)`: (activator uuid, target uuid) -> the target's `input`
-activators that a positive `regulator` or `catalyst` of that target CONTAINS
-(containment table) and is computed from (reachable from the input) -- a TF:gene
-complex regulating that gene's transcription. The propagator counts the shared
-input once (`DS_SELF_ACTIVATOR_WEIGHT`). Rule "off", "on" or "inert: no
-containment table".
+specs/083. `(map, rule, n_leaf)`: (activator uuid, target uuid) -> the target's
+`input` activators that a positive `regulator` or `catalyst` of that target
+CONTAINS (containment table) and is computed from (reachable from the input) -- a
+TF:gene complex regulating that gene's transcription. The propagator counts the
+shared input once (`DS_SELF_ACTIVATOR_WEIGHT`). Under `DS_SELF_ACTIVATOR_LEAVES=1`
+(specs/136) an input that shares a non-cofactor leaf with the activator also
+counts when the input reaches the activator or a carrier of the leaf reaches
+both; `n_leaf` counts the slots only that clause adds. Rule "off", "on" or
+"inert: no containment table".
 """
 function self_activator_setup(network::ReactionNetwork)
     out = Dict{Tuple{String, String}, Vector{String}}()
-    _self_activator_weight_env() < 0 && return out, "off"
-    isempty(network.containment) && return out, "inert: no containment table"
+    leaves = self_activator_leaves()        # validated even when the rule is off
+    _self_activator_weight_env() < 0 && return out, "off", 0
+    isempty(network.containment) && return out, "inert: no containment table", 0
     sid(u) = (n = get(network.nodes, u, nothing); n === nothing ? nothing : n.reactome_id)
     inputs = Dict{String, Vector{String}}()
     fwd = Dict{String, Vector{String}}()
@@ -524,17 +530,46 @@ function self_activator_setup(network::ReactionNetwork)
         end
         seen
     end
+    # specs/136: leaves as in specs/040 rule B (a contained stId that contains
+    # nothing else, cofactors excluded) and the nodes carrying each.
+    cont = network.containment
+    leaf_cache = Dict{String, Set{String}}()
+    leaves_of(st) = get!(leaf_cache, st) do
+        cands = union(get(cont, st, Set{String}()), Set([st]))
+        Set{String}(c for c in cands
+                    if isempty(setdiff(get(cont, c, Set{String}()), Set([c]))) && !(c in network.cofactor_stids))
+    end
+    carriers = Dict{String, Vector{String}}()
+    if leaves
+        for u in sort(collect(keys(network.nodes)))
+            st = network.nodes[u].reactome_id
+            st === nothing && continue
+            for l in leaves_of(st); push!(get!(carriers, l, String[]), u); end
+        end
+    end
+    common_cause(a, A, ls) = any(n != A && (n == a || a in reaches(n)) && A in reaches(n)
+                                 for l in ls for n in get(carriers, l, String[]))
+    n_leaf = 0
     for e in network.edges
         (e.is_positive && e.edge_type in ("regulator", "catalyst")) || continue
         A = e.parent_uuid; s = sid(A)
         s === nothing && continue
         inside = get(network.containment, s, nothing)
         inside === nothing && continue
-        shared = String[a for a in unique(get(inputs, e.child_uuid, String[]))
-                        if a != A && (as = sid(a)) !== nothing && as != s && as in inside && A in reaches(a)]
+        strict = String[]; shared = String[]
+        for a in unique(get(inputs, e.child_uuid, String[]))
+            (a != A && (as = sid(a)) !== nothing && as != s) || continue
+            if as in inside && A in reaches(a)
+                push!(strict, a); push!(shared, a)
+            elseif leaves
+                ls = intersect(leaves_of(as), leaves_of(s))
+                !isempty(ls) && (A in reaches(a) || common_cause(a, A, ls)) && push!(shared, a)
+            end
+        end
+        length(shared) > length(strict) && (n_leaf += 1)
         isempty(shared) || (out[(A, e.child_uuid)] = sort(shared))
     end
-    return out, "on"
+    return out, "on", n_leaf
 end
 
 """

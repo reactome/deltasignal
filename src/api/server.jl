@@ -975,6 +975,9 @@ function solve_handler(req)
             "self_inhibitors" => get(solver_result.diagnostics, "self_inhibitors", 0),
             "self_activator_rule" => get(solver_result.diagnostics, "self_activator_rule", "unknown"),   # specs/083
             "self_activators" => get(solver_result.diagnostics, "self_activators", 0),
+            # specs/136 (additive): activators sharing a leaf with their input, counted once.
+            "self_activator_leaves" => get(solver_result.diagnostics, "self_activator_leaves", "unknown"),
+            "self_activator_leaf_pairs" => get(solver_result.diagnostics, "self_activator_leaf_pairs", 0),
             "self_inhibitor_rule" => get(solver_result.diagnostics, "self_inhibitor_rule", "unknown"),
             # specs/032 (additive): "propagate", "inert", or "inert: no drug table".
             "drug_rule" => get(solver_result.diagnostics, "drug_rule", "unknown"),
