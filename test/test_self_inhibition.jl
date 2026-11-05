@@ -307,6 +307,51 @@ end
     end
 end
 
+# specs/136 arm L: the leaf clause for activators. T reads AK = AKT:PIP3 (input) and is
+# catalysed by PD = PDPK1:PIP3; both are assembled from the same PIP3 node P, so P's fold
+# enters T twice. Neither contains the other; they share the leaf R-P.
+@testset "an activator sharing a leaf with its input counts it once under DS_SELF_ACTIVATOR_LEAVES=1 (specs/136)" begin
+    lcont = Dict("R-AK" => Set(["R-AKT", "R-P"]), "R-PD" => Set(["R-PDPK1", "R-P"]))
+    function lnet(; common = true, cofactor = false)
+        nodes = Dict(node.(["T", "AK", "PD", "AKT", "PDPK1", "P", "P2"]))
+        edges = [edge("AK", "T", true, "input"), edge("PD", "T", true, "catalyst"),
+                 edge("AKT", "AK", true, "assembly"), edge("P", "AK", true, "assembly"),
+                 edge("PDPK1", "PD", true, "assembly"), edge(common ? "P" : "P2", "PD", true, "assembly")]
+        DS.ReactionNetwork(nodes, edges, Dict{String, DS.SetExpansionMapping}(),
+                           cofactor ? Set(["R-P"]) : Set{String}(), lcont)
+    end
+    function lsolve(net; p = 2.0, leaves = nothing, w = nothing)
+        with_env("DS_SELF_ACTIVATOR_LEAVES" => leaves, "DS_SELF_ACTIVATOR_WEIGHT" => w,
+                 "DS_ASSEMBLY_LIMITING" => nothing) do
+            obs = Dict("P" => (p, 1.0), "P2" => (p, 1.0), "AKT" => (1.0, 1.0), "PDPK1" => (1.0, 1.0))
+            DS.solve_steady_state(net, obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+        end
+    end
+    tf(r) = r.node_activities["T"] / BL
+    net = lnet()
+    dflt = lsolve(net)                                    # default off: P counted twice
+    @test tf(dflt) ≈ 4.0 rtol = 1e-6
+    @test dflt.diagnostics["self_activator_leaves"] == "off"
+    @test dflt.diagnostics["self_activator_leaf_pairs"] == 0
+    on = lsolve(net; leaves = "1")
+    @test tf(on) ≈ 2.0 * 2.0^0.1 rtol = 1e-6              # shared part at w = 0.1
+    @test on.diagnostics["self_activator_leaves"] == "on"
+    @test on.diagnostics["self_activator_leaf_pairs"] == 1
+    @test tf(lsolve(net; leaves = "1", w = "0")) ≈ 2.0 rtol = 1e-6
+    @test tf(lsolve(net; p = 0.5, leaves = "1", w = "0")) ≈ 0.5 rtol = 1e-6   # and below baseline
+    # PD built from a different PIP3 node that does not reach AK: no common cause, untouched
+    @test tf(lsolve(lnet(; common = false); leaves = "1")) ≈ 4.0 rtol = 1e-6
+    # a cofactor leaf is not a shared species
+    @test tf(lsolve(lnet(; cofactor = true); leaves = "1")) ≈ tf(lsolve(lnet(; cofactor = true))) rtol = 1e-9
+    # the weight switch still turns the whole rule off
+    @test tf(lsolve(net; leaves = "1", w = "off")) ≈ 4.0 rtol = 1e-6
+    for bad in ("2", "on", "yes")
+        with_env("DS_SELF_ACTIVATOR_LEAVES" => bad) do
+            @test_throws ArgumentError DS.self_activator_leaves()
+        end
+    end
+end
+
 @testset "influence scores use the same model when given the network" begin
     net = fixture()
     r = solve(net; x = 0.5, w = "0.1")

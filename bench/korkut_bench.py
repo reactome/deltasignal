@@ -46,6 +46,8 @@ if TOTAL_READOUT not in ("forms", "protein", "abundance"):
 # dissociation too, so a complex built from the protein, or a protein released from one, is not an abundance copy).
 MADE_FROM_EDGES = {"assembly", "dissociation", "recycle", "released_twin", "set_member",
                    "specialization", "variant_pool", "variant_split"}
+# Identity edges: a set, pool or identity copy of the protein's copies is the protein (specs/134 amendment 2).
+CARRY_EDGES = {"released_twin", "set_member", "specialization", "variant_pool", "variant_split"}
 
 
 def readout_nodes(r_stids, stid_to_uuids, own=None):
@@ -58,18 +60,25 @@ def readout_nodes(r_stids, stid_to_uuids, own=None):
 
 def abundance_copies(nodes, network_rows):
     """specs/134: the members of `nodes` that nothing makes from `nodes`: no reaction producing one takes an input in
-    `nodes`, and no material or identity edge into one comes from `nodes` (amendment 1). Catalyst, regulator and
-    depletion are not sources. Order kept."""
+    `nodes`, and no material or identity edge into one comes from `nodes` (amendment 1). A set or pool node fed from
+    `nodes` through identity edges counts as `nodes` (amendment 2). Catalyst, regulator and depletion are not sources.
+    Order kept."""
     inside = set(nodes)
-    inputs, producers, made = collections.defaultdict(set), collections.defaultdict(set), set()
+    inputs, producers, ident = collections.defaultdict(set), collections.defaultdict(set), collections.defaultdict(set)
     for e in network_rows:
         if e["edge_type"] == "input":
             inputs[e["target_id"]].add(e["source_id"])
         elif e["edge_type"] == "output":
             producers[e["target_id"]].add(e["source_id"])
-        elif e["edge_type"] in MADE_FROM_EDGES and e["source_id"] in inside:
-            made.add(e["target_id"])
-    return [u for u in nodes if u not in made and not any(inputs[r] & inside for r in producers[u])]
+        if e["edge_type"] in CARRY_EDGES:
+            ident[e["source_id"]].add(e["target_id"])
+    carry, todo = set(inside), list(inside)
+    while todo:
+        for v in ident[todo.pop()] - carry:
+            carry.add(v)
+            todo.append(v)
+    made = {e["target_id"] for e in network_rows if e["edge_type"] in MADE_FROM_EDGES and e["source_id"] in carry}
+    return [u for u in nodes if u not in made and not any(inputs[r] & carry for r in producers[u])]
 
 
 def total_readout_nodes(ro_nodes, totals, pathway_dir):

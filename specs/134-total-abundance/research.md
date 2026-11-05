@@ -149,3 +149,36 @@ servers; control and scoring as in R4. Convergence is identical to the frozen ru
   identical.
 
 Q10 holds. Under the decision above, `abundance` is now the korkut and CPPA bench default.
+
+## R8. Amendment 2 on korkut (2026-11-04)
+
+Code `e4809b8`, `run_arm.sh --axis korkut --bench DS_TOTAL_READOUT=abundance`, arm `k134_abund_a2`, frozen build; all
+1,493 solves converged. Scored with `score_134.py`.
+
+Case by case against `k134_abund_a1`: phospho identical; nothing moves outside the four readouts named in Q12. In RAF/MAP
+kinase cascade, cRAFV and fibronectin (42 each) and SRC and bRAF (30 each) move DOWN → NOT, measured NOT in all 144; the
+other 24 (12 SRC, 12 bRAF) leave scoring as `trivial`, a drug's own target whose remaining copies its knockout pins.
+That is the 168 change calls of Q12, and none elsewhere.
+
+| | cases | balanced acc. | accuracy | change calls (wrong) |
+|---|---|---|---|---|
+| amendment 1 (`k134_abund_a1`) | 10,469 | 0.4418 | 0.7980 | 1,932 (1,552) |
+| amendment 2 (`k134_abund_a2`) | 10,469 | 0.4469 | 0.8117 | 1,788 (1,408) |
+| difference | | +0.0051 [+0.0039, +0.0063] | +0.014 | 144 fixed / 0 broken |
+
+Against R1's control `k134_forms` on the 10,469 cases both score: balanced +0.0224 [+0.0060, +0.0376], accuracy
+0.675 → 0.812. RAF set aside (9,905 cases): +0.0212 [+0.0038, +0.0373], identical to amendment 1, as every moved case is
+in RAF.
+
+Q11 holds. Q12 holds exactly. Q13 holds (accuracy +0.014; balanced rises with RAF kept, unchanged with RAF set aside).
+Q14: CPPA training, R9.
+
+## R9. Amendment 2 on the CPPA training portion (2026-11-05)
+
+Build `20261027-1346_8b6527e_top114`, code `e4809b8`, 2 servers; control the R7 run (`7cb140c/cppa134_abundance`),
+scoring as in R4. Convergence identical. Numbers private, as in R4.
+
+- Primary (per-drug correlation): does not fall; the paired difference by drug lies above 0.
+- Secondary (balanced accuracy): unchanged overall (interval across 0). Phospho identical.
+
+Q14 holds. Amendment 2 meets its registered criteria on both korkut (R8) and CPPA training; adoption is Adam's.

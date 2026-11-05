@@ -97,7 +97,7 @@ by its member), not each variant copy. `DS_KO_AGG=mean` reproduces numbers from 
 
 **`DS_TOTAL_READOUT=abundance` (korkut and CPPA benches, default since 2026-11-04, specs/134 amendment 1)**: a
 total-protein antibody reads only the protein copies nothing makes from the protein itself (starting and translated
-copies, not bound, modified or released forms). A drug's own target whose every such copy is pinned leaves scoring.
+copies, not bound, modified or released forms; a set or pool of those copies carries the protein, amendment 2). A drug's own target whose every such copy is pinned leaves scoring.
 `DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04.
 
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
@@ -397,6 +397,10 @@ env vars only override for benchmark sweeps:
   TF:gene complex regulating that gene's transcription). Its overlap with the
   input is kept at w/n, so the input is counted once rather than once per such
   activator. Reports `self_activator_rule` and `self_activators`.
+  `DS_SELF_ACTIVATOR_LEAVES=0` (default) | `1` (specs/136 arm L, measured only): the pair test also accepts an
+  activator sharing a non-cofactor leaf with the input when a carrier of the leaf reaches both (PDPK1:PIP3
+  catalysing AKT:PIP3 counts PIP3 once), as specs/040 rule B does for inhibitors. Reports `self_activator_leaves`
+  and `self_activator_leaf_pairs`.
 - `DS_DRUG_MODE=inert` (**default since 2026-10-13**, specs/055; curator
   held-out +8, 8 fixed / 0 broken, experimental +2 with RAF set aside) |
   `propagate` (specs/032): drug-derived nodes (a Reactome `Drug`, a complex
@@ -1159,8 +1163,21 @@ for the last feature that touched it rather than re-deriving from the code.
   makes from the protein itself (starting and translated copies, not bound or modified forms). The first rule missed
   assembly and dissociation edges and failed the korkut gate (+0.0024). Amendment 1 passes it: balanced +0.0172
   [+0.0007, +0.0324] (RAF set aside +0.0212), accuracy 0.674 → 0.796; the CPPA training check holds. **Adopted**
-  (Adam, 2026-11-04). The total change calls left are proteins the pathway also makes (translation): the model keeps
+  (Adam, 2026-11-04). Amendment 2 (a set or pool of the protein's copies carries it: RAF scaffold complexes) **adopted**
+  (Adam, 2026-11-05): korkut 144 fixed / 0 broken, CPPA training holds. The total change calls left are proteins the pathway also makes (translation): the model keeps
   no stock of a protein it only makes.
+- `specs/135-synthesis-stock/` — analysis: the 527 total change calls left after specs/134 amendment 2 (13 right) are all
+  on proteins the network makes by gene expression; 196 of the single-copy ones read 0 because a knocked-out
+  `PositiveGeneExpressionRegulation` regulator is read as required. A 24 h stock (46 h half-life) or a basal expression
+  level each moves 39 of 409; both together put 197 within 0.01 of the 0.85 cutoff, so neither is registered. The bench
+  calls change at 15%, korkut at 50%; the cutoffs are Adam's question.
+- `specs/136-pip3-loop-parity/` — PIP3's korkut AKT overcalls are a switch: the curated MKRN1 loop (PIP3 → AKT →
+  p-MKRN1 ⊣ PTEN ⊣ PIP3) is positive feedback (two negatives), and PIP3 is counted about six times along AKT's
+  activation. Loop parity through PIP3: 5,952 of 5,997 cycles were the PIP2 ⇄ PIP3 conversion read as signal (5,580
+  with PTEN raising PIP3). Arms: P (`DS_METABOLITE_POOLS=on`) removes them, L (`DS_SELF_ACTIVATOR_LEAVES=1`, new) counts
+  a leaf shared by input and activator once, PL both. No korkut call changes in any arm (SRC knockout AKT 0.21 → 0.80
+  under PL, still under 0.85); held-out 0; PL loses 28 tuning and 5 experimental KIT/VAV1 knockouts that were DOWN
+  only through the switch. Gate fails; nothing adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
@@ -1192,7 +1209,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 115 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20 |
+| `test/test_self_inhibition.jl` | 129 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20; leaf-sharing activators (specs/136) 2026-11-04 |
 | `test/test_drugs.jl` | 134 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10; free ubiquitin (specs/098) 2026-10-23 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
