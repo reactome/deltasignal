@@ -38,7 +38,8 @@ NAMES = {bm.DOWN: "down", bm.NORMAL: "not", bm.UP: "up"}
 # specs/134: what a total-protein antibody reads. forms: every node that is, or contains, any EWAS of the gene;
 # protein: only protein EWAS (no DNA / mRNA); abundance: protein, and only copies nothing makes from the readout's own
 # nodes (starting copies, translated protein), since binding or modification does not change how much protein there is.
-TOTAL_READOUT = os.environ.get("DS_TOTAL_READOUT", "forms")
+# abundance is the default since 2026-11-04 (specs/134 amendment 1, Adam); forms reproduces earlier numbers.
+TOTAL_READOUT = os.environ.get("DS_TOTAL_READOUT", "abundance")
 if TOTAL_READOUT not in ("forms", "protein", "abundance"):
     raise SystemExit(f"DS_TOTAL_READOUT={TOTAL_READOUT!r}: expected forms, protein or abundance")
 # Material or identity edges that make their target from their source (specs/134 amendment 1: assembly and

@@ -1,7 +1,8 @@
 # specs/134: a total-protein antibody reads how much protein there is, not which forms it is in
 
-**Status:** measured 2026-11-04 (research.md R1–R4). The korkut gate fails (balanced +0.0024 [−0.0067, +0.0104];
-accuracy +0.049); the CPPA training check (Q6) holds. Not adopted under the registration; adoption is Adam's.
+**Status:** adopted 2026-11-04 (Adam) as amendment 1: `DS_TOTAL_READOUT=abundance` is the korkut and CPPA bench
+default. The first rule (R1–R4) failed the korkut gate (balanced +0.0024 [−0.0067, +0.0104]); amendment 1 passes it
+(+0.0172 [+0.0007, +0.0324], R6) and the CPPA training check holds (R7). `forms` reproduces earlier numbers.
 Registered 2026-11-04, before any code or count for the rule. Follows specs/133's conclusion that the
 remaining korkut errors belong to single pathways (Adam: "okay go ahead").
 

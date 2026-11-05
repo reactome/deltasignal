@@ -134,4 +134,18 @@ Every remaining total change call (695, 13 right) is on a readout with a copy th
 implemented as written.
 
 Predictions: Q7 holds. Q8 holds for (a), synthesis copies; (b) is refuted, only 38 of 695 are a drug's own target,
-because most such cases leave scoring. Q9 is refuted: the gate passes. Q10: CPPA training, pending (R7).
+because most such cases leave scoring. Q9 is refuted: the gate passes. Q10: CPPA training, R7.
+
+## R7. Amendment 1 on the CPPA training portion (2026-11-04)
+
+Build `20261027-1346_8b6527e_top114`, code `7cb140c` (the rule as in `f03d0f9`), `DS_TOTAL_READOUT=abundance`, 2
+servers; control and scoring as in R4. Convergence is identical to the frozen run. Numbers are private, as in R4.
+
+- Primary (per-drug correlation): rises; the paired difference by drug has an interval across 0. The no-harm
+  condition holds. A drug whose only predicted changes were totals of its target's binding partners (read DOWN
+  because the complexes they sit in lost the target) now predicts no change, as the rule intends: a partner's own
+  stock does not move.
+- Secondary (balanced accuracy): rises more than in R4, and its interval lies above 0. Phospho predictions are
+  identical.
+
+Q10 holds. Under the decision above, `abundance` is now the korkut and CPPA bench default.

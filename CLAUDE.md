@@ -95,6 +95,11 @@ RAF_MAP_kinase_cascade`, and both figures are reported. Headlines keep RAF.
 that resolves to several nodes weighs each curated entity once (a proxy reaction copy by its output entity, a set
 by its member), not each variant copy. `DS_KO_AGG=mean` reproduces numbers from before 2026-10-26.
 
+**`DS_TOTAL_READOUT=abundance` (korkut and CPPA benches, default since 2026-11-04, specs/134 amendment 1)**: a
+total-protein antibody reads only the protein copies nothing makes from the protein itself (starting and translated
+copies, not bound, modified or released forms). A drug's own target whose every such copy is pinned leaves scoring.
+`DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04.
+
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
 of inferring the protocol from flags.
 
@@ -1150,11 +1155,12 @@ for the last feature that touched it rather than re-deriving from the code.
   while korkut raw accuracy falls (115 of 162 unique changes broken: PIP3's AKT overcalls carried on); every changed
   case follows a curated chain; past one hop only PI Metabolism's lipid rails are added. Not adopted.
 - `specs/134-total-abundance/` — a total-protein antibody reads abundance, not forms: bench `DS_TOTAL_READOUT`
-  (`forms` default | `protein` | `abundance`, korkut and CPPA benches only) reads only protein copies that nothing
-  makes from the protein itself (starting and translated copies, not bound or modified forms). korkut: accuracy
-  +0.049, but the gate fails on balanced accuracy (+0.0024 [−0.0067, +0.0104]); the CPPA training check holds
-  (secondary rises). Every total change call left comes from a copy the pathway makes, and 40 of 1,881 are right: the
-  model keeps no stock of a protein it only makes. Not adopted.
+  (`abundance` default | `forms` | `protein`, korkut and CPPA benches only) reads only protein copies that nothing
+  makes from the protein itself (starting and translated copies, not bound or modified forms). The first rule missed
+  assembly and dissociation edges and failed the korkut gate (+0.0024). Amendment 1 passes it: balanced +0.0172
+  [+0.0007, +0.0324] (RAF set aside +0.0212), accuracy 0.674 → 0.796; the CPPA training check holds. **Adopted**
+  (Adam, 2026-11-04). The total change calls left are proteins the pathway also makes (translation): the model keeps
+  no stock of a protein it only makes.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
