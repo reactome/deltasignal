@@ -19,7 +19,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-os.environ.setdefault("DS_TOTAL_READOUT", "abundance")
+# the census is of abundance copies: refuse another readout rather than silently classify its copies
+if not os.environ.setdefault("DS_TOTAL_READOUT", "abundance").startswith("abundance"):
+    raise SystemExit(f"census_135 counts abundance copies; DS_TOTAL_READOUT={os.environ['DS_TOTAL_READOUT']!r}")
 import benchmark_vs_mpbiopath as bm  # noqa: E402
 import korkut_bench as kb  # noqa: E402
 
@@ -67,7 +69,7 @@ def main():
             rows = list(csv.DictReader(f))
         diagram = {r["uuid"]: r["diagram_entity_id"] for r in csv.DictReader(open(pdir / "nodes.csv"))}
         for name, nodes in kb.readout_nodes(r_st, bm.load_stid_to_uuids(pdir)).items():
-            prods = copy_producers(kb.abundance_copies(nodes, rows), rows)
+            prods = copy_producers(kb.abundance_copies(nodes, rows, kb.TOTAL_READOUT), rows)
             kinds = {k for k, _ in prods.values()}
             cls[(pid, name)] = "+".join(sorted(kinds)) or "none"
             for p in {diagram.get(r, r) for _, ps in prods.values() for r in ps}:

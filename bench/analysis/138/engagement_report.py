@@ -17,12 +17,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import engagement  # noqa: E402
 import score_134 as s134  # noqa: E402
 
-SPLITS = ("every drug engaged", "some engaged", "none engaged")
+SPLITS = ("every drug engaged", "some engaged", "none engaged", "engagement unknown")
 
 
 def split_of(drug_set, engaged):
+    """The set's split from its drugs' engagement. A drug with no marker (HDAC, PKC) is unknown, not "no": a set is
+    filed by the drugs whose engagement is known only when the unknown ones cannot change the answer (amendment 2)."""
     states = {engaged[d] for d in drug_set.split("+")}
-    return SPLITS[0] if states == {"yes"} else SPLITS[2] if "yes" not in states else SPLITS[1]
+    if {"yes", "no"} <= states:
+        return SPLITS[1]
+    if "no marker" in states:
+        return SPLITS[3]
+    return SPLITS[0] if states == {"yes"} else SPLITS[2]
 
 
 def markers_of(drug_set, markers):

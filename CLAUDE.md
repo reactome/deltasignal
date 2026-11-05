@@ -103,7 +103,8 @@ copies, not bound, modified or released forms; a set or pool of those copies car
 `abundance` names the adopted one (amendment 2), and logs print the version.
 
 **korkut is reported by target engagement beside the raw score** (specs/138 amendment 1, Adam 2026-11-05):
-`bench/analysis/138/engagement_report.py CASES`. Three of its drugs did not move their own marker in these cells. The
+`bench/analysis/138/engagement_report.py CASES`. Five of its drugs did not move their own marker in these cells, and two have
+no marker on the array (filed as engagement unknown, amendment 2). The
 raw score stays the headline, and gates stay on the raw cases.
 
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
@@ -1163,9 +1164,10 @@ for the last feature that touched it rather than re-deriving from the code.
   extracellular handoffs never bridged, solver `DS_CONTEXT_BRIDGE_ORDER=last`). Two construction defects found by
   tracing and fixed: identity twins joined copies across pathways (amendment 1, `context_origin.csv`), and source
   pathways were reduced and pruned so they were not themselves (amendment 2, `--whole`); both have checks
-  (`origin_check_133.jl`, `source_check_133.jl`). Then the gate passes (+0.015 [+0.004, +0.027]) on balanced accuracy
-  while korkut raw accuracy falls (115 of 162 unique changes broken: PIP3's AKT overcalls carried on); every changed
-  case follows a curated chain; past one hop only PI Metabolism's lipid rails are added. Not adopted.
+  (`origin_check_133.jl`, `source_check_133.jl`). Then the gate passes on balanced accuracy (T2+F +0.0141
+  [+0.0037, +0.0254]; one hop A2+F +0.0147) while korkut raw accuracy falls (115 of 162 unique changes broken: PIP3's
+  AKT overcalls carried on); every changed case follows a curated chain; past one hop only PI Metabolism's lipid rails
+  are added. Not adopted.
 - `specs/134-total-abundance/` — a total-protein antibody reads abundance, not forms: bench `DS_TOTAL_READOUT`
   (`abundance` default | `forms` | `protein`, korkut and CPPA benches only) reads only protein copies that nothing
   makes from the protein itself (starting and translated copies, not bound or modified forms). The first rule missed

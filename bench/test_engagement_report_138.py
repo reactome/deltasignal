@@ -16,7 +16,12 @@ def row(ds, ro, pred, meas, reach="not"):
 def test_split_of():
     assert er.split_of("A", ENG) == "every drug engaged"
     assert er.split_of("A+B", ENG) == "some engaged"
-    assert er.split_of("B+C", ENG) == "none engaged"
+    assert er.split_of("B", ENG) == "none engaged"
+    # amendment 2: a drug without a marker is unknown, so it decides nothing unless the known drugs already do
+    assert er.split_of("B+C", ENG) == "engagement unknown"
+    assert er.split_of("A+C", ENG) == "engagement unknown"
+    assert er.split_of("C", ENG) == "engagement unknown"
+    assert er.split_of("A+B+C", ENG) == "some engaged"
 
 
 def test_markers_left_out_of_splits_but_not_raw():

@@ -58,7 +58,8 @@ def names(stids):
 
 
 def korkut_sources():
-    """{drug set: target genes} and {gene: stIds}, {readout: stIds}, from the bench's own maps."""
+    """{drug set: target genes}, {gene: stIds}, {readout: stIds} and the total readouts, from the bench's own maps;
+    totals resolve as the bench resolves them (specs/134, kb.TOTAL_READOUT)."""
     drugs = {d["code"]: d["genes"].split(",") for d in kb.read_tsv(kb.MAPS / "drugs.tsv")}
     readouts = [r for r in kb.read_tsv(kb.MAPS / "readouts.tsv") if r["kind"] != "exclude"]
     genes = sorted({g for gs in drugs.values() for g in gs}
@@ -66,7 +67,8 @@ def korkut_sources():
     g2s = bm.neo4j_gene_to_stids(genes)
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
-    return drugs, g2s, kb.readout_stids(readouts, g2s, kb.neo4j_site_stids(sites))
+    totals = {r["readout"] for r in readouts if r["kind"] == "total"}
+    return drugs, g2s, kb.readout_stids(readouts, kb.total_gene_stids(readouts, g2s), kb.neo4j_site_stids(sites)), totals
 
 
 def main():
@@ -85,7 +87,7 @@ def main():
         for r in csv.DictReader(open(Path(a_res) / f"{kind}_cases.tsv", newline=""), delimiter="\t"):
             cell_rows[(r["pathway"], r["gene"], r["direction"], r["key_output"])] = (
                 [u for u in r["gene_uuids"].split("|") if u], [u for u in r["output_uuids"].split("|") if u])
-    drugs = g2s = r_stids = None
+    drugs = g2s = r_stids = totals = None
     cache, rows = {}, []
     for d in ("experimental", "curator_heldout", "korkut"):
         moved = sorted((k for k in control[d].keys() & arm[d].keys()
@@ -105,10 +107,11 @@ def main():
             fwd, rev, br, s2u, stids_of, own = cache[pid]
             if d == "korkut":
                 if drugs is None:
-                    drugs, g2s, r_stids = korkut_sources()
+                    drugs, g2s, r_stids, totals = korkut_sources()
                 genes = {g for code in k[1].split("+") for g in drugs[code]}
                 sources = [u for g in genes for s in g2s.get(g, []) for u in s2u.get(s, [])]
-                readout = kb.readout_nodes({k[2]: r_stids.get(k[2], [])}, s2u, own).get(k[2], [])
+                ro = kb.readout_nodes({k[2]: r_stids.get(k[2], [])}, s2u, own)
+                readout = kb.total_readout_nodes(ro, totals, a_bundle / pid).get(k[2], []) if ro else []
                 case = f"{k[1]} -> {k[2]}"
             else:
                 sources, readout = cell_rows[k]
