@@ -34,16 +34,18 @@ the context cannot close a cycle through P.
 Under `--curated LINKS S_Q` (specs/132) bridges come only from Reactome's curated handoffs, never from identity:
 LINKS (bench/analysis/curated_links_132.py) lists pairs (r in P, s outside P, entity e an output of s and an input,
 catalyst or regulator of r); S_Q names the pathway holding s (its lowest ancestor with a diagram). A bridge runs from
-Q's copy of e that s outputs to P's copy of e that feeds r and is a root in P. Feed-in only, no hub rule, centres
+Q's copy of e that s outputs to P's copy of e that feeds r and is a root in P (a root as the bench pins it,
+`benchmark_vs_mpbiopath.root_indegree`: depletion and recycle in-edges do not count). Feed-in only, no hub rule, centres
 limited by `--centres` (the scored pathways); `--l2` keeps only pairs whose s lies in a pathway P's diagrams
 encapsulate. With an empty LINKS it builds each centre alone (the control). `--whole` (specs/133 amendment 2): a source
 pathway is neither reduced nor pruned, so it solves as it does alone.
 
 Under `--curated LINKS S_Q --transitive` (specs/133) handoffs are followed back as far as they go, as a tree per centre
-(`plan_transitive`); LINKS comes from bench/analysis/closure_133.py, whose `extracellular` handoffs are never bridged.
+(`plan_transitive`); LINKS comes from bench/analysis/closure_133.py, whose `extracellular` handoffs are never bridged
+(under either planner). `--l2` applies to both planners. BUILD.json records both filters and the root rule.
 
 Usage: context_build.py BASE_BUILD OUT_BUILD [--hub 5] [--feed-in] [--census]
-       context_build.py BASE_BUILD OUT_BUILD --curated LINKS S_Q --centres LIST [--l2]
+       context_build.py BASE_BUILD OUT_BUILD --curated LINKS S_Q --centres LIST [--l2] [--transitive] [--whole]
 """
 import argparse
 import collections
@@ -52,6 +54,9 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import benchmark_vs_mpbiopath as bm  # noqa: E402  (the bench's root definition)
 
 KEY = ("node_kind", "diagram_entity_id", "compartment", "member_leaves", "source_sets", "chosen_members")
 NEVER = {"reaction", "set_pool"}
@@ -76,15 +81,27 @@ def load(d):
     held = set()
     for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
         held |= {r["stable_id"] for r in rows(d / t)[1]}
-    edges = [(r["source_id"], r["target_id"], r.get("edge_reaction_id") or "")
-             for t in ("logic_network.csv", "boundary_edges.csv") for r in rows(d / t)[1]]
+    both = [r for t in ("logic_network.csv", "boundary_edges.csv") for r in rows(d / t)[1]]
+    edges = [(r["source_id"], r["target_id"], r.get("edge_reaction_id") or "") for r in both]
+    etyped = [(r["source_id"], r["target_id"], r.get("edge_reaction_id") or "", r.get("edge_type") or "") for r in both]
     rnode = {r["uuid"]: r["diagram_entity_id"] for r in nodes if r["node_kind"] == "reaction"}
     ident = {}
     for r in nodes:
         if r["node_kind"] in NEVER or r["diagram_entity_id"] in held:
             continue
         ident[r["uuid"]] = tuple(r.get(k, "") for k in KEY)
-    return {"ident": ident, "edges": edges, "rnode": rnode, "reactions": set(rnode.values())}
+    return {"ident": ident, "edges": edges, "etyped": etyped, "rnode": rnode, "reactions": set(rnode.values())}
+
+
+def bench_roots(v, edges, nodes):
+    """The members of `nodes` that the bench counts as roots over `edges` (a subset of pathway `v`'s edges): in-degree 0
+    by bench.benchmark_vs_mpbiopath.root_indegree, so a depletion in-edge (under the default DS_PIN_ROOT_IGNORE) and a
+    recycle edge do not stop a copy being a root. A curated bridge may enter only a copy the bench would pin (review
+    2026-11-05: the builders had counted every in-edge)."""
+    keep = set(edges)
+    indeg = bm.root_indegree({"source_id": a, "target_id": b, "edge_type": t}
+                             for a, b, rid, t in v["etyped"] if (a, b, rid) in keep)
+    return {u for u in nodes if not indeg[u]}
 
 
 def reduced_edges(q, without):
@@ -131,7 +148,8 @@ def plan_curated(base, links, s_q, centres, l2_only=False, members=None, whole=F
     """Bridges from curated handoffs only: {(P, Q): {"in": [(src, dst)], "out": [], "edges": Q's reduced edges}},
     plus one census row per handoff pair and entity (why it did or did not make a bridge). `members` (a TSV of
     entity, member) lists each handed-off set's members: the generator expands a set into its members, so a set
-    handoff is a handoff of each member, matched member to same member."""
+    handoff is a handoff of each member, matched member to same member. Handoffs flagged `extracellular` (specs/133;
+    a LINKS file from closure_133.py) are never bridged, as under plan_transitive."""
     mem = collections.defaultdict(set)
     if members:
         for r in csv.DictReader(open(members), delimiter="\t"):
@@ -149,13 +167,15 @@ def plan_curated(base, links, s_q, centres, l2_only=False, members=None, whole=F
                           for r in rows(d / "logic_network.csv")[1]]
             info[name] = v
             ents[name] = {r["uuid"]: r["diagram_entity_id"] for r in rows(d / "nodes.csv")[1]}
-            roots[name] = set(ents[name]) - {t for _, t, _ in v["edges"]}
+            roots[name] = bench_roots(v, v["edges"], ents[name])
         return info[name]
 
     bridges, census = {}, []
     for L in links:
         P, Q = L["pathway"], q_of.get(L["s"])
         row = dict(L, q=Q or "", status="")
+        if L.get("extracellular") == "True":
+            row["status"] = "extracellular"; census.append(row); continue
         if not Q or not (base / Q / "nodes.csv").exists():
             row["status"] = "no_source_network"; census.append(row); continue
         if Q == P:
@@ -176,19 +196,29 @@ def plan_curated(base, links, s_q, centres, l2_only=False, members=None, whole=F
 def match_link(L, xdir, vx, vq, ex, eq, roots_x, mem):
     """(census status, [(src in Q, dst in X)]) for one curated handoff (s in Q precedes r in X through entity e):
     Q's copies of e that s outputs, bridged to X's copies of e that feed r and are in `roots_x`. A set entity is matched
-    member to same member."""
+    member to same member: its members (from `mem`) count as e, and a set POOL node at r (specs/033: the set's own id,
+    fed by `set_member` edges, as a set-valued catalyst or regulator is built) is replaced by the members feeding it.
+    `no_same_member_pair` when copies exist on both sides and at a root but no two are the same entity."""
     e = L["entity"]
     held = set()
     for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
         held |= {r["stable_id"] for r in rows(xdir / t)[1]}
     if e in held:
         return "held_entity", []
-    ids = {e} if e in ex.values() or not mem[e] else mem[e] - held
+    ids = ({e} | mem[e]) - held
     role = "regulator" if L["role"].startswith("regulator") else L["role"]
     # an input edge carries its reaction's stId; a catalyst or regulator edge carries none and points at the
     # reaction node, whose diagram entity is the reaction
-    dst = sorted({a for a, b, t, rid in vx["typed"] if t == role and ex.get(a) in ids
-                  and (rid == L["r"] if role == "input" else ex.get(b) == L["r"])})
+    dst = {a for a, b, t, rid in vx["typed"] if t == role and ex.get(a) in ids
+           and (rid == L["r"] if role == "input" else ex.get(b) == L["r"])}
+    feeds = collections.defaultdict(set)
+    for a, b, t, _ in vx["typed"]:
+        if t == "set_member" and b in dst and ex.get(a) not in held:
+            feeds[b].add(a)
+    for pool, ms in feeds.items():
+        dst = (dst - {pool}) | ms
+        ids |= {ex[m] for m in ms}
+    dst = sorted(dst)
     src = sorted({b for a, b, t, rid in vq["typed"] if rid == L["s"] and t == "output" and eq.get(b) in ids})
     if not dst:
         return "entity_not_at_r_in_centre", []
@@ -196,17 +226,20 @@ def match_link(L, xdir, vx, vq, ex, eq, roots_x, mem):
         return "entity_not_output_of_s_in_source", []
     if not any(u in roots_x for u in dst):
         return "centre_copy_not_root", []
-    return "bridged", [(a, b) for a in src for b in dst if b in roots_x and eq[a] == ex[b]]
+    pairs = [(a, b) for a in src for b in dst if b in roots_x and eq[a] == ex[b]]
+    return ("bridged", pairs) if pairs else ("no_same_member_pair", [])
 
 
-def plan_transitive(base, links, s_q, centres, members=None, whole=False):
+def plan_transitive(base, links, s_q, centres, members=None, whole=False, l2_only=False):
     """specs/133: curated handoffs followed back as far as they go, as a tree per centre P. Depth 0 is P; a pathway Q
     joins at depth d+1 when a handoff runs from Q into a root copy that a depth-d pathway X keeps (every root of P;
     for X != P a root among X's kept nodes, the ancestors of its own bridge sources). Each pathway joins once, at its
     least depth, and bridges run only from depth d+1 into depth d, so the context has no cycle. A joining pathway loses
     the reactions of every pathway at a lower depth. Handoffs flagged `extracellular` (cell-to-cell signals) are never
     bridged. Returns ({(P, Q): {"in": [(src in Q, dst)], "out": [], "edges": Q's reduced edges}}, census rows with
-    the centre, the receiving pathway and Q's depth). Under `whole` (amendment 2) no pathway is reduced."""
+    the centre, the receiving pathway and Q's depth). Under `whole` (amendment 2) no pathway is reduced. Under `l2_only`
+    a handoff counts only if its source lies in a pathway the receiving pathway's diagrams encapsulate (closure_133's
+    `l2`, computed for the receiving pathway), as plan_curated's --l2."""
     mem = collections.defaultdict(set)
     if members:
         for r in csv.DictReader(open(members), delimiter="\t"):
@@ -214,7 +247,8 @@ def plan_transitive(base, links, s_q, centres, members=None, whole=False):
     q_of = {r["s"]: r["q_diagram"] for r in csv.DictReader(open(s_q), delimiter="\t")}
     by_x = collections.defaultdict(list)
     for r in csv.DictReader(open(links), delimiter="\t"):
-        by_x[r["pathway"]].append(r)
+        if r["l2"] == "True" or not l2_only:
+            by_x[r["pathway"]].append(r)
     info, ents = {}, {}
 
     def get(name):
@@ -232,7 +266,7 @@ def plan_transitive(base, links, s_q, centres, members=None, whole=False):
         vp = get(P)
         depth, edges = {P: 0}, {P: vp["edges"]}
         seen_rx = set(vp["reactions"])           # reactions of every pathway joined so far
-        allowed = {P: set(ents[P]) - {t for _, t, _ in vp["edges"]}}
+        allowed = {P: bench_roots(vp, vp["edges"], ents[P])}
         level = [P]
         while level:
             joined = collections.defaultdict(list)       # Q -> its bridges this round
@@ -249,7 +283,8 @@ def plan_transitive(base, links, s_q, centres, members=None, whole=False):
                         row["status"] = "source_already_joined"
                     else:
                         row["status"], pairs = match_link(L, base / X, vx, get(Q), ents[X], ents[Q], allowed[X], mem)
-                        joined[Q] += pairs
+                        if pairs:
+                            joined[Q] += pairs
                     census.append(row)
             nxt = []
             for Q in sorted(q for q, ps in joined.items() if ps):
@@ -258,7 +293,7 @@ def plan_transitive(base, links, s_q, centres, members=None, whole=False):
                 depth[Q], edges[Q] = depth[level[0]] + 1, qe
                 srcs = sorted({a for a, _ in joined[Q]})
                 kept = kept_nodes(base / Q, srcs, qe)
-                allowed[Q] = kept - {t for _, t, _ in qe}
+                allowed[Q] = bench_roots(vq, qe, kept)
                 bridges[(P, Q)] = {"in": sorted(set(joined[Q])), "out": [], "edges": qe}
                 nxt.append(Q)
             for Q in nxt:
@@ -442,8 +477,10 @@ def main_curated(a, base):
     if not a.centres:
         sys.exit("--curated needs --centres")
     centres = [l.split("\t")[0] for l in open(a.centres) if l.startswith("R-HSA")]
+    with open(a.curated[0]) as f:
+        has_extra = "extracellular" in f.readline().rstrip("\n").split("\t")
     if a.transitive:
-        bridges, census = plan_transitive(base, a.curated[0], a.curated[1], set(centres), a.members, a.whole)
+        bridges, census = plan_transitive(base, a.curated[0], a.curated[1], set(centres), a.members, a.whole, a.l2)
     else:
         bridges, census = plan_curated(base, a.curated[0], a.curated[1], set(centres), a.l2, a.members, a.whole)
     nbr = collections.defaultdict(set)
@@ -473,7 +510,12 @@ def main_curated(a, base):
                                 capture_output=True, text=True).stdout.strip())
     b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""),
               "context_of": base.name,
-              "context_rule": "curated_transitive" if a.transitive else "curated_l2" if a.l2 else "curated_l1",
+              "context_rule": ("curated_transitive" + ("_l2" if a.l2 else "")) if a.transitive else
+                              "curated_l2" if a.l2 else "curated_l1",
+              "context_l2": a.l2,
+              # specs/133: extracellular handoffs are never bridged; a LINKS file without the column flags none
+              "context_extracellular": "never_bridged" if has_extra else "no column",
+              "context_root_ignore": bm.PIN_ROOT_IGNORE or "none",
               "context_links": a.curated[0], "context_members": a.members, "context_pruned": not a.whole,
               "context_whole": a.whole, "context_feedback": False, "context": tot,
               "pathway_list": a.centres, "pathways_requested": len(centres), "pathways_built": len(tot),
