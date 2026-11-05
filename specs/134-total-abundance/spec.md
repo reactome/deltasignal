@@ -4,7 +4,8 @@
 default. The first rule (R1–R4) failed the korkut gate (balanced +0.0024 [−0.0067, +0.0104]); amendment 1 passes it
 (+0.0172 [+0.0007, +0.0324], R6) and the CPPA training check holds (R7). `forms` reproduces earlier numbers.
 Amendment 2 (a set or pool of the protein's copies carries it) **adopted 2026-11-05** (Adam: "yes"): korkut 144 fixed /
-0 broken, exactly the registered cases (R8); CPPA training holds (R9).
+0 broken, exactly the registered cases (R8); CPPA training holds (R9). Amendment 3 (`recycle` is not a made-from edge;
+every version keeps its own value) meets its criteria (R10–R11); `abundance` stays amendment 2 until Adam decides.
 Registered 2026-11-04, before any code or count for the rule. Follows specs/133's conclusion that the
 remaining korkut errors belong to single pathways (Adam: "okay go ahead").
 
