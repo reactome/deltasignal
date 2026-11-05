@@ -308,3 +308,116 @@ def test_whole_keeps_a_source_pathway_as_it_is_alone(tmp_path):
     assert {e for e in w if e[2] != "context_bridge"} == set(_edges(b / "R-HSA-1")) | set(_edges(q))
     bj = json.load(open(tmp_path / "w" / "BUILD.json"))
     assert bj["context_whole"] is True and bj["context_pruned"] is False
+
+
+def _add(b, name, nodes="", edges=""):
+    with open(b / name / "nodes.csv", "a") as f:
+        f.write(nodes)
+    with open(b / name / "logic_network.csv", "a") as f:
+        f.write(edges)
+
+
+def test_curated_bridges_a_root_the_bench_pins_depletion_and_recycle_in_edges_aside(tmp_path, monkeypatch):
+    # review 2026-11-05: P's E gains a depletion in-edge (from D), then only a recycle in-edge. The bench pins E as a
+    # root either way (DS_PIN_ROOT_IGNORE=depletion, recycle edges structural), so the curated bridge must enter it.
+    import benchmark_vs_mpbiopath as bm
+    monkeypatch.setattr(bm, "PIN_ROOT_IGNORE", "depletion")
+    for et in ("depletion", "recycle"):
+        (tmp_path / et).mkdir()
+        b = _curated_fixture(tmp_path / et)
+        _add(b, "R-HSA-1", "pd,simple_entity,R-D,,,,\n", f"pd,pe,neg,and,{et},1,\n")
+        args = (b, tmp_path / et / "links.tsv", tmp_path / et / "s_q.tsv", {"R-HSA-1"})
+        bridges, census = cb.plan_curated(*args)
+        assert ("qe", "pe") in bridges[("R-HSA-1", "R-HSA-2")]["in"], et
+        assert census[0]["status"] == "bridged"
+        # the same root under the transitive planner
+        tb, _ = cb.plan_transitive(*args)
+        assert ("qe", "pe") in tb[("R-HSA-1", "R-HSA-2")]["in"], et
+    # under DS_PIN_ROOT_IGNORE=none the bench does not pin a depletion-fed copy, and neither builder bridges it
+    monkeypatch.setattr(bm, "PIN_ROOT_IGNORE", "")
+    b = tmp_path / "depletion" / "base"
+    bridges, census = cb.plan_curated(b, tmp_path / "depletion" / "links.tsv", tmp_path / "depletion" / "s_q.tsv",
+                                      {"R-HSA-1"})
+    assert ("qe", "pe") not in bridges[("R-HSA-1", "R-HSA-2")]["in"] and census[0]["status"] == "centre_copy_not_root"
+    # an ordinary producer still makes a copy a non-root
+    (tmp_path / "input").mkdir()
+    b2 = _curated_fixture(tmp_path / "input")
+    _add(b2, "R-HSA-1", "pd,simple_entity,R-D,,,,\npz,reaction,R-Z,,,,\n", "pd,pz,pos,and,input,1,R-Z\npz,pe,pos,or,output,1,R-Z\n")
+    _, census = cb.plan_curated(b2, tmp_path / "input" / "links.tsv", tmp_path / "input" / "s_q.tsv", {"R-HSA-1"})
+    assert census[0]["status"] == "centre_copy_not_root"
+
+
+def test_curated_set_catalyst_pool_bridges_to_its_members(tmp_path):
+    # review 2026-11-05: a set-valued catalyst is one pool node at r (the set's own id, fed by set_member edges, as the
+    # generator's LNG_SET_POOL builds it). A set handoff is a handoff of each member, so the bridge enters the member
+    # roots that feed the pool, member to same member.
+    b = _curated_fixture(tmp_path)
+    _add(b, "R-HSA-1", "pm1,simple_entity,R-M1,,,,\npm2,simple_entity,R-M2,,,,\npset,set_pool,R-SET,,,,\n",
+         "pm1,pset,pos,or,set_member,1,\npm2,pset,pos,or,set_member,1,\npset,pr,pos,and,catalyst,1,\n")
+    _add(b, "R-HSA-2", "qm1,simple_entity,R-M1,,,,\nqm2,simple_entity,R-M2,,,,\n",
+         "qs,qm1,pos,or,output,1,R-S1\nqs,qm2,pos,or,output,1,R-S1\n")
+    (tmp_path / "set.tsv").write_text("pathway\tr\ts\tq\tentity\trole\tl2\nR-HSA-1\tR-R1\tR-S1\tx\tR-SET\tcatalyst\tFalse\n")
+    # with or without a member table: the pool's own set_member edges name the members
+    for members in (None, tmp_path / "members.tsv"):
+        (tmp_path / "members.tsv").write_text("entity\tmember\tentity_class\nR-SET\tR-M1\tDefinedSet\n"
+                                              "R-SET\tR-M2\tDefinedSet\n")
+        bridges, census = cb.plan_curated(b, tmp_path / "set.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"}, members=members)
+        assert bridges[("R-HSA-1", "R-HSA-2")]["in"] == [("qm1", "pm1"), ("qm2", "pm2")]
+        assert [r["status"] for r in census] == ["bridged"]
+
+
+def test_curated_no_same_member_pair_is_its_own_status_and_adds_no_neighbour(tmp_path):
+    # review 2026-11-05: Q outputs member M2 of the set, P takes member M1 at r: copies on both sides, P's at a root,
+    # but no pair is the same member. That is not a bridge.
+    b = _curated_fixture(tmp_path)
+    _add(b, "R-HSA-1", "pm1,simple_entity,R-M1,,,,\n", "pm1,pr,pos,and,input,1,R-R1\n")
+    _add(b, "R-HSA-2", "qm2,simple_entity,R-M2,,,,\n", "qs,qm2,pos,or,output,1,R-S1\n")
+    (tmp_path / "set.tsv").write_text("pathway\tr\ts\tq\tentity\trole\tl2\nR-HSA-1\tR-R1\tR-S1\tx\tR-SET\tinput\tFalse\n")
+    (tmp_path / "members.tsv").write_text("entity\tmember\tentity_class\nR-SET\tR-M1\tDefinedSet\nR-SET\tR-M2\tDefinedSet\n")
+    bridges, census = cb.plan_curated(b, tmp_path / "set.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"},
+                                      members=tmp_path / "members.tsv")
+    assert bridges == {} and [r["status"] for r in census] == ["no_same_member_pair"]
+    tb, tcensus = cb.plan_transitive(b, tmp_path / "set.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"},
+                                     members=tmp_path / "members.tsv")
+    assert tb == {} and [r["status"] for r in tcensus] == ["no_same_member_pair"]
+
+
+def test_both_planners_honour_extracellular_and_l2_and_build_json_records_them(tmp_path):
+    # review 2026-11-05: --transitive ignored --l2, and the one-hop planner ignored closure_133's extracellular flag
+    b = _curated_fixture(tmp_path)
+    head = "pathway\tr\ts\tq\tentity\trole\tl2\textracellular\n"
+    (tmp_path / "x.tsv").write_text(head + "R-HSA-1\tR-R1\tR-S1\tx\tR-E\tinput\tFalse\tTrue\n"
+                                    "R-HSA-1\tR-R1\tR-S1\tx\tR-C\tcatalyst\tTrue\tFalse\n")
+    args = (b, tmp_path / "x.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"})
+    for plan in (cb.plan_curated, cb.plan_transitive):
+        bridges, census = plan(*args)
+        assert {r["entity"]: r["status"] for r in census} == {"R-E": "extracellular", "R-C": "bridged"}
+        assert bridges[("R-HSA-1", "R-HSA-2")]["in"] == [("qc", "pc")]
+    (tmp_path / "x2.tsv").write_text(head + "R-HSA-1\tR-R1\tR-S1\tx\tR-E\tinput\tFalse\tFalse\n"
+                                     "R-HSA-1\tR-R1\tR-S1\tx\tR-C\tcatalyst\tTrue\tFalse\n")
+    a2 = (b, tmp_path / "x2.tsv", tmp_path / "s_q.tsv", {"R-HSA-1"})
+    assert cb.plan_curated(*a2, l2_only=True)[0][("R-HSA-1", "R-HSA-2")]["in"] == [("qc", "pc")]
+    assert cb.plan_transitive(*a2, l2_only=True)[0][("R-HSA-1", "R-HSA-2")]["in"] == [("qc", "pc")]
+    assert cb.plan_transitive(*a2)[0][("R-HSA-1", "R-HSA-2")]["in"] == [("qc", "pc"), ("qe", "pe")]
+    common = ["--curated", str(tmp_path / "x2.tsv"), str(tmp_path / "s_q.tsv"), "--centres", str(tmp_path / "centres.tsv")]
+    cb.main([str(b), str(tmp_path / "tl2")] + common + ["--transitive", "--l2"])
+    bj = json.load(open(tmp_path / "tl2" / "BUILD.json"))
+    assert bj["context_rule"] == "curated_transitive_l2" and bj["context_l2"] is True
+    assert bj["context_extracellular"] == "never_bridged" and bj["context_root_ignore"] in ("depletion", "none")
+    assert ("qe", "pe", "context_bridge") not in _edges(tmp_path / "tl2" / "R-HSA-1")
+    # a specs/132 LINKS file has no extracellular column: the build says so
+    cb.main([str(b), str(tmp_path / "l1"), "--curated", str(tmp_path / "links.tsv"), str(tmp_path / "s_q.tsv"),
+             "--centres", str(tmp_path / "centres.tsv")])
+    bj = json.load(open(tmp_path / "l1" / "BUILD.json"))
+    assert bj["context_rule"] == "curated_l1" and bj["context_l2"] is False and bj["context_extracellular"] == "no column"
+
+
+def test_bench_refuses_last_order_without_an_origin_table():
+    # review 2026-11-05: the solver reports `last: no origin table` when a bundle with bridges has no
+    # context_origin.csv; amendment 1 could not run, so the run is not the rule
+    import pytest
+    import benchmark_vs_mpbiopath as bm
+    with pytest.raises(SystemExit, match="context_origin.csv"):
+        bm.refuse_unless_default_model({"zero_supply_rule": "off", "context_bridge_order": "last: no origin table"}, "P")
+    for order in ("first", "last"):
+        bm.refuse_unless_default_model({"zero_supply_rule": "off", "context_bridge_order": order}, "P")

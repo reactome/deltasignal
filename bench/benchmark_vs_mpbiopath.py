@@ -953,6 +953,12 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
     if ds_result.get("cycle_rule") == "balance: no pool table":
         raise SystemExit(f"{pathway_name}: DS_CYCLE_MODE=balance but the network has no pools.csv "
                          "(a build that predates it), so no pool is solved (specs/039).")
+    # review 2026-11-05: under DS_CONTEXT_BRIDGE_ORDER=last a bundle with bridges but no context_origin.csv cannot
+    # keep the structural rules inside one pathway (specs/133 amendment 1)
+    if str(ds_result.get("context_bridge_order", "")).endswith(": no origin table"):
+        raise SystemExit(f"{pathway_name}: {ds_result['context_bridge_order']} -- DS_CONTEXT_BRIDGE_ORDER=last needs "
+                         "the bundle's context_origin.csv, so rule edges between pathways were not dropped "
+                         "(specs/133 amendment 1).")
 
 
 PIN_NETWORK_ROOT = os.environ.get("DS_PIN_NETWORK_ROOT", "")   # specs/051; empty = the served catalog
@@ -1008,6 +1014,36 @@ def _node_uuids(pathway_dir: Path) -> set:
         return {r["uuid"] for r in csv.DictReader(f)}
 
 
+def root_indegree(rows) -> Counter:
+    """In-degrees that decide which nodes are roots (in-degree 0), from edge rows (dicts with source_id, target_id and
+    edge_type). The one definition of a root: pin_occurrences reads it, and so does bench/context_build.py, whose
+    curated bridges may only enter a root (review 2026-11-05)."""
+    indeg = Counter()
+    ignored_in, has_out = set(), set()
+    for row in rows:
+        if row.get("edge_type") == RECYCLE_EDGE:
+            continue
+        has_out.add(row["source_id"])
+        # specs/056: a context bridge feeds a root copy from another
+        # pathway's producer. Roots are read without them, so a gene is
+        # pinned at the same forms with and without context, in each
+        # pathway of the context.
+        if row.get("edge_type") == CONTEXT_BRIDGE:
+            continue
+        if PIN_ROOT_IGNORE and row.get("edge_type") == PIN_ROOT_IGNORE:
+            ignored_in.add(row["target_id"])
+            continue   # specs/058
+        indeg[row["target_id"]] += 1
+    # Week review 2026-10-15: a form fed only by depletion counts as a root only
+    # if it feeds something. A depletion-fed dead end would make the case valid
+    # while moving nothing, and block the specs/024 fallback (which requires an
+    # out-edge for the same reason).
+    for u in ignored_in - has_out:
+        if indeg[u] == 0:
+            indeg[u] = 1
+    return indeg
+
+
 def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict):
     """The nodes to pin for each gene under DS_PIN_SCOPE, and the network's
     in-degrees. `gene_to_uuids` is every node that is or contains the gene.
@@ -1018,30 +1054,8 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
     that catalog's copy of the pathway instead, so a rewired network is
     perturbed at exactly the real network's nodes."""
     pathway_dir = pin_network_dir(pathway_dir)
-    indeg = Counter()
-    ignored_in, has_out = set(), set()
     with open_network(pathway_dir) as f:
-        for row in csv.DictReader(f):
-            if row.get("edge_type") == RECYCLE_EDGE:
-                continue
-            has_out.add(row["source_id"])
-            # specs/056: a context bridge feeds a root copy from another
-            # pathway's producer. Roots are read without them, so a gene is
-            # pinned at the same forms with and without context, in each
-            # pathway of the context.
-            if row.get("edge_type") == CONTEXT_BRIDGE:
-                continue
-            if PIN_ROOT_IGNORE and row.get("edge_type") == PIN_ROOT_IGNORE:
-                ignored_in.add(row["target_id"])
-                continue   # specs/058
-            indeg[row["target_id"]] += 1
-    # Week review 2026-10-15: a form fed only by depletion counts as a root only
-    # if it feeds something. A depletion-fed dead end would make the case valid
-    # while moving nothing, and block the specs/024 fallback (which requires an
-    # out-edge for the same reason).
-    for u in ignored_in - has_out:
-        if indeg[u] == 0:
-            indeg[u] = 1
+        indeg = root_indegree(csv.DictReader(f))
     if PIN_SCOPE == "entry":
         pin_adj = build_adjacency(pathway_dir)
         gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us

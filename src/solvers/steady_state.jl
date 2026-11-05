@@ -141,7 +141,7 @@ function solve_steady_state(
     # First, so every rule resolved on the network below sees the same edges.
     carrier_open = carrier_loop_open()   # specs/077
     network, carrier_loop_rule, carrier_loop_forms, carrier_loop_edges, carrier_loop_twins, carrier_open_edges =
-        apply_carrier_loops(network, carrier_loop_mode(); open = carrier_open)
+        apply_carrier_loops(network, carrier_loop_mode(); open = carrier_open, origin = node_origin)
     # specs/084: closed regenerated complexes fed by their components' starting copies
     carrier_component_rule = carrier_component_twin() ? (carrier_loop_mode() == "closed_twin" ? "on" :
                              "on: inert under DS_CARRIER_LOOP_MODE=$(carrier_loop_mode())") : "off"
@@ -192,6 +192,17 @@ function solve_steady_state(
 
     # specs/133 amendment 1: no rule may join two pathways; only the curated bridges do
     network, context_cross_edges = drop_cross_origin_edges(network, node_origin)
+    if context_cross_edges > 0
+        # review 2026-11-05: report the rule edges the solve kept, not those drawn before the drop
+        carrier_loop_twins = count(e -> e.edge_type == "carrier_supply", network.edges)
+        carrier_component_edges = count(e -> e.edge_type == CARRIER_COMPONENT_EDGE, network.edges)
+        recycled_twin_edges = count(e -> e.edge_type == "recycled_supply", network.edges)
+        rna_twin_edges = count(e -> e.edge_type == RNA_SUPPLY_EDGE, network.edges)
+    end
+    # review 2026-11-05: under `last`, bridges with no origin table mean amendment 1 could not run; say so, as
+    # every table-driven rule does, so the bench refuses the run rather than reading 0 cross edges as none drawn
+    bridge_order_rule = bridge_order == "last" && node_origin === nothing && !isempty(held_bridges) ?
+                        "last: no origin table" : bridge_order
     # Convert network to reactions (specs/133: with any context bridges set aside above)
     solve_network = restore_context_bridges(network, held_bridges)
     reactions = convert_to_reaction_network(solve_network)
@@ -407,7 +418,9 @@ function solve_steady_state(
     # what contains what (a POSTed network or an older bundle).
     result.diagnostics["self_inhibitor_rule"] = self_rule
     result.diagnostics["self_activator_rule"] = self_act_rule   # specs/083
-    result.diagnostics["self_activator_leaves"] = self_activator_leaves() ? "on" : "off"   # specs/136
+    # specs/136: what was applied; the leaf clause is inert when the activator rule did not run
+    result.diagnostics["self_activator_leaves"] = !self_activator_leaves() ? "off" :
+                                                  self_act_rule == "on" ? "on" : "on: inert under self_activator_rule=$(self_act_rule)"
     result.diagnostics["self_activator_leaf_pairs"] = self_act_leaf_pairs
     # specs/103: how several depletion edges into one node combine, and how many
     # reactions have more than one (the only ones `share` changes).
@@ -444,7 +457,7 @@ function solve_steady_state(
     result.diagnostics["recycled_twin_rule"] = recycled_twin_rule
     result.diagnostics["recycled_twin_edges"] = recycled_twin_edges
     result.diagnostics["rna_twin_rule"] = rna_twin_rule        # specs/100
-    result.diagnostics["context_bridge_order"] = bridge_order   # specs/133
+    result.diagnostics["context_bridge_order"] = bridge_order_rule   # specs/133
     result.diagnostics["context_bridges"] = count(e -> e.edge_type == CONTEXT_BRIDGE_EDGE, solve_network.edges)
     result.diagnostics["context_cross_edges"] = context_cross_edges
     result.diagnostics["rna_twin_edges"] = rna_twin_edges
@@ -2699,10 +2712,12 @@ function compute_influence_scores(
     # cyclic-component solve held, is differentiated through its reaction's
     # forward model here, which is not how the solve set it. Carrier loops
     # (specs/049) are not a limit: callers pass `solved_carrier_network`.
+    # specs/133: the solve resolves these pair rules with context bridges set aside (under `last`), so do the same
+    rulenet = network === nothing ? nothing : first(split_context_bridges(network, context_bridge_order()))
     self_shared = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
-                  first(self_inhibitor_setup(network))
+                  first(self_inhibitor_setup(rulenet))
     self_act = network === nothing ? Dict{Tuple{String, String}, Vector{String}}() :
-               first(self_activator_setup(network))   # specs/083
+               first(self_activator_setup(rulenet))   # specs/083
     baselines = Dict{String, Float64}()
     gene_uuids = Set{String}()
     if network !== nothing
@@ -2724,9 +2739,9 @@ function compute_influence_scores(
     indexed, _, _ = index_reactions(reactions, uuid_to_idx, baselines, gene_uuids;
                                     self_shared = self_shared, self_act = self_act,
                                     own_entity = network === nothing || two_pass ? Set{Tuple{String, String}}() :
-                                                 own_entity_depletion_pairs(network),
+                                                 own_entity_depletion_pairs(rulenet),
                                     own_source = network === nothing || two_pass ? Dict{Tuple{String, String}, Vector{String}}() :
-                                                 own_source_depletion_sources(network))
+                                                 own_source_depletion_sources(rulenet))
 
     x = Vector{Float64}(undef, length(all_nodes))
     @inbounds for (i, uuid) in enumerate(all_nodes)

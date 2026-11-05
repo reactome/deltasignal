@@ -239,6 +239,28 @@ end
     @test DS.compute_influence_scores(r, rx; network = net)["X"] ≈ slope atol = 1e-3
 end
 
+# specs/133 under DS_CONTEXT_BRIDGE_ORDER=last (review 2026-11-05): C1 and C2 are made from Z, which a context bridge
+# feeds from L. The solve resolves the pair rule with bridges set aside, so they are not self-inhibitors there; the
+# influence pass must resolve it the same way, not on the bridged network, where L reaches them.
+@testset "influence scores resolve the pair rules without context bridges, as the solve does" begin
+    base = fixture(; tracking = false)
+    bnet = DS.ReactionNetwork(base.nodes, vcat(base.edges, [DS.LogicNetworkEdge("L", "Z", false, true, 1.0,
+                                                                             "context_bridge")]),
+                              base.set_mappings, base.cofactor_stids, base.containment)
+    obs = Dict("L" => (2.0, 1.0), "F" => (1.0, 1.0), "Y1" => (1.0, 1.0), "Y2" => (1.0, 1.0), "C3" => (1.0, 1.0))
+    with_env("DS_CONTEXT_BRIDGE_ORDER" => "last", "DS_SELF_INHIBITOR_WEIGHT" => nothing) do
+        @test !isempty(first(DS.self_inhibitor_setup(bnet)))      # on the bridged network L reaches C1, C2
+        r = DS.solve_steady_state(bnet, obs, DS.SteadyStateParams(1.0, 0.1, 500, 1e-6, "penalty"))
+        @test r.diagnostics["self_inhibitors"] == 0
+        sn = DS.solved_carrier_network(bnet)
+        rx = DS.convert_to_reaction_network(sn)
+        got = DS.compute_influence_scores(r, rx; network = sn)
+        # oracle: with the rule off nothing is flagged anywhere, which is what the solve ran
+        want = with_env(() -> DS.compute_influence_scores(r, rx; network = sn), "DS_SELF_INHIBITOR_WEIGHT" => "off")
+        @test got == want
+    end
+end
+
 # specs/083: the mirror for activators. Transcription T reads the gene G (input)
 # and two positive regulators A1 = G + TF1 and A2 = G + TF2 (TF:gene complexes,
 # assembled from G), so under the AND product G is counted three times.

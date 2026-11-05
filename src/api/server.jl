@@ -1130,6 +1130,18 @@ function create_router()
 end
 
 # Start server
+"""
+Resolve the DS_* configuration the server reads, so a bad value stops the server at start instead of failing every
+solve: the reaction model's config, and the structural switches resolved outside it (review 2026-11-05: a misspelt
+DS_CONTEXT_BRIDGE_ORDER or DS_SELF_ACTIVATOR_LEAVES started a server whose every solve then failed).
+"""
+function resolve_server_env()
+    DeltaSignal.resolve_reaction_eval_config()
+    DeltaSignal.context_bridge_order()     # specs/133
+    DeltaSignal.self_activator_leaves()    # specs/136
+    return nothing
+end
+
 function start_server(host="127.0.0.1", port=8080; test_mode=false)
     println("🧬 Starting DeltaSignal API server...")
     println("Julia version: $(VERSION)")
@@ -1155,7 +1167,7 @@ function start_server(host="127.0.0.1", port=8080; test_mode=false)
         # (a typo, or DS_COMPOSITION_GROUP without limiting) stops the server
         # here instead of turning every solve into a 400 that looks like a
         # client error.
-        DeltaSignal.resolve_reaction_eval_config()
+        resolve_server_env()
         println("Server starting on http://$host:$port")
         println("Available endpoints:")
         println("  GET  /api/health")
