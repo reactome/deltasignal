@@ -103,6 +103,15 @@ def test_abundance_copies_assembled_and_released_copies_are_made():
     assert kb.abundance_copies(["A", "AP", "AQ", "A4", "S"], rows) == ["A", "AQ"]
 
 
+def test_abundance_copies_pool_of_the_protein_carries_it():
+    # specs/134 amendment 2: complex C is made from pool Q, which pools A's copies (a set input), so C is a bound form;
+    # D is made from pool R of partners only, and a partner B released from A:B does not carry A
+    rows = [_edge("A", "Q", "variant_pool"), _edge("Q", "r1", "input"), _edge("r1", "C", "output"),
+            _edge("B", "R", "variant_pool"), _edge("R", "r2", "input"), _edge("r2", "D", "output"),
+            _edge("AB", "B", "dissociation"), _edge("B", "r3", "input"), _edge("r3", "E", "output")]
+    assert kb.abundance_copies(["A", "C", "D", "AB", "E"], rows) == ["A", "D", "AB", "E"]
+
+
 def test_abundance_copies_loop_without_start_has_none():
     rows = [_edge("pA", "r1", "input"), _edge("r1", "A", "output"), _edge("A", "r2", "input"), _edge("r2", "pA", "output")]
     assert kb.abundance_copies(["A", "pA"], rows) == []
