@@ -100,6 +100,10 @@ total-protein antibody reads only the protein copies nothing makes from the prot
 copies, not bound, modified or released forms; a set or pool of those copies carries the protein, amendment 2). A drug's own target whose every such copy is pinned leaves scoring.
 `DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04.
 
+**korkut is reported by target engagement beside the raw score** (specs/138 amendment 1, Adam 2026-11-05):
+`bench/analysis/138/engagement_report.py CASES`. Three of its drugs did not move their own marker in these cells. The
+raw score stays the headline, and gates stay on the raw cases.
+
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
 of inferring the protocol from flags.
 

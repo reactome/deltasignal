@@ -65,3 +65,12 @@ model beats always-NOT, but that win is the markers themselves.
   scoring protocol that reports by engagement would apply to every method alike, but it is a protocol choice: Adam's.
 - specs/120 (fitted inhibition depth) and specs/122–123 (activity vs knockout per drug) asked how a drug acts; this asks
   whether it acted at all here. Neither of those can turn a non-engaged drug into "no change".
+
+## Amendment 1 (2026-11-05): korkut is reported by engagement, beside the raw score
+
+Adam ("ok", to: report both, raw stays the headline). `bench/analysis/138/engagement_report.py CASES` gives the raw score
+and the three splits for the model, always-NOT and reachability. Fixed with it:
+
+- the marker list in `engagement.py` is frozen as of this commit;
+- each drug set's own markers are left out of every split row;
+- the split is never used to choose or gate a rule; gates stay on the raw cases as registered.
