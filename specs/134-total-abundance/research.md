@@ -182,3 +182,21 @@ scoring as in R4. Convergence identical. Numbers private, as in R4.
 - Secondary (balanced accuracy): unchanged overall (interval across 0). Phospho identical.
 
 Q14 holds. Amendment 2 meets its registered criteria on both korkut (R8) and CPPA training; adoption is Adam's.
+
+## R10. Amendment 3 on korkut (2026-11-05)
+
+Code `a490cdc`, `run_arm.sh --axis korkut --bench DS_TOTAL_READOUT=abundance_a3`, arm `k134_abund_a3`, frozen build;
+all 1,493 solves converged. Against `k134_abund_a2` (R8), scored with `score_134.py`: **no case moves**, not a class
+and not a predicted value. b-Catenin in Signaling by WNT now reads 3 copies (was 2), but in that network all of them
+rest at baseline under every korkut drug. Q15 holds.
+
+## R11. Amendment 3 on the CPPA training portion (2026-11-05)
+
+`scripts/run_cppa.sh` at `a490cdc` on the three registered pathways, spliced into the R9 run for every other pathway;
+convergence identical to R9 there (the readout rule changes no solve). Numbers and traces private, as in R4.
+
+- Only the registered (pathway, readout) pairs move: Q16's first part holds.
+- Primary: no harm. Q16 holds.
+- Secondary: the interval spans 0; the private notes record which calls moved and how they scored.
+
+Amendment 3 meets its registered criteria on both axes. Adoption is Adam's.
