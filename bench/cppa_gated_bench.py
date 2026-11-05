@@ -25,7 +25,8 @@ import expression_gate  # noqa: E402
 import split_121  # noqa: E402
 from cppa_bench import drug_genes  # noqa: E402
 from decryptm_bench import git_state  # noqa: E402
-from korkut_bench import NAMES, neo4j_site_stids, read_tsv, readout_stids  # noqa: E402
+from korkut_bench import (NAMES, TOTAL_READOUT, neo4j_site_stids, read_tsv, readout_nodes, readout_stids,  # noqa: E402
+                          total_gene_stids, total_readout_nodes)
 
 THRESHOLD = 1.0      # log2(TPM + 1): TPM below 1 is absent (specs/121 amendment 2)
 
@@ -88,14 +89,15 @@ def main():
     readouts = [r for r in read_tsv(readouts_tsv) if r["kind"] != "exclude"]
     all_genes = {r["gene"] for r in csv.DictReader(open(acc_gene), delimiter="\t")}
     expr = expression_rows(expr_csv, {m for m, _ in cell_model.values() if m}, all_genes)
-    # targets and readouts resolve exactly as in cppa_bench (the frozen arm); absent genes use the one-pass table
+    # targets and readouts resolve exactly as in cppa_bench (totals included, specs/134); absent genes use the one-pass table
     target_genes = sorted({g for _, gs in drugs.values() for g in gs})
     readout_genes = sorted({s.split(":")[0] for r in readouts for s in r["sites"].split(",")})
     gene_to_stids = bm.neo4j_gene_to_stids(sorted(set(target_genes) | set(readout_genes)))
     gene_ewas = expression_gate.human_gene_ewas()
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
-    r_stids = readout_stids(readouts, gene_to_stids, neo4j_site_stids(sites))
+    r_stids = readout_stids(readouts, total_gene_stids(readouts, gene_to_stids), neo4j_site_stids(sites))
+    totals = {r["readout"] for r in readouts if r["kind"] == "total"}
     absent = {}
     for c, (m, _) in cell_model.items():
         if m in expr:
@@ -104,8 +106,8 @@ def main():
     pairs = [(d, c) for d, c in pairs if c in absent]
     print(f"Protocol: CPPA gated predictions (specs/121 amendment 2), portion {portion}, log2(TPM+1) < {THRESHOLD:g} "
           f"absent, DS_PIN_SCOPE={bm.PIN_SCOPE} DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} "
-          f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g}; build {build.name}; code {sha}; {len(pairs)} pairs, "
-          f"{len(absent)} cell lines with expression; PREDICT ONLY (values unread)", flush=True)
+          f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} DS_TOTAL_READOUT={TOTAL_READOUT}; build {build.name}; code {sha}; "
+          f"{len(pairs)} pairs, {len(absent)} cell lines with expression; PREDICT ONLY (values unread)", flush=True)
 
     rows, solves, conv = [], 0, 0
     pathways = sorted(p for p in build.iterdir() if (p / "stid_to_uuid_mapping.csv").exists())
@@ -115,11 +117,10 @@ def main():
         pathways = pathways[i::n]
     for pdir in pathways:
         stid_to_uuids = bm.load_stid_to_uuids(pdir)
-        ro_nodes = {name: list(dict.fromkeys(u for s in st for u in stid_to_uuids.get(s, [])))
-                    for name, st in r_stids.items()}
-        ro_nodes = {k: v for k, v in ro_nodes.items() if v}
+        ro_nodes = readout_nodes(r_stids, stid_to_uuids)
         if not ro_nodes:
             continue
+        ro_nodes = total_readout_nodes(ro_nodes, totals, pdir)     # specs/134, as cppa_bench
         with open(pdir / "nodes.csv") as f:
             nrows = list(csv.DictReader(f))
         below = expression_gate.entity_leaves({x for r in nrows if r["node_kind"] == "set_variant"
@@ -156,7 +157,9 @@ def main():
             reach = bm.reachable_from(adj, pinned)
             for name, nodes in sorted(ro_nodes.items()):
                 free = [u for u in nodes if u not in pinned and u not in held]
-                if not free:
+                if not nodes:
+                    status, ui, pred, rp = "no_copy", None, None, None
+                elif not free:
                     status, ui, pred, rp = "trivial", None, None, None
                 else:
                     ui = 100.0 * sum(act.get(u, 0.01) for u in free) / len(free)

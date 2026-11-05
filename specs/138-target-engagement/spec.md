@@ -75,3 +75,26 @@ and the three splits for the model, always-NOT and reachability. Fixed with it:
 - the marker list in `engagement.py` is frozen as of this commit;
 - each drug set's own markers are left out of every split row;
 - the split is never used to choose or gate a rule; gates stay on the raw cases as registered.
+
+## Amendment 2 (2026-11-05): a drug without a marker is unknown, not "not engaged"
+
+**Found by code review** (2026-11-05). `split_of` filed every drug that is not "yes" as not engaged, so HNHA and
+RO-31-7549 (no direct substrate on the array, engagement unknown) put 13 of the 28 "none engaged" and 10 of the 35
+"some engaged" drug sets in the wrong rows; no text said so. The report now has a fourth row: a set is filed by its
+drugs whose engagement is known only when the unknown ones cannot change the answer (an engaged and a non-engaged drug
+together are "some engaged" whatever HNHA or RO do); otherwise it is "engagement unknown". The marker list is unchanged.
+
+Re-run on the same cases as the table above (`k134_abund_a2`), each drug set's own markers left out:
+
+| split | cases | model (balanced / accuracy) | always-NOT accuracy | reachability (balanced / accuracy) |
+|---|---|---|---|---|
+| every drug engaged (15 sets) | 1,571 | 0.439 / 0.899 | 0.912 | 0.442 / 0.863 |
+| some engaged (25) | 3,178 | 0.416 / 0.847 | 0.926 | 0.405 / 0.812 |
+| none engaged (15) | 1,796 | 0.485 / 0.818 | 0.970 | 0.479 / 0.790 |
+| engagement unknown (23) | 2,931 | 0.391 / 0.861 | 0.947 | 0.380 / 0.838 |
+
+The earlier "none engaged" balanced 0.331 came mostly from the HDAC and PKC sets. What stands: the model is below
+always-NOT in every row, and the every-drug-engaged row (unchanged) does not beat always-NOT beyond the drugs' own
+markers. What changes: on sets whose drugs are known not to have acted, the model's balanced accuracy is not lower than
+elsewhere; its errors there are change calls on readouts that do not move (always-NOT is 0.970). Five drugs are classed
+not engaged (Nutlin, P6, RY, SR, Stattic); three of them (P6, SR, Stattic) carry the error concentration above.
