@@ -135,3 +135,12 @@ calls it removes are mostly on readouts that barely move, which the correlation 
 private analysis under the CPPA terms. As registered, the gated model remains one of the arms scored once at the end;
 phase 3 does not build on gating. Adam, 2026-10-29: expression "really isn't a measure of protein level at different
 parts of a pathway"; phase 3 will use CPPA's own baseline protein measurements (p0) as cell features instead.
+
+## Amendment 5 (2026-11-05): the gated arm reads totals as cppa_bench does
+
+Found by code review. specs/134 changed how `cppa_bench.py` reads a total-protein antibody (abundance copies, the
+default since 2026-11-04), but `cppa_gated_bench.py` kept reading every form, so at the one test scoring the readout
+difference would have been credited to gating. The gated bench now resolves totals exactly as `cppa_bench.py` and
+prints `DS_TOTAL_READOUT` in its Protocol line. The phase-2 training run (amendment 4, code `ff81b6a`) read forms, and
+its verdict stands as recorded. At the final scoring, the frozen and gated arms are run with the same
+`DS_TOTAL_READOUT`, and the logs must show it.
