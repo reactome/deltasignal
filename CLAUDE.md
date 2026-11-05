@@ -98,7 +98,9 @@ by its member), not each variant copy. `DS_KO_AGG=mean` reproduces numbers from 
 **`DS_TOTAL_READOUT=abundance` (korkut and CPPA benches, default since 2026-11-04, specs/134 amendment 1)**: a
 total-protein antibody reads only the protein copies nothing makes from the protein itself (starting and translated
 copies, not bound, modified or released forms; a set or pool of those copies carries the protein, amendment 2). A drug's own target whose every such copy is pinned leaves scoring.
-`DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04.
+`DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04. Each version of the rule keeps a value
+(`abundance_a1`, `abundance_a2`, `abundance_a3`: amendment 3 stops a `recycle` edge marking the starting copy as made);
+`abundance` names the adopted one (amendment 2), and logs print the version.
 
 **korkut is reported by target engagement beside the raw score** (specs/138 amendment 1, Adam 2026-11-05):
 `bench/analysis/138/engagement_report.py CASES`. Three of its drugs did not move their own marker in these cells. The
