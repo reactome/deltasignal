@@ -599,8 +599,10 @@ env vars only override for benchmark sweeps:
   `context_bridge` edges are set aside before every structural rule (twins, carrier loops, pair tests) and added back
   for the solve, so a bridged starting copy stays one. Under `last`, amendment 1: an edge a rule draws between two
   pathways' nodes (the bundle's `context_origin.csv`; identity twins joined an imported p-AKT to TP53's own) is dropped,
-  so pathways meet only at curated bridges. No effect without bridges. Reports `context_bridge_order`,
-  `context_bridges` and `context_cross_edges`.
+  so pathways meet only at curated bridges, and a closed carrier's twin and component rules read only its own pathway's
+  starting copies. No effect without bridges. Reports `context_bridge_order` (`last: no origin table` for a bundle with
+  bridges and no `context_origin.csv`; the bench refuses it), `context_bridges` and `context_cross_edges`; rule edge
+  counts are of edges kept after the drop.
 - `DS_SEQUESTRATION=off` (default) | `deadend_sole` | `deadend` | `sole_direct` (specs/063,
   all **refuted**: held-out −1,180 / −1,686 / −1,121): a binding whose complex nothing in the pathway uses
   (only dissociation sinks) gains a depletion edge from the complex to its
@@ -1226,22 +1228,22 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 129 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20; leaf-sharing activators (specs/136) 2026-11-04 |
+| `test/test_self_inhibition.jl` | 132 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20; leaf-sharing activators (specs/136) 2026-11-04 |
 | `test/test_drugs.jl` | 134 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10; free ubiquitin (specs/098) 2026-10-23 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |
 | `test/test_cycles.jl` | 573 | specs/039, added 2026-09-27; drive twins (specs/104) 2026-10-25; shared pools (specs/049) 2026-10-11; supply reach (specs/071), carrier release copies (specs/072), joint pool components (specs/073), re-evaluated carriers (specs/075) 2026-10-18; several base states and recycle edges (specs/081) 2026-10-20 |
 | `test/test_self_fed.jl` | 133 | specs/040, added 2026-09-28; catalyst loops (specs/109) 2026-10-26 |
-| `test/test_carrier_loops.jl` | 244 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
+| `test/test_carrier_loops.jl` | 251 | specs/049, added 2026-10-11; open loops (specs/077) 2026-10-19; component twins (specs/084) 2026-10-21 |
 | `test/test_zero_supply.jl` | 43 | specs/052, added 2026-10-13 |
-| `test/test_recycled_twin.jl` | 114 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23; context bridge order (specs/133) 2026-11-03, amendment 1 2026-11-04 |
+| `test/test_recycled_twin.jl` | 117 | specs/059–061, added 2026-10-14; RNA twins (specs/100) 2026-10-23; context bridge order (specs/133) 2026-11-03, amendment 1 2026-11-04 |
 | `test/test_sequestration.jl` | 26 | specs/063, added 2026-10-15 |
 | `test/test_limit_cycles.jl` | 56 | specs/066, added 2026-10-16; restarts (specs/076) 2026-10-19 |
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
 | `test/test_resting_baseline.jl` | 23 | specs/124, added 2026-11-02 |
 | `test/test_edge_curves.jl` | 72 | specs/128, added 2026-11-02 |
 | `test/test_cli_observations.jl` | 50 | |
-| `test/test_api_errors.jl` | 69 | specs/122 edge redirects added 2026-10-29 |
+| `test/test_api_errors.jl` | 72 | specs/122 edge redirects added 2026-10-29 |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |
 | `test/test_worked_example.jl` | 9 | |

@@ -953,6 +953,12 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
     if ds_result.get("cycle_rule") == "balance: no pool table":
         raise SystemExit(f"{pathway_name}: DS_CYCLE_MODE=balance but the network has no pools.csv "
                          "(a build that predates it), so no pool is solved (specs/039).")
+    # review 2026-11-05: under DS_CONTEXT_BRIDGE_ORDER=last a bundle with bridges but no context_origin.csv cannot
+    # keep the structural rules inside one pathway (specs/133 amendment 1)
+    if str(ds_result.get("context_bridge_order", "")).endswith(": no origin table"):
+        raise SystemExit(f"{pathway_name}: {ds_result['context_bridge_order']} -- DS_CONTEXT_BRIDGE_ORDER=last needs "
+                         "the bundle's context_origin.csv, so rule edges between pathways were not dropped "
+                         "(specs/133 amendment 1).")
 
 
 PIN_NETWORK_ROOT = os.environ.get("DS_PIN_NETWORK_ROOT", "")   # specs/051; empty = the served catalog

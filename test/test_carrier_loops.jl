@@ -390,6 +390,29 @@ end
     end
     @test br.diagnostics["carrier_component_edges"] == 0
     @test fold(br, "E") ≈ 0.25 rtol = 1e-6               # it keeps reading its bridge
+    # specs/133 amendment 1 under DS_CONTEXT_BRIDGE_ORDER=last (review 2026-11-05): E2, the starting copy of E, is
+    # another pathway's (Q's) node. E's decisions read only its own pathway's starting copies, so E follows its
+    # components as it does alone; before, Q's E2 suppressed the component edges and the twin edge drawn to it
+    # instead was dropped as crossing pathways, leaving E unsupplied at baseline.
+    withorigin(n, o) = DS.ReactionNetwork(n.nodes, n.edges, n.set_mappings, n.cofactor_stids, n.containment,
+                                          n.drug_stids, n.pools, n.pathogen_stids, n.carrier_loops, n.node_leaves,
+                                          n.rna_stids, nothing, o)
+    tnet = cnet(; twin = true)
+    two = Dict(u => (u == "E2" ? "Q" : "P") for u in keys(tnet.nodes))
+    runlast(net) = with_env(() -> run(net, "on"; k1 = 0.0), "DS_CONTEXT_BRIDGE_ORDER" => "last")
+    xo = runlast(withorigin(tnet, two))
+    @test xo.diagnostics["carrier_component_edges"] == 2 && xo.diagnostics["carrier_loop_twin_edges"] == 0
+    @test xo.diagnostics["context_cross_edges"] == 0     # no twin edge drawn across pathways
+    @test fold(xo, "E") ≈ 0.0 atol = 1e-9                # as P alone: K1 knocked out, no complex
+    @test xo.node_activities["E"] == run(cnet(), "on"; k1 = 0.0).node_activities["E"]
+    @test count(e -> e.edge_type == DS.CARRIER_COMPONENT_EDGE,
+                with_env(() -> DS.solved_carrier_network(withorigin(tnet, two)).edges,
+                         "DS_CONTEXT_BRIDGE_ORDER" => "last", "DS_CARRIER_COMPONENT_TWIN" => "on")) == 2
+    # one pathway throughout, or `first` (which ignores the table): exactly the solve without a table
+    one_ = runlast(withorigin(tnet, Dict(u => "P" for u in keys(tnet.nodes))))
+    @test one_.node_activities == tw.node_activities && one_.diagnostics["carrier_loop_twin_edges"] == 1
+    f2 = with_env(() -> run(withorigin(tnet, two), "on"; k1 = 0.0), "DS_CONTEXT_BRIDGE_ORDER" => "first")
+    @test f2.node_activities == tw.node_activities && f2.diagnostics["carrier_component_edges"] == 0
     # only under closed_twin
     cl = run(cnet(), "on"; mode = "closed", k1 = 0.0)
     @test cl.diagnostics["carrier_component_rule"] == "on: inert under DS_CARRIER_LOOP_MODE=closed"

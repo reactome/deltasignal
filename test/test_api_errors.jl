@@ -235,6 +235,19 @@ const SRV = DeltaSignal
         @test collect(drugs(r)) == ["R-HSA-2"]
     end
 
+    @testset "a bad structural switch stops the server at start (review 2026-11-05)" begin
+        for (k, bad) in ("DS_CONTEXT_BRIDGE_ORDER" => "late", "DS_SELF_ACTIVATOR_LEAVES" => "yes")
+            old = get(ENV, k, nothing)
+            ENV[k] = bad
+            try
+                @test_throws ArgumentError SRV.resolve_server_env()
+            finally
+                old === nothing ? delete!(ENV, k) : (ENV[k] = old)
+            end
+        end
+        @test SRV.resolve_server_env() === nothing
+    end
+
     @testset "/api/health answers 200 and carries the catalog" begin
         resp = SRV.health_handler(nothing)
         @test resp.status == 200

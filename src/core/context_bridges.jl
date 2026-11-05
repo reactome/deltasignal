@@ -20,7 +20,9 @@ twins, specs/049 carrier twins, specs/084 component twins, specs/100 RNA twins) 
 pathway's copy of the same entity: in TP53 transcription, PIP3's imported p-AKT1 gained a twin edge from TP53's own
 p-AKT1, a loop back into the context through a shared molecule. Under `last`, a context bundle's `context_origin.csv`
 (the pathway each node was built from) is read and every edge a rule drew between two pathways is dropped, so each
-pathway's rules see only its own copies. Reported as `context_cross_edges`.
+pathway's rules see only its own copies. Reported as `context_cross_edges`. A bundle with bridges but no origin table
+reports `context_bridge_order` as `last: no origin table` (amendment 1 could not run) and the bench refuses it; the
+closed-carrier twin rule reads only the free form's own pathway's starting copies (review 2026-11-05).
 """
 
 const CONTEXT_BRIDGE_EDGE = "context_bridge"

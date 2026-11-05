@@ -309,7 +309,8 @@ end
     @test fold(first_, "R") ≈ 5.0 rtol = 1e-6
     @test fold(first_, "T") ≈ 1.0 atol = 1e-6
     last_ = run("last")
-    @test last_.diagnostics["context_bridge_order"] == "last" && last_.diagnostics["context_bridges"] == 1
+    # review 2026-11-05: bridges and no origin table, so amendment 1 cannot run; the solve says so
+    @test last_.diagnostics["context_bridge_order"] == "last: no origin table" && last_.diagnostics["context_bridges"] == 1
     @test last_.diagnostics["recycled_twin_edges"] == 1      # rules ran without the bridge
     @test fold(last_, "R") ≈ 5.0 rtol = 1e-6                 # and the bridge is solved
     @test fold(last_, "T") ≈ 5.0 rtol = 1e-6
@@ -335,7 +336,9 @@ end
                                        net.drug_stids, net.pools, net.pathogen_stids, net.carrier_loops,
                                        net.node_leaves, net.rna_stids, nothing, o)
     split_ = run("last", withorigin(origin))
-    @test split_.diagnostics["recycled_twin_edges"] == 1 && split_.diagnostics["context_cross_edges"] == 1
+    # the twin was drawn and dropped: the count is of edges the solve kept (review 2026-11-05)
+    @test split_.diagnostics["recycled_twin_edges"] == 0 && split_.diagnostics["context_cross_edges"] == 1
+    @test split_.diagnostics["context_bridge_order"] == "last"
     @test fold(split_, "R") ≈ 5.0 rtol = 1e-6                # the bridge still carries B into P
     @test fold(split_, "T") ≈ 1.0 atol = 1e-6                # but nothing returns into Q's loop
     @test count(x -> x.edge_type == "recycled_supply",
@@ -344,6 +347,9 @@ end
     # one pathway throughout: nothing dropped, the solve is the one without a table
     same = run("last", withorigin(Dict(u => "P" for u in keys(net.nodes))))
     @test same.diagnostics["context_cross_edges"] == 0 && same.node_activities == last_.node_activities
+    @test same.diagnostics["recycled_twin_edges"] == 1 && same.diagnostics["context_bridge_order"] == "last"
+    # no bridge: nothing to keep apart, so no table is needed
+    @test b.diagnostics["context_bridge_order"] == "last"
     # `first` ignores the table: as specs/056 and specs/132 ran
     f1 = run("first", withorigin(origin))
     @test f1.diagnostics["context_cross_edges"] == 0 && f1.node_activities == first_.node_activities

@@ -195,3 +195,22 @@ group 6. The few gains it makes are real biology (PTEN through AKT to TP53's tar
 Not adopted; nothing changes a default. Adoption is Adam's decision. A confirmation would be one scoring on data these
 traces have not touched (Lun 2019 or the CPPA test portions), which is also Adam's decision. The levers this points at
 lie inside single pathways: PIP3's AKT readouts under drugs (korkut), and PI Metabolism's interconversion loops.
+
+## Code review 2026-11-05 (builder and solver fixes; nothing re-run)
+
+Defects found after R5, fixed in code and covered by tests. The A/A1/A2 and T/T1/T2 bundles were built and solved
+before them, so they may have **missed** bridges (1, 2) or solved a carrier-loop case differently (5); none of the
+arms is re-run here, and their numbers stand as recorded, not as the corrected rule's.
+
+1. The builders counted a copy as a root only with no in-edge of any type; the bench pins depletion- and recycle-fed
+   starting copies as roots. Both curated planners now use the bench's `root_indegree`.
+2. A set-valued catalyst or regulator (a set pool node) was never bridged; a set handoff now enters the pool's members,
+   member to same member. A pair with copies but no same member is `no_same_member_pair`, not `bridged`.
+3. `--transitive` ignored `--l2`; the one-hop planner ignored the `extracellular` flag. Both now honour both, and
+   BUILD.json records `context_l2`, `context_extracellular` and `context_root_ignore`.
+4. `closure_133.py` left a tie between source pathways at equal depth to Neo4j's row order; it now takes the smaller
+   stId and prints ties.
+5. Solver under `last`: another pathway's starting copy suppressed a closed carrier's specs/084 component edges and the
+   cross edge drawn instead was dropped; twin decisions now read the form's own pathway only. Rule edge counts are
+   reported after the cross-pathway drop; a bundle with bridges and no origin table reports `last: no origin table`
+   and the bench refuses it; influence scores resolve the pair rules without bridges, as the solve does.

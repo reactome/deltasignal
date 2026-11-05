@@ -120,8 +120,17 @@ distinct free forms lost an edge, how many edges were removed, how many
 root-copy supply edges were added (`closed_twin` only), and how many of the
 removed edges were open-loop releases (`open = "fed"`, specs/077). Under
 `off`, or with no table, the network is returned as given.
+
+`origin` (specs/133 amendment 1: a context bundle's node -> pathway, passed only
+under `DS_CONTEXT_BRIDGE_ORDER=last`) keeps the twin rules inside one pathway: a
+free form's starting copies, and the components the specs/084 rule looks for,
+are those of its own pathway. Without it another pathway's starting copy of the
+entity suppressed the component edges the form gets alone, and the cross edge
+drawn to it instead was then dropped, leaving the form unsupplied (review
+2026-11-05). `nothing` (the default) is the rule as before.
 """
-function apply_carrier_loops(network::ReactionNetwork, mode::String; open::String = carrier_loop_open())
+function apply_carrier_loops(network::ReactionNetwork, mode::String; open::String = carrier_loop_open(),
+                             origin::Union{Nothing, Dict{String, String}} = nothing)
     mode == "off" && return network, "off", 0, 0, 0, 0
     network.carrier_loops === nothing && return network, "$mode: no carrier table", 0, 0, 0, 0
     drop = Set{Tuple{String, String}}()
@@ -187,14 +196,16 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
         # roots of the network as given; a free form's twin is never another free form
         listed = Set(f for (f, _, _) in network.carrier_loops)
         hasin = Set(e.child_uuid for e in network.edges)
-        roots = Dict{String, Vector{String}}()
+        # starting copies by (entity, pathway); one pathway ("") without `origin`
+        home(u) = origin === nothing ? "" : get(origin, u, "")
+        roots = Dict{Tuple{String, String}, Vector{String}}()
         # an empty id (an inline network can send "") names no entity, so it
         # must not make every id-less root a twin of every id-less free form
         entity(nd) = (nd === nothing || nd.reactome_id === nothing || isempty(nd.reactome_id)) ?
                      nothing : nd.reactome_id
         for (u, nd) in network.nodes
             (entity(nd) === nothing || u in hasin || u in listed) && continue
-            push!(get!(roots, entity(nd), String[]), u)
+            push!(get!(roots, (entity(nd), home(u)), String[]), u)
         end
         component = carrier_component_twin()   # specs/084
         cof = isempty(network.cofactor_stids) ? COFACTOR_STIDS : network.cofactor_stids
@@ -204,19 +215,20 @@ function apply_carrier_loops(network::ReactionNetwork, mode::String; open::Strin
         for free in sort!(collect(undrained))
             rid = entity(get(network.nodes, free, nothing))
             rid === nothing && continue
-            for r in sort(get(roots, rid, String[]))
+            h = home(free)
+            for r in sort(get(roots, (rid, h), String[]))
                 push!(kept, LogicNetworkEdge(r, free, false, true, 1.0, "carrier_supply"))
                 twins += 1
             end
             # specs/084: no starting copy of its own entity, so the closed form (a
             # complex the pathway only regenerates) follows the starting copies of
             # the maximal entities it contains, ANDed as a complex follows its parts
-            (component && isempty(get(roots, rid, String[])) && !(free in supplied)) || continue
+            (component && isempty(get(roots, (rid, h), String[])) && !(free in supplied)) || continue
             inside = Set(c for c in get(network.containment, rid, Set{String}())
-                         if c != rid && !(c in cof) && !isempty(get(roots, c, String[])))
+                         if c != rid && !(c in cof) && !isempty(get(roots, (c, h), String[])))
             for c in sort!(collect(inside))
                 any(o -> o != c && c in get(network.containment, o, Set{String}()), inside) && continue
-                for r in sort(roots[c])
+                for r in sort(roots[(c, h)])
                     push!(kept, LogicNetworkEdge(r, free, true, true, 1.0, CARRIER_COMPONENT_EDGE))
                 end
             end
@@ -247,7 +259,7 @@ function solved_carrier_network(network::ReactionNetwork)
     origin = order == "last" ? network.node_origin : nothing
     net, held = split_context_bridges(first(split_recycle_edges(first(apply_material_loops(network)))), order)
     ruled = first(apply_sequestration(first(apply_rna_twins(first(apply_recycled_twins(
-        first(apply_carrier_loops(net, carrier_loop_mode())),
+        first(apply_carrier_loops(net, carrier_loop_mode(); origin = origin)),
         recycled_twin_mode())), rna_twin_mode())), sequestration_mode()))
     restore_context_bridges(first(drop_cross_origin_edges(ruled, origin)), held)
 end

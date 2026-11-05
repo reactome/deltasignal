@@ -410,3 +410,14 @@ def test_both_planners_honour_extracellular_and_l2_and_build_json_records_them(t
              "--centres", str(tmp_path / "centres.tsv")])
     bj = json.load(open(tmp_path / "l1" / "BUILD.json"))
     assert bj["context_rule"] == "curated_l1" and bj["context_l2"] is False and bj["context_extracellular"] == "no column"
+
+
+def test_bench_refuses_last_order_without_an_origin_table():
+    # review 2026-11-05: the solver reports `last: no origin table` when a bundle with bridges has no
+    # context_origin.csv; amendment 1 could not run, so the run is not the rule
+    import pytest
+    import benchmark_vs_mpbiopath as bm
+    with pytest.raises(SystemExit, match="context_origin.csv"):
+        bm.refuse_unless_default_model({"zero_supply_rule": "off", "context_bridge_order": "last: no origin table"}, "P")
+    for order in ("first", "last"):
+        bm.refuse_unless_default_model({"zero_supply_rule": "off", "context_bridge_order": order}, "P")
