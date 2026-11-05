@@ -1161,6 +1161,11 @@ for the last feature that touched it rather than re-deriving from the code.
   [+0.0007, +0.0324] (RAF set aside +0.0212), accuracy 0.674 → 0.796; the CPPA training check holds. **Adopted**
   (Adam, 2026-11-04). The total change calls left are proteins the pathway also makes (translation): the model keeps
   no stock of a protein it only makes.
+- `specs/135-synthesis-stock/` — analysis: the 527 total change calls left after specs/134 amendment 2 (13 right) are all
+  on proteins the network makes by gene expression; 196 of the single-copy ones read 0 because a knocked-out
+  `PositiveGeneExpressionRegulation` regulator is read as required. A 24 h stock (46 h half-life) or a basal expression
+  level each moves 39 of 409; both together put 197 within 0.01 of the 0.85 cutoff, so neither is registered. The bench
+  calls change at 15%, korkut at 50%; the cutoffs are Adam's question.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
