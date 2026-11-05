@@ -117,11 +117,42 @@ def test_abundance_copies_loop_without_start_has_none():
     assert kb.abundance_copies(["A", "pA"], rows) == []
 
 
+def test_abundance_a3_recycle_edge_does_not_make_the_starting_copy():
+    # specs/134 amendment 3: a release pool (specs/086) has released_twin S -> P and recycle P -> S; P carries S's
+    # protein, so under a2 the recycle edge marked the starting copy S as made and nothing was left
+    rows = [_edge("S", "r1", "input"), _edge("K", "r1", "catalyst"), _edge("r1", "M", "output"),
+            _edge("M", "r2", "input"), _edge("r2", "pM", "output"),
+            _edge("S", "P", "released_twin"), _edge("P", "S", "recycle")]
+    nodes = ["S", "M", "pM", "P"]
+    assert kb.abundance_copies(nodes, rows, "abundance_a2") == []
+    assert kb.abundance_copies(nodes, rows, "abundance_a3") == ["S"]
+
+
+def test_abundance_a3_recycle_pool_keeps_its_root_complex():
+    # specs/081: the p130:E2F4 root complex R is returned to by a recycle edge from the dephosphorylated free p130 F
+    rows = [_edge("R", "r1", "input"), _edge("r1", "pF", "output"), _edge("pF", "r2", "input"),
+            _edge("r2", "F", "output"), _edge("F", "R", "recycle")]
+    assert kb.abundance_copies(["R", "pF", "F"], rows, "abundance_a2") == []
+    assert kb.abundance_copies(["R", "pF", "F"], rows, "abundance_a3") == ["R"]
+
+
+def test_abundance_a1_has_no_carrying():
+    # amendment 1: a pool of the protein's copies does not carry it, so a complex made from the pool is kept
+    rows = [_edge("A", "Q", "variant_pool"), _edge("Q", "r1", "input"), _edge("r1", "C", "output")]
+    assert kb.abundance_copies(["A", "C"], rows, "abundance_a1") == ["A", "C"]
+    assert kb.abundance_copies(["A", "C"], rows, "abundance_a2") == ["A"]
+
+
+def test_abundance_alias_is_the_adopted_version():
+    assert kb.ABUNDANCE_ADOPTED in kb.ABUNDANCE_RULES
+    assert kb.TOTAL_READOUT in ("forms", "protein", *kb.ABUNDANCE_RULES)
+
+
 def test_total_readout_nodes_leaves_forms_and_phospho_alone(tmp_path, monkeypatch):
     ro = {"AKT": ["A", "AB"], "AKTpS473": ["pA"]}
     monkeypatch.setattr(kb, "TOTAL_READOUT", "forms")
     assert kb.total_readout_nodes(ro, {"AKT"}, tmp_path) is ro
-    monkeypatch.setattr(kb, "TOTAL_READOUT", "abundance")
+    monkeypatch.setattr(kb, "TOTAL_READOUT", "abundance_a2")
     (tmp_path / "logic_network.csv").write_text(
         "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry,edge_reaction_id\n"
         "A,r1,pos,and,input,1,R1\nB,r1,pos,and,input,1,R1\nr1,AB,pos,and,output,1,R1\n")

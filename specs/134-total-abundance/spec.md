@@ -151,3 +151,40 @@ Adam's.
 - **Q13.** Accuracy rises by about 0.015; balanced accuracy rises with RAF kept and moves by less than 0.003 with RAF
   set aside (the cases are all RAF).
 - **Q14.** CPPA training: no harm on the primary.
+
+## Amendment 3 (2026-11-05): a recycle edge does not make the starting copy
+
+**Found by code review** (2026-11-05, of PRs #216–#223), not by tracing a score. Amendments 1–2 list `recycle` among the
+edges that make their target from their source. A recycle edge (specs/081, specs/086) runs from a released or returned
+copy INTO the protein's starting copy; the solver strips it before any rule (`src/core/recycle.jl`) and the bench pins
+the starting copy as a root. In a release pool the released copy carries the protein (`released_twin`, amendment 2),
+so its recycle edge marked the true starting copy as made, against the rule's own "starting copies qualify".
+
+**The corrected rule** (no other change): `recycle` is not a made-from edge.
+
+**Every version keeps its own value** (constitution IV; amendment 2 had changed the adopted rule in place):
+`DS_TOTAL_READOUT=abundance_a1` | `abundance_a2` | `abundance_a3`; `abundance` (the default) names the adopted
+version, `abundance_a2` until Adam decides. Logs now print the version, not the alias.
+
+**Counted before registration** (structural, no measurement read; `bench/analysis/134/copies_diff.py`): korkut,
+frozen build, 1 of 272 (pathway, total readout) pairs differs: b-Catenin in Signaling by WNT (R-HSA-195721) gains its
+starting copy (2 → 3 copies). CPPA, top114 build, 3 of 1,293 pairs: CD171 in L1CAM interactions (R-HSA-1266738),
+beta-Catenin in Signaling by WNT (R-HSA-162582), FoxO3a in PI3K/AKT signalling (R-HSA-74160), each gaining one copy. No
+readout enters or leaves scoring. p130/p107 (the specs/081 recycle pools) have no korkut or CPPA total readout.
+
+**Arms.** korkut: `run_arm.sh --axis korkut --bench DS_TOTAL_READOUT=abundance_a3` (`k134_abund_a3`) against
+`k134_abund_a2` (R8). CPPA training: `scripts/run_cppa.sh` (the runner behind R4/R7/R9, now committed) with
+`DS_TOTAL_READOUT=abundance_a3` on the three pathways above, spliced into the R9 run for every other pathway (the
+readout rule does not change any solve, only which solved nodes a readout averages); numbers private.
+
+**How it is judged.** Faithfulness, as amendments 1–2: every case that moves must be in the pairs above, and CPPA
+training must show no harm on the primary. The korkut gate is reported, not applied. Adoption is Adam's.
+
+**Predictions** (before the arms run):
+- **Q15.** korkut: phospho identical; only b-Catenin cases in R-HSA-195721 can move; any that change class move toward
+  NOT (the starting copy is unpinned under every korkut drug and rests near baseline, diluting the mean).
+- **Q16.** CPPA training: only the three pairs above move; no harm on the primary.
+
+**Left open (recorded, not changed here).** A copy whose only in-edge is depletion and that has no out-edge is an
+abundance copy but is never pinned (the bench ignores a depletion in-edge only for nodes with an out-edge), so a drug's
+own target can be read from that unpinned copy instead of leaving scoring. Not counted yet.
