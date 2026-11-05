@@ -1,6 +1,6 @@
 # specs/139: does the drug's target work in this cell? (a cell-context gate on CPPA)
 
-**Status:** registered 2026-11-05, before any CPPA value is read for this purpose. Adam, 2026-11-05: "lets go with what
+**Status:** registered 2026-11-05, before any CPPA value is read for this purpose. **Result (`research.md`): the gate fails; not carried forward.** Adam, 2026-11-05: "lets go with what
 you recommend" (cell context on CPPA, after specs/138). Data: CPPA v1.0 (specs/121; terms accepted by Adam for
 academic use), training portion only. Every CPPA-derived number stays in `~/deltasignal-catalogs/analysis/139/` and the
 private notes; this file records the rule, the verdict and nothing measured.

@@ -1191,6 +1191,10 @@ for the last feature that touched it rather than re-deriving from the code.
   through). Three drugs (Stattic, P6/JAK, SR/SRC) did not move their own direct marker in these cells; drug sets of only
   their targets give 804 of 1,408 wrong change calls. Where every drug engaged, the model still does not beat always-NOT
   beyond the drugs' own markers. Engagement table: `bench/analysis/138/engagement.py`. No rule.
+- `specs/139-target-activity-gate/` — cell context on CPPA from the drug's target: a sample is gated to no change when the
+  resting level (controls, ranked within the set) of the drug's direct-substrate markers (Reactome catalyst active units,
+  `bench/analysis/139/markers.py`) is low. Gate fails: the model is right about equally often where the target is active at
+  rest and where it is not. Third cell-context source to fail on CPPA (after 121 phase 2 and 130). Numbers private.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign
