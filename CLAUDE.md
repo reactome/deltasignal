@@ -1170,6 +1170,13 @@ for the last feature that touched it rather than re-deriving from the code.
   `PositiveGeneExpressionRegulation` regulator is read as required. A 24 h stock (46 h half-life) or a basal expression
   level each moves 39 of 409; both together put 197 within 0.01 of the 0.85 cutoff, so neither is registered. The bench
   calls change at 15%, korkut at 50%; the cutoffs are Adam's question.
+- `specs/136-pip3-loop-parity/` — PIP3's korkut AKT overcalls are a switch: the curated MKRN1 loop (PIP3 → AKT →
+  p-MKRN1 ⊣ PTEN ⊣ PIP3) is positive feedback (two negatives), and PIP3 is counted about six times along AKT's
+  activation. Loop parity through PIP3: 5,952 of 5,997 cycles were the PIP2 ⇄ PIP3 conversion read as signal (5,580
+  with PTEN raising PIP3). Arms: P (`DS_METABOLITE_POOLS=on`) removes them, L (`DS_SELF_ACTIVATOR_LEAVES=1`, new) counts
+  a leaf shared by input and activator once, PL both. No korkut call changes in any arm (SRC knockout AKT 0.21 → 0.80
+  under PL, still under 0.85); held-out 0; PL loses 28 tuning and 5 experimental KIT/VAV1 knockouts that were DOWN
+  only through the switch. Gate fails; nothing adopted.
 - `specs/074-hill-sat-cancellation/` — the `hill_sat` AND's smooth 100× cap
   cancelled below the cap: with ε = 1e-9, products between 87.5× and 99.8×
   were off by up to 8.9 and not monotone. The form is now chosen by the sign

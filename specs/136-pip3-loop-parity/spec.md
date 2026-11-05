@@ -1,6 +1,7 @@
 # specs/136: the PIP3 switch — one lipid pool, and PIP3 counted once per reaction
 
-**Status:** registered 2026-11-04, before any code or arm (Adam: "ok"). Follows specs/135 and specs/133's pointer to
+**Status:** measured 2026-11-05 (research.md R1–R2): the gate fails for all three arms (no korkut call changes);
+nothing adopted. Registered 2026-11-04, before any code or arm (Adam: "ok"). Follows specs/135 and specs/133's pointer to
 "PIP3's AKT readouts under drugs".
 
 ## What was seen (control, before any rule)
