@@ -19,7 +19,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cppa_data_121  # noqa: E402
+import dataset_roles  # noqa: E402
 import score_121  # noqa: E402
 import split_121  # noqa: E402
 
@@ -181,6 +183,7 @@ def main():
     unpacked, split_tsv, readouts_tsv, *logs = sys.argv[1:]
     readouts = {r["readout"] for r in csv.DictReader((ln for ln in open(readouts_tsv) if not ln.startswith("#")),
                                                      delimiter="\t") if r["kind"] != "exclude"}
+    dataset_roles.require_role("cppa_train", "fit")      # theta is chosen on it (specs/051)
     samples = cppa_data_121.load(unpacked, split_tsv, "train")
     fold_pred = score_121.predictions(logs)["fold"]
     baselines = control_baselines(unpacked, split_tsv)
