@@ -1,6 +1,7 @@
 # specs/138: korkut's zero calls, and which drugs reached their targets
 
-**Status:** analysis, 2026-11-05; no rule registered. Follows specs/137 (the change calls that matter sit at zero, not near
+**Status:** analysis, 2026-11-05; no rule registered. Amendment 1: korkut reported by engagement. R1: the engaged
+cases traced; no rule indicated (S6K → IRS1 feedback not curated). Follows specs/137 (the change calls that matter sit at zero, not near
 the cutoff; Adam: "continue"). Control: korkut `builds/20261026-1349_8b6527e/results/e4809b8/k134_abund_a2` (the default).
 
 ## The zero calls
@@ -65,3 +66,12 @@ model beats always-NOT, but that win is the markers themselves.
   scoring protocol that reports by engagement would apply to every method alike, but it is a protocol choice: Adam's.
 - specs/120 (fitted inhibition depth) and specs/122–123 (activity vs knockout per drug) asked how a drug acts; this asks
   whether it acted at all here. Neither of those can turn a non-engaged drug into "no change".
+
+## Amendment 1 (2026-11-05): korkut is reported by engagement, beside the raw score
+
+Adam ("ok", to: report both, raw stays the headline). `bench/analysis/138/engagement_report.py CASES` gives the raw score
+and the three splits for the model, always-NOT and reachability. Fixed with it:
+
+- the marker list in `engagement.py` is frozen as of this commit;
+- each drug set's own markers are left out of every split row;
+- the split is never used to choose or gate a rule; gates stay on the raw cases as registered.
