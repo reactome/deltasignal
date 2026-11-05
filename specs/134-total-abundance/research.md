@@ -172,3 +172,13 @@ in RAF.
 
 Q11 holds. Q12 holds exactly. Q13 holds (accuracy +0.014; balanced rises with RAF kept, unchanged with RAF set aside).
 Q14: CPPA training, R9.
+
+## R9. Amendment 2 on the CPPA training portion (2026-11-05)
+
+Build `20261027-1346_8b6527e_top114`, code `e4809b8`, 2 servers; control the R7 run (`7cb140c/cppa134_abundance`),
+scoring as in R4. Convergence identical. Numbers private, as in R4.
+
+- Primary (per-drug correlation): does not fall; the paired difference by drug lies above 0.
+- Secondary (balanced accuracy): unchanged overall (interval across 0). Phospho identical.
+
+Q14 holds. Amendment 2 meets its registered criteria on both korkut (R8) and CPPA training; adoption is Adam's.
