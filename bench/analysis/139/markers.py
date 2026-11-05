@@ -16,17 +16,24 @@ import subprocess
 import sys
 
 TIMEBOX_MS = 240000
+END = "__end_of_rows__"
 KD_FOLD = 10
 SHELL = ["docker", "exec", "-i", "reactome-neo4j", "sh", "-c",
          'cypher-shell -u neo4j -p "${NEO4J_AUTH#neo4j/}" --format plain']
 
 
 def cypher(inner, columns):
-    """Rows of a read query run inside apoc.cypher.runTimeboxed; `inner` must not contain double quotes."""
-    q = f'CALL apoc.cypher.runTimeboxed("{inner}", {{}}, {TIMEBOX_MS}) YIELD value RETURN ' + \
+    """Rows of a read query run inside apoc.cypher.runTimeboxed; `inner` must not contain double quotes. The timebox
+    returns the rows streamed so far when it stops a query, and swallows an inner error as zero rows, so a sentinel row
+    is appended (UNION ALL streams it last) and its absence is an error, not a short answer."""
+    end = ", ".join(f"'{END}' AS {c}" for c in columns)
+    q = f'CALL apoc.cypher.runTimeboxed("{inner} UNION ALL RETURN {end}", {{}}, {TIMEBOX_MS}) YIELD value RETURN ' + \
         ", ".join(f"value.{c} AS {c}" for c in columns) + ";"
     out = subprocess.run(SHELL, input=q, capture_output=True, text=True, timeout=TIMEBOX_MS // 1000 + 60, check=True)
-    return [[f.strip().strip('"') for f in line.split(", ")] for line in out.stdout.splitlines()[1:] if line]
+    rows = [[f.strip().strip('"') for f in line.split(", ")] for line in out.stdout.splitlines()[1:] if line]
+    if not rows or rows[-1] != [END] * len(columns):
+        raise SystemExit(f"Neo4j query incomplete (timed out or failed inside the timebox): {inner[:120]}...")
+    return rows[:-1]
 
 
 def quoted(values):
