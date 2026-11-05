@@ -1,6 +1,7 @@
 # specs/138: korkut's zero calls, and which drugs reached their targets
 
-**Status:** analysis, 2026-11-05; no rule registered. Follows specs/137 (the change calls that matter sit at zero, not near
+**Status:** analysis, 2026-11-05; no rule registered. Amendment 1: korkut reported by engagement. R1: the engaged
+cases traced; no rule indicated (S6K → IRS1 feedback not curated). Follows specs/137 (the change calls that matter sit at zero, not near
 the cutoff; Adam: "continue"). Control: korkut `builds/20261026-1349_8b6527e/results/e4809b8/k134_abund_a2` (the default).
 
 ## The zero calls
