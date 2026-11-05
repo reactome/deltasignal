@@ -97,7 +97,7 @@ by its member), not each variant copy. `DS_KO_AGG=mean` reproduces numbers from 
 
 **`DS_TOTAL_READOUT=abundance` (korkut and CPPA benches, default since 2026-11-04, specs/134 amendment 1)**: a
 total-protein antibody reads only the protein copies nothing makes from the protein itself (starting and translated
-copies, not bound, modified or released forms). A drug's own target whose every such copy is pinned leaves scoring.
+copies, not bound, modified or released forms; a set or pool of those copies carries the protein, amendment 2). A drug's own target whose every such copy is pinned leaves scoring.
 `DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04.
 
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
@@ -1163,7 +1163,8 @@ for the last feature that touched it rather than re-deriving from the code.
   makes from the protein itself (starting and translated copies, not bound or modified forms). The first rule missed
   assembly and dissociation edges and failed the korkut gate (+0.0024). Amendment 1 passes it: balanced +0.0172
   [+0.0007, +0.0324] (RAF set aside +0.0212), accuracy 0.674 → 0.796; the CPPA training check holds. **Adopted**
-  (Adam, 2026-11-04). The total change calls left are proteins the pathway also makes (translation): the model keeps
+  (Adam, 2026-11-04). Amendment 2 (a set or pool of the protein's copies carries it: RAF scaffold complexes) **adopted**
+  (Adam, 2026-11-05): korkut 144 fixed / 0 broken, CPPA training holds. The total change calls left are proteins the pathway also makes (translation): the model keeps
   no stock of a protein it only makes.
 - `specs/135-synthesis-stock/` — analysis: the 527 total change calls left after specs/134 amendment 2 (13 right) are all
   on proteins the network makes by gene expression; 196 of the single-copy ones read 0 because a knocked-out
