@@ -1232,7 +1232,7 @@ other seven execute code and print output.
 | `test/test_solver_determinism.jl` | 126 | |
 | `test/test_and_curves.jl` | 96 | specs/074 cap band added 2026-10-18 |
 | `test/test_scc_break_roles.jl` | 56 | |
-| `test/test_self_inhibition.jl` | 132 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20; leaf-sharing activators (specs/136) 2026-11-04 |
+| `test/test_self_inhibition.jl` | 134 | specs/022, added 2026-09-25; self-contained activators (specs/083) 2026-10-20; leaf-sharing activators (specs/136) 2026-11-04 |
 | `test/test_drugs.jl` | 134 | specs/032, added 2026-09-26; pathogens (specs/048) 2026-10-10; free ubiquitin (specs/098) 2026-10-23 |
 | `test/test_set_pool.jl` | 79 | specs/033, added 2026-09-26; `variant_pool` (specs/046) 2026-10-09 |
 | `test/test_conserved.jl` | 15 | specs/035, added 2026-09-26 |

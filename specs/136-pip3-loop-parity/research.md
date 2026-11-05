@@ -56,3 +56,12 @@ low state (SRC knockout 0.21 → 0.80), but no korkut call changes, because 0.80
 curator and experimental calls it does change are knockouts of single PI3K activators that were DOWN only through the
 switch. Nothing adopted. The PIP3 overcalls on korkut are the switch plus the 15% call cutoff, the same cutoff question
 specs/135 left to Adam.
+
+## Review note (2026-11-05): the slot count, recounted on the solved network
+
+A code review found that `self_activator_leaf_pairs` counted per edge, and counted slots the strict specs/083 test had
+already flagged, and that `count136.jl` counted on the raw parsed network rather than the one the rule runs on (after
+every structural rule). Both are fixed: the solve counts each slot only the leaf clause flags once, and `count136.jl`
+reads that count from one unperturbed solve per pathway. Recounted on the same 92 pathways: **1,227** slots (was
+1,256), Interferon α/β 868 and PIP3 6 as recorded. Q3's "fewer than 1,000 slots" stays refuted. No score depended on
+the count.

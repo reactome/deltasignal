@@ -562,7 +562,7 @@ function self_activator_setup(network::ReactionNetwork)
     end
     common_cause(a, A, ls) = any(n != A && (n == a || a in reaches(n)) && A in reaches(n)
                                  for l in ls for n in get(carriers, l, String[]))
-    n_leaf = 0
+    strict_slots = Set{Tuple{String, String}}()
     for e in network.edges
         (e.is_positive && e.edge_type in ("regulator", "catalyst")) || continue
         A = e.parent_uuid; s = sid(A)
@@ -579,10 +579,12 @@ function self_activator_setup(network::ReactionNetwork)
                 !isempty(ls) && (A in reaches(a) || common_cause(a, A, ls)) && push!(shared, a)
             end
         end
-        length(shared) > length(strict) && (n_leaf += 1)
+        isempty(strict) || push!(strict_slots, (A, e.child_uuid))
         isempty(shared) || (out[(A, e.child_uuid)] = sort(shared))
     end
-    return out, "on", n_leaf
+    # slots only the leaf clause flags, each counted once (review 2026-11-05: counted per edge, and slots the strict
+    # specs/083 test already flagged, before)
+    return out, "on", count(k -> !(k in strict_slots), keys(out))
 end
 
 """

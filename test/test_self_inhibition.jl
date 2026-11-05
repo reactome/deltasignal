@@ -363,6 +363,16 @@ end
     @test tf(lsolve(net; p = 0.5, leaves = "1", w = "0")) ≈ 0.5 rtol = 1e-6   # and below baseline
     # PD built from a different PIP3 node that does not reach AK: no common cause, untouched
     @test tf(lsolve(lnet(; common = false); leaves = "1")) ≈ 4.0 rtol = 1e-6
+    # review 2026-11-05: leaf pairs count slots, once each, that only the leaf clause flags. PD as both catalyst and
+    # regulator of T is one slot (the old counter gave 2); a slot the strict specs/083 test already flags (PDPK1, which
+    # PD contains and reaches, is also an input of T) is not a leaf pair (the old counter gave 1).
+    with_env("DS_SELF_ACTIVATOR_LEAVES" => "1") do
+        dup = lnet(); push!(dup.edges, edge("PD", "T", true, "regulator"))
+        @test last(DS.self_activator_setup(dup)) == 1
+        strict = lnet(); push!(strict.edges, edge("PDPK1", "T", true, "input"))
+        m, _, n = DS.self_activator_setup(strict)
+        @test m[("PD", "T")] == ["AK", "PDPK1"] && n == 0
+    end
     # a cofactor leaf is not a shared species
     @test tf(lsolve(lnet(; cofactor = true); leaves = "1")) ≈ tf(lsolve(lnet(; cofactor = true))) rtol = 1e-9
     # the weight switch still turns the whole rule off
