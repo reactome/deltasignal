@@ -100,7 +100,7 @@ total-protein antibody reads only the protein copies nothing makes from the prot
 copies, not bound, modified or released forms; a set or pool of those copies carries the protein, amendment 2). A drug's own target whose every such copy is pinned leaves scoring.
 `DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04. Each version of the rule keeps a value
 (`abundance_a1`, `abundance_a2`, `abundance_a3`: amendment 3 stops a `recycle` edge marking the starting copy as made);
-`abundance` names the adopted one (amendment 2), and logs print the version.
+`abundance` names the adopted one (amendment 3 since 2026-11-05), and logs print the version.
 
 **korkut is reported by target engagement beside the raw score** (specs/138 amendment 1, Adam 2026-11-05):
 `bench/analysis/138/engagement_report.py CASES`. Five of its drugs did not move their own marker in these cells, and two have
@@ -1174,8 +1174,10 @@ for the last feature that touched it rather than re-deriving from the code.
   assembly and dissociation edges and failed the korkut gate (+0.0024). Amendment 1 passes it: balanced +0.0172
   [+0.0007, +0.0324] (RAF set aside +0.0212), accuracy 0.674 → 0.796; the CPPA training check holds. **Adopted**
   (Adam, 2026-11-04). Amendment 2 (a set or pool of the protein's copies carries it: RAF scaffold complexes) **adopted**
-  (Adam, 2026-11-05): korkut 144 fixed / 0 broken, CPPA training holds. The total change calls left are proteins the pathway also makes (translation): the model keeps
-  no stock of a protein it only makes.
+  (Adam, 2026-11-05): korkut 144 fixed / 0 broken, CPPA training holds. Amendment 3 (a `recycle` edge does not make
+  the starting copy) **adopted** (Adam, 2026-11-05): no korkut case moves; CPPA training primary holds. The total
+  change calls left are proteins the pathway also makes (translation): the model keeps no stock of a protein it only
+  makes.
 - `specs/135-synthesis-stock/` — analysis: the 527 total change calls left after specs/134 amendment 2 (13 right) are all
   on proteins the network makes by gene expression; 196 of the single-copy ones read 0 because a knocked-out
   `PositiveGeneExpressionRegulation` regulator is read as required. A 24 h stock (46 h half-life) or a basal expression

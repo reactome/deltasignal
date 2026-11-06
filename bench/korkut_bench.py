@@ -41,9 +41,10 @@ NAMES = {bm.DOWN: "down", bm.NORMAL: "not", bm.UP: "up"}
 # Each version of the abundance rule keeps its own value so every recorded number can be regenerated:
 #   abundance_a1  amendment 1 (adopted 2026-11-04)
 #   abundance_a2  amendment 2: a set or pool of the protein's copies carries it (adopted 2026-11-05)
-#   abundance_a3  amendment 3: a `recycle` edge is not "made from" (it returns a released copy to the starting copy)
+#   abundance_a3  amendment 3: a `recycle` edge is not "made from" (it returns a released copy to the starting copy);
+#                 adopted 2026-11-05
 # `abundance` (the default) names the adopted version; forms reproduces numbers from before 2026-11-04.
-ABUNDANCE_ADOPTED = "abundance_a2"
+ABUNDANCE_ADOPTED = "abundance_a3"
 TOTAL_READOUT = os.environ.get("DS_TOTAL_READOUT", "abundance")
 if TOTAL_READOUT == "abundance":
     TOTAL_READOUT = ABUNDANCE_ADOPTED
@@ -71,7 +72,7 @@ def readout_nodes(r_stids, stid_to_uuids, own=None):
     return {k: v for k, v in ro.items() if v}
 
 
-def abundance_copies(nodes, network_rows, version="abundance_a2"):
+def abundance_copies(nodes, network_rows, version=ABUNDANCE_ADOPTED):
     """specs/134: the members of `nodes` that nothing makes from `nodes`: no reaction producing one takes an input in
     `nodes`, and no material or identity edge into one comes from `nodes` (amendment 1). A set or pool node fed from
     `nodes` through identity edges counts as `nodes` (amendment 2). Catalyst, regulator and depletion are not sources.

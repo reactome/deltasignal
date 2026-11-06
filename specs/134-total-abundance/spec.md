@@ -5,7 +5,7 @@ default. The first rule (R1–R4) failed the korkut gate (balanced +0.0024 [−0
 (+0.0172 [+0.0007, +0.0324], R6) and the CPPA training check holds (R7). `forms` reproduces earlier numbers.
 Amendment 2 (a set or pool of the protein's copies carries it) **adopted 2026-11-05** (Adam: "yes"): korkut 144 fixed /
 0 broken, exactly the registered cases (R8); CPPA training holds (R9). Amendment 3 (`recycle` is not a made-from edge;
-every version keeps its own value) meets its criteria (R10–R11); `abundance` stays amendment 2 until Adam decides.
+every version keeps its own value) meets its criteria (R10–R11) and is **adopted 2026-11-05** (Adam: "ok"); `abundance_a2` reproduces earlier numbers.
 Registered 2026-11-04, before any code or count for the rule. Follows specs/133's conclusion that the
 remaining korkut errors belong to single pathways (Adam: "okay go ahead").
 
@@ -189,3 +189,8 @@ training must show no harm on the primary. The korkut gate is reported, not appl
 **Left open (recorded, not changed here).** A copy whose only in-edge is depletion and that has no out-edge is an
 abundance copy but is never pinned (the bench ignores a depletion in-edge only for nodes with an out-edge), so a drug's
 own target can be read from that unpinned copy instead of leaving scoring. Not counted yet.
+
+## Decision on amendment 3 (Adam, 2026-11-05)
+
+Adopted ("ok", to the recommendation to adopt on faithfulness with the CPPA secondary's beta-catenin effect recorded).
+`abundance` now names `abundance_a3`; `abundance_a2` and `abundance_a1` reproduce the numbers of R8–R9 and R6–R7.
