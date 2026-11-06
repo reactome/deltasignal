@@ -52,6 +52,34 @@ Liveness probe.
   "service": "deltasignal-api", "julia_version": "1.10.10" }
 ```
 
+### `GET /api/scope`
+The scope statement (specs/143): what the system is validated for, with
+provenance, and the recorded classes of question where it is not to be
+trusted. Served verbatim from the versioned `src/api/scope.json` — a client
+renders it, never writes its own copy.
+
+```json
+{ "status": "success",
+  "statement": { "version": "...", "provenance_build": "...",
+    "summary": ["..."],
+    "validated": [{ "axis": "...", "statement": "...", "value": "...",
+      "catalog_build": "...", "solver_commit": "...", "date": "...",
+      "spec": "..." }],
+    "limitations": [{ "name": "...", "statement": "...", "spec": "..." }],
+    "protocols": [{ "name": "...", "endpoint": "...", "statement": "...",
+      "spec": "..." }] },
+  "served_catalog": "20261026-1349_8b6527e",
+  "measured_on_served_catalog": true }
+```
+
+Every number in `validated` carries its build, solver commit, date and spec
+(a repo test refuses a statement without them). `served_catalog` is what this
+server is actually serving (`null` when it has no usable manifest), and
+`measured_on_served_catalog` says whether the statement's figures were
+measured on that build — a statement never silently outlives its catalog. A
+missing or unreadable statement file refuses with a `400` and a named
+message, never a fabricated or partial statement.
+
 ### `GET /api/pathways`
 The pre-generated Reactome pathway catalog (from the logic-network-generator),
 deduplicated and pretty-named. This is the primary "pick a pathway" list.
@@ -476,4 +504,7 @@ Response:
   `converged: false` is a cap-decided answer (`residual` says how far from
   steady it stopped); say so beside its results instead of presenting them
   like a converged steady state.
+- Render the scope statement (`GET /api/scope`) somewhere a user deciding
+  whether to trust a number will find it, and show the
+  `measured_on_served_catalog` flag honestly when it is `false`.
 - On a `network_id` miss after a backend restart, re-`parse` and retry.
