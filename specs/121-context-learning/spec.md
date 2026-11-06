@@ -144,3 +144,37 @@ difference would have been credited to gating. The gated bench now resolves tota
 prints `DS_TOTAL_READOUT` in its Protocol line. The phase-2 training run (amendment 4, code `ff81b6a`) read forms, and
 its verdict stands as recorded. At the final scoring, the frozen and gated arms are run with the same
 `DS_TOTAL_READOUT`, and the logs must show it.
+
+## Amendment 6 (2026-11-05): the close, registered before any test value is read
+
+Adam ("yes", to closing development and scoring the test portions once). Development on the training portion is over:
+the readout rule is settled (specs/134, amendments 1–3 adopted), and the three cell-context rules each failed their
+registered gate (phase 2 expression gating, amendment 4; the readout's resting level, specs/130; the target's resting
+activity, specs/139). Nothing from specs/130 or specs/139 is carried.
+
+**Arms, fixed now.**
+- **Frozen model**: one fresh prediction run at HEAD (`scripts/run_cppa.sh`, values-blind) under the adopted readout
+  (`DS_TOTAL_READOUT=abundance` = `abundance_a3`; the log prints the version, amendment 5). As a reproduction check,
+  its case rows must match the R9 run with the three amendment-3 pathways spliced in (`analysis/134/a3_splice`) before
+  any scoring; a mismatch stops the close.
+- **Expression-gated model** (phase 2, the registered arm): `cppa_gated_bench.py` on portions A, B and C
+  (`scripts/run_cppa_gated.sh`, values-blind), same readout. A sample without a gated prediction keeps the frozen one.
+- **Reachability**, from the same case logs.
+- Phase 4 named responsiveness (specs/117), the specs/118 regression and CellBox as possible comparators. None was ever
+  built on CPPA training; building one now would be development after the close, so they are not scored.
+
+**Scoring** (`bench/analysis/score_121_final.py`, committed with this amendment; the only code that passes
+`final=True`): for each portion A (unseen drug), B (unseen cell line), C (both), the registered endpoints —
+- primary: per-sample Pearson over mapped antibodies (at least 3), averaged per drug, then over drugs; 95% bootstrap,
+  2,000 resamples, seed 121, resampling drugs (A, C) or cell lines (B);
+- secondary: three-class balanced accuracy at |delta-p| >= log2 1.5 (amendment 3);
+- secondary: the primary on samples with a parsed treatment time of 12 hours or less (amendment 3).
+
+The test portions are read once, by that script, after this amendment and the code are merged. Every measured number
+stays in the private notes (the CPPA terms); the spec records qualitative verdicts. CPPA then becomes FIT
+(`bench/datasets.tsv`).
+
+**Expectations, stated before the read** (no gate; the scoring happens whatever they show):
+- E1: the frozen model's per-drug correlation on Test A is positive and near its training value.
+- E2: the frozen model is above reachability on every portion (as in training).
+- E3: the gated model is not above the frozen model (its training gate failed).
