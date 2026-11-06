@@ -134,6 +134,17 @@ not copied; the bench suite passes unchanged, 408 passed / 3 skipped) and by
 `korkut_bench.readout_nodes` / `abundance_copies`. Set members were fed to the
 engine from the bench's Neo4j answer, as registered.
 
-What this does NOT establish: value-level parity on a full solve is checked
-separately (the smoke below), and member-list provenance is outside the gate
-by design (the client supplies members in production).
+What this does NOT establish: member-list provenance is outside the gate by
+design (the client supplies members in production).
+
+## Live smoke (dev API, same build)
+
+Parse → `/api/pins` → `/api/solve` → `/api/readouts` on the restarted dev
+API: a proxy-resolved readout (ko 1268261 in R-HSA-5673001, RAF/MAP kinase
+cascade), a set readout (ko 1268261 in R-HSA-5654736) and their pathways'
+direct readouts all return the bench's groups, and every engine `value`
+equals the bench's `entity_mean` over the same solve's activities to within
+1e-12 (observed exactly equal). Abundance smoke: BAK in R-HSA-109606
+(Intrinsic Apoptosis) resolves 4 occurrences and keeps exactly the bench's 1
+abundance copy. The two cases today's UI shows nothing for (expanded species,
+sets) resolve through the endpoint on real catalog pathways — SC-004.
