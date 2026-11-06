@@ -232,9 +232,17 @@ rest every figure classifies on: `value / DS_BASELINE`) and `call` (`"down"`
 strictly below the down cutoff, `"up"` at or above the up cutoff, else
 `"normal"`; the server reads `DS_DOWN_CUTOFF` / `DS_UP_CUTOFF` and
 `DS_BASELINE` exactly as the bench does, defaults 0.85 / 1.15 / 0.01, so an
-arm run through the endpoint measures the same protocol). The top level
+arm run through the endpoint measures the same protocol), and `railed`
+(specs/142: `true` when the fold is at the model's stop — at or above
+`0.99 × ceiling`, or at or below `0.01` — the bench's
+`score_124.railed`, the one statistic behind every recorded rails% figure.
+A railed readout is a switch pinned against a bound, not a measured
+magnitude; present a stop, not a number. `null` whenever `fold` is `null`;
+absent on resolution-only responses). The top level
 carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
-baseline and cutoffs), `missing_tables` — bundle tables the proxy step would
+baseline and cutoffs, and `rail_low` / `rail_high` — the stop values the
+flag was computed with, 0.01 and 99.0 at the default baseline, so a client
+never hardcodes them), `missing_tables` — bundle tables the proxy step would
 read that this network was parsed without
 (`entity_reaction_proxy_mapping.csv` as the `proxies` upload part,
 `cofactors.csv` as `cofactors`); an entity needing them falls through
@@ -461,4 +469,11 @@ Response:
   entity-mean, and an expanded species or set only resolves through it. A
   query whose `basis` is `"none"` is not perturbable (pins) or not readable
   (readouts) in this pathway — say so instead of substituting something else.
+- Surface the honesty signals (specs/142): a readout with `railed: true` is a
+  switch pinned against the model's stop (`protocol.rail_low` /
+  `rail_high`), not a measured magnitude — present it as "at the model's
+  bound (≥ 99×)" rather than a precise fold. A solve response with
+  `converged: false` is a cap-decided answer (`residual` says how far from
+  steady it stopped); say so beside its results instead of presenting them
+  like a converged steady state.
 - On a `network_id` miss after a backend restart, re-`parse` and retry.

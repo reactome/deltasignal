@@ -72,7 +72,8 @@ export conserved_mode, conserved_uuids
 export parse_node_leaves, node_leaves_json, node_leaves_from_json, zero_supply_mode, zero_supply_uuids
 export PinIndex, build_pin_index, resolve_pins, pin_root_indegree, pin_root_ignore
 export ReadoutIndex, build_readout_index, resolve_readout, readout_entity_mean,
-       readout_call, resolve_abundance_occurrences, abundance_copies, abundance_value
+       readout_call, readout_railed, readout_rail_stops,
+       resolve_abundance_occurrences, abundance_copies, abundance_value
 export convert_to_reaction_network, aggregate_to_pathway_view, validate_network_pathway_mapping
 export compute_influence_scores, SteadyStateParams
 

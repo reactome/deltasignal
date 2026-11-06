@@ -144,6 +144,42 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
         @test readout_call(100.0) == "up"
     end
 
+    @testset "rails are the bench's stop test (specs/142): >= 0.99 x ceiling or <= 0.01" begin
+        # The flag is score_124.railed served per readout; the parity gate
+        # against the imported bench function is bench/analysis/142/. The high
+        # fold here COMPUTES through the aggregation: two variant copies both
+        # at the internal top (1.0) entity-mean to 1.0, fold 100 at the
+        # default baseline.
+        acts = Dict("hi1" => 1.0, "hi2" => 1.0, "lo" => 0.0, "mid" => 0.05)
+        high = readout_entity_mean([["hi1", "hi2"]], acts)
+        @test high == 1.0
+        @test readout_railed(high / 0.01)                 # 100 >= 99: railed high
+        @test readout_railed(0.0)                         # a knocked-out readout
+        low = readout_entity_mean([["lo"]], acts)
+        @test readout_railed(low / 0.01)                  # fold 0 <= 0.01
+        mid = readout_entity_mean([["mid"]], acts)
+        @test !readout_railed(mid / 0.01)                 # fold 5: a magnitude
+        # Boundary folds are railed, as the bench's >= / <= comparisons say.
+        @test readout_railed(99.0)
+        @test !readout_railed(98.999)
+        @test readout_railed(0.01)
+        @test !readout_railed(0.010001)
+        # A resolved group read entirely at baseline folds to 1.0: not railed.
+        @test !readout_railed(readout_entity_mean([["absent"]], acts) / 0.01)
+    end
+
+    @testset "the rail stops follow DS_BASELINE, as the bench's ceiling does" begin
+        @test readout_rail_stops() == (0.01, 99.0)
+        # specs/124 arm: baseline 0.001, ceiling 1000, high stop 990. rail_low
+        # stays 0.01 — a fraction of rest, the bench's constant, not a
+        # fraction of the ceiling.
+        stops = readout_rail_stops(baseline = 0.001)
+        @test stops == (0.01, 990.0)
+        @test readout_railed(991.0; stops = stops)
+        @test !readout_railed(989.0; stops = stops)
+        @test readout_railed(0.01; stops = stops)
+    end
+
     @testset "cutoffs and baseline follow the env, as the bench's do" begin
         # specs/137 arms rescale the cutoffs; specs/124 arms rescale the
         # baseline. The endpoint must read the same knobs or an arm run
