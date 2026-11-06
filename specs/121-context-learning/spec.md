@@ -178,3 +178,18 @@ stays in the private notes (the CPPA terms); the spec records qualitative verdic
 - E1: the frozen model's per-drug correlation on Test A is positive and near its training value.
 - E2: the frozen model is above reachability on every portion (as in training).
 - E3: the gated model is not above the frozen model (its training gate failed).
+
+## The final scoring (2026-11-06): done, once
+
+Run at `94e8f79` exactly as amendment 6 registered: the fresh frozen run reproduced the R9+a3 splice on every row
+before scoring; the gated runs covered portions A, B and C with every solve converged; `score_121_final.py` read the
+test portions once. Every measured number, and the full reading, is in the private notes (the CPPA terms); the repo
+records only whether the registered expectations held:
+
+- **E1 fails.**
+- **E2 holds on Test B only.**
+- **E3 holds** on the registered secondary; no paired correlation endpoint was registered for the gated arm, so
+  nothing more is claimed for it.
+
+Both CPPA portions are now FIT (`bench/datasets.tsv`); there is no remaining untouched RPPA test. Lun 2019 (CyTOF,
+overexpression) remains the sealed reserve.
