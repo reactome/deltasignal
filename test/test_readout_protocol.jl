@@ -19,8 +19,8 @@ pin_index(pairs::Pair...; diagram=Dict{String,String}()) =
     DeltaSignal.PinIndex(Dict(String(k) => String[v...] for (k, v) in pairs), diagram)
 
 readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
-              has_proxy=true, has_cof=true) =
-    DeltaSignal.ReadoutIndex(proxies, cofactors, has_proxy, has_cof)
+              has_proxy=true, has_cof=true, errors=String[], own=nothing) =
+    DeltaSignal.ReadoutIndex(proxies, cofactors, has_proxy, has_cof, errors, own)
 
 @testset "readout protocol (specs/141)" begin
 
@@ -144,7 +144,42 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
         @test readout_call(100.0) == "up"
     end
 
-    @testset "build_readout_index reads the bundle tables; absence is recorded" begin
+    @testset "cutoffs and baseline follow the env, as the bench's do" begin
+        # specs/137 arms rescale the cutoffs; specs/124 arms rescale the
+        # baseline. The endpoint must read the same knobs or an arm run
+        # through it measures a different protocol.
+        old_d, old_u = get(ENV, "DS_DOWN_CUTOFF", nothing), get(ENV, "DS_UP_CUTOFF", nothing)
+        try
+            ENV["DS_DOWN_CUTOFF"] = "0.5"
+            ENV["DS_UP_CUTOFF"] = "2.0"
+            @test DeltaSignal.readout_cutoffs() == (0.5, 2.0)
+            @test readout_call(0.84; cutoffs = DeltaSignal.readout_cutoffs()) == "normal"
+            @test readout_call(2.0; cutoffs = DeltaSignal.readout_cutoffs()) == "up"
+        finally
+            old_d === nothing ? delete!(ENV, "DS_DOWN_CUTOFF") : (ENV["DS_DOWN_CUTOFF"] = old_d)
+            old_u === nothing ? delete!(ENV, "DS_UP_CUTOFF") : (ENV["DS_UP_CUTOFF"] = old_u)
+        end
+        @test DeltaSignal.readout_cutoffs() == (0.85, 1.15)
+        # the baseline fill is the server's resting baseline, not a constant
+        @test readout_entity_mean([["missing"]], Dict{String,Float64}();
+                                  baseline = 0.002) ≈ 0.002
+    end
+
+    @testset "a context build reads only the pathway's own nodes (bench own filter)" begin
+        idx = pin_index("SE" => ["mine", "theirs"], "M1" => ["m-own", "m-import"])
+        own = Set(["mine", "m-own"])
+        r = resolve_readout(["SE"], String[], idx, readout_index(own=own), LogicNetworkEdge[])
+        @test r.basis == "direct" && r.groups == [["mine"]]
+        rs = resolve_readout(["nope"], ["M1"], idx, readout_index(own=own), LogicNetworkEdge[])
+        @test rs.basis == "set_members" && rs.groups == [["m-own"]]
+        # the abundance union applies the same filter inside the union
+        @test resolve_abundance_occurrences(["SE"], idx; own=own) == ["mine"]
+        # outside a context build nothing is filtered
+        @test resolve_readout(["SE"], String[], idx, readout_index(), LogicNetworkEdge[]).groups ==
+              [["mine", "theirs"]]
+    end
+
+    @testset "build_readout_index reads the bundle tables; absence and damage are distinct" begin
         dir = mktempdir()
         write(joinpath(dir, "entity_reaction_proxy_mapping.csv"),
               "entity_stable_id,proxy_uuid,proxy_role\nSP,R1,producing\nSP,R2,consuming\nSQ,R3,producing\n")
@@ -153,15 +188,33 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
         @test ridx.proxies == Dict("SP" => ["R1", "R2"], "SQ" => ["R3"])
         @test ridx.cofactors == Set(["SATP"])
         @test ridx.has_proxy_table && ridx.has_cofactor_table
+        @test isempty(ridx.table_errors) && ridx.own === nothing
 
         empty_dir = mktempdir()
         bare = build_readout_index(empty_dir)
         @test isempty(bare.proxies) && isempty(bare.cofactors)
         @test !bare.has_proxy_table && !bare.has_cofactor_table
+        @test isempty(bare.table_errors)
 
+        # a PRESENT table that cannot be read is recorded, not thrown (the
+        # pool-table precedent: a bad optional table must not take the parse
+        # down) and never reported as merely absent
         bad = mktempdir()
         write(joinpath(bad, "entity_reaction_proxy_mapping.csv"), "foo,bar\n1,2\n")
-        @test_throws ArgumentError build_readout_index(bad)
+        damaged = build_readout_index(bad)
+        @test !damaged.has_proxy_table
+        @test length(damaged.table_errors) == 1
+        @test startswith(damaged.table_errors[1], "entity_reaction_proxy_mapping.csv:")
+
+        # a context build's own-nodes table is read; a damaged one is recorded
+        ctx = mktempdir()
+        write(joinpath(ctx, "context_own.csv"), "uuid\nmine\nm-own\n")
+        @test build_readout_index(ctx).own == Set(["mine", "m-own"])
+        badctx = mktempdir()
+        write(joinpath(badctx, "context_own.csv"), "foo\nx\n")
+        dctx = build_readout_index(badctx)
+        @test dctx.own === nothing
+        @test any(startswith(e, "context_own.csv:") for e in dctx.table_errors)
     end
 
 end

@@ -228,13 +228,23 @@ Response (per query): `basis` (`"direct"` | `"proxy"` | `"set_members"` |
 `"none"`), `groups` (uuid lists, one per curated entity), `pinned` (which
 resolved uuids the request named as pinned), and — with `activities` —
 `value` (entity-mean internal activity), `fold` (`value × 100`, the fold over
-rest every figure classifies on) and `call` (`"down"` below 0.85, `"up"` at or
-above 1.15, else `"normal"`). The top level carries `protocol` (on the
-record: `ko_agg`, `total_readout`, the cutoffs) and `missing_tables` — bundle
-tables the proxy step would read that this network was parsed without
+rest every figure classifies on: `value / DS_BASELINE`) and `call` (`"down"`
+strictly below the down cutoff, `"up"` at or above the up cutoff, else
+`"normal"`; the server reads `DS_DOWN_CUTOFF` / `DS_UP_CUTOFF` and
+`DS_BASELINE` exactly as the bench does, defaults 0.85 / 1.15 / 0.01, so an
+arm run through the endpoint measures the same protocol). The top level
+carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
+baseline and cutoffs), `missing_tables` — bundle tables the proxy step would
+read that this network was parsed without
 (`entity_reaction_proxy_mapping.csv` as the `proxies` upload part,
 `cofactors.csv` as `cofactors`); an entity needing them falls through
-honestly to `set_members`/`none`, never a silent approximation.
+honestly to `set_members`/`none`, never a silent approximation — and
+`malformed_tables`: a PRESENT table that could not be read, recorded with the
+reason and never reported as merely absent (and never failing the parse). In
+a context build (specs/056) readouts are cut to the pathway's own nodes
+(`context_own.csv`), as the bench cuts them; a context bundle whose own-nodes
+table cannot be read is refused with a `400` rather than answered with
+neighbouring pathways' copies included.
 
 **`mode: "abundance"`** (specs/134, the adopted `abundance_a3`): a
 total-protein antibody reads only copies nothing makes from the protein

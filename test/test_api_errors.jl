@@ -335,7 +335,10 @@ const SRV = DeltaSignal
         # the protocol is on the record, not inferred
         @test body[:protocol][:ko_agg] == "mean_entity"
         @test body[:protocol][:total_readout] == "abundance_a3"
+        @test body[:protocol][:baseline] == 0.01
+        @test body[:protocol][:down_cutoff] == 0.85
         @test isempty(body[:missing_tables])
+        @test isempty(body[:malformed_tables])
         r1 = body[:results][1]
         # one curated-entity group of both variant copies; entity-mean value
         @test [[String(u) for u in g] for g in r1[:groups]] == [["u-x", "u-y"]]
@@ -372,11 +375,14 @@ const SRV = DeltaSignal
         ra = SRV.JSON3.read(String(resp.body))[:results][1]
         @test ra[:status] == "scored" && ra[:value] ≈ 0.5 && ra[:call] == "up"
 
-        # without activities: resolution only, no value invented
+        # without activities: resolution only, no value invented; a numeric id
+        # is echoed as text, not a 500-class MethodError
         resp = SRV.readouts_handler(post("""{"network_id": "$nid",
-            "queries": [{"stable_ids": ["R-HSA-2"]}]}"""))
+            "queries": [{"id": 7, "stable_ids": ["R-HSA-2"]}]}"""))
+        @test resp.status == 200
         r = SRV.JSON3.read(String(resp.body))[:results][1]
         @test r[:basis] == "direct" && !haskey(r, :value)
+        @test r[:id] == "7"
 
         # absent optional tables are NAMED, not approximated over
         f2 = fields(); f2["nodes"] = nodes_part()
