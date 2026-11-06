@@ -212,6 +212,23 @@ function readout_call(fold::Float64;
     return fold < down ? "down" : (fold >= up ? "up" : "normal")
 end
 
+"""specs/142: the rail stops. `rail_low` is 0.01 — a fraction of rest, the
+bench's constant — and `rail_high` is 0.99 × the ceiling (1 / `baseline`,
+specs/124 `DS_BASELINE`). At the default baseline they are 0.01 / 99.0."""
+function readout_rail_stops(; baseline::Float64 = resting_baseline())::Tuple{Float64, Float64}
+    return (0.01, 0.99 / baseline)
+end
+
+"""specs/142: a fold at the model's stop is a switch state, not a measured
+magnitude. This is the bench's `railed(fold, ceiling)`
+(`bench/analysis/score_124.py`, the one function behind every recorded rails%
+figure): `fold >= 0.99 * ceiling or fold <= 0.01`, boundary folds railed, as
+its comparisons say."""
+function readout_railed(fold::Float64;
+                        stops::Tuple{Float64, Float64} = readout_rail_stops())::Bool
+    return fold >= stops[2] || fold <= stops[1]
+end
+
 """The korkut total-readout resolution (`readout_nodes`): the union of direct
 matches over ALL the readout's stable ids, order kept, deduplicated — one flat
 group, no proxy or set-member steps. In a context build only the pathway's own

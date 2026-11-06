@@ -1264,6 +1264,8 @@ function readouts_handler(req)
         # must too, or an arm run through it measures a different protocol.
         baseline = DeltaSignal.resting_baseline()
         cutoffs = DeltaSignal.readout_cutoffs()
+        # specs/142: the rail stops the served flag is computed with.
+        rail_stops = DeltaSignal.readout_rail_stops(baseline = baseline)
         # One output-entity map per request, not per proxy query.
         output_entities = DeltaSignal._readout_output_entities(
             network.edges, pin_index, ridx.cofactors)
@@ -1298,6 +1300,10 @@ function readouts_handler(req)
                     entry["fold"] = value === nothing ? nothing : value / baseline
                     entry["call"] = value === nothing ? nothing :
                                     DeltaSignal.readout_call(value / baseline; cutoffs = cutoffs)
+                    # specs/142: a fold at a stop is a switch state, said so.
+                    entry["railed"] = value === nothing ? nothing :
+                                      DeltaSignal.readout_railed(value / baseline;
+                                                                 stops = rail_stops)
                 end
             else
                 occurrences = DeltaSignal.resolve_abundance_occurrences(stids, pin_index;
@@ -1315,6 +1321,10 @@ function readouts_handler(req)
                     entry["fold"] = scored.value === nothing ? nothing : scored.value / baseline
                     entry["call"] = scored.value === nothing ? nothing :
                                     DeltaSignal.readout_call(scored.value / baseline; cutoffs = cutoffs)
+                    # specs/142: the same stop test on an abundance fold.
+                    entry["railed"] = scored.value === nothing ? nothing :
+                                      DeltaSignal.readout_railed(scored.value / baseline;
+                                                                 stops = rail_stops)
                 end
             end
             push!(results, entry)
@@ -1332,7 +1342,11 @@ function readouts_handler(req)
                                "total_readout" => "abundance_a3",
                                "baseline" => baseline,
                                "down_cutoff" => cutoffs[1],
-                               "up_cutoff" => cutoffs[2]),
+                               "up_cutoff" => cutoffs[2],
+                               # specs/142: the stops the railed flag used, so
+                               # a client never hardcodes them.
+                               "rail_low" => rail_stops[1],
+                               "rail_high" => rail_stops[2]),
             # Honest degradation (specs/141 FR-005): an absent table is named;
             # a PRESENT table that could not be read is named separately and
             # never reported as merely absent.
