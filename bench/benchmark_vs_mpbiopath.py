@@ -436,6 +436,62 @@ def entity_mean(vals_by_uuid: Mapping, groups: list) -> float:
     return sum(means) / len(means)
 
 
+def resolve_key_output(candidate_sids, stid_to_uuids, entity_reaction_proxies,
+                       output_entities, set_members=None, own_uuids=None):
+    """specs/141: the key-output resolution ladder, extracted verbatim from
+    run_pathway so the engine's /api/readouts port can be gated against the
+    very code the benchmarks run. Returns (uuids, groups, basis, members):
+    `uuids` and `groups` exactly as run_pathway built them (groups filtered of
+    empties); `basis` names the branch that resolved ("direct", "proxy",
+    "set_members", "none"); `members` is the ordered, deduplicated member
+    stable-id list the set branch consulted (empty unless it ran), so a parity
+    harness can feed the engine the same Neo4j answer."""
+    if set_members is None:
+        set_members = neo4j_set_member_stids
+    uuids = []
+    # Try the resolved stId first, then the historical R-HSA-{ko} guess.
+    for sid in candidate_sids:
+        uuids = stid_to_uuids.get(sid, [])
+        if uuids:
+            break
+    groups = [uuids]
+    basis = "direct" if uuids else "none"
+    # Fallback: a curated species expanded into virtual variants has no
+    # UUID of its own — read the flux of its producing reaction instead.
+    if not uuids:
+        for sid in candidate_sids:
+            uuids = entity_reaction_proxies.get(sid, [])
+            if uuids:
+                by_out = defaultdict(list)
+                for u in uuids:
+                    by_out["|".join(sorted(output_entities.get(u, ()))) or u].append(u)
+                groups = list(by_out.values())
+                basis = "proxy"
+                break
+    # Set-typed readout: the generator expands EntitySets to their member
+    # species, so the set itself has no node. Aggregate the member
+    # species that ARE present in the network.
+    members_seen = []
+    if not uuids:
+        members = set_members(candidate_sids)
+        seen_m = set()
+        groups = []
+        for sid in candidate_sids:
+            for m in members.get(sid, []):
+                if m in seen_m:
+                    continue
+                seen_m.add(m)
+                members_seen.append(m)
+                uuids = uuids + stid_to_uuids.get(m, [])
+                groups.append(list(stid_to_uuids.get(m, [])))
+        if uuids:
+            basis = "set_members"
+    if own_uuids is not None:
+        uuids = [u for u in uuids if u in own_uuids]
+        groups = [[u for u in g if u in own_uuids] for g in groups]
+    return uuids, [g for g in groups if g], basis, members_seen
+
+
 def build_adjacency(pathway_dir: Path) -> dict:
     """Forward adjacency: source → [target,...]. Used for reachability checks."""
     adj = defaultdict(list)
@@ -1151,42 +1207,14 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
                 candidate_sids.append(resolved)
             if f"R-HSA-{ko}" not in candidate_sids:
                 candidate_sids.append(f"R-HSA-{ko}")
-            uuids = []
-            for sid in candidate_sids:
-                uuids = stid_to_uuids.get(sid, [])
-                if uuids:
-                    break
-            groups = [uuids]
-            # Fallback: a curated species expanded into virtual variants has no
-            # UUID of its own — read the flux of its producing reaction instead.
-            if not uuids:
-                for sid in candidate_sids:
-                    uuids = entity_reaction_proxies.get(sid, [])
-                    if uuids:
-                        by_out = defaultdict(list)
-                        for u in uuids:
-                            by_out["|".join(sorted(output_entities.get(u, ()))) or u].append(u)
-                        groups = list(by_out.values())
-                        break
-            # Set-typed readout: the generator expands EntitySets to their member
-            # species, so the set itself has no node. Aggregate the member
-            # species that ARE present in the network.
-            if not uuids:
-                members = neo4j_set_member_stids(candidate_sids)
-                seen_m = set()
-                groups = []
-                for sid in candidate_sids:
-                    for m in members.get(sid, []):
-                        if m in seen_m:
-                            continue
-                        seen_m.add(m)
-                        uuids = uuids + stid_to_uuids.get(m, [])
-                        groups.append(list(stid_to_uuids.get(m, [])))
-            if own_uuids is not None:
-                uuids = [u for u in uuids if u in own_uuids]
-                groups = [[u for u in g if u in own_uuids] for g in groups]
+            # The resolution ladder itself lives in resolve_key_output
+            # (specs/141 extracted it so the engine port is gated against
+            # exactly this code).
+            uuids, groups, _basis, _members = resolve_key_output(
+                candidate_sids, stid_to_uuids, entity_reaction_proxies,
+                output_entities, own_uuids=own_uuids)
             key_output_uuids[ko] = uuids
-            key_output_groups[ko] = [g for g in groups if g]
+            key_output_groups[ko] = groups
 
     # Optional key-output remap for recurated pathways (see DS_KO_REMAP). Build
     # the perturbed-gene → active/inactive-form lookup from the network's own

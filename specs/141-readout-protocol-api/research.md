@@ -115,4 +115,25 @@ of inventing a value.
 
 ## Parity result
 
-_To be recorded when the gate runs._
+Run 2026-11-06 on the frozen build `20261026-1349_8b6527e`
+(`bench/analysis/141/bench_readouts.json` / `engine_readouts.json`,
+`compare_141.py`):
+
+```
+curator: 983 (pathway, key_output) readouts compared; agreeing: 983 (direct 889, none 8, proxy 81, set_members 5)
+korkut:  272 (pathway, total readout) cases compared; agreeing: 272
+no differences — the gate passes
+```
+
+Every (pathway, key_output) readout of the curator benchmark resolves to the
+same basis and the same curated-entity groups in the engine as in the bench's
+own code, and every korkut total readout resolves to the same occurrence list
+and the same abundance_a3 kept copies. The bench side was produced by
+`resolve_key_output` (the function `run_pathway` itself now calls — extracted,
+not copied; the bench suite passes unchanged, 408 passed / 3 skipped) and by
+`korkut_bench.readout_nodes` / `abundance_copies`. Set members were fed to the
+engine from the bench's Neo4j answer, as registered.
+
+What this does NOT establish: value-level parity on a full solve is checked
+separately (the smoke below), and member-list provenance is outside the gate
+by design (the client supplies members in production).
