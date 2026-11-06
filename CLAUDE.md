@@ -1175,8 +1175,9 @@ for the last feature that touched it rather than re-deriving from the code.
   [+0.0007, +0.0324] (RAF set aside +0.0212), accuracy 0.674 → 0.796; the CPPA training check holds. **Adopted**
   (Adam, 2026-11-04). Amendment 2 (a set or pool of the protein's copies carries it: RAF scaffold complexes) **adopted**
   (Adam, 2026-11-05): korkut 144 fixed / 0 broken, CPPA training holds. Amendment 3 (a `recycle` edge does not make
-  the starting copy) **adopted** (Adam, 2026-11-05): no korkut case moves; CPPA training primary holds. The total change calls left are proteins the pathway also makes (translation): the model keeps
-  no stock of a protein it only makes.
+  the starting copy) **adopted** (Adam, 2026-11-05): no korkut case moves; CPPA training primary holds. The total
+  change calls left are proteins the pathway also makes (translation): the model keeps no stock of a protein it only
+  makes.
 - `specs/135-synthesis-stock/` — analysis: the 527 total change calls left after specs/134 amendment 2 (13 right) are all
   on proteins the network makes by gene expression; 196 of the single-copy ones read 0 because a knocked-out
   `PositiveGeneExpressionRegulation` regulator is read as required. A 24 h stock (46 h half-life) or a basal expression
