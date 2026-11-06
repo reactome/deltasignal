@@ -337,6 +337,9 @@ const SRV = DeltaSignal
         @test body[:protocol][:total_readout] == "abundance_a3"
         @test body[:protocol][:baseline] == 0.01
         @test body[:protocol][:down_cutoff] == 0.85
+        # specs/142: the stops the railed flag used, served, never hardcoded
+        @test body[:protocol][:rail_low] == 0.01
+        @test body[:protocol][:rail_high] == 99.0
         @test isempty(body[:missing_tables])
         @test isempty(body[:malformed_tables])
         r1 = body[:results][1]
@@ -346,6 +349,7 @@ const SRV = DeltaSignal
         @test r1[:value] ≈ 0.03
         @test r1[:fold] ≈ 3.0
         @test r1[:call] == "up"
+        @test r1[:railed] == false  # fold 3.0 is a magnitude, not a stop
         r2 = body[:results][2]
         # no node of its own: the producing reaction's flux is the proxy
         @test r2[:basis] == "proxy"
@@ -356,6 +360,21 @@ const SRV = DeltaSignal
         @test r3[:value] ≈ 0.04
         r4 = body[:results][4]
         @test r4[:basis] == "none" && isempty(r4[:groups]) && r4[:value] === nothing && r4[:call] === nothing
+        @test r4[:railed] === nothing  # no fold, no stop test
+
+        # specs/142: a readout at a stop says so — both variant copies at the
+        # internal top entity-mean to 1.0, fold 100 >= the 99.0 stop; a
+        # knocked-out readout reads fold 0 <= 0.01
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 1.0, "u-y": 1.0},
+            "queries": [{"id": "hi", "stable_ids": ["R-HSA-2"]}]}"""))
+        rh = SRV.JSON3.read(String(resp.body))[:results][1]
+        @test rh[:fold] ≈ 100.0 && rh[:railed] == true
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.0, "u-y": 0.0},
+            "queries": [{"id": "lo", "stable_ids": ["R-HSA-2"]}]}"""))
+        rl = SRV.JSON3.read(String(resp.body))[:results][1]
+        @test rl[:fold] ≈ 0.0 && rl[:railed] == true && rl[:call] == "down"
 
         # abundance: the downstream copy is made from the pinned starting
         # copy's reaction, so only the starting copy is total protein; pinning
@@ -369,11 +388,13 @@ const SRV = DeltaSignal
         @test [[String(u) for u in g] for g in ra[:groups]] == [["u-x"]]
         @test [String(u) for u in ra[:pinned]] == ["u-x"]
         @test ra[:status] == "trivial" && ra[:value] === nothing && ra[:call] === nothing
+        @test ra[:railed] === nothing
         resp = SRV.readouts_handler(post("""{"network_id": "$nid",
             "activities": {"u-x": 0.5},
             "queries": [{"id": "total", "stable_ids": ["R-HSA-2"], "mode": "abundance"}]}"""))
         ra = SRV.JSON3.read(String(resp.body))[:results][1]
         @test ra[:status] == "scored" && ra[:value] ≈ 0.5 && ra[:call] == "up"
+        @test ra[:railed] == false  # fold 50: below the 99.0 stop
 
         # without activities: resolution only, no value invented; a numeric id
         # is echoed as text, not a 500-class MethodError
@@ -382,6 +403,7 @@ const SRV = DeltaSignal
         @test resp.status == 200
         r = SRV.JSON3.read(String(resp.body))[:results][1]
         @test r[:basis] == "direct" && !haskey(r, :value)
+        @test !haskey(r, :railed)  # no activities, no fold, no flag
         @test r[:id] == "7"
 
         # absent optional tables are NAMED, not approximated over
