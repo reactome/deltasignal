@@ -194,6 +194,73 @@ the bundled sample) is a `400` naming the missing table: exact-id matching
 would be a second, unvalidated protocol, so the server refuses rather than
 approximates.
 
+### `POST /api/readouts`
+Resolve and aggregate a **readout** the way the benchmarks read one
+(specs/141). Every published figure reads a curated entity by a specific
+protocol: resolve it to nodes (direct stable-id match; else the flux of its
+proxy reactions, grouped by the non-cofactor output entities each proxy
+makes; else its set members, one group per member), then weigh each curated
+entity **once** (entity-mean, specs/105) — never a flat mean over every node
+copy matching a `reactome_id`, which is what the retired display rule did.
+Total-protein questions use the specs/134 abundance rule instead (see `mode`).
+
+```json
+{ "network_id": "pw:Cell_Cycle_Checkpoints_R-HSA-69620",
+  "activities": { "<node_uuid>": 0.021 },
+  "pinned": ["<node_uuid>"],
+  "queries": [ { "id": "CDKN1A", "stable_ids": ["R-HSA-69683", "..."],
+                 "members": ["R-HSA-..."], "mode": "forms" } ] }
+```
+- **`network_id`** (required): from a prior `/api/parse`; unknown id → `400`.
+- **`queries`** (required, non-empty): `stable_ids` are the entity's candidate
+  ids in order (first that resolves wins); `members` (optional) are a set
+  readout's member stable ids, resolved by the client from the Reactome
+  ContentService (the engine has no Neo4j, by design); `mode` is `"forms"`
+  (default) or `"abundance"`.
+- **`activities`** (optional): `node_activities` from a prior `/api/solve`,
+  verbatim. Omitted → resolution-only response (no `value`/`fold`/`call`).
+  A resolved uuid absent from the map reads baseline (0.01), as the bench
+  reads it.
+- **`pinned`** (optional): the uuids the solve pinned (the observation keys),
+  so the response can flag a readout your own perturbation sets.
+
+Response (per query): `basis` (`"direct"` | `"proxy"` | `"set_members"` |
+`"none"`), `groups` (uuid lists, one per curated entity), `pinned` (which
+resolved uuids the request named as pinned), and — with `activities` —
+`value` (entity-mean internal activity), `fold` (`value × 100`, the fold over
+rest every figure classifies on: `value / DS_BASELINE`) and `call` (`"down"`
+strictly below the down cutoff, `"up"` at or above the up cutoff, else
+`"normal"`; the server reads `DS_DOWN_CUTOFF` / `DS_UP_CUTOFF` and
+`DS_BASELINE` exactly as the bench does, defaults 0.85 / 1.15 / 0.01, so an
+arm run through the endpoint measures the same protocol). The top level
+carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
+baseline and cutoffs), `missing_tables` — bundle tables the proxy step would
+read that this network was parsed without
+(`entity_reaction_proxy_mapping.csv` as the `proxies` upload part,
+`cofactors.csv` as `cofactors`); an entity needing them falls through
+honestly to `set_members`/`none`, never a silent approximation — and
+`malformed_tables`: a PRESENT table that could not be read, recorded with the
+reason and never reported as merely absent (and never failing the parse). In
+a context build (specs/056) readouts are cut to the pathway's own nodes
+(`context_own.csv`), as the bench cuts them; a context bundle whose own-nodes
+table cannot be read is refused with a `400` rather than answered with
+neighbouring pathways' copies included.
+
+**`mode: "abundance"`** (specs/134, the adopted `abundance_a3`): a
+total-protein antibody reads only copies nothing makes from the protein
+itself. Resolution is the korkut rule — the union of direct matches over ALL
+`stable_ids`, one flat group — cut to abundance copies (carry edges close the
+set; made-from edges and producing reactions fed from it drop copies;
+`recycle` does not count as made-from). With `activities`, the value is the
+mean over **unpinned** kept copies and the entry carries `status`:
+`"scored"`, `"trivial"` (every kept copy pinned — the benchmarks leave such a
+readout out of scoring; say so rather than scoring the pin back), or
+`"no_copy"`. `occurrences` is the resolved count before the cut.
+
+A network parsed without a node table refuses with a `400`, as `/api/pins`
+does: the direct step shares the pin index, and matching ids flatly would be
+a second, unvalidated protocol.
+
 ### `POST /api/solve`
 Solve the steady state under a set of perturbations. JSON body:
 ```json
@@ -383,10 +450,15 @@ Response:
   {pathway_id}` (keep the `network_id`) → render nodes/edges → user picks an
   entity to perturb → `POST /api/pins {network_id, queries}` → pin **exactly
   the returned `pins`** at the user's activity → `POST /api/solve
-  {network_id, observations}` → overlay `node_activities × 100` and rank
+  {network_id, observations}` → read entities the user cares about with
+  `POST /api/readouts {network_id, queries, activities: node_activities,
+  pinned: observation keys}` and show each readout's `fold` and `call`; rank
   drivers by `influence_scores`. Do **not** build observations by matching
   `reactome_id` across all nodes: that pins downstream copies the validated
   protocol computes (specs/140), and no benchmark figure applies to such a
-  solve. A query whose `basis` is `"none"` is not perturbable in this
-  pathway — say so instead of pinning something else.
+  solve. Likewise do **not** display an entity as the flat mean of its
+  matching copies: the measured readout is the specs/141 resolution with
+  entity-mean, and an expanded species or set only resolves through it. A
+  query whose `basis` is `"none"` is not perturbable (pins) or not readable
+  (readouts) in this pathway — say so instead of substituting something else.
 - On a `network_id` miss after a backend restart, re-`parse` and retry.

@@ -298,6 +298,130 @@ const SRV = DeltaSignal
         end
     end
 
+    # specs/141: /api/readouts reads an entity the way the benchmarks did.
+    @testset "/api/readouts resolves and aggregates the protocol of record" begin
+        hdr = "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n"
+        part(name, text) = SRV.HTTP.Multipart("$(name).csv", IOBuffer(text), "text/csv")
+        # u-x (leaf R-HSA-2) → u-r → u-y (downstream copy of the same leaf,
+        # diagram entity R-HSA-4)
+        fields() = Dict(
+            "logic_network" => part("logic_network", hdr * "u-x,u-r,pos,and,input,1\nu-r,u-y,pos,,output,1\n"),
+            "uuid_mapping" => part("map", "uuid,stable_id\nu-x,R-HSA-2\nu-r,R-HSA-3\nu-y,R-HSA-4\n"))
+        nodes_part() = part("nodes", "uuid,node_kind,member_leaves,diagram_entity_id\n" *
+            "u-x,entity,R-HSA-2,R-HSA-2\nu-r,reaction,,\nu-y,entity,R-HSA-2,R-HSA-4\n")
+        proxies_part() = part("proxies",
+            "entity_stable_id,proxy_uuid,proxy_role\nR-HSA-9,u-r,producing\n")
+        cofactors_part() = part("cofactors", "stable_id,name\nR-ALL-ATP,ATP\n")
+        function upload(fields)
+            form = SRV.HTTP.Form(fields)
+            SRV.HTTP.Request("POST", "/api/parse",
+                ["Content-Type" => "multipart/form-data; boundary=$(form.boundary)"], read(form))
+        end
+        post(b) = SRV.HTTP.Request("POST", "/api/readouts", ["Content-Type" => "application/json"], b)
+
+        f = fields(); f["nodes"] = nodes_part(); f["proxies"] = proxies_part()
+        f["cofactors"] = cofactors_part()
+        parsed = SRV.JSON3.read(String(SRV.parse_handler(upload(f)).body))
+        nid = String(parsed[:network_id])
+
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.02, "u-y": 0.04},
+            "queries": [{"id": "direct", "stable_ids": ["R-HSA-2"]},
+                        {"id": "proxy", "stable_ids": ["R-HSA-9"]},
+                        {"id": "set", "stable_ids": ["R-HSA-888"], "members": ["R-HSA-4"]},
+                        {"id": "nope", "stable_ids": ["R-HSA-999"]}]}"""))
+        @test resp.status == 200
+        body = SRV.JSON3.read(String(resp.body))
+        # the protocol is on the record, not inferred
+        @test body[:protocol][:ko_agg] == "mean_entity"
+        @test body[:protocol][:total_readout] == "abundance_a3"
+        @test body[:protocol][:baseline] == 0.01
+        @test body[:protocol][:down_cutoff] == 0.85
+        @test isempty(body[:missing_tables])
+        @test isempty(body[:malformed_tables])
+        r1 = body[:results][1]
+        # one curated-entity group of both variant copies; entity-mean value
+        @test [[String(u) for u in g] for g in r1[:groups]] == [["u-x", "u-y"]]
+        @test r1[:basis] == "direct"
+        @test r1[:value] ≈ 0.03
+        @test r1[:fold] ≈ 3.0
+        @test r1[:call] == "up"
+        r2 = body[:results][2]
+        # no node of its own: the producing reaction's flux is the proxy
+        @test r2[:basis] == "proxy"
+        @test [[String(u) for u in g] for g in r2[:groups]] == [["u-r"]]
+        r3 = body[:results][3]
+        @test r3[:basis] == "set_members"
+        @test [[String(u) for u in g] for g in r3[:groups]] == [["u-y"]]
+        @test r3[:value] ≈ 0.04
+        r4 = body[:results][4]
+        @test r4[:basis] == "none" && isempty(r4[:groups]) && r4[:value] === nothing && r4[:call] === nothing
+
+        # abundance: the downstream copy is made from the pinned starting
+        # copy's reaction, so only the starting copy is total protein; pinning
+        # it leaves the readout trivial, never scored back
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.5, "u-y": 0.9}, "pinned": ["u-x"],
+            "queries": [{"id": "total", "stable_ids": ["R-HSA-2"], "mode": "abundance"}]}"""))
+        @test resp.status == 200
+        ra = SRV.JSON3.read(String(resp.body))[:results][1]
+        @test ra[:occurrences] == 2
+        @test [[String(u) for u in g] for g in ra[:groups]] == [["u-x"]]
+        @test [String(u) for u in ra[:pinned]] == ["u-x"]
+        @test ra[:status] == "trivial" && ra[:value] === nothing && ra[:call] === nothing
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.5},
+            "queries": [{"id": "total", "stable_ids": ["R-HSA-2"], "mode": "abundance"}]}"""))
+        ra = SRV.JSON3.read(String(resp.body))[:results][1]
+        @test ra[:status] == "scored" && ra[:value] ≈ 0.5 && ra[:call] == "up"
+
+        # without activities: resolution only, no value invented; a numeric id
+        # is echoed as text, not a 500-class MethodError
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "queries": [{"id": 7, "stable_ids": ["R-HSA-2"]}]}"""))
+        @test resp.status == 200
+        r = SRV.JSON3.read(String(resp.body))[:results][1]
+        @test r[:basis] == "direct" && !haskey(r, :value)
+        @test r[:id] == "7"
+
+        # absent optional tables are NAMED, not approximated over
+        f2 = fields(); f2["nodes"] = nodes_part()
+        parsed2 = SRV.JSON3.read(String(SRV.parse_handler(upload(f2)).body))
+        resp = SRV.readouts_handler(post("""{"network_id": "$(parsed2[:network_id])",
+            "queries": [{"stable_ids": ["R-HSA-9"]}]}"""))
+        body2 = SRV.JSON3.read(String(resp.body))
+        @test sort([String(t) for t in body2[:missing_tables]]) ==
+              ["cofactors.csv", "entity_reaction_proxy_mapping.csv"]
+        # the proxy step cannot run, so the query falls through honestly
+        @test body2[:results][1][:basis] == "none"
+
+        # a network parsed WITHOUT a node table refuses: flat reactome_id
+        # matching would be a second, unvalidated protocol
+        parsed3 = SRV.JSON3.read(String(SRV.parse_handler(upload(fields())).body))
+        resp = SRV.readouts_handler(post("""{"network_id": "$(parsed3[:network_id])",
+            "queries": [{"stable_ids": ["R-HSA-2"]}]}"""))
+        @test resp.status == 400
+        @test String(SRV.JSON3.read(String(resp.body))[:message]) == SRV.READOUTS_NO_TABLE_ERROR
+
+        # an unknown network_id is the existing re-parse 400, not a fall-through
+        resp = SRV.readouts_handler(post("""{"network_id": "pw:nope",
+            "queries": [{"stable_ids": ["R-HSA-2"]}]}"""))
+        @test resp.status == 400
+        @test occursin("network_id", String(SRV.JSON3.read(String(resp.body))[:message]))
+
+        # malformed requests name the shape they need
+        for bad in ("""{"network_id": "$nid"}""",
+                    """{"network_id": "$nid", "queries": []}""",
+                    """{"network_id": "$nid", "queries": [{"stable_ids": "R-HSA-2"}]}""",
+                    """{"network_id": "$nid", "queries": [{"stable_ids": []}]}""",
+                    """{"network_id": "$nid", "queries": [{"stable_ids": ["R-HSA-2"], "mode": "entity"}]}""",
+                    """{"network_id": "$nid", "activities": [1], "queries": [{"stable_ids": ["R-HSA-2"]}]}""")
+            resp = SRV.readouts_handler(post(bad))
+            @test resp.status == 400
+            @test String(SRV.JSON3.read(String(resp.body))[:message]) == SRV.READOUTS_QUERY_ERROR
+        end
+    end
+
     @testset "a bad structural switch stops the server at start (review 2026-11-05)" begin
         for (k, bad) in ("DS_CONTEXT_BRIDGE_ORDER" => "late", "DS_SELF_ACTIVATOR_LEAVES" => "yes")
             old = get(ENV, k, nothing)

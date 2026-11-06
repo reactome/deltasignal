@@ -167,6 +167,9 @@ const UNKNOWN_NETWORK_ERROR = "Unknown network_id. The server cache is per-proce
 const NO_NETWORK_ERROR = "Request must provide a network: a pathway_id, an uploaded network, an inline network, or a known network_id."
 const PINS_NO_TABLE_ERROR = "This network has no node table, so the pin protocol cannot resolve. Parse a catalog pathway, or upload the bundle's nodes.csv as the 'nodes' part."
 const PINS_QUERY_ERROR = "pins requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...]} objects."
+const READOUTS_NO_TABLE_ERROR = "This network has no node table, so the readout protocol cannot resolve. Parse a catalog pathway, or upload the bundle's nodes.csv as the 'nodes' part."
+const READOUTS_QUERY_ERROR = "readouts requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'} objects; 'activities' (uuid: number) and 'pinned' (uuid list) are optional."
+const READOUTS_CONTEXT_ERROR = "This network's context_own.csv could not be read, so readouts cannot be cut to the pathway's own nodes. Rebuild the bundle; answering without the filter would include neighbouring pathways' copies."
 
 function user_facing_error(e::Exception)::Tuple{Int, String}
     if isa(e, ArgumentError)
@@ -191,6 +194,8 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
                msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR ||
                msg == EDGE_REDIRECT_ERROR ||
                msg == PINS_NO_TABLE_ERROR || msg == PINS_QUERY_ERROR ||
+               msg == READOUTS_NO_TABLE_ERROR || msg == READOUTS_QUERY_ERROR ||
+               msg == READOUTS_CONTEXT_ERROR ||
                msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
@@ -236,6 +241,8 @@ const PARSE_TABLE_FIELDS = Dict(
     "drugs" => "drugs.csv", "pathogens" => "pathogens.csv", "carrier_loops" => "carrier_loops.csv",
     "pools" => "pools.csv", "pool_transitions" => "pool_transitions.csv", "pool_carriers" => "pool_carriers.csv",
     "containment" => "containment.csv", "cofactors" => "cofactors.csv", "nodes" => "nodes.csv",
+    # specs/141: the readout protocol's proxy step reads this table.
+    "proxies" => "entity_reaction_proxy_mapping.csv",
 )
 
 # Server-side cache of parsed networks, so a client can /api/parse once and then
@@ -261,6 +268,26 @@ end
 function get_cached_pin_index(network_id::String)
     lock(NETWORK_CACHE_LOCK) do
         get(PIN_INDEX_CACHE, network_id, nothing)
+    end
+end
+
+# specs/141: the readout index (proxy + cofactor tables) for each cached
+# network, built at parse time like the pin index. Always a ReadoutIndex when
+# the parse succeeded — both tables are optional and their absence is recorded
+# on the index, so /api/readouts can name what was missing. The direct step
+# shares the pin index (bench load_stid_to_uuids == build_pin_index, D1), so
+# a network without nodes.csv refuses readouts as it refuses pins.
+const READOUT_INDEX_CACHE = Dict{String, DeltaSignal.ReadoutIndex}()
+
+function cache_readout_index!(network_id::String, index::DeltaSignal.ReadoutIndex)
+    lock(NETWORK_CACHE_LOCK) do
+        READOUT_INDEX_CACHE[network_id] = index
+    end
+end
+
+function get_cached_readout_index(network_id::String)
+    lock(NETWORK_CACHE_LOCK) do
+        get(READOUT_INDEX_CACHE, network_id, nothing)
     end
 end
 
@@ -732,6 +759,9 @@ function parse_handler(req)
         # files still exist (an upload's temp dir is removed below).
         cache_pin_index!(network_id,
             DeltaSignal.build_pin_index(joinpath(dirname(logic_network_path), "nodes.csv")))
+        # specs/141: the readout tables live beside the logic network too.
+        cache_readout_index!(network_id,
+            DeltaSignal.build_readout_index(dirname(logic_network_path)))
 
         # Replace placeholder names with real Reactome display names + types.
         # No-op if the network already has them or if ContentService is down.
@@ -1162,7 +1192,7 @@ function pins_handler(req)
             resolved = DeltaSignal.resolve_pins(stids, index, network.edges; root_ignore = root_ignore)
             qid = get(q, :id, nothing)
             push!(results, Dict(
-                "id" => qid === nothing ? nothing : String(qid),
+                "id" => qid === nothing ? nothing : string(qid),
                 "pins" => [Dict("uuid" => u,
                                 "name" => haskey(network.nodes, u) ? network.nodes[u].display_name : u)
                            for u in resolved.pins],
@@ -1185,6 +1215,136 @@ function pins_handler(req)
     end
 end
 
+_readout_string_vector(raw, err) = begin
+    raw isa AbstractVector || throw(ArgumentError(err))
+    all(s -> s isa AbstractString, raw) || throw(ArgumentError(err))
+    String[String(s) for s in raw]
+end
+
+function readouts_handler(req)
+    try
+        body = String(req.body)
+        isempty(body) && throw(ArgumentError(READOUTS_QUERY_ERROR))
+        data = JSON3.read(body)
+        nid_raw = get(data, :network_id, nothing)
+        queries = get(data, :queries, nothing)
+        (nid_raw isa AbstractString && queries isa AbstractVector && !isempty(queries)) ||
+            throw(ArgumentError(READOUTS_QUERY_ERROR))
+        network_id = String(nid_raw)
+        network = get_cached_network(network_id)
+        network === nothing && throw(ArgumentError(UNKNOWN_NETWORK_ERROR))
+        pin_index = get_cached_pin_index(network_id)
+        pin_index === nothing && throw(ArgumentError(READOUTS_NO_TABLE_ERROR))
+        ridx = get_cached_readout_index(network_id)
+        ridx === nothing && (ridx = DeltaSignal.ReadoutIndex(
+            Dict{String, Vector{String}}(), Set{String}(), false, false, String[], nothing))
+        # A context bundle whose own-nodes table cannot be read must refuse:
+        # answering unfiltered would include neighbouring pathways' copies.
+        any(startswith(e, DeltaSignal.READOUT_CONTEXT_TABLE) for e in ridx.table_errors) &&
+            throw(ArgumentError(READOUTS_CONTEXT_ERROR))
+
+        activities_raw = get(data, :activities, nothing)
+        activities = nothing
+        if activities_raw !== nothing
+            (activities_raw isa AbstractDict || activities_raw isa JSON3.Object) ||
+                throw(ArgumentError(READOUTS_QUERY_ERROR))
+            activities = Dict{String, Float64}()
+            for (k, v) in pairs(activities_raw)
+                v isa Real || throw(ArgumentError(READOUTS_QUERY_ERROR))
+                activities[String(k)] = Float64(v)
+            end
+        end
+        pinned_raw = get(data, :pinned, nothing)
+        pinned = pinned_raw === nothing ? Set{String}() :
+                 Set{String}(_readout_string_vector(pinned_raw, READOUTS_QUERY_ERROR))
+
+        # The server's own scale and cutoffs (specs/124, specs/137): the bench
+        # reads DS_BASELINE / DS_DOWN_CUTOFF / DS_UP_CUTOFF, so the endpoint
+        # must too, or an arm run through it measures a different protocol.
+        baseline = DeltaSignal.resting_baseline()
+        cutoffs = DeltaSignal.readout_cutoffs()
+        # One output-entity map per request, not per proxy query.
+        output_entities = DeltaSignal._readout_output_entities(
+            network.edges, pin_index, ridx.cofactors)
+
+        results = []
+        for q in queries
+            (q isa AbstractDict || q isa JSON3.Object) || throw(ArgumentError(READOUTS_QUERY_ERROR))
+            stids = _readout_string_vector(get(q, :stable_ids, nothing), READOUTS_QUERY_ERROR)
+            isempty(stids) && throw(ArgumentError(READOUTS_QUERY_ERROR))
+            members_raw = get(q, :members, nothing)
+            members = members_raw === nothing ? String[] :
+                      _readout_string_vector(members_raw, READOUTS_QUERY_ERROR)
+            mode_raw = get(q, :mode, "forms")
+            mode_raw isa AbstractString || throw(ArgumentError(READOUTS_QUERY_ERROR))
+            mode = String(mode_raw)
+            mode in ("forms", "abundance") || throw(ArgumentError(READOUTS_QUERY_ERROR))
+            qid = get(q, :id, nothing)
+
+            entry = Dict{String, Any}("id" => qid === nothing ? nothing : string(qid),
+                                      "mode" => mode)
+            if mode == "forms"
+                resolved = DeltaSignal.resolve_readout(stids, members, pin_index, ridx,
+                                                       network.edges;
+                                                       output_entities = output_entities)
+                entry["basis"] = resolved.basis
+                entry["groups"] = resolved.groups
+                entry["pinned"] = [u for g in resolved.groups for u in g if u in pinned]
+                if activities !== nothing
+                    value = DeltaSignal.readout_entity_mean(resolved.groups, activities;
+                                                            baseline = baseline)
+                    entry["value"] = value
+                    entry["fold"] = value === nothing ? nothing : value / baseline
+                    entry["call"] = value === nothing ? nothing :
+                                    DeltaSignal.readout_call(value / baseline; cutoffs = cutoffs)
+                end
+            else
+                occurrences = DeltaSignal.resolve_abundance_occurrences(stids, pin_index;
+                                                                        own = ridx.own)
+                kept = DeltaSignal.abundance_copies(occurrences, network.edges)
+                entry["basis"] = isempty(occurrences) ? "none" : "direct"
+                entry["groups"] = isempty(kept) ? Vector{Vector{String}}() : [kept]
+                entry["occurrences"] = length(occurrences)
+                entry["pinned"] = [u for u in kept if u in pinned]
+                if activities !== nothing
+                    scored = DeltaSignal.abundance_value(kept, pinned, activities;
+                                                         baseline = baseline)
+                    entry["status"] = scored.status
+                    entry["value"] = scored.value
+                    entry["fold"] = scored.value === nothing ? nothing : scored.value / baseline
+                    entry["call"] = scored.value === nothing ? nothing :
+                                    DeltaSignal.readout_call(scored.value / baseline; cutoffs = cutoffs)
+                end
+            end
+            push!(results, entry)
+        end
+
+        missing_tables = String[]
+        ridx.has_proxy_table || push!(missing_tables, DeltaSignal.READOUT_PROXY_TABLE)
+        ridx.has_cofactor_table || push!(missing_tables, DeltaSignal.READOUT_COFACTOR_TABLE)
+
+        result = Dict(
+            "status" => "success",
+            # The protocol on the record, as every bench log prints it — the
+            # values RESOLVED for this server (env-aware), not constants.
+            "protocol" => Dict("ko_agg" => "mean_entity",
+                               "total_readout" => "abundance_a3",
+                               "baseline" => baseline,
+                               "down_cutoff" => cutoffs[1],
+                               "up_cutoff" => cutoffs[2]),
+            # Honest degradation (specs/141 FR-005): an absent table is named;
+            # a PRESENT table that could not be read is named separately and
+            # never reported as merely absent.
+            "missing_tables" => missing_tables,
+            "malformed_tables" => ridx.table_errors,
+            "results" => results,
+        )
+        return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
+    catch e
+        return error_response(e; context="readouts_handler")
+    end
+end
+
 # Default 404 handler
 function not_found_handler(req)
     body = Dict("status" => "error", "message" => "Endpoint not found: $(req.target)")
@@ -1201,7 +1361,8 @@ function create_router()
     HTTP.register!(router, "POST", "/api/parse", parse_handler)
     HTTP.register!(router, "POST", "/api/solve", solve_handler)
     HTTP.register!(router, "POST", "/api/pins", pins_handler)
-    
+    HTTP.register!(router, "POST", "/api/readouts", readouts_handler)
+
     # Catch-all for unknown routes
     HTTP.register!(router, "*", "*", not_found_handler)
     
