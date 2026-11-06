@@ -1,0 +1,95 @@
+{
+  "version": "2026-11-06",
+  "provenance_build": "20261026-1349_8b6527e",
+  "summary": [
+    "DeltaSignal predicts the direction of change of pathway readouts when you perturb an entity, by propagating the perturbation through the curated structure of a Reactome pathway with fixed, biologically motivated rules. No parameters are fitted; the prediction comes from the curation.",
+    "Its validated competence is directional reasoning inside curated pathway scope: which readouts go up, down, or stay unchanged under a knockout or over-expression, read through the measured protocols this API serves. The accuracies below were measured under exactly those protocols, on the named catalog build and solver commit; if this server reports a different catalog, the figures are from a predecessor build.",
+    "Magnitudes are not calibrated: a predicted fold ranks and classifies, but '5x' does not mean a measured 5-fold change, and a readout flagged 'railed' is a switch pinned against the model's bound, not a magnitude at all."
+  ],
+  "validated": [
+    {
+      "axis": "curator_held_out",
+      "statement": "Agreement with Reactome curators' own perturbation predictions on cases held out from rule tuning: 89.8% accuracy (macro-F1 0.869) over 19,000 cases in 71 pathways. Honest caveat: this split was held out from tuning but used to select rules across development, so it is a selection set, not a sealed test.",
+      "value": "89.77% accuracy, macro-F1 0.8687, 19,000 cases",
+      "catalog_build": "20261026-1349_8b6527e",
+      "solver_commit": "05dc867",
+      "date": "2026-10-26",
+      "spec": "specs/111-freeze"
+    },
+    {
+      "axis": "experimental",
+      "statement": "Agreement with published experimental perturbation outcomes on the MP-BioPath benchmark: 643 of 849 cases (75.7%, macro-F1 0.664) — equal to MP-BioPath's published figure on the same cases. Honest caveat: all ten experimental pathways were also tuning pathways; no sealed experimental split exists on this axis.",
+      "value": "643/849 = 75.74%, macro-F1 0.6638",
+      "catalog_build": "20261026-1349_8b6527e",
+      "solver_commit": "05dc867",
+      "date": "2026-10-26",
+      "spec": "specs/111-freeze"
+    },
+    {
+      "axis": "external_hpn_dream",
+      "statement": "One external dataset was sealed through all development and scored once after the freeze: HPN-DREAM sub-challenge 1A (phosphoprotein response to an mTOR inhibitor across cell-line contexts). Mean AUROC 0.693 over the 30 official contexts, above in-network reachability (0.667) in 29 of 30; it would place 10th of the 74 original teams. Most of that rank comes from network construction; the propagator adds a small, consistent margin.",
+      "value": "mean AUROC 0.693 over 30 contexts; 10th of 74 teams",
+      "catalog_build": "13-pathway mTOR build, generator freeze-2026-10-26",
+      "solver_commit": "freeze-2026-10-26",
+      "date": "2026-10-27",
+      "spec": "specs/112-hpn-dream"
+    }
+  ],
+  "limitations": [
+    {
+      "name": "knowledge_ceiling",
+      "statement": "Scoring the curators' own predictions against experiment gives macro-F1 0.733. No model that reasons the way curators do can beat that bound against experiment, and this one does not reach it. About half of all errors have no route from perturbation to readout in the scored pathway's curated network at all.",
+      "spec": "specs/079-error-census, specs/080-no-path-audit"
+    },
+    {
+      "name": "drug_response",
+      "statement": "On drug-perturbation phosphoproteomics (RPPA panels, phospho-sites under kinase inhibition) the model does not beat trivial baselines beyond the drugs' own direct markers. Traced causes are cell context the curated structure does not carry: whether the drug engaged its target in that cell, which proteins the cell expresses, and the pathway's resting state. Do not read a drug-dose answer out of this tool.",
+      "spec": "specs/062-korkut-test, specs/138-target-engagement"
+    },
+    {
+      "name": "cell_context",
+      "statement": "Three independent attempts to supply cell context (expressed-protein filtering, measured readout resting levels, target resting activity) each failed its pre-registered gate; on a held-out RPPA resource, generalization to unseen cell lines was positive and to unseen drugs approximately zero. Predictions are for the curated pathway, not for your specific cell line.",
+      "spec": "specs/121, specs/130, specs/139"
+    },
+    {
+      "name": "magnitude_rails",
+      "statement": "Magnitudes are not calibrated and many readouts sit at the model's bounds. A readout the API flags 'railed' (at or above 0.99 x the ceiling, or at or below 0.01) is a switch state; 16% of scored benchmark folds rail. Treat folds as a ranking and a direction call, never as measured fold changes.",
+      "spec": "specs/108-justified-disagreements, specs/124-ceiling-sensitivity, specs/142-honesty-signals-api"
+    },
+    {
+      "name": "switch_pathways",
+      "statement": "Some curated loops are bistable switches; the model's answer there is which side of the switch the perturbation lands on, railed at a bound. The RAF/MAP kinase cascade is the documented case: every RAS/RAF perturbation rails its MAPK readouts, and the pathway was set aside from rule decisions for that reason.",
+      "spec": "specs/054-raf-rail"
+    },
+    {
+      "name": "synthesis_stock",
+      "statement": "The model keeps no stock of a protein the pathway only synthesizes: a total-abundance question about such a protein reads the expression route, not an existing pool, and over-calls knockdowns. Total-protein readouts are served under the validated abundance rule, but this class remains an open error source.",
+      "spec": "specs/134-total-abundance, specs/135-synthesis-stock"
+    },
+    {
+      "name": "convergence",
+      "statement": "A few cyclic components do not reach a steady state within the iteration budget; the solve response reports converged and residual, and a non-converged answer is a cap-decided value, not a steady state. The client should say so beside such results.",
+      "spec": "specs/066-limit-cycles, specs/073, specs/076"
+    }
+  ],
+  "protocols": [
+    {
+      "name": "pins",
+      "endpoint": "POST /api/pins",
+      "statement": "What to pin for a perturbation: the benchmarks' root protocol, parity-gated against the bench code on all 877 benchmark cases.",
+      "spec": "specs/140-pin-protocol-api"
+    },
+    {
+      "name": "readouts",
+      "endpoint": "POST /api/readouts",
+      "statement": "How to read an answer: resolution (direct, proxy, set members), one weight per curated entity, the total-protein abundance rule, served cutoffs — parity-gated on all 983 curator and 272 korkut benchmark readouts.",
+      "spec": "specs/141-readout-protocol-api"
+    },
+    {
+      "name": "honesty",
+      "endpoint": "POST /api/readouts (railed, rail_low/rail_high); POST /api/solve (converged, residual)",
+      "statement": "When not to trust the number: the rail flag equals the bench statistic behind every recorded rails figure, parity-gated on all 24,356 scored case folds of the frozen record.",
+      "spec": "specs/142-honesty-signals-api"
+    }
+  ]
+}

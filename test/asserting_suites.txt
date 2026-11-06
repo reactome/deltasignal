@@ -36,3 +36,4 @@ test_resting_baseline
 test_edge_curves
 test_pin_protocol
 test_readout_protocol
+test_scope_statement

@@ -1222,7 +1222,7 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty-eight files contain assertions; the
+**Most of the test suite cannot fail.** Twenty-nine files contain assertions; the
 other seven execute code and print output.
 
 | file | assertions | note |
@@ -1249,8 +1249,9 @@ other seven execute code and print output.
 | `test/test_resting_baseline.jl` | 23 | specs/124, added 2026-11-02 |
 | `test/test_edge_curves.jl` | 72 | specs/128, added 2026-11-02 |
 | `test/test_cli_observations.jl` | 50 | |
-| `test/test_api_errors.jl` | 146 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141) 2026-11-06 |
+| `test/test_api_errors.jl` | 148 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141) 2026-11-06; scope statement constant (specs/143) 2026-11-06 |
 | `test/test_pin_protocol.jl` | 36 | specs/140, added 2026-11-06: the bench's pin protocol in the engine |
+| `test/test_scope_statement.jl` | 82 | specs/143, added 2026-11-06: the served scope statement — provenance-complete file, catalog comparison, honest refusals |
 | `test/test_readout_protocol.jl` | 56 | specs/141, added 2026-11-06: the bench's readout protocol (entity-mean, abundance, context filter, env cutoffs) in the engine |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |

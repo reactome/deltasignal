@@ -170,6 +170,7 @@ const PINS_QUERY_ERROR = "pins requires a known network_id and a non-empty 'quer
 const READOUTS_NO_TABLE_ERROR = "This network has no node table, so the readout protocol cannot resolve. Parse a catalog pathway, or upload the bundle's nodes.csv as the 'nodes' part."
 const READOUTS_QUERY_ERROR = "readouts requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'} objects; 'activities' (uuid: number) and 'pinned' (uuid list) are optional."
 const READOUTS_CONTEXT_ERROR = "This network's context_own.csv could not be read, so readouts cannot be cut to the pathway's own nodes. Rebuild the bundle; answering without the filter would include neighbouring pathways' copies."
+const SCOPE_STATEMENT_ERROR = "The scope statement could not be read on this server. It ships with the engine (src/api/scope.json); serving without it would hide what the figures cover."
 
 function user_facing_error(e::Exception)::Tuple{Int, String}
     if isa(e, ArgumentError)
@@ -195,7 +196,7 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
                msg == EDGE_REDIRECT_ERROR ||
                msg == PINS_NO_TABLE_ERROR || msg == PINS_QUERY_ERROR ||
                msg == READOUTS_NO_TABLE_ERROR || msg == READOUTS_QUERY_ERROR ||
-               msg == READOUTS_CONTEXT_ERROR ||
+               msg == READOUTS_CONTEXT_ERROR || msg == SCOPE_STATEMENT_ERROR ||
                msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
@@ -1345,6 +1346,45 @@ function readouts_handler(req)
     end
 end
 
+# specs/143: the scope statement — what the system is validated for, with
+# provenance — served verbatim from the versioned file beside this code. The
+# response compares the statement's provenance build against the catalog this
+# server is actually serving, so a statement never silently outlives its
+# build (the July-catalog incident, at the trust level).
+const SCOPE_STATEMENT_PATH = joinpath(@__DIR__, "scope.json")
+
+function scope_handler(req; path::AbstractString = SCOPE_STATEMENT_PATH,
+                       catalog_dir::AbstractString = CATALOG_DIR)
+    try
+        isfile(path) || throw(ArgumentError(SCOPE_STATEMENT_ERROR))
+        statement = try
+            JSON3.read(read(path, String))
+        catch
+            throw(ArgumentError(SCOPE_STATEMENT_ERROR))
+        end
+        # A statement without its provenance build cannot be compared to the
+        # served catalog, so it is as unusable as a malformed one.
+        haskey(statement, :provenance_build) || throw(ArgumentError(SCOPE_STATEMENT_ERROR))
+        info = catalog_provenance(catalog_dir)
+        served = get(info, "build_id", nothing)
+        if served !== nothing
+            served = string(served)
+            # catalog_provenance's sentinels for "no usable manifest".
+            served in ("unrecorded", "unreadable BUILD.json") && (served = nothing)
+        end
+        result = Dict(
+            "status" => "success",
+            "statement" => statement,
+            "served_catalog" => served,
+            "measured_on_served_catalog" => served !== nothing &&
+                served == string(statement[:provenance_build]),
+        )
+        return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
+    catch e
+        return error_response(e; context="scope_handler")
+    end
+end
+
 # Default 404 handler
 function not_found_handler(req)
     body = Dict("status" => "error", "message" => "Endpoint not found: $(req.target)")
@@ -1357,6 +1397,7 @@ function create_router()
     
     # API endpoints
     HTTP.register!(router, "GET", "/api/health", health_handler)
+    HTTP.register!(router, "GET", "/api/scope", scope_handler)
     HTTP.register!(router, "GET", "/api/pathways", pathways_handler)
     HTTP.register!(router, "POST", "/api/parse", parse_handler)
     HTTP.register!(router, "POST", "/api/solve", solve_handler)

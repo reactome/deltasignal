@@ -52,7 +52,7 @@ The statement's numbers were measured on a specific frozen build. The response c
 
 ### Functional Requirements
 
-- **FR-001**: The engine MUST serve the scope statement from a single versioned file in the repository (`docs/scope.json`), verbatim, via a new GET endpoint; the statement is authored and reviewed as part of the record, not generated.
+- **FR-001**: The engine MUST serve the scope statement from a single versioned file in the repository (`src/api/scope.json` — amendment 1, 2026-11-06: the containers mount `src/` but not `docs/`, so a statement under docs/ would be unreadable exactly where it is served; the registration first said `docs/scope.json`), verbatim, via a new GET endpoint; the statement is authored and reviewed as part of the record, not generated.
 - **FR-002**: Every validated-axis entry in the statement MUST carry: the measured value, the catalog build, the solver commit, the measurement date, and the spec that recorded it. A repo test enforces this on the file itself, so an unprovenanced number cannot ship.
 - **FR-003**: Every limitation entry MUST carry a plain-language statement and its spec reference. The shipped statement MUST cover the recorded limitation classes: drug-response phosphoproteomics / missing cell context (specs/062/138), magnitude calibration and rails (specs/108/124 — and the per-readout `railed` flag of specs/142 as the live signal), switch pathways (specs/054), proteins the pathway only synthesizes (specs/134/135), readouts unreachable in the curated pathway (specs/080), and the curator knowledge ceiling (the 0.733 curator-vs-experiment bound).
 - **FR-004**: The response MUST carry the served catalog id beside the statement's provenance build and a `measured_on_served_catalog` flag (US2).
