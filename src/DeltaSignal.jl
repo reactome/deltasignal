@@ -40,6 +40,7 @@ include("core/zero_supply.jl")
 include("solvers/steady_state.jl")
 
 # API server
+include("api/pins.jl")
 include("api/server.jl")
 
 # NOTE: the "biological realism" module cluster (biological_realism,
@@ -68,6 +69,7 @@ export metabolite_pools_mode, carrier_multistep_mode, metabolite_pools, multiste
 export parse_pools, cycle_mode, cycle_carriers, PoolPath
 export conserved_mode, conserved_uuids
 export parse_node_leaves, node_leaves_json, node_leaves_from_json, zero_supply_mode, zero_supply_uuids
+export PinIndex, build_pin_index, resolve_pins, pin_root_indegree, pin_root_ignore
 export convert_to_reaction_network, aggregate_to_pathway_view, validate_network_pathway_mapping
 export compute_influence_scores, SteadyStateParams
 

@@ -165,6 +165,8 @@ const UPLOAD_ERROR = "Upload requires both a 'logic_network' and a 'uuid_mapping
 const EDGE_REDIRECT_ERROR = "edge_redirects must be a list of [parent_uuid, child_uuid] pairs, each an edge of this network."
 const UNKNOWN_NETWORK_ERROR = "Unknown network_id. The server cache is per-process and is cleared on restart; call /api/parse again."
 const NO_NETWORK_ERROR = "Request must provide a network: a pathway_id, an uploaded network, an inline network, or a known network_id."
+const PINS_NO_TABLE_ERROR = "This network has no node table, so the pin protocol cannot resolve. Parse a catalog pathway, or upload the bundle's nodes.csv as the 'nodes' part."
+const PINS_QUERY_ERROR = "pins requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...]} objects."
 
 function user_facing_error(e::Exception)::Tuple{Int, String}
     if isa(e, ArgumentError)
@@ -188,6 +190,7 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
         elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR || msg == NODE_BASELINE_ERROR ||
                msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR ||
                msg == EDGE_REDIRECT_ERROR ||
+               msg == PINS_NO_TABLE_ERROR || msg == PINS_QUERY_ERROR ||
                msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
@@ -242,6 +245,24 @@ const PARSE_TABLE_FIELDS = Dict(
 # id (catalog pathway id when available); benchmark parses each pathway once.
 const NETWORK_CACHE = Dict{String, DeltaSignal.ReactionNetwork}()
 const NETWORK_CACHE_LOCK = ReentrantLock()
+
+# specs/140: the pin index for each cached network, built from the bundle's
+# nodes.csv at parse time (the upload's temp dir is gone afterwards).
+# `nothing` records "parsed, but no node table", so /api/pins can refuse with
+# the specific message instead of resolving a protocol it cannot run.
+const PIN_INDEX_CACHE = Dict{String, Union{DeltaSignal.PinIndex, Nothing}}()
+
+function cache_pin_index!(network_id::String, index::Union{DeltaSignal.PinIndex, Nothing})
+    lock(NETWORK_CACHE_LOCK) do
+        PIN_INDEX_CACHE[network_id] = index
+    end
+end
+
+function get_cached_pin_index(network_id::String)
+    lock(NETWORK_CACHE_LOCK) do
+        get(PIN_INDEX_CACHE, network_id, nothing)
+    end
+end
 
 function cache_network!(network_id::String, network::DeltaSignal.ReactionNetwork)
     lock(NETWORK_CACHE_LOCK) do
@@ -707,6 +728,10 @@ function parse_handler(req)
         network_id = pathway_id !== nothing ? "pw:" * pathway_id :
                      "net:" * string(hash(logic_network_path))
         cache_network!(network_id, network)
+        # specs/140: index the bundle's nodes.csv for /api/pins while the
+        # files still exist (an upload's temp dir is removed below).
+        cache_pin_index!(network_id,
+            DeltaSignal.build_pin_index(joinpath(dirname(logic_network_path), "nodes.csv")))
 
         # Replace placeholder names with real Reactome display names + types.
         # No-op if the network already has them or if ContentService is down.
@@ -1107,6 +1132,59 @@ function solve_handler(req)
     end
 end
 
+# Pin resolution endpoint (specs/140): which nodes does the protocol of
+# record pin for a perturbation of these stable ids? The client builds its
+# /api/solve observations from the answer instead of pinning every copy of
+# the entity, which is the retired `all` protocol (specs/023).
+function pins_handler(req)
+    try
+        body = String(req.body)
+        isempty(body) && throw(ArgumentError(PINS_QUERY_ERROR))
+        data = JSON3.read(body)
+        nid_raw = get(data, :network_id, nothing)
+        queries = get(data, :queries, nothing)
+        (nid_raw isa AbstractString && queries isa AbstractVector && !isempty(queries)) ||
+            throw(ArgumentError(PINS_QUERY_ERROR))
+        network_id = String(nid_raw)
+        network = get_cached_network(network_id)
+        network === nothing && throw(ArgumentError(UNKNOWN_NETWORK_ERROR))
+        index = get_cached_pin_index(network_id)
+        index === nothing && throw(ArgumentError(PINS_NO_TABLE_ERROR))
+
+        root_ignore = DeltaSignal.pin_root_ignore()
+        results = []
+        for q in queries
+            (q isa AbstractDict || q isa JSON3.Object) || throw(ArgumentError(PINS_QUERY_ERROR))
+            stids_raw = get(q, :stable_ids, nothing)
+            stids_raw isa AbstractVector || throw(ArgumentError(PINS_QUERY_ERROR))
+            all(s -> s isa AbstractString, stids_raw) || throw(ArgumentError(PINS_QUERY_ERROR))
+            stids = String[String(s) for s in stids_raw]
+            resolved = DeltaSignal.resolve_pins(stids, index, network.edges; root_ignore = root_ignore)
+            qid = get(q, :id, nothing)
+            push!(results, Dict(
+                "id" => qid === nothing ? nothing : String(qid),
+                "pins" => [Dict("uuid" => u,
+                                "name" => haskey(network.nodes, u) ? network.nodes[u].display_name : u)
+                           for u in resolved.pins],
+                "basis" => resolved.basis,
+                "occurrences" => resolved.occurrences,
+            ))
+        end
+
+        result = Dict(
+            "status" => "success",
+            # The protocol on the record, as every bench log prints it: a
+            # client (or a parity arm) reads it here instead of inferring it.
+            "protocol" => Dict("pin_scope" => "root_cycle",
+                               "root_ignore" => isempty(root_ignore) ? "none" : root_ignore),
+            "results" => results,
+        )
+        return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
+    catch e
+        return error_response(e; context="pins_handler")
+    end
+end
+
 # Default 404 handler
 function not_found_handler(req)
     body = Dict("status" => "error", "message" => "Endpoint not found: $(req.target)")
@@ -1122,6 +1200,7 @@ function create_router()
     HTTP.register!(router, "GET", "/api/pathways", pathways_handler)
     HTTP.register!(router, "POST", "/api/parse", parse_handler)
     HTTP.register!(router, "POST", "/api/solve", solve_handler)
+    HTTP.register!(router, "POST", "/api/pins", pins_handler)
     
     # Catch-all for unknown routes
     HTTP.register!(router, "*", "*", not_found_handler)

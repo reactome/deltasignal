@@ -145,6 +145,55 @@ client must be prepared to re-`parse` on a cache miss. A solve naming a
 to re-`parse`; it does **not** fall through to the inline `network` or the
 sample, which previously returned a confident `200` for a different network.
 
+### `POST /api/pins`
+Resolve a perturbation to the nodes the **protocol of record** pins
+(specs/140). Every published benchmark figure was measured by perturbing only
+ROOT inputs that are, or contain, the perturbed entity
+(`DS_PIN_SCOPE=root_cycle` with `DS_PIN_ROOT_IGNORE=depletion`; specs/023,
+024, 058, 061) — every downstream copy is **computed**, never set. A client
+that instead pins every node matching the entity's stable id is running the
+`all`-family protocol retired by specs/023, whose answers were never
+validated. Ask this endpoint which nodes to pin, then send exactly those as
+`observations` to `/api/solve`.
+
+```json
+{ "network_id": "pw:Cell_Cycle_Checkpoints_R-HSA-69620",
+  "queries": [ { "id": "TP53", "stable_ids": ["R-HSA-69488", "..."] } ] }
+```
+- **`network_id`** (required): from a prior `/api/parse`. Unknown id → `400`
+  (re-`parse`, as for `/api/solve`).
+- **`queries`** (required, non-empty): one entry per perturbation target. Its
+  `stable_ids` are the target's forms — the clicked diagram entity's stable
+  id, or every form of a gene; `id` is echoed back for correlation.
+
+Response:
+```json
+{ "status": "success",
+  "protocol": { "pin_scope": "root_cycle", "root_ignore": "depletion" },
+  "results": [ { "id": "TP53",
+                 "pins": [ { "uuid": "...", "name": "TP53" } ],
+                 "basis": "root", "occurrences": 7 } ] }
+```
+- **`pins`**: the nodes to pin. A node is a pin target when its
+  `diagram_entity_id` or any of its `member_leaves` (the bundle's `nodes.csv`)
+  matches a queried stable id — *is or contains* — and it is a root (no
+  incoming edge, where `recycle`, `context_bridge` and `depletion` edges do
+  not count; a depletion-fed dead end is not a root).
+- **`basis`**: `"root"`; `"root_cycle"` (the entity has no true root and the
+  specs/024 catalytic-cycle fallback chose the form its own cycle
+  regenerates); or `"none"` — the entity has **no pinnable form in this
+  network**. Show that honestly; do not fall back to pinning mid-pathway
+  copies.
+- **`occurrences`**: how many nodes matched before the root filter — the
+  copies the solve will *compute* under the pins.
+- **`protocol`**: what resolved this answer, on the record, as every bench log
+  prints its `Protocol:` line.
+
+A network parsed without a node table (an upload missing the `nodes` part, or
+the bundled sample) is a `400` naming the missing table: exact-id matching
+would be a second, unvalidated protocol, so the server refuses rather than
+approximates.
+
 ### `POST /api/solve`
 Solve the steady state under a set of perturbations. JSON body:
 ```json
@@ -331,7 +380,13 @@ Response:
 - Treat this contract as the integration boundary. Keep all Angular code in the
   WebsiteAngular workspace; call these endpoints over HTTP.
 - Typical flow: `GET /api/pathways` → user picks one → `POST /api/parse
-  {pathway_id}` (keep the `network_id`) → render nodes/edges → user perturbs →
-  `POST /api/solve {network_id, observations}` → overlay `node_activities × 100`
-  and rank drivers by `influence_scores`.
+  {pathway_id}` (keep the `network_id`) → render nodes/edges → user picks an
+  entity to perturb → `POST /api/pins {network_id, queries}` → pin **exactly
+  the returned `pins`** at the user's activity → `POST /api/solve
+  {network_id, observations}` → overlay `node_activities × 100` and rank
+  drivers by `influence_scores`. Do **not** build observations by matching
+  `reactome_id` across all nodes: that pins downstream copies the validated
+  protocol computes (specs/140), and no benchmark figure applies to such a
+  solve. A query whose `basis` is `"none"` is not perturbable in this
+  pathway — say so instead of pinning something else.
 - On a `network_id` miss after a backend restart, re-`parse` and retry.
