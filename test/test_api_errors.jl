@@ -235,6 +235,69 @@ const SRV = DeltaSignal
         @test collect(drugs(r)) == ["R-HSA-2"]
     end
 
+    # specs/140: /api/pins resolves a perturbation the way the benchmarks did.
+    @testset "/api/pins resolves the protocol of record" begin
+        hdr = "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n"
+        part(name, text) = SRV.HTTP.Multipart("$(name).csv", IOBuffer(text), "text/csv")
+        # u-x (root, leaf R-HSA-2) → u-r → u-y (downstream copy of the SAME leaf)
+        fields() = Dict(
+            "logic_network" => part("logic_network", hdr * "u-x,u-r,pos,and,input,1\nu-r,u-y,pos,,output,1\n"),
+            "uuid_mapping" => part("map", "uuid,stable_id\nu-x,R-HSA-2\nu-r,R-HSA-3\nu-y,R-HSA-4\n"))
+        nodes_part() = part("nodes", "uuid,node_kind,member_leaves,diagram_entity_id\n" *
+            "u-x,entity,R-HSA-2,R-HSA-2\nu-r,reaction,,\nu-y,entity,R-HSA-2,R-HSA-4\n")
+        function upload(fields)
+            form = SRV.HTTP.Form(fields)
+            SRV.HTTP.Request("POST", "/api/parse",
+                ["Content-Type" => "multipart/form-data; boundary=$(form.boundary)"], read(form))
+        end
+        post(b) = SRV.HTTP.Request("POST", "/api/pins", ["Content-Type" => "application/json"], b)
+
+        f = fields(); f["nodes"] = nodes_part()
+        parsed = SRV.JSON3.read(String(SRV.parse_handler(upload(f)).body))
+        nid = String(parsed[:network_id])
+
+        resp = SRV.pins_handler(post("""{"network_id": "$nid",
+            "queries": [{"id": "q1", "stable_ids": ["R-HSA-2"]},
+                        {"id": "q2", "stable_ids": ["R-HSA-999"]}]}"""))
+        @test resp.status == 200
+        body = SRV.JSON3.read(String(resp.body))
+        # the protocol is on the record, not inferred
+        @test body[:protocol][:pin_scope] == "root_cycle"
+        @test body[:protocol][:root_ignore] == "depletion"
+        r1 = body[:results][1]
+        # only the ROOT copy of the leaf is pinned; the downstream copy of the
+        # same leaf is an occurrence that must be computed, not set
+        @test [String(p[:uuid]) for p in r1[:pins]] == ["u-x"]
+        @test r1[:basis] == "root"
+        @test r1[:occurrences] == 2
+        r2 = body[:results][2]
+        @test isempty(r2[:pins]) && r2[:basis] == "none" && r2[:occurrences] == 0
+
+        # a network parsed WITHOUT a node table refuses: resolving by exact-id
+        # matching would be a second, unvalidated protocol
+        parsed2 = SRV.JSON3.read(String(SRV.parse_handler(upload(fields())).body))
+        resp = SRV.pins_handler(post("""{"network_id": "$(parsed2[:network_id])",
+            "queries": [{"stable_ids": ["R-HSA-2"]}]}"""))
+        @test resp.status == 400
+        @test String(SRV.JSON3.read(String(resp.body))[:message]) == SRV.PINS_NO_TABLE_ERROR
+
+        # an unknown network_id is the existing re-parse 400, not a fall-through
+        resp = SRV.pins_handler(post("""{"network_id": "pw:nope",
+            "queries": [{"stable_ids": ["R-HSA-2"]}]}"""))
+        @test resp.status == 400
+        @test occursin("network_id", String(SRV.JSON3.read(String(resp.body))[:message]))
+
+        # malformed requests name the shape they need
+        for bad in ("""{"network_id": "$nid"}""",
+                    """{"network_id": "$nid", "queries": []}""",
+                    """{"network_id": "$nid", "queries": [{"stable_ids": "R-HSA-2"}]}""",
+                    """{"network_id": "$nid", "queries": [{"stable_ids": [2]}]}""")
+            resp = SRV.pins_handler(post(bad))
+            @test resp.status == 400
+            @test String(SRV.JSON3.read(String(resp.body))[:message]) == SRV.PINS_QUERY_ERROR
+        end
+    end
+
     @testset "a bad structural switch stops the server at start (review 2026-11-05)" begin
         for (k, bad) in ("DS_CONTEXT_BRIDGE_ORDER" => "late", "DS_SELF_ACTIVATOR_LEAVES" => "yes")
             old = get(ENV, k, nothing)

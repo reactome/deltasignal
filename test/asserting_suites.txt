@@ -34,3 +34,4 @@ test_limit_cycles
 test_material_loops
 test_resting_baseline
 test_edge_curves
+test_pin_protocol
