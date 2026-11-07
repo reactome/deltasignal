@@ -48,6 +48,48 @@ def set_rows(per_cond, drug_set):
     return per_cond.get(tuple(drug_set), [])
 
 
+def markers_of(ds):
+    """The drug set's markers: the union over its member drugs."""
+    return sorted({m for d in ds for m, _ in MARKERS.get(d, [])})
+
+
+def fit_alpha(pairs):
+    """Least squares in natural-log space, clipped to [0, 1]; None when the
+    predicted marker signal is below EPS (the registered undefined case)."""
+    num = sum(m * f for m, f in pairs)
+    den = sum(f * f for _, f in pairs)
+    if den < EPS:
+        return None
+    return min(1.0, max(0.0, num / den))
+
+
+def marker_predictions(rows):
+    """(ds, pathway) -> marker -> predicted fold, from a korkut cases log."""
+    pred = defaultdict(dict)
+    for r in rows:
+        ds = tuple(r["drug_set"].split("+"))
+        if r["readout"] in markers_of(ds):
+            pred[(ds, r["pathway_id"])][r["readout"]] = float(r["pred_ui"])
+    return pred
+
+
+def pooled_alphas(rows, per_cond):
+    """The registered pooled estimator: per drug set, alpha over every
+    pathway's scored markers (measured log2 and predicted fold both taken to
+    natural logs)."""
+    def measured_log2(ds, marker):
+        vals = [v[marker] for v in set_rows(per_cond, ds) if marker in v]
+        return sum(vals) / len(vals) if vals else None
+    pred = marker_predictions(rows)
+    pooled_pairs = defaultdict(list)
+    for (ds, pw), marks in pred.items():
+        for m, f in marks.items():
+            m2 = measured_log2(ds, m)
+            if m2 is not None and f > 0:
+                pooled_pairs[ds].append((m2 * math.log(2), math.log(f)))
+    return {ds: fit_alpha(pairs) for ds, pairs in pooled_pairs.items()}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cases")
@@ -58,38 +100,16 @@ def main():
             if r["status"] == "scored" and r["measured"] != ""]
     per_cond = measured_marker_folds()
 
-    # the drug set's markers (union over members), and its measured log2 per marker
-    def markers_of(ds):
-        return sorted({m for d in ds for m, _ in MARKERS.get(d, [])})
-
     def measured_log2(ds, marker):
         vals = [v[marker] for v in set_rows(per_cond, ds) if marker in v]
         return sum(vals) / len(vals) if vals else None
 
-    # predicted marker folds from the control file itself
-    pred = defaultdict(dict)   # (ds, pathway) -> marker -> fold
-    for r in rows:
-        ds = tuple(r["drug_set"].split("+"))
-        if r["readout"] in markers_of(ds):
-            pred[(ds, r["pathway_id"])][r["readout"]] = float(r["pred_ui"])
-
-    def fit(pairs):
-        num = sum(m * f for m, f in pairs)
-        den = sum(f * f for _, f in pairs)
-        if den < EPS:
-            return None
-        return min(1.0, max(0.0, num / den))
+    pred = marker_predictions(rows)
+    fit = fit_alpha
 
     # alpha per (ds, pathway), with the registered fallback chain
     fallbacks = {"pathway": 0, "pooled": 0, "one": 0}
-    # measured is log2, predicted log_e: both converted to natural logs
-    pooled_pairs = defaultdict(list)
-    for (ds, pw), marks in pred.items():
-        for m, f in marks.items():
-            m2 = measured_log2(ds, m)
-            if m2 is not None and f > 0:
-                pooled_pairs[ds].append((m2 * math.log(2), math.log(f)))
-    pooled_alpha = {ds: fit(pairs) for ds, pairs in pooled_pairs.items()}
+    pooled_alpha = pooled_alphas(rows, per_cond)
 
     def alpha_for(ds, pw):
         marks = pred.get((ds, pw), {})
