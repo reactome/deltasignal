@@ -1,0 +1,299 @@
+{
+ "version": "2026-11-07",
+ "spec": "specs/149-leads-serving",
+ "measured_on": "specs/148-diagram-arrow-bridges (full arm: korkut untouched class n=2,871, balanced +0.0503 [+0.0216, +0.0784])",
+ "catalog_build": "20261026-1349_8b6527e",
+ "composite_build": "20261107-arrows97-11c",
+ "source_build": "20261107-1755_8b6527e_arrowsrc97",
+ "composite_prefix": "ctx-arrows_",
+ "centres": {
+  "R-HSA-109606": {
+   "name": "Intrinsic_Pathway_for_Apoptosis",
+   "composite_id": "ctx-arrows_R-HSA-109606",
+   "arrows": [
+    {
+     "source_pathway": "PIP3 activates AKT signaling",
+     "source_id": "R-HSA-1257604",
+     "entity": "p-T,p-S-AKT",
+     "entity_id": "R-HSA-202074",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "measured",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "down_call_precision": 0.24,
+      "arm": "arrows97w/arrows97wk on 20261107-arrows97-11c",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-1227986": {
+   "name": "Signaling_by_ERBB2",
+   "composite_id": "ctx-arrows_R-HSA-1227986",
+   "arrows": [
+    {
+     "source_pathway": "PIP3 activates AKT signaling",
+     "source_id": "R-HSA-1257604",
+     "entity": "p-T,p-S-AKT",
+     "entity_id": "R-HSA-202074",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "measured",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "down_call_precision": 0.24,
+      "arm": "arrows97w/arrows97wk on 20261107-arrows97-11c",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-1257604": {
+   "name": "PIP3_activates_AKT_signaling",
+   "composite_id": "ctx-arrows_R-HSA-1257604",
+   "arrows": [
+    {
+     "source_pathway": "PTEN Regulation",
+     "source_id": "R-HSA-6807070",
+     "entity": "PTEN",
+     "entity_id": "R-HSA-199420",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-140534": {
+   "name": "Caspase_activation_via_Death_Receptors_in_the_presence_of_ligand",
+   "composite_id": "ctx-arrows_R-HSA-140534",
+   "arrows": [
+    {
+     "source_pathway": "TNF signaling",
+     "source_id": "R-HSA-75893",
+     "entity": "K63polyUb-CFLAR(1-480)",
+     "entity_id": "R-HSA-9818805",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-376176": {
+   "name": "Signaling_by_ROBO_receptors",
+   "composite_id": "ctx-arrows_R-HSA-376176",
+   "arrows": [
+    {
+     "source_pathway": "RHO GTPases activate PAKs",
+     "source_id": "R-HSA-5627123",
+     "entity": "PAK",
+     "entity_id": "R-HSA-428475",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-446728": {
+   "name": "Cell_junction_organization",
+   "composite_id": "ctx-arrows_R-HSA-446728",
+   "arrows": [
+    {
+     "source_pathway": "Regulation of Homotypic Cell-Cell Adhesion",
+     "source_id": "R-HSA-9759476",
+     "entity": "Classic Cadherin",
+     "entity_id": "R-HSA-418977",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-453279": {
+   "name": "Mitotic_G1-G1_S_phases",
+   "composite_id": "ctx-arrows_R-HSA-453279",
+   "arrows": [
+    {
+     "source_pathway": "Oncogene Induced Senescence",
+     "source_id": "R-HSA-2559585",
+     "entity": "INK4",
+     "entity_id": "R-HSA-182588",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    },
+    {
+     "source_pathway": "Oxidative Stress Induced Senescence",
+     "source_id": "R-HSA-2559580",
+     "entity": "INK4",
+     "entity_id": "R-HSA-182588",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    },
+    {
+     "source_pathway": "PIP3 activates AKT signaling",
+     "source_id": "R-HSA-1257604",
+     "entity": "p-T,p-S-AKT",
+     "entity_id": "R-HSA-202074",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "measured",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "down_call_precision": 0.24,
+      "arm": "arrows97w/arrows97wk on 20261107-arrows97-11c",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    },
+    {
+     "source_pathway": "Senescence-Associated Secretory Phenotype (SASP)",
+     "source_id": "R-HSA-2559582",
+     "entity": "INK4",
+     "entity_id": "R-HSA-182588",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    },
+    {
+     "source_pathway": "Transcriptional activity of SMAD2/SMAD3:SMAD4 heterotrimer",
+     "source_id": "R-HSA-2173793",
+     "entity": "INK4",
+     "entity_id": "R-HSA-182588",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-69620": {
+   "name": "Cell_Cycle_Checkpoints",
+   "composite_id": "ctx-arrows_R-HSA-69620",
+   "arrows": [
+    {
+     "source_pathway": "DNA Double Strand Break Response",
+     "source_id": "R-HSA-5693606",
+     "entity": "p-S1981,Ac-K3016-ATM",
+     "entity_id": "R-HSA-5693527",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-8848021": {
+   "name": "Signaling_by_PTK6",
+   "composite_id": "ctx-arrows_R-HSA-8848021",
+   "arrows": [
+    {
+     "source_pathway": "Cellular response to hypoxia",
+     "source_id": "R-HSA-1234174",
+     "entity": "HIF1A,EPAS1",
+     "entity_id": "R-HSA-8848802",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-8878166": {
+   "name": "Transcriptional_regulation_by_RUNX2",
+   "composite_id": "ctx-arrows_R-HSA-8878166",
+   "arrows": [
+    {
+     "source_pathway": "Hedgehog 'off' state",
+     "source_id": "R-HSA-5610787",
+     "entity": "GLI3R",
+     "entity_id": "R-HSA-5610371",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    },
+    {
+     "source_pathway": "Hedgehog 'on' state",
+     "source_id": "R-HSA-5632684",
+     "entity": "2p-GLI2",
+     "entity_id": "R-HSA-5635055",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    },
+    {
+     "source_pathway": "Regulation of RUNX2 expression and activity",
+     "source_id": "R-HSA-8939902",
+     "entity": "RUNX2",
+     "entity_id": "R-HSA-9007751",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    },
+    {
+     "source_pathway": "Signaling by NOTCH1",
+     "source_id": "R-HSA-1980143",
+     "entity": "HEY1,HEY2,HES1",
+     "entity_id": "R-HSA-9008192",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  },
+  "R-HSA-8878171": {
+   "name": "Transcriptional_regulation_by_RUNX1",
+   "composite_id": "ctx-arrows_R-HSA-8878171",
+   "arrows": [
+    {
+     "source_pathway": "DNA Double Strand Break Response",
+     "source_id": "R-HSA-5693606",
+     "entity": "p-S456-ABL1",
+     "entity_id": "R-HSA-5686576",
+     "drawn_in_release": "97",
+     "rate": {
+      "class": "unrated",
+      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
+      "spec": "specs/148-diagram-arrow-bridges"
+     }
+    }
+   ]
+  }
+ }
+}

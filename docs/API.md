@@ -80,6 +80,18 @@ measured on that build — a statement never silently outlives its catalog. A
 missing or unreadable statement file refuses with a `400` and a named
 message, never a fabricated or partial statement.
 
+### `GET /api/leads`
+The curator-drawn leads table (specs/149): which pathways have an arrow
+composite in the catalog (`composite_prefix` + pathway id, parseable like any
+pathway but never listed by `/api/pathways`), each drawn arrow's provenance
+(source pathway, entity, diagram release), and its measured rate class —
+`measured` carries the specs/148 numbers ("down-calls through this connection
+were right 24% on the korkut record"); `unrated` says so. Served verbatim from
+the versioned `src/api/leads.json`; a missing or unreadable file refuses with
+a named `400`, never a fabricated table. A client shows a lead only in the
+"not reached here" slot, labelled, with its rate — never merged into the main
+answers.
+
 ### `GET /api/pathways`
 The pre-generated Reactome pathway catalog (from the logic-network-generator),
 deduplicated and pretty-named. This is the primary "pick a pathway" list.
