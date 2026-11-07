@@ -62,3 +62,15 @@ imported from `bench/analysis/144/engagement_dial.py`. Script:
 `bench/analysis/145/hybrid_145.py`; korkut2015 is FIT
 (`dataset_roles.require_role` enforced). Registered at 7ae5c75 before
 measurement.
+
+## Addendum: the Tm inversion traced to the curation boundary (2026-11-07)
+
+Verified in Neo4j before proposing anything (the standing rule): Reactome
+curates **no reaction with an S6K catalyst and an IRS output** — the
+mTORC1→S6K1→IRS1 negative feedback that makes an mTORC1 inhibitor RAISE
+p-AKT is absent from the event graph (the only curated IRS feedback is ERK's,
+`R-HSA-109823` in Insulin receptor signalling `R-HSA-74749`). The one
+anti-correlated DS row (Tm, −0.28) is therefore a curated-knowledge boundary
+of the specs/101 T1 class: a curation-review item, not a solver rule — the
+record's repeated lesson (specs/063) is that inventing uncurated edges does
+not pay. Filed for the curation-review list rather than the rule queue.
