@@ -67,3 +67,43 @@ table); arm runs under `run_arm.sh` (ARM.json beside each); control: frozen
 `05dc867` (curator/experimental) and `a490cdc/k134_abund_a3` (korkut);
 scoring `build/score_148.py`, seed 148. Registered at 6d9b02a before
 measurement; amendment 1 at the guard failure, before any scoring.
+
+## Addendum: the full-arrow arm (2026-11-07, after Adam approved the label and the source build)
+
+The 33 out-of-catalog source pathways (virus–host excluded on policy) were
+built at the frozen generator tag (`20261107-1755_8b6527e_arrowsrc97`, 33/33
+complete, release 97 throughout — Adam confirmed 97 for this arm; the local
+graph database is release 97, and the release-98 upgrade is planned as one
+coordinated move after this measurement). With them, **18 arrows bridge — 32
+edges into 11 centres** (census committed): p-AKT ×3, active ATM, p-ABL1,
+HES/HEY, and newly INK4 from three senescence pathways into Mitotic G1, PTEN
+from PTEN Regulation into PIP3, HIF into PTK6, GLI2/GLI3R into RUNX2, RUNX2
+expression into RUNX1, TNF's CFLAR into Death-Receptor caspases, PAK into
+ROBO, cadherin into Cell junction organization — every one biologically
+canonical.
+
+Arm `arrows97w`/`arrows97wk` on build `20261107-arrows97-11c` (solver
+`ffe3994`), same F discipline:
+
+- **H1 PASSES again**: korkut untouched class, now n = 2,871 across 11
+  centres: balanced **0.3836 vs always-no-change 0.3333** (+0.0503, 95%
+  [+0.0216, +0.0784]).
+- **And the trace is sobering: every moved answer is still the p-AKT
+  mechanism** — the differing-answer set is the same 156 cases with the same
+  confusion (37 right downs, 108 false downs, 11 up-as-down). The 12 new
+  arrows change no korkut answer: their entities feed readouts korkut's
+  drugs either already reach in-pathway (so F keeps the centre's answer) or
+  do not move (senescence, Hedgehog, TNF inputs are not downstream of
+  korkut's targets). They are not wrong — they are unmeasurable on this
+  dataset.
+- Curator/experimental (H2): unchanged — 6 fixed / 6 broken of 4,789
+  curator-untouched; experimental 0 of 31.
+
+**What the serving decision now rests on**: the labelled class has ONE
+measured mechanism (bridged "down" right 24%, balanced above chance) and
+eleven curated-but-unmeasured arrows. Honest serving: show bridged leads
+with the measured rate where one exists, and as "curator-drawn connection —
+no measured rate" where none does; never as main-class answers. The
+whole-Reactome arrow set is now fully in hand (the source catalog exists),
+so a future dataset with perturbations upstream of the new arrows can rate
+them the same way.
