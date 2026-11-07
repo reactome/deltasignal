@@ -79,3 +79,33 @@ Frozen record `20261026-1349_8b6527e / 05dc867`; oracle chain run 2026-11-07
 (`p1/curator_failure_structure.tsv`, `p1/curator_case_oracle.tsv`,
 `p1/route_break_steps.tsv`); structural diff `p2/structural_diff.py` with
 `fetch_reaction_rows`/`fetch_composition` imported from the specs/016 oracle.
+
+## P4 (addendum, 2026-11-07, Adam's question): the diagram-only connection arrows
+
+Adam: "the diagram files provide edges that are not in Neo4j but should be in
+our networks." Checked, and he is right — with a precise shape:
+
+- The generator **does** consume diagrams for reaction connectivity
+  (`diagram_connectivity.py`: shared entity glyphs stand in for the
+  under-annotated `precedingEvent`; LNG #39) — within a pathway, drawn
+  connectivity is already used.
+- What nothing consumes are the diagrams' **`Interaction` links**: across the
+  90 benchmark diagrams, **245 of them — 115 `pathway→entity` arrows** (an
+  upstream pathway drawn as a box feeding a NAMED entity, e.g. "Signaling by
+  EGFR → RAS GEFs"), **117 `entity→pathway`**, 13 pathway→pathway. They carry
+  **no reactomeId and no dbId** — purely curator-drawn, in neither the event
+  graph nor our networks nor the oracle this audit used. The census is
+  `p4/diagram_interactions.tsv`.
+- The set-relation links (`EntitySetAndMemberLink` 270, set–set 53) duplicate
+  Neo4j `hasMember` — no gap there.
+
+**Why this matters**: these arrows are exactly the curated, entity-anchored
+cross-pathway joins that specs/132/133 had to approximate from event-graph
+connections — and the entity anchor is the part 132's tracing said decides
+right from wrong bridges (the p-AKT handoff was right; root-set changes were
+wrong). The registered next candidate therefore sharpens: **context bridges
+drawn FROM the diagram Interaction arrows** (joined at their named entities),
+served as the separate, labelled, separately-calibrated confidence class the
+specs/146 machinery provides. The within-pathway generator remains sound
+(P1/P2); this is the connection half of Adam's question, answered: the edges
+exist, they are diagram-only, and we now have their census.
