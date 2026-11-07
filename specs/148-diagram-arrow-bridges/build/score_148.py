@@ -16,12 +16,13 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-control_dir, kctl, arm_s, arm_k = map(Path, sys.argv[1:5])
-CENTRES = {"Signaling_by_ERBB2", "Cell_Cycle_Checkpoints", "Mitotic_G1-G1_S_phases",
-           "Intrinsic_Pathway_for_Apoptosis", "Transcriptional_regulation_by_RUNX1",
-           "Transcriptional_regulation_by_RUNX2"}
-CENTRE_DIRS = {"R-HSA-1227986", "R-HSA-69620", "R-HSA-453279", "R-HSA-109606",
-               "R-HSA-8878166", "R-HSA-8878171"}
+control_dir, kctl, arm_s, arm_k, centres_file = map(Path, sys.argv[1:6])
+CENTRE_DIRS, CENTRES = set(), set()
+for line in open(centres_file):
+    if line.startswith("R-HSA"):
+        i, n = line.rstrip("\n").split("\t")
+        CENTRE_DIRS.add(i)
+        CENTRES.add(n)
 
 
 def load(path, key_cols, val_cols, filt=None):
