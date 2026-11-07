@@ -1,0 +1,248 @@
+pathway	pathway_name	kind	link_class	from	from_id	to	to_id
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by EGFR	177929	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Other interleukin signaling	449836	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by ERBB2	1227986	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by ERBB4	1236394	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by FGFR1	5654736	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by FGFR2	5654738	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by FGFR3	5654741	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by FGFR4	5654743	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by NTRK1 (TRKA)	187037	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by PDGF	186797	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by SCF-KIT	1433557	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by Insulin receptor	74752	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by the B Cell Receptor (BCR)	983705	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Interleukin-2 family signaling	451927	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Fc epsilon receptor (FCERI) signaling	2454202	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	DAP12 interactions	2172127	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	RAS processing	9648002	p21 RAS:GDP	109796
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Cell surface interactions at the vascular wall	202733	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Interleukin-3, Interleukin-5 and GM-CSF signaling	512988	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Neurotransmitter receptors and postsynaptic signal transmission	112314	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	NCAM signaling for neurite out-growth	375165	RAS GEFs	5672601
+R-HSA-5673001	RAF_MAP_kinase_cascade	pathway->entity	Interaction	Signaling by Type 1 Insulin-like Growth Factor 1 Receptor (IGF1R)	2404192	RAS GEFs	5672601
+R-HSA-1227986	Signaling_by_ERBB2	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-1227986	Signaling_by_ERBB2	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-1227986	Signaling_by_ERBB2	entity->pathway	Interaction	p-4Y-PLCG1	167679	DAG and IP3 signaling	1489509
+R-HSA-1227986	Signaling_by_ERBB2	pathway->entity	Interaction	PIP3 activates AKT signaling	1257604	p-T,p-S-AKT	202074
+R-HSA-1227986	Signaling_by_ERBB2	pathway->entity	Interaction	RHO GTPases Activate Formins	5663220	RHOA:GTP:DIAPH1	5665988
+R-HSA-1227986	Signaling_by_ERBB2	entity->pathway	Interaction	p-Y342-PTK6	8848007	Signaling by PTK6	8848021
+R-HSA-5693606	DNA_Double_Strand_Break_Response	entity->pathway	Interaction	DNA DNA DSBs:p-MRN:p-S1981,Ac-K3016-ATM:KAT5:K63PolyUb-K14,K16,p-S139-H2AFX,Me2K21-HIST1H4A-Nucleosome:p-5T-MDC1:p-S102-WHSC1:RNF8:Zn2+:SUMO1:p-T4827-HERC2:UBE2N:UBE2V2:RNF168:PIAS4:p-S25,S1778-TP53BP1:p-5S,2T-BRCA1-A complex	5683808	Nonhomologous End-Joining (NHEJ)	5693571
+R-HSA-5693606	DNA_Double_Strand_Break_Response	entity->pathway	Interaction	DNA DSBs:MRN	3785763	HDR through MMEJ (alt-NHEJ)	5685939
+R-HSA-5693606	DNA_Double_Strand_Break_Response	entity->pathway	Interaction	DNA DNA DSBs:p-MRN:p-S1981,Ac-K3016-ATM:KAT5:K63PolyUb-K14,K16,p-S139-H2AFX,Me2K21-HIST1H4A-Nucleosome:p-5T-MDC1:p-S102-WHSC1:RNF8:Zn2+:SUMO1:p-T4827-HERC2:UBE2N:UBE2V2:RNF168:PIAS4:p-S25,S1778-TP53BP1:p-5S,2T-BRCA1-A complex	5683808	HDR through Homologous Recombination (HRR) or Single Strand Annealing (SSA)	5693567
+R-HSA-5693567	HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_	pathway->entity	Interaction	DNA Double Strand Break Response	5693606	DNA DNA DSBs:p-MRN:p-S1981,Ac-K3016-ATM:KAT5:K63PolyUb-K14,K16,p-S139-H2AFX,Me2K21-HIST1H4A-Nucleosome:p-5T-MDC1:p-S102-WHSC1:RNF8:Zn2+:SUMO1:p-T4827-HERC2:UBE2N:UBE2V2:RNF168:PIAS4:p-S25,S1778-TP53BP1:p-5S,2T-BRCA1-A complex	5683808
+R-HSA-5693567	HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_	entity->pathway	Interaction	DNA DNA DSBs:p-MRN:p-S1981,Ac-K3016-ATM:KAT5:K63PolyUb-K14,K16,p-S139-H2AFX,Me2K21-HIST1H4A-Nucleosome:p-5T-MDC1:p-S102-WHSC1:RNF8:Zn2+:SUMO1:p-T4827-HERC2:UBE2N:UBE2V2:RNF168:PIAS4:p-S25,S1778-TP53BP1:p-5S,2T-BRCA1-A complex	5683808	Nonhomologous End-Joining (NHEJ)	5693571
+R-HSA-5685939	HDR_through_MMEJ_alt-NHEJ_	entity->pathway	Interaction	DNA DSBs:MRN	3785763	DNA Double Strand Break Response	5693606
+R-HSA-5693571	Nonhomologous_End-Joining_NHEJ_	pathway->pathway	Interaction	DNA Double Strand Break Response	5693606	HDR through Homologous Recombination (HRR) or Single Strand Annealing (SSA)	5693567
+R-HSA-5693571	Nonhomologous_End-Joining_NHEJ_	pathway->entity	Interaction	DNA Double Strand Break Response	5693606	DNA DNA DSBs:p-MRN:p-S1981,Ac-K3016-ATM:KAT5:K63PolyUb-K14,K16,p-S139-H2AFX,Me2K21-HIST1H4A-Nucleosome:p-5T-MDC1:p-S102-WHSC1:RNF8:Zn2+:SUMO1:p-T4827-HERC2:UBE2N:UBE2V2:RNF168:PIAS4:p-S25,S1778-TP53BP1:p-5S,2T-BRCA1-A complex	5683808
+R-HSA-6783310	Fanconi_Anemia_Pathway	entity->pathway	Interaction	DNA double-strand break ends	75165	DNA Double-Strand Break Repair	5693532
+R-HSA-6783310	Fanconi_Anemia_Pathway	entity->pathway	Interaction	Distorted dsDNA	5688114	Nucleotide Excision Repair	5696398
+R-HSA-168928	DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	M:TBK1	9754834
+R-HSA-168928	DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	TRIM25:N	9729447
+R-HSA-168928	DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	pathway->entity	Interaction	RSV-host interactions	9833110	CREBBP:NS1	9833449
+R-HSA-168928	DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	pathway->entity	Interaction	RSV-host interactions	9833110	IRF3:NS1	9833445
+R-HSA-168928	DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	TBK1:pp1ab-nsp13	9705087
+R-HSA-168928	DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	TOMM70:9b	9709659
+R-HSA-73893	DNA_Damage_Bypass	entity->pathway	Interaction	Damaged dsDNA	5652135	Base Excision Repair	73884
+R-HSA-73884	Base_Excision_Repair	pathway->pathway	Interaction	Base-Excision Repair, AP Site Formation	73929	Resolution of Abasic Sites (AP sites)	73933
+R-HSA-194315	Signaling_by_Rho_GTPases	pathway->pathway	Interaction	RHO GTPase cycle	9012999	RHO GTPase Effectors	195258
+R-HSA-2559583	Cellular_Senescence	pathway->pathway	Interaction	Oncogene Induced Senescence	2559585	Senescence-Associated Secretory Phenotype (SASP)	2559582
+R-HSA-2559583	Cellular_Senescence	pathway->pathway	Interaction	Oxidative Stress Induced Senescence	2559580	Senescence-Associated Secretory Phenotype (SASP)	2559582
+R-HSA-2559583	Cellular_Senescence	pathway->pathway	Interaction	Oncogene Induced Senescence	2559585	Oxidative Stress Induced Senescence	2559580
+R-HSA-2559583	Cellular_Senescence	pathway->pathway	Interaction	Oncogene Induced Senescence	2559585	DNA Damage/Telomere Stress Induced Senescence	2559586
+R-HSA-2559583	Cellular_Senescence	pathway->pathway	Interaction	Oxidative Stress Induced Senescence	2559580	DNA Damage/Telomere Stress Induced Senescence	2559586
+R-HSA-2559583	Cellular_Senescence	pathway->pathway	Interaction	DNA Damage/Telomere Stress Induced Senescence	2559586	Senescence-Associated Secretory Phenotype (SASP)	2559582
+R-HSA-1236394	Signaling_by_ERBB4	entity->pathway	Interaction	ERBB4s80:YAP1	1253347	YAP1- and WWTR1 (TAZ)-stimulated gene expression	2032785
+R-HSA-1236394	Signaling_by_ERBB4	pathway->entity	Interaction	Prolactin receptor signaling	1170546	p-Y694-STAT5A homodimer	507927
+R-HSA-1236394	Signaling_by_ERBB4	entity->pathway	Interaction	p-ERBB4 homodimers	1250341	Activation of NMDA receptors and postsynaptic events	442755
+R-HSA-1236394	Signaling_by_ERBB4	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-1236394	Signaling_by_ERBB4	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-1236394	Signaling_by_ERBB4	entity->pathway	Interaction	YAP1	1253345	Signaling by Hippo	2028269
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	CDKN1B:(CDK4:CCND1,(CDK2:CCNE1))	8848419	Mitotic G1 phase and G1/S transition	453279
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	AKT1	58252	PIP3 activates AKT signaling	1257604
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	CDKN1B:(CDK4:CCND1,(CDK2:CCNE1))	8848419	S Phase	69242
+R-HSA-8848021	Signaling_by_PTK6	pathway->entity	Interaction	Cellular response to hypoxia	1234174	HIF1A,EPAS1	8848802
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	CBL	112199	Signaling by EGFR	177929
+R-HSA-8848021	Signaling_by_PTK6	pathway->entity	Interaction	Signaling by ERBB2	1227986	p-ERBB2 heterodimers	1963588
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases Activate WASPs and WAVEs	5663213
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases Activate Formins	5663220
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases activate IQGAPs	5626467
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases activate CIT	5625900
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases activate KTN1	5625970
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases activate PAKs	5627123
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	Semaphorin interactions	373755
+R-HSA-8848021	Signaling_by_PTK6	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases activate PKNs	5625740
+R-HSA-69620	Cell_Cycle_Checkpoints	pathway->entity	Interaction	DNA Double Strand Break Response	5693606	DNA DNA DSBs:p-MRN:p-S1981,Ac-K3016-ATM:KAT5:K63PolyUb-K14,K16,p-S139-H2AFX,Me2K21-HIST1H4A-Nucleosome:p-5T-MDC1:p-S102-WHSC1:RNF8:Zn2+:SUMO1:p-T4827-HERC2:UBE2N:UBE2V2:RNF168:PIAS4:p-S25,S1778-TP53BP1:p-4S,2T-BRCA1-A complex	5683605
+R-HSA-69620	Cell_Cycle_Checkpoints	pathway->entity	Interaction	DNA Double Strand Break Response	5693606	p-S1981,Ac-K3016-ATM	5693527
+R-HSA-453279	Mitotic_G1-G1_S_phases	pathway->entity	Interaction	Signaling by PTK6	8848021	p-Y342-PTK6	8848007
+R-HSA-453279	Mitotic_G1-G1_S_phases	pathway->entity	Interaction	Oncogene Induced Senescence	2559585	INK4	182588
+R-HSA-453279	Mitotic_G1-G1_S_phases	pathway->entity	Interaction	Oxidative Stress Induced Senescence	2559580	INK4	182588
+R-HSA-453279	Mitotic_G1-G1_S_phases	entity->pathway	Interaction	CDC45	68563	Activation of the pre-replicative complex	68962
+R-HSA-453279	Mitotic_G1-G1_S_phases	pathway->entity	Interaction	Activation of the pre-replicative complex	68962	CDT1	68536
+R-HSA-453279	Mitotic_G1-G1_S_phases	pathway->entity	Interaction	Transcriptional activity of SMAD2/SMAD3:SMAD4 heterotrimer	2173793	INK4	182588
+R-HSA-453279	Mitotic_G1-G1_S_phases	pathway->entity	Interaction	PIP3 activates AKT signaling	1257604	p-T,p-S-AKT	202074
+R-HSA-453279	Mitotic_G1-G1_S_phases	pathway->entity	Interaction	Senescence-Associated Secretory Phenotype (SASP)	2559582	INK4	182588
+R-HSA-453274	Mitotic_G2-G2_M_phases	pathway->entity	Interaction	Transcriptional Regulation by TP53	3700989	CDKN1A	182512
+R-HSA-453274	Mitotic_G2-G2_M_phases	pathway->entity	Interaction	Mitotic G1 phase and G1/S transition	453279	CDC25A	143487
+R-HSA-453274	Mitotic_G2-G2_M_phases	pathway->entity	Interaction	Transcriptional Regulation by TP53	3700989	PolyUb-TP53 Tetramer	3209186
+R-HSA-109606	Intrinsic_Pathway_for_Apoptosis	pathway->entity	Interaction	Pyroptosis	5620971	GSDMD(1-275):cardiolipin	9710347
+R-HSA-109606	Intrinsic_Pathway_for_Apoptosis	pathway->entity	Interaction	PIP3 activates AKT signaling	1257604	p-T,p-S-AKT	202074
+R-HSA-109606	Intrinsic_Pathway_for_Apoptosis	pathway->entity	Interaction	Pyroptosis	5620971	GSDME:cardiolipin	9710344
+R-HSA-170834	Signaling_by_TGF-beta_Receptor_Complex	entity->pathway	Interaction	p-2S-SMAD2,3:SMAD4	171175	Transcriptional activity of SMAD2/SMAD3:SMAD4 heterotrimer	2173793
+R-HSA-170834	Signaling_by_TGF-beta_Receptor_Complex	pathway->entity	Interaction	Transcriptional activity of SMAD2/SMAD3:SMAD4 heterotrimer	2173793	SMAD7	178197
+R-HSA-375165	NCAM_signaling_for_neurite_out-growth	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-375165	NCAM_signaling_for_neurite_out-growth	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	p-T,Y MAPK dimers	198701
+R-HSA-446728	Cell_junction_organization	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	MMP5:E pentamer	9705682
+R-HSA-446728	Cell_junction_organization	pathway->entity	Interaction	Regulation of Homotypic Cell-Cell Adhesion	9759476	Classic Cadherin	418977
+R-HSA-446728	Cell_junction_organization	entity->pathway	Interaction	Cadherin trans-homodimer	418999	Activation of STAT3 by cadherin engagement	9958825
+R-HSA-376176	Signaling_by_ROBO_receptors	entity->pathway	Interaction	Translated ROBO3.2 mRNA in complex with NMD-initiating UPF2	9014609	Nonsense-Mediated Decay (NMD)	927802
+R-HSA-376176	Signaling_by_ROBO_receptors	entity->pathway	Interaction	RAC1:GTP	442641	RHO GTPases activate PAKs	5627123
+R-HSA-376176	Signaling_by_ROBO_receptors	entity->pathway	Interaction	RHOA:GTP	5665993	RHO GTPases Activate ROCKs	5627117
+R-HSA-376176	Signaling_by_ROBO_receptors	pathway->entity	Interaction	RHO GTPases activate PAKs	5627123	PAK	428475
+R-HSA-2682334	EPH-Ephrin_signaling	entity->pathway	Interaction	RHOA:GTP:ROCK1,ROCK2	3928564	RHO GTPases Activate ROCKs	5627117
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Regulation of T cell activation by CD28 family	388841	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	PTEN Regulation	6807070	PTEN	199420
+R-HSA-1257604	PIP3_activates_AKT_signaling	entity->pathway	Interaction	p-S109-MKRN1	8948758	PTEN Regulation	6807070
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	TCR signaling	202403	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Extra-nuclear estrogen signaling	9009391	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	entity->pathway	Interaction	p-T308,S473-AKT1	198356	Metabolism of nitric oxide: NOS3 activation and regulation	202131
+R-HSA-1257604	PIP3_activates_AKT_signaling	entity->pathway	Interaction	p-S99-BAD	198335	Intrinsic Pathway for Apoptosis	109606
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	p-T,Y MAPK dimers	1268261
+R-HSA-1257604	PIP3_activates_AKT_signaling	entity->pathway	Interaction	CDKN1A,CDKN1B	182504	Mitotic G1 phase and G1/S transition	453279
+R-HSA-1257604	PIP3_activates_AKT_signaling	entity->pathway	Interaction	TSC2	2980548	MTOR signalling	165159
+R-HSA-1257604	PIP3_activates_AKT_signaling	entity->pathway	Interaction	AKT1S1	200155	MTOR signalling	165159
+R-HSA-1257604	PIP3_activates_AKT_signaling	entity->pathway	Interaction	p-S166,S188-MDM2	198638	Regulation of TP53 Expression and Degradation	6806003
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	N:M:PDPK1	9755778
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by MET	6806834	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by EGFR	177929	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by ERBB2	1227986	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by ERBB4	1236394	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by FGFR	190236	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by PDGF	186797	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by NTRKs	166520	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by SCF-KIT	1433557	Activator:PI3K	2316432
+R-HSA-1257604	PIP3_activates_AKT_signaling	pathway->entity	Interaction	Signaling by the B Cell Receptor (BCR)	983705	Activator:PI3K	2316432
+R-HSA-5625740	RHO_GTPases_activate_PKNs	entity->pathway	Interaction	RHOA,RHOB,RHOC,RAC1:GTP	5624294	RHO GTPases activate CIT	5625900
+R-HSA-5625740	RHO_GTPases_activate_PKNs	pathway->entity	Interaction	PIP3 activates AKT signaling	1257604	PDPK1:PIP3	377179
+R-HSA-5625740	RHO_GTPases_activate_PKNs	pathway->entity	Interaction	Cell Cycle Checkpoints	69620	p-S216-CDC25C	75003
+R-HSA-5625740	RHO_GTPases_activate_PKNs	entity->pathway	Interaction	CDC25C	157879	Mitotic G2-G2/M phases	453274
+R-HSA-5625740	RHO_GTPases_activate_PKNs	entity->pathway	Interaction	p-T774-PKN1	5623651	Activated PKN1 stimulates transcription of AR (androgen receptor) regulated genes KLK2 and KLK3	5625886
+R-HSA-5627117	RHO_GTPases_Activate_ROCKs	pathway->entity	Interaction	Semaphorin interactions	373755	ROCK1,ROCK2	419057
+R-HSA-5627117	RHO_GTPases_Activate_ROCKs	pathway->entity	Interaction	RHO GTPases activate PAKs	5627123	p-LIMK	419709
+R-HSA-5654736	Signaling_by_FGFR1	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-5654736	Signaling_by_FGFR1	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	p-T,Y MAPK dimers	1268261
+R-HSA-5654736	Signaling_by_FGFR1	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	BRAF	167224
+R-HSA-5654736	Signaling_by_FGFR1	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-5654736	Signaling_by_FGFR1	entity->pathway	Interaction	p-4Y-PLCG1	167679	DAG and IP3 signaling	1489509
+R-HSA-5654738	Signaling_by_FGFR2	entity->pathway	Interaction	p-4Y-PLCG1	167679	DAG and IP3 signaling	1489509
+R-HSA-5654738	Signaling_by_FGFR2	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-5654738	Signaling_by_FGFR2	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-5654738	Signaling_by_FGFR2	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	BRAF	167224
+R-HSA-5654738	Signaling_by_FGFR2	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	p-T,Y MAPK dimers	1268261
+R-HSA-5654741	Signaling_by_FGFR3	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	BRAF	167224
+R-HSA-5654741	Signaling_by_FGFR3	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	p-T,Y MAPK dimers	1268261
+R-HSA-5654741	Signaling_by_FGFR3	entity->pathway	Interaction	p-4Y-PLCG1	167679	DAG and IP3 signaling	1489509
+R-HSA-5654741	Signaling_by_FGFR3	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-5654741	Signaling_by_FGFR3	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-5654743	Signaling_by_FGFR4	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	BRAF	167224
+R-HSA-5654743	Signaling_by_FGFR4	entity->pathway	Interaction	p-4Y-PLCG1	167679	DAG and IP3 signaling	1489509
+R-HSA-5654743	Signaling_by_FGFR4	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-5654743	Signaling_by_FGFR4	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	p-T,Y MAPK dimers	1268261
+R-HSA-5654743	Signaling_by_FGFR4	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-5625900	RHO_GTPases_activate_CIT	pathway->entity	Interaction	RHO GTPases Activate ROCKs	5627117	p-T19,S20-MRLC-smooth muscle/non-muscle myosin II	419195
+R-HSA-5625900	RHO_GTPases_activate_CIT	entity->pathway	Interaction	RHOA,RHOB,RHOC,RAC1:GTP	8981458	RHO GTPases activate PKNs	5625740
+R-HSA-5693532	DNA_Double-Strand_Break_Repair	pathway->pathway	Interaction	DNA Double Strand Break Response	5693606	Homology Directed Repair	5693538
+R-HSA-5693532	DNA_Double-Strand_Break_Repair	pathway->pathway	Interaction	DNA Double Strand Break Response	5693606	Nonhomologous End-Joining (NHEJ)	5693571
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	NOTCH2NLC	9908932	Signaling by NOTCH2	1980145
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	NOTCH	1911474	Signaling by NOTCH1	1980143
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	NOTCH	1911474	Signaling by NOTCH2	1980145
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	NOTCH	1911474	Signaling by NOTCH3	9012852
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	NOTCH	1911474	Signaling by NOTCH4	9013694
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	Fringe-modified NOTCH	1911550	Signaling by NOTCH3	9012852
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	Fringe-modified NOTCH	1911550	Signaling by NOTCH4	9013694
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	Fringe-modified NOTCH	1911550	Signaling by NOTCH1	1980143
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	Fringe-modified NOTCH	1911550	Signaling by NOTCH2	1980145
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	NOTCH2NLA	9908935	Signaling by NOTCH2	1980145
+R-HSA-1912422	Pre-NOTCH_Expression_and_Processing	entity->pathway	Interaction	NOTCH2NLB	9908933	Signaling by NOTCH2	1980145
+R-HSA-1980143	Signaling_by_NOTCH1	pathway->entity	Interaction	Pre-NOTCH Expression and Processing	1912422	NOTCH1/Fringe-modified NOTCH1	1911555
+R-HSA-1980143	Signaling_by_NOTCH1	pathway->entity	Interaction	Signaling by TGF-beta Receptor Complex	170834	MYC	188379
+R-HSA-1980143	Signaling_by_NOTCH1	entity->pathway	Interaction	MYC	188379	Mitotic G1 phase and G1/S transition	453279
+R-HSA-1980145	Signaling_by_NOTCH2	pathway->entity	Interaction	Signaling by NOTCH1	1980143	HES1	210825
+R-HSA-1980145	Signaling_by_NOTCH2	pathway->entity	Interaction	Signaling by NOTCH1	1980143	HES5	1606739
+R-HSA-1980145	Signaling_by_NOTCH2	pathway->entity	Interaction	Pre-NOTCH Expression and Processing	1912422	NOTCH2/Fringe-modified NOTCH2	2168114
+R-HSA-1980145	Signaling_by_NOTCH2	pathway->pathway	FlowLine	Pre-NOTCH Expression and Processing	1912422	Signaling by NOTCH1	1980143
+R-HSA-1502540	Signaling_by_Activin	entity->pathway	Interaction	p-2S-SMAD2,3:SMAD4	173511	Transcriptional activity of SMAD2/SMAD3:SMAD4 heterotrimer	2173793
+R-HSA-194138	Signaling_by_VEGF	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-194138	Signaling_by_VEGF	entity->pathway	Interaction	p-S225-SPHK1	5218716	PKR-mediated signaling	9833482
+R-HSA-140534	Caspase_activation_via_Death_Receptors_in_the_presence_of_ligand	pathway->entity	Interaction	TNF signaling	75893	K63polyUb-CFLAR(1-480)	9818805
+R-HSA-140534	Caspase_activation_via_Death_Receptors_in_the_presence_of_ligand	pathway->entity	Interaction	Death Receptor Signaling	73887	TRADD:TRAF2:RIP1:FADD:CASP8(1-479)	140976
+R-HSA-140534	Caspase_activation_via_Death_Receptors_in_the_presence_of_ligand	pathway->entity	Interaction	Death Receptor Signaling	73887	TNFSF10:TNFRSF10A,B:FADD:CASP8(1-479)	5637468
+R-HSA-140534	Caspase_activation_via_Death_Receptors_in_the_presence_of_ligand	pathway->entity	Interaction	TNF signaling	75893	TRADD:TRAF2:RIP1:FADD:CASP8(1-479)	140976
+R-HSA-140534	Caspase_activation_via_Death_Receptors_in_the_presence_of_ligand	pathway->entity	Interaction	MyD88-independent TLR4 cascade	166166	activated TLR4:TRIF:RIP1:FADD:pro-caspase-8	2562542
+R-HSA-140534	Caspase_activation_via_Death_Receptors_in_the_presence_of_ligand	pathway->entity	Interaction	Death Receptor Signaling	73887	FASL:FAS trimer:FADD:CASP8(1-479)	75114
+R-HSA-6806834	Signaling_by_MET	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-6806834	Signaling_by_MET	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-74752	Signaling_by_Insulin_receptor	pathway->pathway	Interaction	PI3K Cascade	109704	MTOR signalling	165159
+R-HSA-74752	Signaling_by_Insulin_receptor	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-74752	Signaling_by_Insulin_receptor	entity->pathway	Interaction	p-Y-IRS1,p-Y-IRS2:PI3K	74694	PI3K Cascade	109704
+R-HSA-8878159	Transcriptional_regulation_by_RUNX3	entity->pathway	Interaction	Dimeric TGFB1	170852	Signaling by TGF-beta Receptor Complex	170834
+R-HSA-8878159	Transcriptional_regulation_by_RUNX3	pathway->entity	Interaction	Signaling by TGF-beta Receptor Complex	170834	p-2S-SMAD3:p-2S-SMAD3:SMAD4	8878153
+R-HSA-8878159	Transcriptional_regulation_by_RUNX3	entity->pathway	Interaction	JAG1	157098	Signaling by NOTCH1	1980143
+R-HSA-8878159	Transcriptional_regulation_by_RUNX3	pathway->entity	Interaction	Signaling by NOTCH1	1980143	NOTCH1 Coactivator Complex:HES1 Gene	4396364
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	pathway->entity	Interaction	DNA Double Strand Break Response	5693606	p-S456-ABL1	5686576
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	pathway->entity	Interaction	RUNX1 and FOXP3 control the development of regulatory T lymphocytes (Tregs)	8877330	RUNX1:CBFB:FOXP3	8877193
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	entity->pathway	Interaction	RUNX1:CBFB	8865330	RUNX1 regulates genes involved in megakaryocyte differentiation and platelet function	8936459
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	pathway->entity	Interaction	Regulation of RUNX1 Expression and Activity	8934593	RUNX1:CBFB	8865330
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	pathway->entity	Interaction	Transcriptional regulation by RUNX2	8878166	RUNX2:CBFB:LGALS3 gene	8938367
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	entity->pathway	Interaction	RUNX1:CBFB	8865330	RUNX1 and FOXP3 control the development of regulatory T lymphocytes (Tregs)	8877330
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	entity->pathway	Interaction	ITCH	975995	Signaling by NOTCH1	1980143
+R-HSA-8878171	Transcriptional_regulation_by_RUNX1	entity->pathway	Interaction	AXIN1	195249	Degradation of beta-catenin by the destruction complex	195253
+R-HSA-2172127	DAP12_interactions	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-2172127	DAP12_interactions	entity->pathway	Interaction	p-4Y-PLCG	2685653	DAG and IP3 signaling	1489509
+R-HSA-2172127	DAP12_interactions	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-177929	Signaling_by_EGFR	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-177929	Signaling_by_EGFR	entity->pathway	Interaction	p-4Y-PLCG1	167679	DAG and IP3 signaling	1489509
+R-HSA-177929	Signaling_by_EGFR	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-2404192	Signaling_by_Type_1_Insulin-like_Growth_Factor_1_Receptor_IGF1R_	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-2404192	Signaling_by_Type_1_Insulin-like_Growth_Factor_1_Receptor_IGF1R_	pathway->pathway	Interaction	PI3K Cascade	109704	MTOR signalling	165159
+R-HSA-2404192	Signaling_by_Type_1_Insulin-like_Growth_Factor_1_Receptor_IGF1R_	entity->pathway	Interaction	p-Y-IRS1,p-Y-IRS2:PI3K	74694	PI3K Cascade	109704
+R-HSA-1433557	Signaling_by_SCF-KIT	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-1433557	Signaling_by_SCF-KIT	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-186797	Signaling_by_PDGF	entity->pathway	Interaction	p21 RAS:GTP	109783	RAF/MAP kinase cascade	5673001
+R-HSA-186797	Signaling_by_PDGF	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-186797	Signaling_by_PDGF	entity->pathway	Interaction	p-4Y-PLCG1	167679	DAG and IP3 signaling	1489509
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	entity->pathway	Interaction	IHH	5362778	Hedgehog 'on' state	5632684
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	entity->pathway	Interaction	BMP2 dimer	201463	Signaling by BMP	201451
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	Transcriptional regulation by RUNX1	8878171	RUNX1:CBFB:LGALS3 gene	8938391
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	Hedgehog 'on' state	5632684	2p-GLI2	5635055
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	Regulation of RUNX2 expression and activity	8939902	RUNX2	9007751
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	Regulation of RUNX2 expression and activity	8939902	RUNX2:CBFB	8865420
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	Hedgehog 'off' state	5610787	GLI3R	5610371
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	RAF/MAP kinase cascade	5673001	p-T,Y MAPK dimers	198701
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	Signaling by BMP	201451	p-2S-SMAD1:p-2S-SMAD1:SMAD4	206654
+R-HSA-8878166	Transcriptional_regulation_by_RUNX2	pathway->entity	Interaction	Signaling by NOTCH1	1980143	HEY1,HEY2,HES1	9008192
+R-HSA-452723	Transcriptional_regulation_of_pluripotent_stem_cells	entity->pathway	Interaction	SOX2	452271	POU5F1 (OCT4), SOX2, NANOG repress genes related to differentiation	2892245
+R-HSA-452723	Transcriptional_regulation_of_pluripotent_stem_cells	entity->pathway	Interaction	NANOG	452586	POU5F1 (OCT4), SOX2, NANOG repress genes related to differentiation	2892245
+R-HSA-452723	Transcriptional_regulation_of_pluripotent_stem_cells	entity->pathway	Interaction	POU5F1	452472	POU5F1 (OCT4), SOX2, NANOG repress genes related to differentiation	2892245
+R-HSA-452723	Transcriptional_regulation_of_pluripotent_stem_cells	entity->pathway	Interaction	POU5F1	452472	POU5F1 (OCT4), SOX2, NANOG activate genes related to proliferation	2892247
+R-HSA-452723	Transcriptional_regulation_of_pluripotent_stem_cells	entity->pathway	Interaction	NANOG	452586	POU5F1 (OCT4), SOX2, NANOG activate genes related to proliferation	2892247
+R-HSA-452723	Transcriptional_regulation_of_pluripotent_stem_cells	entity->pathway	Interaction	SOX2	452271	POU5F1 (OCT4), SOX2, NANOG activate genes related to proliferation	2892247
+R-HSA-114604	GPVI-mediated_activation_cascade	entity->pathway	Interaction	PI(3,4,5)P3	179838	PIP3 activates AKT signaling	1257604
+R-HSA-68875	Mitotic_Prophase	pathway->entity	Interaction	Mitotic G2-G2/M phases	453274	CCNB1:p-T161-CDK1	170160
+R-HSA-68875	Mitotic_Prophase	entity->pathway	Interaction	Condensed prophase chromosomes	2294602	Mitotic Prometaphase	68877
+R-HSA-69242	S_Phase	pathway->entity	Interaction	Mitotic Telophase/Cytokinesis	68884	Cohesin:PDS5:WAPAL:Chromosomal Arm	2545179
+R-HSA-69242	S_Phase	pathway->entity	Interaction	Mitotic Telophase/Cytokinesis	68884	Cohesin:PDS5:WAPAL:Centromere	2545177
+R-HSA-69242	S_Phase	entity->pathway	Interaction	Sister Chromosomal Arms:Ac-Cohesin:PDS5:CDCA5:WAPAL	1638802	Mitotic Prometaphase	68877
+R-HSA-69242	S_Phase	entity->pathway	Interaction	Sister Centromeres:Ac-Cohesin:PDS5:CDCA5:WAPAL	1638799	Mitotic Prometaphase	68877
+R-HSA-451927	Interleukin-2_family_signaling	entity->pathway	Interaction	Interleukin receptor complexes with activated SHC1:GRB2:SOS1	921157	RAF/MAP kinase cascade	5673001
+R-HSA-8853659	RET_signaling	entity->pathway	Interaction	2x p-5Y-RET:GDNF:GFRA complexes:p-Y349,Y350,Y427-SHC1:GRB2-1:SOS1	8854399	RAF/MAP kinase cascade	5673001
+R-HSA-8853659	RET_signaling	entity->pathway	Interaction	2x p-5Y-RET:GDNF:GFRA complexes:GRB2-1:SOS1	8854903	RAF/MAP kinase cascade	5673001
+R-HSA-450294	MAP_kinase_activation	entity->pathway	Interaction	p-MAPK8,9,10	450253	MAPK targets/ Nuclear events mediated by MAP kinases	450282
+R-HSA-450294	MAP_kinase_activation	pathway->pathway	FlowLine	RAF-independent MAPK1/3 activation	112409	MAPK targets/ Nuclear events mediated by MAP kinases	450282
+R-HSA-450294	MAP_kinase_activation	pathway->entity	Interaction	TAK1-dependent IKK and NF-kappa-B activation	445989	CHUK:p-S177,S181-IKBKB:IKBKG	202513
+R-HSA-512988	Interleukin-3,_Interleukin-5_and_GM-CSF_signaling	entity->pathway	Interaction	Interleukin receptor complexes with activated SHC1:GRB2:SOS1	921157	RAF/MAP kinase cascade	5673001
+R-HSA-983169	Class_I_MHC_mediated_antigen_processing_presentation	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	8:class I MHC:BECN1 complex	9755322
+R-HSA-909733	Interferon_alpha_beta_signaling	entity->pathway	Interaction	EIF2AK2	168699	PKR-mediated signaling	9833482
+R-HSA-909733	Interferon_alpha_beta_signaling	pathway->entity	Interaction	SARS-CoV-2-host interactions	9705683	STAT1,STAT2:N	9729443
+R-HSA-909733	Interferon_alpha_beta_signaling	pathway->entity	Interaction	RSV-host interactions	9833110	multiubiquitinated STAT2	9833154

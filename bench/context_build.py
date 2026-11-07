@@ -230,6 +230,71 @@ def match_link(L, xdir, vx, vq, ex, eq, roots_x, mem):
     return ("bridged", pairs) if pairs else ("no_same_member_pair", [])
 
 
+def plan_arrows(base, arrows, centres, members=None, sources=None):
+    """specs/148: bridges from the diagrams' drawn pathway->entity arrows. For each arrow (P, Q, e): Q joins P whole
+    (never reduced: the specs/133 amendment-2 discipline), bridged feed-in only from Q's PRODUCED copies of e or of
+    e's members (a copy that is not a root in Q, by the bench's root rule) to P's ROOT copies of the same entity,
+    matched same entity to same entity. Cofactors, drugs and pathogens of P are never bridged. One census row per
+    arrow says why it did or did not bridge."""
+    mem = collections.defaultdict(set)
+    if members:
+        for r in csv.DictReader(open(members), delimiter="\t"):
+            mem[r["entity"]].add(r["member"])
+    arrows = [r for r in csv.DictReader(open(arrows), delimiter="\t") if r["pathway"] in centres]
+    info, ents, kinds, roots = {}, {}, {}, {}
+
+    def src_dir(name):
+        # a source pathway may live in a second catalog (specs/148: the
+        # whole-Reactome build supplies arrows whose source the 92 lack)
+        if (base / name / "nodes.csv").exists() or sources is None:
+            return base / name
+        return Path(sources) / name
+
+    def get(name):
+        if name not in info:
+            d = src_dir(name)
+            v = load(d)
+            info[name] = v
+            ents[name] = {r["uuid"]: r["diagram_entity_id"] for r in rows(d / "nodes.csv")[1]}
+            kinds[name] = {r["uuid"]: r["node_kind"] for r in rows(d / "nodes.csv")[1]}
+            roots[name] = bench_roots(v, v["edges"], ents[name])
+        return info[name]
+
+    bridges, census = {}, []
+    for L in arrows:
+        P, Q, e = L["pathway"], L["q"], L["entity"]
+        row = dict(L, status="")
+        if not (src_dir(Q) / "nodes.csv").exists():
+            row["status"] = "no_source_network"; census.append(row); continue
+        held = set()
+        for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
+            held |= {r["stable_id"] for r in rows(base / P / t)[1]}
+        ids = ({e} | mem[e]) - held
+        if not ids:
+            row["status"] = "held_entity"; census.append(row); continue
+        vp, vq = get(P), get(Q)
+        entity_kinds = {"simple_entity", "simple_complex", "set_variant"}
+        dst = sorted(u for u, de in ents[P].items()
+                     if de in ids and u in roots[P] and kinds[P].get(u) in entity_kinds)
+        src = sorted(u for u, de in ents[Q].items()
+                     if de in ids and u not in roots[Q] and kinds[Q].get(u) in entity_kinds)
+        if not dst:
+            row["status"] = "no_root_copy_in_centre"; census.append(row); continue
+        if not src:
+            row["status"] = "no_produced_copy_in_source"; census.append(row); continue
+        pairs = [(a, b) for a in src for b in dst if ents[Q][a] == ents[P][b]]
+        if not pairs:
+            row["status"] = "no_same_member_pair"; census.append(row); continue
+        row["status"] = "bridged"
+        if (P, Q) not in bridges:
+            bridges[(P, Q)] = {"in": [], "out": [], "edges": vq["edges"]}
+        bridges[(P, Q)]["in"] += pairs
+        census.append(row)
+    for b in bridges.values():
+        b["in"] = sorted(set(b["in"]))
+    return bridges, census
+
+
 def plan_transitive(base, links, s_q, centres, members=None, whole=False, l2_only=False):
     """specs/133: curated handoffs followed back as far as they go, as a tree per centre P. Depth 0 is P; a pathway Q
     joins at depth d+1 when a handoff runs from Q into a root copy that a depth-d pathway X keeps (every root of P;
@@ -422,6 +487,8 @@ def main(argv=None):
                     help="no bridge out of P: neighbours only feed P's roots, so no cross-pathway cycle")
     ap.add_argument("--only", action="append", default=[], help="build only these pathways (checks)")
     ap.add_argument("--curated", nargs=2, metavar=("LINKS", "S_Q"), help="specs/132: bridge curated handoffs only")
+    ap.add_argument("--arrows", help="specs/148: bridge the diagrams' drawn pathway->entity arrows (TSV: pathway, q, entity)")
+    ap.add_argument("--sources", help="specs/148: second catalog holding arrow source pathways the base lacks")
     ap.add_argument("--centres", help="specs/132: pathway list (bench/catalog_pathways.tsv format) to build")
     ap.add_argument("--members", help="specs/132: entity, member TSV (analysis/set_members_132.py)")
     ap.add_argument("--l2", action="store_true", help="specs/132: only handoffs from pathways P's diagrams encapsulate")
@@ -431,6 +498,8 @@ def main(argv=None):
                     help="specs/133: with --curated, follow handoffs back as a tree (LINKS from closure_133.py)")
     a = ap.parse_args(argv)
     base = Path(a.base).resolve()
+    if a.arrows:
+        return main_arrows(a, base)
     if a.curated:
         return main_curated(a, base)
     names, bridges, n_paths = plan(base, a.hub)
@@ -470,6 +539,46 @@ def main(argv=None):
     b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""), "context_of": base.name, "context_hub": a.hub,
               "context_pruned": a.prune, "context_feedback": a.feedback, "context": tot,
               "pathways_built": len(tot), "status": "complete" if not a.only else "partial"})
+    json.dump(b, open(out / "BUILD.json", "w"), indent=1)
+
+
+def main_arrows(a, base):
+    if not a.centres:
+        sys.exit("--arrows needs --centres")
+    centres = [l.split("\t")[0] for l in open(a.centres) if l.startswith("R-HSA")]
+    bridges, census = plan_arrows(base, a.arrows, set(centres), a.members, a.sources)
+    nbr = collections.defaultdict(set)
+    for (p, q), b in bridges.items():
+        nbr[p].add(q)
+    print(f"centres {len(centres)}; arrows {len(census)}; "
+          + "; ".join(f"{k} {v}" for k, v in sorted(collections.Counter(r['status'] for r in census).items())))
+    print(f"centres with a bridge {len(nbr)}; bridges {sum(len(b['in']) for b in bridges.values())}")
+    if a.census or not a.out:
+        return
+    out = Path(a.out).resolve()
+    if out.exists():
+        sys.exit(f"{out} exists")
+    out.mkdir(parents=True)
+    with open(out / "arrow_census.tsv", "w", newline="") as f:
+        w = csv.DictWriter(f, list(census[0]) if census else ["status"], delimiter="\t", lineterminator="\n")
+        w.writeheader(); w.writerows(census)
+    tot = {}
+    for p in centres:
+        tot[p] = {"neighbours": sorted(nbr[p]),
+                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, False, False)}
+    b = json.load(open(base / "BUILD.json"))
+    repo = Path(__file__).resolve().parent.parent
+    sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+                         capture_output=True, text=True).stdout.strip() or "unknown"
+    dirty = bool(subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--", "bench/context_build.py"],
+                                capture_output=True, text=True).stdout.strip())
+    b.update({"build_id": out.name, "context_builder_commit": sha + ("-dirty" if dirty else ""),
+              "context_of": base.name, "context_rule": "diagram_arrows",
+              "context_root_ignore": bm.PIN_ROOT_IGNORE or "none",
+              "context_links": a.arrows, "context_members": a.members, "context_pruned": False,
+              "context_whole": True, "context_feedback": False, "context": tot,
+              "pathway_list": a.centres, "pathways_requested": len(centres), "pathways_built": len(tot),
+              "status": "complete"})
     json.dump(b, open(out / "BUILD.json", "w"), indent=1)
 
 
