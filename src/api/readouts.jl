@@ -219,6 +219,77 @@ function readout_rail_stops(; baseline::Float64 = resting_baseline())::Tuple{Flo
     return (0.01, 0.99 / baseline)
 end
 
+# specs/146: per-call confidence — the measured share of same-stratum
+# validation-record calls that matched the curators, served from the
+# versioned table `src/api/confidence.json` (fitted by
+# bench/analysis/146/fit_confidence.py on the curator tuning split; the
+# calibration record is specs/146 research.md). Amendment 1: an untouched
+# readout (fold exactly 1.0) is served no confidence at all — its two truth
+# axes disagree (curator 0.96, experimental 0.30: the lost-route class) — the
+# client says "the perturbation does not reach this readout here".
+
+const CONFIDENCE_TABLE_PATH = joinpath(@__DIR__, "confidence.json")
+
+"""Load the confidence table; `nothing` plus a reason when absent or
+unreadable (the endpoint then serves `confidence: null` with the reason in
+the response — honest absence, never a fabricated number)."""
+function load_confidence_table(path::AbstractString = CONFIDENCE_TABLE_PATH)
+    isfile(path) || return nothing, "missing"
+    try
+        t = JSON3.read(read(path, String))
+        (haskey(t, :table) && haskey(t, :min_cell) && haskey(t, :levels)) ||
+            return nothing, "malformed"
+        return t, ""
+    catch
+        return nothing, "malformed"
+    end
+end
+
+_conf_bool(b::Bool) = b ? "True" : "False"
+
+"""The magnitude bin, exactly the fitter's: fold 1.0 is its own class (and
+served as `untouched`, amendment 1); otherwise |log2 fold| at 1 and 3, a
+non-positive fold counting as infinite."""
+function confidence_magnitude_bin(fold::Float64)::String
+    fold == 1.0 && return "baseline"
+    a = fold > 0 ? abs(log2(fold)) : Inf
+    return a <= 1 ? "le1" : (a <= 3 ? "le3" : "gt3")
+end
+
+"""specs/146 lookup, mirroring `fit_confidence.lookup` exactly: the
+registered >= min_cell hierarchy (full -> no basis -> no magnitude -> no
+converged -> per-call), levels keying on `converged` skipped when the client
+did not say. Returns `(confidence, stratum)`; `(nothing, "untouched")` for a
+fold of exactly 1.0 (amendment 1).
+
+`basis` is the readout's served basis; only "direct", "proxy" and
+"set_members" resolve at the full level (the fitter's vocabulary)."""
+function readout_confidence(table, call::String, is_railed::Bool,
+                            basis::Union{Nothing, String}, fold::Float64;
+                            converged::Union{Missing, Bool} = missing)
+    fold == 1.0 && return nothing, "untouched"
+    mag = confidence_magnitude_bin(fold)
+    min_cell = Int(table[:min_cell])
+    rail = _conf_bool(is_railed)
+    keys_by_level = Pair{String, Union{Nothing, String}}[]
+    if converged !== missing
+        conv = _conf_bool(converged)
+        basis !== nothing &&
+            push!(keys_by_level, "full" => join((call, rail, basis, mag, conv), "|"))
+        push!(keys_by_level, "no_basis" => join((call, rail, mag, conv), "|"))
+        push!(keys_by_level, "no_magnitude" => join((call, rail, conv), "|"))
+    end
+    push!(keys_by_level, "no_converged" => join((call, rail), "|"))
+    for (level, key) in keys_by_level
+        cell = get(table[:table][Symbol(level)], Symbol(key), nothing)
+        cell === nothing && continue
+        Int(cell[:n]) >= min_cell && return Float64(cell[:confidence]), level
+    end
+    cell = get(table[:table][:call_only], Symbol(call), nothing)
+    cell === nothing && return nothing, "unknown"
+    return Float64(cell[:confidence]), "call_only"
+end
+
 """specs/142: a fold at the model's stop is a switch state, not a measured
 magnitude. This is the bench's `railed(fold, ceiling)`
 (`bench/analysis/score_124.py`, the one function behind every recorded rails%

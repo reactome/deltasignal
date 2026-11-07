@@ -201,6 +201,72 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
                                   baseline = 0.002) ≈ 0.002
     end
 
+    @testset "confidence lookup walks the registered hierarchy (specs/146)" begin
+        # a small table that COMPUTES the walk: the full cell is big enough
+        # for one stratum, too small for another, absent for a third
+        table = DeltaSignal.JSON3.read("""{
+          "min_cell": 50,
+          "levels": ["full", "no_basis", "no_magnitude", "no_converged", "call_only"],
+          "table": {
+            "full": {"down|False|direct|le1|True": {"n": 60, "confidence": 0.81},
+                      "up|False|proxy|le3|True":   {"n": 10, "confidence": 0.99}},
+            "no_basis": {"up|False|le3|True": {"n": 55, "confidence": 0.77}},
+            "no_magnitude": {"not|False|False": {"n": 70, "confidence": 0.9}},
+            "no_converged": {"down|True": {"n": 200, "confidence": 0.86},
+                              "up|False": {"n": 40, "confidence": 0.5}},
+            "call_only": {"up": {"n": 1270, "confidence": 0.8844},
+                           "down": {"n": 1356, "confidence": 0.8601}}
+          }}""")
+        # full-level hit
+        @test readout_confidence(table, "down", false, "direct", 1.7; converged = true) ==
+              (0.81, "full")
+        # the full cell exists but is small: falls to no_basis
+        @test readout_confidence(table, "up", false, "proxy", 3.0; converged = true) ==
+              (0.77, "no_basis")
+        # nothing keyed on converged matches: falls to no_magnitude
+        @test readout_confidence(table, "not", false, "direct", 1.7; converged = false) ==
+              (0.9, "no_magnitude")
+        # no converged from the client: the converged-keyed levels are skipped
+        @test readout_confidence(table, "down", true, "direct", 0.001) ==
+              (0.86, "no_converged")
+        # a small no_converged cell falls through to the per-call root
+        @test readout_confidence(table, "up", false, "direct", 50.0) ==
+              (0.8844, "call_only")
+        # amendment 1: an untouched readout gets no confidence at all
+        @test readout_confidence(table, "not", false, "direct", 1.0; converged = true) ==
+              (nothing, "untouched")
+        # magnitude bins are the fitter's, boundaries included
+        @test DeltaSignal.confidence_magnitude_bin(1.0) == "baseline"
+        @test DeltaSignal.confidence_magnitude_bin(2.0) == "le1"
+        @test DeltaSignal.confidence_magnitude_bin(2.0001) == "le3"
+        @test DeltaSignal.confidence_magnitude_bin(8.0) == "le3"
+        @test DeltaSignal.confidence_magnitude_bin(8.001) == "gt3"
+        @test DeltaSignal.confidence_magnitude_bin(0.0) == "gt3"
+    end
+
+    @testset "the shipped confidence table carries its provenance (specs/146 FR-002)" begin
+        path = joinpath(@__DIR__, "..", "src", "api", "confidence.json")
+        t, reason = DeltaSignal.load_confidence_table(path)
+        @test t !== nothing && reason == ""
+        for k in (:version, :spec, :fit_split, :catalog_build, :solver_commit,
+                  :min_cell, :levels, :untouched_rule, :validation, :table)
+            @test haskey(t, k)
+        end
+        @test String(t[:catalog_build]) == "20261026-1349_8b6527e"
+        @test String(t[:solver_commit]) == "05dc867"
+        # every cell is complete, and the per-call root covers every call
+        for lv in t[:levels], (k, cell) in t[:table][Symbol(String(lv))]
+            @test haskey(cell, :n) && haskey(cell, :correct) && haskey(cell, :confidence)
+            @test 0.0 < Float64(cell[:confidence]) < 1.0
+        end
+        for call in ("down", "not", "up")
+            @test Int(t[:table][:call_only][Symbol(call)][:n]) >= Int(t[:min_cell])
+        end
+        # honest absence
+        missing_t, why = DeltaSignal.load_confidence_table(joinpath(tempdir(), "no-conf-146.json"))
+        @test missing_t === nothing && why == "missing"
+    end
+
     @testset "a context build reads only the pathway's own nodes (bench own filter)" begin
         idx = pin_index("SE" => ["mine", "theirs"], "M1" => ["m-own", "m-import"])
         own = Set(["mine", "m-own"])

@@ -266,7 +266,19 @@ arm run through the endpoint measures the same protocol), and `railed`
 `score_124.railed`, the one statistic behind every recorded rails% figure.
 A railed readout is a switch pinned against a bound, not a measured
 magnitude; present a stop, not a number. `null` whenever `fold` is `null`;
-absent on resolution-only responses). The top level
+absent on resolution-only responses), and `confidence` with
+`confidence_stratum` (specs/146: the measured share of same-stratum
+validation-record calls that matched the curators — a frequency with
+provenance from the versioned `src/api/confidence.json`, never a model
+self-estimate; the stratum names what it keyed on. The request may carry
+`converged` (the solve's flag) to sharpen the stratum. **A readout the
+perturbation never touched — fold exactly 1.0 — is served `confidence:
+null`, stratum `"untouched"`**: the record shows such a "no change" is
+reliable against expert expectation and mostly WRONG against experiments
+that expected a change (the lost-route class), so present "the perturbation
+does not reach this readout in this network", never a confident no-change.
+A top-level `confidence_table` field says `ok`, or names why every
+confidence is null when the table cannot be read). The top level
 carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
 baseline and cutoffs, and `rail_low` / `rail_high` — the stop values the
 flag was computed with, 0.01 and 99.0 at the default baseline, so a client
