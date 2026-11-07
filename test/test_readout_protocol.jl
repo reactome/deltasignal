@@ -232,6 +232,10 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
         # a small no_converged cell falls through to the per-call root
         @test readout_confidence(table, "up", false, "direct", 50.0) ==
               (0.8844, "call_only")
+        # the endpoint's "normal" is the record's "not": one vocabulary
+        @test readout_confidence(table, "normal", false, "direct", 1.1; converged = false) ==
+              readout_confidence(table, "not", false, "direct", 1.1; converged = false) ==
+              (0.9, "no_magnitude")
         # amendment 1: an untouched readout gets no confidence at all
         @test readout_confidence(table, "not", false, "direct", 1.0; converged = true) ==
               (nothing, "untouched")
