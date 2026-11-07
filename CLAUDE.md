@@ -1252,7 +1252,7 @@ other seven execute code and print output.
 | `test/test_api_errors.jl` | 165 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141), rail flags (specs/142) and the scope constant (specs/143) 2026-11-06; confidence (specs/146) 2026-11-07 |
 | `test/test_pin_protocol.jl` | 36 | specs/140, added 2026-11-06: the bench's pin protocol in the engine |
 | `test/test_scope_statement.jl` | 82 | specs/143, added 2026-11-06: the served scope statement — provenance-complete file, catalog comparison, honest refusals |
-| `test/test_readout_protocol.jl` | 186 | specs/141, added 2026-11-06: the bench's readout protocol (entity-mean, abundance, context filter, env cutoffs) in the engine; the rail stops (specs/142) same day; the confidence lookup and its shipped table's provenance (specs/146) 2026-11-07 |
+| `test/test_readout_protocol.jl` | 187 | specs/141, added 2026-11-06: the bench's readout protocol (entity-mean, abundance, context filter, env cutoffs) in the engine; the rail stops (specs/142) same day; the confidence lookup and its shipped table's provenance (specs/146) 2026-11-07 |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |
 | `test/test_worked_example.jl` | 9 | |

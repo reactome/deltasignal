@@ -21,7 +21,10 @@ for split, cs in (("held_out", [c for c in curator if c["pathway"] not in TUNING
                   ("experimental", experimental)):
     for c in cs:
         conf, lv = lookup(counts, c)
-        out.append({"split": split, "call": c["call"], "railed": c["railed"],
+        # the engine's vocabulary for the normal class, so the replay
+        # crosses the same seam the handler does
+        engine_call = "normal" if c["call"] == "not" else c["call"]
+        out.append({"split": split, "call": engine_call, "railed": c["railed"],
                     "basis": c["basis"], "mag": c["mag"], "conv": c["conv"],
                     "confidence": round(conf, 4), "stratum": lv})  # the table serves 4dp
 Path(HERE.parent / "fitter_conf.json").write_text(json.dumps(out))

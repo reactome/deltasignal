@@ -268,6 +268,10 @@ function readout_confidence(table, call::String, is_railed::Bool,
                             basis::Union{Nothing, String}, fold::Float64;
                             converged::Union{Missing, Bool} = missing)
     fold == 1.0 && return nothing, "untouched"
+    # The endpoint says "normal"; the record's tables say "not" (the bench's
+    # NAMES). One vocabulary seam, normalized here — the live smoke caught
+    # every moved-but-normal call falling through to "unknown".
+    call == "normal" && (call = "not")
     mag = confidence_magnitude_bin(fold)
     min_cell = Int(table[:min_cell])
     rail = _conf_bool(is_railed)
