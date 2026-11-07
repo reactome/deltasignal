@@ -1,0 +1,131 @@
+pathway	gene	direction	key_output	break	from	to
+Intrinsic_Pathway_for_Apoptosis	STAT3	0	114262	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	0	114266	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	0	53259	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	0	114298	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	0	350870	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	0	141643	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	2	114262	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	2	114266	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	2	53259	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	2	114298	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	2	350870	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Intrinsic_Pathway_for_Apoptosis	STAT3	2	141643	component -> complex | node exists, edge missing	R-HSA-50757	R-HSA-114339
+Signaling_by_PTK6	EGFR	2	914048	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8848441	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	442641	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	109796	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8848723	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8848995	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8849031	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8849035	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8849461	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	912656	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8848869	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8848769	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	2	8848784	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	914048	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8848441	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	442641	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	109796	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8848723	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8848995	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8849031	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8849035	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8849461	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	912656	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8848869	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8848769	route starts from another form of the gene		
+Signaling_by_PTK6	EGFR	0	8848784	route starts from another form of the gene		
+S_Phase	MAX	0	187568	component -> complex | node exists, edge missing	R-HSA-8848491	R-HSA-187522
+S_Phase	MAX	2	187568	component -> complex | node exists, edge missing	R-HSA-8848491	R-HSA-187522
+S_Phase	MYC	0	187568	component -> complex | node exists, edge missing	R-HSA-8848491	R-HSA-187522
+S_Phase	MYC	2	187568	component -> complex | node exists, edge missing	R-HSA-8848491	R-HSA-187522
+Signaling_by_VEGF	RAC1	0	5218697	component -> complex | node absent	R-HSA-399824	R-HSA-5218794
+Signaling_by_VEGF	RAC1	2	5218697	component -> complex | node absent	R-HSA-399824	R-HSA-5218794
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	0	173511	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	0	188379	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	0	2186795	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	0	182586	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	0	178197	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	2	173511	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	2	188379	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	2	2186795	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	2	182586	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_TGF-beta_Receptor_Complex	TRIM33	2	178197	component -> complex | node exists, edge missing	R-HSA-177104	R-HSA-8878153
+Signaling_by_Hedgehog	SMO	2	5632520	route starts from another form of the gene		
+Signaling_by_Hedgehog	SMO	0	5632520	route starts from another form of the gene		
+Signaling_by_Hedgehog	SUFU	0	5632668	component -> complex | node exists, edge missing	R-HSA-5610415	R-HSA-5632590
+Signaling_by_Hedgehog	SUFU	2	5632668	component -> complex | node exists, edge missing	R-HSA-5610415	R-HSA-5632590
+HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_	PALB2	2	5685343	component -> complex | node absent	R-HSA-419548	R-HSA-5685655
+HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_	PALB2	2	5685317	component -> complex | node absent	R-HSA-419548	R-HSA-5685655
+HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_	MUS81	0	5686410	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686228
+HDR_through_Homologous_Recombination_HRR_or_Single_Strand_Annealing_SSA_	MUS81	2	5686410	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686228
+DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	CYLD	0	933478	component -> complex | node exists, edge missing	R-HSA-918192	R-HSA-933473
+DDX58_IFIH1-mediated_induction_of_interferon-alpha_beta	CYLD	2	933478	component -> complex | node exists, edge missing	R-HSA-918192	R-HSA-933473
+Mitotic_G1-G1_S_phases	CDKN2A	0	8848441	component -> complex | node exists, edge missing	R-HSA-157443	R-HSA-8848421
+Mitotic_G1-G1_S_phases	CDKN2A	2	8848441	component -> complex | node exists, edge missing	R-HSA-157443	R-HSA-8848421
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	KMT2D	0	5617443	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617473
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	KMT2D	0	5617674	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617662
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	KMT2D	0	5617860	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617876
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	KMT2D	2	5617443	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617473
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	KMT2D	2	5617674	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617662
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	KMT2D	2	5617860	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617876
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	0	5617443	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617473
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	0	5617675	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617644
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	0	5617674	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617662
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	0	5617871	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617885
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	2	5617443	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617473
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	2	5617675	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617644
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	2	5617674	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617662
+Activation_of_anterior_HOX_genes_in_hindbrain_development_during_early_embryogenesis	EP300	2	5617871	component -> complex | node exists, edge missing	R-HSA-212285	R-HSA-5617885
+Signaling_by_FGFR2	FGF10	0	192616	member -> set | node exists, edge missing	R-HSA-5654152	R-HSA-192616
+Signaling_by_FGFR2	FGF10	2	192616	member -> set | node exists, edge missing	R-HSA-5654152	R-HSA-192616
+DNA_Double-Strand_Break_Repair	MUS81	0	5686410	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686228
+DNA_Double-Strand_Break_Repair	MUS81	0	5693589	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686104
+DNA_Double-Strand_Break_Repair	MUS81	0	5649637	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686228
+DNA_Double-Strand_Break_Repair	MUS81	2	5686410	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686228
+DNA_Double-Strand_Break_Repair	MUS81	2	5693589	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686104
+DNA_Double-Strand_Break_Repair	MUS81	2	5649637	component -> complex | node exists, edge missing	R-HSA-5685311	R-HSA-5686228
+DNA_Double-Strand_Break_Repair	RBBP8	0	5693604	component -> complex | node absent	R-HSA-9707299	R-HSA-5683806
+DNA_Double-Strand_Break_Repair	RBBP8	2	5693604	component -> complex | node absent	R-HSA-9707299	R-HSA-5683806
+RAF_MAP_kinase_cascade	NF1	0	109783	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	0	1268261	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	0	5672718	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	0	5674340	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	0	5674341	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	0	5674362	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	2	109783	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	2	1268261	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	2	5672718	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	2	5674340	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	2	5674341	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+RAF_MAP_kinase_cascade	NF1	2	5674362	component -> complex | node exists, edge missing	R-HSA-5658216	R-HSA-5658227
+Transcriptional_regulation_by_RUNX1	CCND1	0	977369	component -> complex | node exists, edge missing	R-HSA-8865330	R-HSA-8939080
+Transcriptional_regulation_by_RUNX1	CCND1	0	992697	component -> complex | node exists, edge missing	R-HSA-8865330	R-HSA-8956591
+Transcriptional_regulation_by_RUNX1	CCND1	2	977369	component -> complex | node exists, edge missing	R-HSA-8865330	R-HSA-8939080
+Transcriptional_regulation_by_RUNX1	CCND1	2	992697	component -> complex | node exists, edge missing	R-HSA-8865330	R-HSA-8956591
+Signaling_by_WNT	AMER1	0	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	AMER1	2	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	APC	0	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	APC	2	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	WIF1	0	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	WIF1	2	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	WNT1	0	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	WNT1	2	4411391	component -> complex | node exists, edge missing	R-HSA-3451168	R-HSA-4411394
+Signaling_by_WNT	WNT5A	0	4086392	component -> complex | node exists, edge missing	R-HSA-3965383	R-HSA-167417
+Signaling_by_WNT	WNT5A	2	4086392	component -> complex | node exists, edge missing	R-HSA-3965383	R-HSA-167417
+Transcriptional_Regulation_by_TP53	ATM	0	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	ATM	2	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	MDM2	0	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	MDM2	2	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	MDM4	0	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	MDM4	2	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	AKT1	0	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	AKT1	2	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	AKT2	0	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	AKT2	2	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	BRCA1	0	448692	component -> complex | node exists, edge missing	R-HSA-912443	R-HSA-176269
+Transcriptional_Regulation_by_TP53	BRCA1	2	448692	component -> complex | node exists, edge missing	R-HSA-912443	R-HSA-176269
+Transcriptional_Regulation_by_TP53	CHEK2	0	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
+Transcriptional_Regulation_by_TP53	CHEK2	2	448692	component -> complex | node exists, edge missing	R-HSA-6798076	R-HSA-6798078
