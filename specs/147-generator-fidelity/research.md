@@ -89,13 +89,22 @@ our networks." Checked, and he is right — with a precise shape:
   (`diagram_connectivity.py`: shared entity glyphs stand in for the
   under-annotated `precedingEvent`; LNG #39) — within a pathway, drawn
   connectivity is already used.
-- What nothing consumes are the diagrams' **`Interaction` links**: across the
-  90 benchmark diagrams, **245 of them — 115 `pathway→entity` arrows** (an
-  upstream pathway drawn as a box feeding a NAMED entity, e.g. "Signaling by
-  EGFR → RAS GEFs"), **117 `entity→pathway`**, 13 pathway→pathway. They carry
-  **no reactomeId and no dbId** — purely curator-drawn, in neither the event
-  graph nor our networks nor the oracle this audit used. The census is
-  `p4/diagram_interactions.tsv`.
+- What nothing consumes are the diagrams' **drawn connection links**
+  (`Interaction`, and in release 98 also `FlowLine` — the same arrows
+  re-rendered; the census counts both). On **release 98** (fetched from the
+  download server at Adam's direction — the local mirror was 97): across the
+  90 benchmark diagrams, **267 arrows — 113 `pathway→entity`** (an upstream
+  pathway drawn as a box feeding a NAMED entity, e.g. "Signaling by EGFR →
+  RAS GEFs"), **117 `entity→pathway`**, 25 `entity→entity` (identity links
+  between specific and generic forms — the specs/067 specialization class,
+  drawn), 15 pathway→pathway. They carry **no reactomeId and no dbId** —
+  purely curator-drawn, in neither the event graph nor our networks nor the
+  oracle this audit used. The census is `p4/diagram_interactions_98.tsv`
+  (`census.py` reproduces it for any release; 97 had 247 arrows — 98 redrew
+  Mitotic G1's as FlowLines, added its identity links, and removed two
+  pathway→entity arrows). Note for future builds: the generator's
+  `LNG_DIAGRAM_DIR` points at the release-97 mirror; a release-98 catalog
+  needs it moved.
 - The set-relation links (`EntitySetAndMemberLink` 270, set–set 53) duplicate
   Neo4j `hasMember` — no gap there.
 
