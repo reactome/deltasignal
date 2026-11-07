@@ -373,8 +373,29 @@ const SRV = DeltaSignal
         resp = SRV.readouts_handler(post("""{"network_id": "$nid",
             "activities": {"u-x": 0.0, "u-y": 0.0},
             "queries": [{"id": "lo", "stable_ids": ["R-HSA-2"]}]}"""))
-        rl = SRV.JSON3.read(String(resp.body))[:results][1]
+        body_lo = SRV.JSON3.read(String(resp.body))
+        rl = body_lo[:results][1]
         @test rl[:fold] ≈ 0.0 && rl[:railed] == true && rl[:call] == "down"
+
+        # specs/146: every valued call carries how often calls like it matched
+        # the record, from the shipped provenance-carrying table
+        @test body_lo[:confidence_table] == "ok"
+        @test rl[:confidence] isa Real && 0.0 < rl[:confidence] < 1.0
+        @test rl[:confidence_stratum] isa AbstractString
+        # an untouched readout (fold exactly 1.0) gets no confidence at all
+        # (amendment 1): both copies read baseline
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.01, "u-y": 0.01}, "converged": true,
+            "queries": [{"id": "flat", "stable_ids": ["R-HSA-2"]}]}"""))
+        rf = SRV.JSON3.read(String(resp.body))[:results][1]
+        @test rf[:fold] ≈ 1.0 && rf[:call] == "normal"
+        @test rf[:confidence] === nothing && rf[:confidence_stratum] == "untouched"
+        # a wrongly typed converged is the named 400, not a MethodError
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.5}, "converged": "yes",
+            "queries": [{"id": "x", "stable_ids": ["R-HSA-2"]}]}"""))
+        @test resp.status == 400
+        @test String(SRV.JSON3.read(String(resp.body))[:message]) == SRV.READOUTS_QUERY_ERROR
 
         # abundance: the downstream copy is made from the pinned starting
         # copy's reaction, so only the starting copy is total protein; pinning
@@ -404,6 +425,7 @@ const SRV = DeltaSignal
         r = SRV.JSON3.read(String(resp.body))[:results][1]
         @test r[:basis] == "direct" && !haskey(r, :value)
         @test !haskey(r, :railed)  # no activities, no fold, no flag
+        @test !haskey(r, :confidence)  # and no confidence either (specs/146)
         @test r[:id] == "7"
 
         # absent optional tables are NAMED, not approximated over

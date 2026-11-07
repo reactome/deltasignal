@@ -1266,6 +1266,12 @@ function readouts_handler(req)
         cutoffs = DeltaSignal.readout_cutoffs()
         # specs/142: the rail stops the served flag is computed with.
         rail_stops = DeltaSignal.readout_rail_stops(baseline = baseline)
+        # specs/146: the client may say whether its solve converged (the
+        # confidence strata key on it; absent marginalizes).
+        conv_raw = get(data, :converged, nothing)
+        conv_raw isa Union{Nothing, Bool} || throw(ArgumentError(READOUTS_QUERY_ERROR))
+        req_converged = conv_raw === nothing ? missing : conv_raw
+        conf_table, conf_reason = DeltaSignal.load_confidence_table()
         # One output-entity map per request, not per proxy query.
         output_entities = DeltaSignal._readout_output_entities(
             network.edges, pin_index, ridx.cofactors)
@@ -1304,6 +1310,18 @@ function readouts_handler(req)
                     entry["railed"] = value === nothing ? nothing :
                                       DeltaSignal.readout_railed(value / baseline;
                                                                  stops = rail_stops)
+                    # specs/146: how often calls like this matched the record.
+                    if value === nothing || conf_table === nothing
+                        entry["confidence"] = nothing
+                        entry["confidence_stratum"] = nothing
+                    else
+                        conf, stratum = DeltaSignal.readout_confidence(
+                            conf_table, entry["call"], entry["railed"],
+                            resolved.basis, value / baseline;
+                            converged = req_converged)
+                        entry["confidence"] = conf
+                        entry["confidence_stratum"] = stratum
+                    end
                 end
             else
                 occurrences = DeltaSignal.resolve_abundance_occurrences(stids, pin_index;
@@ -1325,6 +1343,18 @@ function readouts_handler(req)
                     entry["railed"] = scored.value === nothing ? nothing :
                                       DeltaSignal.readout_railed(scored.value / baseline;
                                                                  stops = rail_stops)
+                    # specs/146, same table (an abundance readout resolves direct).
+                    if scored.value === nothing || conf_table === nothing
+                        entry["confidence"] = nothing
+                        entry["confidence_stratum"] = nothing
+                    else
+                        conf, stratum = DeltaSignal.readout_confidence(
+                            conf_table, entry["call"], entry["railed"],
+                            entry["basis"], scored.value / baseline;
+                            converged = req_converged)
+                        entry["confidence"] = conf
+                        entry["confidence_stratum"] = stratum
+                    end
                 end
             end
             push!(results, entry)
@@ -1352,6 +1382,9 @@ function readouts_handler(req)
             # never reported as merely absent.
             "missing_tables" => missing_tables,
             "malformed_tables" => ridx.table_errors,
+            # specs/146 FR-005: when the confidence table cannot be read,
+            # every confidence is null and this names why.
+            "confidence_table" => conf_table === nothing ? conf_reason : "ok",
             "results" => results,
         )
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
