@@ -18,6 +18,7 @@ using .DeltaSignal
 
 const SRV = DeltaSignal
 const SCOPE_FILE = joinpath(@__DIR__, "..", "src", "api", "scope.json")
+const LEADS_FILE = joinpath(@__DIR__, "..", "src", "api", "leads.json")
 
 @testset "scope statement (specs/143)" begin
 
@@ -85,6 +86,65 @@ const SCOPE_FILE = joinpath(@__DIR__, "..", "src", "api", "scope.json")
             catalog_dir = joinpath(tempdir(), "no-such-catalog-143")).body))
         @test body[:measured_on_served_catalog] == false
         @test body[:served_catalog] === nothing
+    end
+
+    @testset "the leads table is provenance-complete and served honestly (specs/149)" begin
+        raw = read(LEADS_FILE, String)
+        t = SRV.JSON3.read(raw)
+        for k in (:version, :spec, :measured_on, :catalog_build, :composite_build,
+                  :source_build, :composite_prefix, :centres)
+            @test haskey(t, k)
+        end
+        @test String(t[:composite_prefix]) == "ctx-arrows_"
+        n_measured = 0
+        for (pid, c) in t[:centres]
+            @test haskey(c, :name) && haskey(c, :composite_id) && !isempty(c[:arrows])
+            @test startswith(String(c[:composite_id]), "ctx-arrows_")
+            for a in c[:arrows]
+                for k in (:source_pathway, :source_id, :entity, :entity_id,
+                          :drawn_in_release, :rate)
+                    @test haskey(a, k)
+                end
+                @test String(a[:rate][:class]) in ("measured", "unrated")
+                @test haskey(a[:rate], :statement) && haskey(a[:rate], :spec)
+                if String(a[:rate][:class]) == "measured"
+                    n_measured += 1
+                    @test haskey(a[:rate], :down_call_precision) && haskey(a[:rate], :arm)
+                end
+            end
+        end
+        @test n_measured >= 1  # the p-AKT mechanism is the rated one
+
+        req = SRV.HTTP.Request("GET", "/api/leads")
+        resp = SRV.leads_handler(req)
+        @test resp.status == 200
+        body = SRV.JSON3.read(String(resp.body))
+        @test body[:status] == "success"
+        @test length(body[:leads][:centres]) == length(t[:centres])
+        # honest refusals
+        resp = SRV.leads_handler(req; path = joinpath(tempdir(), "absent-leads-149.json"))
+        @test resp.status == 400
+        @test String(SRV.JSON3.read(String(resp.body))[:message]) == SRV.LEADS_ERROR
+        mktempdir() do dir
+            bad = joinpath(dir, "leads.json")
+            write(bad, "not json {")
+            @test SRV.leads_handler(req; path = bad).status == 400
+        end
+    end
+
+    @testset "a lead composite is parseable but never listed (specs/149)" begin
+        mktempdir() do catalog
+            for name in ("R-HSA-123", "ctx-arrows_R-HSA-123")
+                d = joinpath(catalog, name)
+                mkpath(d)
+                write(joinpath(d, "logic_network.csv"), "source_id,target_id
+")
+            end
+            listed = SRV.pathway_catalog_entries(catalog)
+            ids = [String(e["id"]) for e in listed]
+            @test "R-HSA-123" in ids
+            @test !any(startswith(i, "ctx-") for i in ids)
+        end
     end
 
     @testset "a missing or malformed statement refuses, never fabricates" begin

@@ -171,6 +171,7 @@ const READOUTS_NO_TABLE_ERROR = "This network has no node table, so the readout 
 const READOUTS_QUERY_ERROR = "readouts requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'} objects; 'activities' (uuid: number) and 'pinned' (uuid list) are optional."
 const READOUTS_CONTEXT_ERROR = "This network's context_own.csv could not be read, so readouts cannot be cut to the pathway's own nodes. Rebuild the bundle; answering without the filter would include neighbouring pathways' copies."
 const SCOPE_STATEMENT_ERROR = "The scope statement could not be read on this server. It ships with the engine (src/api/scope.json); serving without it would hide what the figures cover."
+const LEADS_ERROR = "The leads table could not be read on this server. It ships with the engine (src/api/leads.json); serving without it would hide which connections are curator-drawn and how they measured."
 
 function user_facing_error(e::Exception)::Tuple{Int, String}
     if isa(e, ArgumentError)
@@ -197,6 +198,7 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
                msg == PINS_NO_TABLE_ERROR || msg == PINS_QUERY_ERROR ||
                msg == READOUTS_NO_TABLE_ERROR || msg == READOUTS_QUERY_ERROR ||
                msg == READOUTS_CONTEXT_ERROR || msg == SCOPE_STATEMENT_ERROR ||
+               msg == LEADS_ERROR ||
                msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
@@ -629,12 +631,15 @@ end
 #
 # The two older "{name}_{id}" spellings still work, so an existing catalog keeps
 # its names.
-function pathway_catalog_entries()
-    isdir(CATALOG_DIR) || return Vector{Dict{String, String}}()
+function pathway_catalog_entries(catalog_dir::AbstractString = CATALOG_DIR)
+    isdir(catalog_dir) || return Vector{Dict{String, String}}()
 
     groups = Dict{String, Vector{NamedTuple{(:id, :stable_id, :name, :is_rhsa)}}}()
-    for entry in readdir(CATALOG_DIR; sort=true)
-        isdir(joinpath(CATALOG_DIR, entry)) || continue
+    for entry in readdir(catalog_dir; sort=true)
+        isdir(joinpath(catalog_dir, entry)) || continue
+        # specs/149: a lead composite is parseable but never listed — the
+        # picker offers curated pathways, not their bridge composites.
+        startswith(entry, "ctx-") && continue
 
         # "R-HSA-69620" -- what the generator writes today. Any species, not just
         # human: create-pathways.py passes a non-numeric id through untouched, so
@@ -1432,6 +1437,30 @@ function scope_handler(req; path::AbstractString = SCOPE_STATEMENT_PATH,
     end
 end
 
+# specs/149: the curator-drawn leads — which pathways have an arrow composite,
+# each arrow's provenance, and its measured rate class (specs/148). Served
+# verbatim from the versioned file, the scope-statement pattern: a lead is
+# shown only with its label and rate, so the table of them must never be
+# fabricated or partially served.
+const LEADS_PATH = joinpath(@__DIR__, "leads.json")
+
+function leads_handler(req; path::AbstractString = LEADS_PATH)
+    try
+        isfile(path) || throw(ArgumentError(LEADS_ERROR))
+        leads = try
+            JSON3.read(read(path, String))
+        catch
+            throw(ArgumentError(LEADS_ERROR))
+        end
+        (haskey(leads, :centres) && haskey(leads, :composite_prefix)) ||
+            throw(ArgumentError(LEADS_ERROR))
+        return HTTP.Response(200, JSON_HEADERS,
+                             JSON3.write(Dict("status" => "success", "leads" => leads)))
+    catch e
+        return error_response(e; context="leads_handler")
+    end
+end
+
 # Default 404 handler
 function not_found_handler(req)
     body = Dict("status" => "error", "message" => "Endpoint not found: $(req.target)")
@@ -1445,6 +1474,7 @@ function create_router()
     # API endpoints
     HTTP.register!(router, "GET", "/api/health", health_handler)
     HTTP.register!(router, "GET", "/api/scope", scope_handler)
+    HTTP.register!(router, "GET", "/api/leads", leads_handler)
     HTTP.register!(router, "GET", "/api/pathways", pathways_handler)
     HTTP.register!(router, "POST", "/api/parse", parse_handler)
     HTTP.register!(router, "POST", "/api/solve", solve_handler)
