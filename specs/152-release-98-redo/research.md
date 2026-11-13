@@ -45,3 +45,29 @@ The scale of the earlier defect, in one number: this sound 98 build is
 +10% from cross-product enumeration while edges fell 32%, because the dead
 identity signatures also changed how copies share edges. Both distortions are
 gone in the sound build.
+
+## G3 — the replication, re-run on the sound build: PASSES EXACTLY (2026-11-13)
+
+Arm `r98fix_frozen` (frozen solver, results under
+`builds/20261113-1311_baf608b_r98fix/results/12b5db3/`):
+
+| convention | 97 frozen | defective 98 (specs/150 R1) | sound 98 |
+|---|---|---|---|
+| curator held-out, all-rows (n=19,000) | 0.8977 / F1 0.8687 | 0.8946 | **0.8977 / F1 0.8687 — identical** |
+| curator valid-only, 23,511 shared keys | 0.9014 | 0.8989 | **0.9014 — zero class changes** |
+| experimental (scored 849) | 643 | 647 | **643 — identical** |
+
+Zero predictions change on any axis: the per-pathway drift table is empty.
+The catalog itself genuinely differs from 97 in 12 of 92 pathways (small
+curation edits: NOTCH1 −1 node, RUNX1 +6, antibody pathways reshaped slightly,
++2-node additions in S_Phase, Mitotic G1, Cell Cycle Checkpoints, senescence,
+Cell junction organization), and none of it touches a scored route.
+
+Two conclusions, both owed to the trace:
+- **The entire specs/150 drift was the defect** — the −0.32pp, the
+  WNT/IL-4/13/PKN concentration, and also the +4 experimental "improvement"
+  (647, "above MP-BioPath") that the defective cross-products manufactured.
+  On a sound build, Release 98 neither helps nor hurts the benchmarks: the
+  frozen record carries over digit for digit.
+- The replication claim is now the strongest it can be: the rulebook's
+  answers are invariant under a year of re-curation of these 92 pathways.
