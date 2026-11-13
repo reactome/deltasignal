@@ -1,6 +1,6 @@
 {
-  "version": "2026-11-06",
-  "provenance_build": "20261026-1349_8b6527e",
+  "version": "2026-11-13",
+  "provenance_build": "20261113-0316_8b6527e_r98",
   "summary": [
     "DeltaSignal predicts the direction of change of pathway readouts when you perturb an entity, by propagating the perturbation through the curated structure of a Reactome pathway with fixed, biologically motivated rules. No parameters are fitted; the prediction comes from the curation.",
     "Its validated competence is directional reasoning inside curated pathway scope: which readouts go up, down, or stay unchanged under a knockout or over-expression, read through the measured protocols this API serves. The accuracies below were measured under exactly those protocols, on the named catalog build and solver commit; if this server reports a different catalog, the figures are from a predecessor build.",
@@ -9,21 +9,21 @@
   "validated": [
     {
       "axis": "curator_held_out",
-      "statement": "Agreement with Reactome curators' own perturbation predictions on cases held out from rule tuning: 89.8% accuracy (macro-F1 0.869) over 19,000 cases in 71 pathways. Honest caveat: this split was held out from tuning but used to select rules across development, so it is a selection set, not a sealed test.",
-      "value": "89.77% accuracy, macro-F1 0.8687, 19,000 cases",
-      "catalog_build": "20261026-1349_8b6527e",
-      "solver_commit": "05dc867",
-      "date": "2026-10-26",
-      "spec": "specs/111-freeze"
+      "statement": "Agreement with Reactome curators' own perturbation predictions on cases held out from rule tuning: 89.5% accuracy (macro-F1 0.866) over 19,000 cases in 71 pathways, on networks rebuilt from Reactome Release 98 — a year of curation the frozen rules never saw. This replicates the frozen Release-97 record (89.77%) within the pre-registered band. Honest caveat: this split was held out from tuning but used to select rules across development, so it is a selection set, not a sealed test.",
+      "value": "89.46% accuracy, macro-F1 0.8655, 19,000 cases",
+      "catalog_build": "20261113-0316_8b6527e_r98",
+      "solver_commit": "e967a1b",
+      "date": "2026-11-13",
+      "spec": "specs/150-release-98 (replication of specs/111-freeze)"
     },
     {
       "axis": "experimental",
-      "statement": "Agreement with published experimental perturbation outcomes on the MP-BioPath benchmark: 643 of 849 cases (75.7%, macro-F1 0.664) — equal to MP-BioPath's published figure on the same cases. Honest caveat: all ten experimental pathways were also tuning pathways; no sealed experimental split exists on this axis.",
-      "value": "643/849 = 75.74%, macro-F1 0.6638",
-      "catalog_build": "20261026-1349_8b6527e",
-      "solver_commit": "05dc867",
-      "date": "2026-10-26",
-      "spec": "specs/111-freeze"
+      "statement": "Agreement with published experimental perturbation outcomes on the MP-BioPath benchmark: 647 of 849 cases (76.2%, macro-F1 0.671) on Release-98 networks — above MP-BioPath's published figure (643) on the same cases. Honest caveat: all ten experimental pathways were also tuning pathways; no sealed experimental split exists on this axis.",
+      "value": "647/849 = 76.21%, macro-F1 0.6707",
+      "catalog_build": "20261113-0316_8b6527e_r98",
+      "solver_commit": "e967a1b",
+      "date": "2026-11-13",
+      "spec": "specs/150-release-98 (replication of specs/111-freeze)"
     },
     {
       "axis": "external_hpn_dream",
@@ -88,7 +88,7 @@
     {
       "name": "honesty",
       "endpoint": "POST /api/readouts (railed, rail_low/rail_high); POST /api/solve (converged, residual)",
-      "statement": "When not to trust the number: the rail flag equals the bench statistic behind every recorded rails figure, parity-gated on all 24,356 scored case folds of the frozen record.",
+      "statement": "When not to trust the number: the rail flag equals the bench statistic behind every recorded rails figure, parity-gated on all 24,356 scored case folds of the record — on the frozen Release-97 build and again on Release 98.",
       "spec": "specs/142-honesty-signals-api"
     }
   ]

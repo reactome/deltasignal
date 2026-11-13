@@ -108,3 +108,31 @@ composites). **Switching what is served — `current`, `src/api/confidence.json`
 `src/api/leads.json`, and the scope statement's numbers — is one deliberate
 move, Adam's to make**; until then everything served remains the 97 record,
 whose provenance is untouched.
+
+## The serving switch (executed 2026-11-13, Adam's go-ahead: "yes I think moving to 98 could be useful")
+
+The one deliberate move recorded under R5, executed as one PR plus one catalog
+repoint:
+
+- `src/api/confidence.json` <- `r4/confidence_98.json` (provenance
+  `20261113-0316_8b6527e_r98` / `e967a1b`).
+- `src/api/leads.json` <- `r5/leads_98.json` (10 centres, 16 arrows, the
+  p-AKT arrow measured at down-call precision 0.24 on the 98 replication).
+- `src/api/scope.json`: provenance build -> `20261113-0316_8b6527e_r98`;
+  curator held-out 89.46% accuracy / macro-F1 0.8655 over 19,000 cases
+  (holdout_report.py on the R1 case dump; the convention that reproduces the
+  97 statement's 89.77%/0.8687 from the frozen RESULTS.json); experimental
+  647/849 = 76.21% / macro-F1 0.6707 (the RESULTS.json convention, verified by
+  reproducing 643/849 / 0.6638 on the frozen dump digit for digit). The
+  HPN-DREAM axis is unchanged: it was measured once, sealed, on the 13-pathway
+  mTOR build, and is not re-measured by a release move.
+- `test/test_readout_protocol.jl`: the shipped-table provenance assertions
+  move to the 98 build/solver pair.
+- Serving: `PATHWAY_CATALOG=~/deltasignal-catalogs/builds/20261113-r98-plus-leads`
+  (the R5 packaged catalog, whose BUILD.json reports build_id
+  `20261113-0316_8b6527e_r98`, so the served scope statement's
+  measured_on_served_catalog check passes live). The `current` symlink is
+  untouched, as with the 97 leads stack.
+
+Everything served before this move was the intact 97 record; everything after
+is the intact 98 record. No mixed state existed.

@@ -1,10 +1,10 @@
 {
- "version": "2026-11-07",
- "spec": "specs/149-leads-serving",
- "measured_on": "specs/148-diagram-arrow-bridges (full arm: korkut untouched class n=2,871, balanced +0.0503 [+0.0216, +0.0784])",
- "catalog_build": "20261026-1349_8b6527e",
- "composite_build": "20261107-arrows97-11c",
- "source_build": "20261107-1755_8b6527e_arrowsrc97",
+ "version": "2026-11-13",
+ "spec": "specs/150-release-98 (R3)",
+ "measured_on": "korkut untouched class n=2,715 on Release 98: balanced +0.0501 [+0.0212, +0.0786]; replicates the specs/148 97 result",
+ "catalog_build": "20261113-0316_8b6527e_r98",
+ "composite_build": "20261113-arrows98-10c",
+ "source_build": "20261113-0442_8b6527e_r98src",
  "composite_prefix": "ctx-arrows_",
  "centres": {
   "R-HSA-109606": {
@@ -16,13 +16,13 @@
      "source_id": "R-HSA-1257604",
      "entity": "p-T,p-S-AKT",
      "entity_id": "R-HSA-202074",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "measured",
-      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, replicated on Release 98); above chance on balanced accuracy (+0.05, interval excluding 0)",
       "down_call_precision": 0.24,
-      "arm": "arrows97w/arrows97wk on 20261107-arrows97-11c",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "arm": "arrows98w/arrows98wk on 20261113-arrows98-10c",
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -36,13 +36,13 @@
      "source_id": "R-HSA-1257604",
      "entity": "p-T,p-S-AKT",
      "entity_id": "R-HSA-202074",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "measured",
-      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, replicated on Release 98); above chance on balanced accuracy (+0.05, interval excluding 0)",
       "down_call_precision": 0.24,
-      "arm": "arrows97w/arrows97wk on 20261107-arrows97-11c",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "arm": "arrows98w/arrows98wk on 20261113-arrows98-10c",
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -56,11 +56,11 @@
      "source_id": "R-HSA-6807070",
      "entity": "PTEN",
      "entity_id": "R-HSA-199420",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -74,11 +74,11 @@
      "source_id": "R-HSA-75893",
      "entity": "K63polyUb-CFLAR(1-480)",
      "entity_id": "R-HSA-9818805",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -92,11 +92,11 @@
      "source_id": "R-HSA-5627123",
      "entity": "PAK",
      "entity_id": "R-HSA-428475",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -110,11 +110,11 @@
      "source_id": "R-HSA-9759476",
      "entity": "Classic Cadherin",
      "entity_id": "R-HSA-418977",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -128,11 +128,11 @@
      "source_id": "R-HSA-2559585",
      "entity": "INK4",
      "entity_id": "R-HSA-182588",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     },
     {
@@ -140,11 +140,11 @@
      "source_id": "R-HSA-2559580",
      "entity": "INK4",
      "entity_id": "R-HSA-182588",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     },
     {
@@ -152,13 +152,13 @@
      "source_id": "R-HSA-1257604",
      "entity": "p-T,p-S-AKT",
      "entity_id": "R-HSA-202074",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "measured",
-      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, replicated on Release 98); above chance on balanced accuracy (+0.05, interval excluding 0)",
       "down_call_precision": 0.24,
-      "arm": "arrows97w/arrows97wk on 20261107-arrows97-11c",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "arm": "arrows98w/arrows98wk on 20261113-arrows98-10c",
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     },
     {
@@ -166,41 +166,11 @@
      "source_id": "R-HSA-2559582",
      "entity": "INK4",
      "entity_id": "R-HSA-182588",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
-     }
-    },
-    {
-     "source_pathway": "Transcriptional activity of SMAD2/SMAD3:SMAD4 heterotrimer",
-     "source_id": "R-HSA-2173793",
-     "entity": "INK4",
-     "entity_id": "R-HSA-182588",
-     "drawn_in_release": "97",
-     "rate": {
-      "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
-     }
-    }
-   ]
-  },
-  "R-HSA-69620": {
-   "name": "Cell_Cycle_Checkpoints",
-   "composite_id": "ctx-arrows_R-HSA-69620",
-   "arrows": [
-    {
-     "source_pathway": "DNA Double Strand Break Response",
-     "source_id": "R-HSA-5693606",
-     "entity": "p-S1981,Ac-K3016-ATM",
-     "entity_id": "R-HSA-5693527",
-     "drawn_in_release": "97",
-     "rate": {
-      "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -214,11 +184,11 @@
      "source_id": "R-HSA-1234174",
      "entity": "HIF1A,EPAS1",
      "entity_id": "R-HSA-8848802",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -232,11 +202,11 @@
      "source_id": "R-HSA-5610787",
      "entity": "GLI3R",
      "entity_id": "R-HSA-5610371",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     },
     {
@@ -244,11 +214,11 @@
      "source_id": "R-HSA-5632684",
      "entity": "2p-GLI2",
      "entity_id": "R-HSA-5635055",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     },
     {
@@ -256,11 +226,11 @@
      "source_id": "R-HSA-8939902",
      "entity": "RUNX2",
      "entity_id": "R-HSA-9007751",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     },
     {
@@ -268,11 +238,11 @@
      "source_id": "R-HSA-1980143",
      "entity": "HEY1,HEY2,HES1",
      "entity_id": "R-HSA-9008192",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
@@ -286,11 +256,11 @@
      "source_id": "R-HSA-5693606",
      "entity": "p-S456-ABL1",
      "entity_id": "R-HSA-5686576",
-     "drawn_in_release": "97",
+     "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
       "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/148-diagram-arrow-bridges"
+      "spec": "specs/150-release-98 (R3; method specs/148)"
      }
     }
    ]
