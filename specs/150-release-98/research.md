@@ -72,3 +72,39 @@ read the stale committed 97 artifacts and reported wholesale differences,
 recognizable by identical per-case structure under wholesale-different
 uuids); and the gates' 98 artifacts live under this spec's `r2/`, leaving the
 committed 97 gate artifacts as the frozen record.
+
+## R3 — the arrows on Release 98 (2026-11-13): the lead mechanism replicates
+
+The 98 census (102 usable arrows after virus exclusion), the 33 source
+pathways rebuilt on 98 (`20261113-0442_8b6527e_r98src`, 33/33), composites
+`20261113-arrows98-10c` (16 arrows bridge, 34 edges, 10 centres — 97 had
+18/32/11; the delta is the two arrows release 98 removed plus re-curation).
+Scored under the specs/148 F discipline against the R1 control and a fresh
+plain-98 korkut control (`r98_korkut`):
+
+- **H1 PASSES, replicated almost digit for digit**: korkut untouched class
+  (n = 2,715): balanced **0.3834 vs always-no-change 0.3333** (+0.0501,
+  95% [+0.0212, +0.0786]; the 97 arm: +0.0503 [+0.0216, +0.0784]) — the
+  same 156 differing answers, the same 37 right / 108 false / 11 inverted
+  confusion. The p-AKT mechanism is release-stable.
+- H2 neutral, as on 97: curator 6 fixed / 6 broken of 4,689 untouched;
+  experimental 0 of 22.
+
+## R4 — the confidence refit on the 98 record
+
+`r4/confidence_98.json` (fitter now takes `--basis/--catalog-build/
+--solver-commit`; provenance recorded as `20261113-0316_8b6527e_r98` /
+`e967a1b`): the 97 pattern reproduces — curator held-out calibrated (ECE
+0.0412, AUC 0.624 [0.548, 0.693]), the experimental axis fails through the
+same untouched stratum, so the specs/146 amendment-1 serving semantics
+(untouched → refusal) remain correct on 98.
+
+## R5 — packaging
+
+`r5/leads_98.json` (10 centres, 16 arrows, measured rate on the replicated
+p-AKT mechanism; 98 provenance throughout) and the serving catalog
+`builds/20261113-r98-plus-leads` (the plain 98 build plus the 10 unlisted
+composites). **Switching what is served — `current`, `src/api/confidence.json`,
+`src/api/leads.json`, and the scope statement's numbers — is one deliberate
+move, Adam's to make**; until then everything served remains the 97 record,
+whose provenance is untouched.
