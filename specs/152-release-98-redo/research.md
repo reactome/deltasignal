@@ -71,3 +71,21 @@ Two conclusions, both owed to the trace:
   frozen record carries over digit for digit.
 - The replication claim is now the strongest it can be: the rulebook's
   answers are invariant under a year of re-curation of these 92 pathways.
+
+## G4 — parity: PASSES, zero differences (2026-11-13)
+
+On the sound build (`specs/152-release-98-redo/g4/`, bench dumps via the
+specs/140/141/142 harnesses, engine replays in the dev container through a RW
+gate mount): pins 877/877 (root 806, root_cycle 58, none 13), readouts 983
+curator + 272 korkut with zero differences, rails 24,356 folds with zero
+differences and 3,922 railed — the frozen record's exact rail count.
+
+## G5 (part 1) — the confidence refit: identical to the shipped table
+
+`g5/confidence_98.json` (fit on the G3 results, basis from the g4 readout
+dump): validation reproduces the frozen table digit for digit (held-out
+0.9079 / ECE 0.0499 / AUC 0.6075 [0.528, 0.679]; experimental 0.7609 / ECE
+0.1491), and the table CONTENT is bit-identical to `src/api/confidence.json`
+(the 97 table) apart from the provenance fields — as it must be, given G3's
+zero prediction changes. Provenance: `20261113-1311_baf608b_r98fix` /
+`12b5db3`.
