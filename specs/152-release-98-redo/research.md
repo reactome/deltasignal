@@ -89,3 +89,31 @@ dump): validation reproduces the frozen table digit for digit (held-out
 (the 97 table) apart from the provenance fields — as it must be, given G3's
 zero prediction changes. Provenance: `20261113-1311_baf608b_r98fix` /
 `12b5db3`.
+
+## G5 (part 2) — arrows, leads, packaging: COMPLETE (2026-11-13)
+
+- **H1 PASSES identically for the third time**: korkut untouched class
+  (n = 2,715), arm `arrows98fix_w`/`arrows98fix_k` on composites
+  `20261113-arrows98fix-10c` (16 arrows, 34 bridges, 10 centres — matching
+  R3): balanced 0.3834 vs 0.3333 (+0.0501, 95% [+0.0212, +0.0786]), the same
+  156 differing answers, the same 37 right / 108 false / 11 inverted
+  confusion (down-call precision 0.24). The p-AKT mechanism is stable across
+  release 97, the defective 98 build and the sound 98 build. H2 neutral
+  (curator 6 fixed / 6 broken of 4,687 untouched; experimental 0 of 20).
+- `g5/leads_98.json`: the 10-centre/16-arrow table with sound provenance.
+- Serving catalog `builds/20261113-r98fix-plus-leads` packaged (specs/149
+  pattern: the sound 92-build + ctx-arrows_ composites, BUILD.json noting
+  the composite build; its build_id is the measured
+  `20261113-1311_baf608b_r98fix`, so the served scope comparison holds).
+
+## The serving switch, re-executed (2026-11-13)
+
+Adam's go-ahead stands from this spec's Why. The switch:
+`src/api/confidence.json` and `leads.json` <- the g5 tables;
+`src/api/scope.json` -> provenance `20261113-1311_baf608b_r98fix` /
+`12b5db3` with the FROZEN numbers (89.77% / macro-F1 0.8687 / 19,000;
+643/849 = 75.74% / 0.6638), because the sound 98 build reproduces them
+exactly — the statement now says so in words. test_readout_protocol
+provenance assertions and the CLAUDE.md scope-suite count (251 on the
+10-centre table) move with it. Serving: PATHWAY_CATALOG ->
+`builds/20261113-r98fix-plus-leads`.

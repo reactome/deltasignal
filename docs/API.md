@@ -68,7 +68,7 @@ renders it, never writes its own copy.
     "limitations": [{ "name": "...", "statement": "...", "spec": "..." }],
     "protocols": [{ "name": "...", "endpoint": "...", "statement": "...",
       "spec": "..." }] },
-  "served_catalog": "20261026-1349_8b6527e",
+  "served_catalog": "20261113-1311_baf608b_r98fix",
   "measured_on_served_catalog": true }
 ```
 

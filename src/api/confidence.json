@@ -1,9 +1,9 @@
 {
- "version": "2026-11-06",
+ "version": "2026-11-13",
  "spec": "specs/146-call-confidence",
  "fit_split": "curator tuning (the 11 TUNING_PATHWAYS)",
- "catalog_build": "20261026-1349_8b6527e",
- "solver_commit": "05dc867",
+ "catalog_build": "20261113-1311_baf608b_r98fix",
+ "solver_commit": "12b5db3",
  "min_cell": 50,
  "levels": [
   "full",
