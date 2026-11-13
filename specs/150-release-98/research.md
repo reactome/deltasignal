@@ -51,3 +51,24 @@ disagreed with the headline).
   (the 97 container stopped beside it as `reactome-neo4j-97-stopped`), the
   98 diagram mirror covering all 125 build pathways, the frozen-tag
   worktree at `~/gitroot/lng-freeze-2026-10-26`.
+
+## R2 — the parity harnesses on Release 98 (2026-11-13): all three PASS
+
+The serve-what-you-measure invariant survives the release (engine replays on
+the `20261113-0316_8b6527e_r98` build, bench dumps against the same build and
+the live Release-98 Neo4j; artifacts in `r2/`):
+
+- **Pins (specs/140): 877/877** — basis distribution identical to 97
+  (root 806, root_cycle 58, none 13).
+- **Readouts (specs/141): 983/983 curator + 272/272 korkut** — one readout
+  moved from proxy to direct basis with the re-curation (890/80 vs 889/81),
+  agreeing on both sides.
+- **Rails (specs/142): 24,356 folds, zero differences**, stops match; the 98
+  networks rail slightly less (3,838 vs 3,922).
+
+Two run notes for the record: the engine replays must write through a
+read-write gate mount (`/app/bench` is mounted read-only — the first compare
+read the stale committed 97 artifacts and reported wholesale differences,
+recognizable by identical per-case structure under wholesale-different
+uuids); and the gates' 98 artifacts live under this spec's `r2/`, leaving the
+committed 97 gate artifacts as the frozen record.
