@@ -256,8 +256,8 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
                   :min_cell, :levels, :untouched_rule, :validation, :table)
             @test haskey(t, k)
         end
-        @test String(t[:catalog_build]) == "20261026-1349_8b6527e"
-        @test String(t[:solver_commit]) == "05dc867"
+        @test String(t[:catalog_build]) == "20261113-0316_8b6527e_r98"
+        @test String(t[:solver_commit]) == "e967a1b"
         # every cell is complete, and the per-call root covers every call
         for lv in t[:levels], (k, cell) in t[:table][Symbol(String(lv))]
             @test haskey(cell, :n) && haskey(cell, :correct) && haskey(cell, :confidence)
