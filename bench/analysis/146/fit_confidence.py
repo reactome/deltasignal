@@ -166,10 +166,15 @@ def main():
     ap.add_argument("results_dir")
     ap.add_argument("--out", default=str(HERE.parents[3] / "src" / "api" / "confidence.json"))
     ap.add_argument("--seed", type=int, default=146)
+    ap.add_argument("--basis", default=str(HERE.parents[1] / "141" / "bench_readouts.json"),
+                    help="the specs/141-format dump whose basis matches the results' build")
+    ap.add_argument("--catalog-build", default="20261026-1349_8b6527e",
+                    help="provenance recorded in the table (must match the results dir's build)")
+    ap.add_argument("--solver-commit", default="05dc867")
     args = ap.parse_args()
     rd = Path(args.results_dir)
 
-    basis_by_key = load_basis(HERE.parents[1] / "141" / "bench_readouts.json")
+    basis_by_key = load_basis(args.basis)
     curator = cases(rd / "curator_cases.tsv", basis_by_key)
     experimental = cases(rd / "experimental_cases.tsv", basis_by_key)
     train = [c for c in curator if c["pathway"] in TUNING_PATHWAYS]
@@ -204,8 +209,8 @@ def main():
         "version": str(date.today()),
         "spec": "specs/146-call-confidence",
         "fit_split": "curator tuning (the 11 TUNING_PATHWAYS)",
-        "catalog_build": "20261026-1349_8b6527e",
-        "solver_commit": "05dc867",
+        "catalog_build": args.catalog_build,
+        "solver_commit": args.solver_commit,
         "min_cell": MIN_CELL,
         "levels": list(LEVELS),
         # amendment 1: an untouched readout (fold exactly 1.0) is served
