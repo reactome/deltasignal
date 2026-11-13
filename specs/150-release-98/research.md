@@ -108,3 +108,19 @@ composites). **Switching what is served — `current`, `src/api/confidence.json`
 `src/api/leads.json`, and the scope statement's numbers — is one deliberate
 move, Adam's to make**; until then everything served remains the 97 record,
 whose provenance is untouched.
+
+## The serving switch: executed and REVERTED the same day (2026-11-13)
+
+The switch recorded under R5 was executed on Adam's go-ahead (PR #247:
+confidence/leads/scope to the 98 record, catalog to
+`builds/20261113-r98-plus-leads`, live-smoked exact against the recorded 98
+bench folds) — and reverted hours later (PR #248) when the specs/151 drift
+trace found that the 98 build is defective: Release 98 removed every HGNC
+referenceGene link, which silently killed the frozen generator's
+protein-reference lookup and with it specs/101 balancing, output-slot binding
+and the same-entity signatures, build-wide. R1's replication band passed on a
+catalog that is not the frozen construction. specs/151 amendment 1 has the
+trace; logic-network-generator#131 the fix, whose acceptance gate is
+rebuilding Release 97 identically to the frozen catalog. The 98 numbers in
+this file remain true as measured, but they describe the defective build; the
+coordinated move is re-run after the fix. Serving is back on the 97 record.
