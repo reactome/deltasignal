@@ -213,3 +213,17 @@ both shares), while korkut's banded intervals under-cover at the 90% share and
 are refused. The mixed-population "narrows nothing" conclusion above was an
 artifact of drowning the touched pairs in untouched ones. The shipped table
 (`src/api/fold_ranges.json`) carries these verdicts in its `gates` block.
+
+## The provenance rule's first catch (post-merge, 2026-11-14)
+
+Recreating the dev API after the merge silently reverted the serving to the
+frozen 97 catalog: the Release-98 serving decision had been carried by a
+PATHWAY_CATALOG environment override, and a bare `--force-recreate` without it
+resolved `current`, which still points at the frozen build. The FIRST live
+response said so — `fold_ranges: provenance mismatch: table fitted for
+20261113-1311_baf608b_r98fix, serving 20261026-1349_8b6527e` — which is
+FR-003 doing in production exactly what it was built for (the July-catalog
+incident, at the table level). The serving is now pinned in the compose
+`.env` (the mechanism docker-compose.dev.yml itself suggests), so a bare
+`up`/recreate keeps the 98 catalog; `current` stays on the frozen build for
+replay work.
