@@ -304,6 +304,31 @@ function readout_railed(fold::Float64;
     return fold >= stops[2] || fold <= stops[1]
 end
 
+"""specs/154: a readout is a SWITCH when another stable fixed point of its
+solve would give it a different call — the two states fall on opposite sides
+of the served call cutoffs, so which basin the perturbation lands in decides
+the answer class. `fold` is the canonical fold (nothing when unvalued);
+`alt_values` are the readout's values under each passed overlay (the same
+valuation the canonical fold used, on the merged activities). Returns
+(switch, state, other_state_fold): (nothing, ...) when unvalued; state is by
+the readout's OWN value — "high" means the canonical state is the higher one.
+The first overlay that changes the call provides the served pair."""
+function readout_switch(fold::Union{Nothing, Float64},
+                        alt_values::Vector{Union{Nothing, Float64}},
+                        baseline::Float64;
+                        cutoffs::Tuple{Float64, Float64} = readout_cutoffs())
+    fold === nothing && return (nothing, nothing, nothing)
+    call0 = readout_call(fold; cutoffs = cutoffs)
+    for v in alt_values
+        v === nothing && continue
+        af = v / baseline
+        if readout_call(af; cutoffs = cutoffs) != call0
+            return (true, fold > af ? "high" : "low", af)
+        end
+    end
+    return (false, nothing, nothing)
+end
+
 """The korkut total-readout resolution (`readout_nodes`): the union of direct
 matches over ALL the readout's stable ids, order kept, deduplicated — one flat
 group, no proxy or set-member steps. In a context build only the pathway's own

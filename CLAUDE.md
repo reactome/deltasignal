@@ -663,6 +663,14 @@ env vars only override for benchmark sweeps:
   (1 + k^m) / (1 + k^m f^m); `divide` keeps today's form. Under a curve the 10x reaction-level de-repression caps give
   way to each edge's own bound; the depletion floor stays. Output and identity links are never curved. Reports
   `edge_curve_rule` and `edge_curve_slots`. Measured only; nothing fitted or adopted.
+- `DS_SWITCH_DETECT=on` (default; specs/154) | `off`: after a converged solve, each cyclic component is re-swept
+  from a high and a low basin (pins held, pool-managed nodes left to their pools, outside frozen at the canonical
+  state, the same per-sweep sequence); a second stable fixed point (distinct beyond `DS_SWITCH_FLOOR`, default 1e-3
+  internal) is served as a sparse alternate (`switch_components` on /api/solve; /api/readouts values a readout under
+  the overlays and serves `switch`/`state`/`other_state_fold` — a switch is a readout whose two folds produce
+  different calls). ADDITIVE ONLY: the canonical answer is untouched (parity-replayed). `DS_SWITCH_MAX_SWEEPS`
+  (default 250) caps each re-solve; hitting it is honest absence. The solve reports `switch_detect`,
+  `switch_components_searched/found`, `switch_sweeps_capped`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -1252,6 +1260,7 @@ other seven execute code and print output.
 | `test/test_api_errors.jl` | 167 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141), rail flags (specs/142) and the scope constant (specs/143) 2026-11-06; confidence (specs/146), leads constant (specs/149) 2026-11-07 |
 | `test/test_pin_protocol.jl` | 36 | specs/140, added 2026-11-06: the bench's pin protocol in the engine |
 | `test/test_scope_statement.jl` | 251 | specs/143, added 2026-11-06: the served scope statement — provenance-complete file, catalog comparison, honest refusals; the leads table and composite listing exclusion (specs/149) 2026-11-07. The count follows the shipped leads table's content (per-centre/per-arrow loops): 269 on the 97 table (11 centres), 251 on the 98 table (10 centres, specs/152 switch) |
+| `test/test_switch_states.jl` | 47 | specs/154, added 2026-11-13: switch detection — the bistable fixture's two states, honest absence, the call-cutoff readout rule |
 | `test/test_readout_protocol.jl` | 187 | specs/141, added 2026-11-06: the bench's readout protocol (entity-mean, abundance, context filter, env cutoffs) in the engine; the rail stops (specs/142) same day; the confidence lookup and its shipped table's provenance (specs/146) 2026-11-07 |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |

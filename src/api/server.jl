@@ -1024,6 +1024,9 @@ function solve_handler(req)
             "unknown_observations" => unknown_observations,
             "edge_redirects" => length(block_uuids),   # specs/122
             "influence_scores" => influence_scores,
+            # specs/154 (additive): the second fixed points. Present (possibly
+            # empty) when detection ran and the solve converged; absent
+            # otherwise — a cap-decided point anchors no second-state claim.
             "converged" => solver_result.converged,
             "iterations" => solver_result.iterations,
             # week review 2026-10-15: a non-converged solve is scored as given;
@@ -1048,6 +1051,11 @@ function solve_handler(req)
             "pathogens_held" => get(solver_result.diagnostics, "pathogens_held", 0),
             "ubiquitin_rule" => get(solver_result.diagnostics, "ubiquitin_rule", "propagate"),   # specs/098
             "ubiquitin_held" => get(solver_result.diagnostics, "ubiquitin_held", 0),
+            # specs/154 (additive): switch detection diagnostics.
+            "switch_detect" => get(solver_result.diagnostics, "switch_detect", "off"),
+            "switch_components_searched" => get(solver_result.diagnostics, "switch_components_searched", 0),
+            "switch_components_found" => get(solver_result.diagnostics, "switch_components_found", 0),
+            "switch_sweeps_capped" => get(solver_result.diagnostics, "switch_sweeps_capped", 0),
             # specs/049 (additive): "off", "closed", "closed_supply", "closed_twin", "all", or
             # "<mode>: no carrier table"; the free forms that lost loop in-edges, how many
             # edges, and how many root-twin supply edges closed_twin added.
@@ -1160,7 +1168,13 @@ function solve_handler(req)
                 "largest_after" => get(solver_result.diagnostics, "scc_largest_after", 0),
             ),
         )
-        
+        # specs/154: present (possibly empty) only when detection ran and the
+        # solve converged — a cap-decided point anchors no second-state claim.
+        if get(solver_result.diagnostics, "switch_detect", "off") == "on" && solver_result.converged
+            result["switch_components"] = get(solver_result.diagnostics, "switch_components",
+                                              Vector{Dict{String, Any}}())
+        end
+
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
 
     catch e
@@ -1276,6 +1290,28 @@ function readouts_handler(req)
         conv_raw = get(data, :converged, nothing)
         conv_raw isa Union{Nothing, Bool} || throw(ArgumentError(READOUTS_QUERY_ERROR))
         req_converged = conv_raw === nothing ? missing : conv_raw
+        # specs/154: the solve's second fixed points, passed back by the client
+        # (sparse overlays on the canonical activities). Optional; omitted means
+        # no switch fields anywhere and a byte-identical response.
+        sw_raw = get(data, :switch_components, nothing)
+        overlays = nothing
+        if sw_raw !== nothing
+            sw_raw isa AbstractVector || throw(ArgumentError(READOUTS_QUERY_ERROR))
+            activities === nothing && throw(ArgumentError(READOUTS_QUERY_ERROR))
+            overlays = Vector{Dict{String, Float64}}()
+            for sc in sw_raw
+                (sc isa AbstractDict || sc isa JSON3.Object) || throw(ArgumentError(READOUTS_QUERY_ERROR))
+                alt_raw = get(sc, :alt_activities, nothing)
+                (alt_raw isa AbstractDict || alt_raw isa JSON3.Object) ||
+                    throw(ArgumentError(READOUTS_QUERY_ERROR))
+                merged = copy(activities)
+                for (k, v) in pairs(alt_raw)
+                    v isa Real || throw(ArgumentError(READOUTS_QUERY_ERROR))
+                    merged[String(k)] = Float64(v)
+                end
+                push!(overlays, merged)
+            end
+        end
         conf_table, conf_reason = DeltaSignal.load_confidence_table()
         # One output-entity map per request, not per proxy query.
         output_entities = DeltaSignal._readout_output_entities(
@@ -1327,6 +1363,20 @@ function readouts_handler(req)
                         entry["confidence"] = conf
                         entry["confidence_stratum"] = stratum
                     end
+                    # specs/154: the same resolution valued under each overlay.
+                    if overlays !== nothing
+                        alts = Union{Nothing, Float64}[
+                            DeltaSignal.readout_entity_mean(resolved.groups, ov; baseline = baseline)
+                            for ov in overlays]
+                        sw, st, osf = DeltaSignal.readout_switch(
+                            value === nothing ? nothing : value / baseline, alts, baseline;
+                            cutoffs = cutoffs)
+                        entry["switch"] = sw
+                        if sw === true
+                            entry["state"] = st
+                            entry["other_state_fold"] = osf
+                        end
+                    end
                 end
             else
                 occurrences = DeltaSignal.resolve_abundance_occurrences(stids, pin_index;
@@ -1360,6 +1410,20 @@ function readouts_handler(req)
                         entry["confidence"] = conf
                         entry["confidence_stratum"] = stratum
                     end
+                    # specs/154: the same abundance valuation under each overlay.
+                    if overlays !== nothing
+                        alts = Union{Nothing, Float64}[
+                            DeltaSignal.abundance_value(kept, pinned, ov; baseline = baseline).value
+                            for ov in overlays]
+                        sw, st, osf = DeltaSignal.readout_switch(
+                            scored.value === nothing ? nothing : scored.value / baseline,
+                            alts, baseline; cutoffs = cutoffs)
+                        entry["switch"] = sw
+                        if sw === true
+                            entry["state"] = st
+                            entry["other_state_fold"] = osf
+                        end
+                    end
                 end
             end
             push!(results, entry)
@@ -1381,7 +1445,13 @@ function readouts_handler(req)
                                # specs/142: the stops the railed flag used, so
                                # a client never hardcodes them.
                                "rail_low" => rail_stops[1],
-                               "rail_high" => rail_stops[2]),
+                               "rail_high" => rail_stops[2],
+                               # specs/154: how a switch is decided, so a client
+                               # never hardcodes the rule or its bounds.
+                               "switch_rule" => "two stable fixed points; a readout is a switch when its folds at the two states fall on opposite sides of the call cutoffs",
+                               "switch_floor" => DeltaSignal._switch_floor(),
+                               "switch_max_sweeps" => DeltaSignal._switch_max_sweeps(),
+                               "switch_components" => overlays === nothing ? 0 : length(overlays)),
             # Honest degradation (specs/141 FR-005): an absent table is named;
             # a PRESENT table that could not be read is named separately and
             # never reported as merely absent.

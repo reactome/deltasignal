@@ -129,3 +129,78 @@ are the serving bar; the share is reported whatever it is.
 `20261113-1235_baf608b_hgncfix97` build (identical content to the frozen 97
 catalog, different uuids — it exists already) must flag the same
 (pathway, readout) set with the same states to served precision.
+
+## The FR-006 coverage measurement: the bar FAILS as registered, and the
+## failure is a finding (2026-11-13)
+
+The full pass over the benchmark record (every (pathway, gene, direction)
+solved through the SERVED stack, `bench/analysis/154/dump_switches.py`,
+`report/switch_cases.tsv`):
+
+- **Parity re-proven end to end**: all 24,356 recorded folds reproduced
+  through parse→pins→solve→readouts with detection on — zero mismatches.
+- **605 of 3,922 railed folds (15.4%) flag as switches.** The RAF check fails
+  as written: knockouts flag (ARAF/BRAF/HRAS/KRAS/NRAS KO — the loop, freed
+  of the perturbed paralog's drive, holds both states, and the served states
+  match the specs/054 record), but over-expressions do NOT, and neither do
+  the PTEN/MKRN1 cases. Traced, not assumed: the unflagged components WERE
+  searched, nothing hit the sweep cap, and both basin re-solves converged —
+  to the same point.
+- **The finding**: a rail under a FORCING pin is not a two-state situation.
+  Under HRAS at 80x the cascade's low state is not a fixed point (the drive
+  carries any start back up); under a PTEN pin in either direction the MKRN1
+  loop is slammed to one side. specs/054's own threshold says why: the flip
+  point is ~3.5% from baseline, so any benchmark-dose perturbation of the
+  switch's own driver forces it. The recorded rails therefore split into two
+  classes this feature now distinguishes mechanically: **free-switch states
+  (15.4%, served as switches with both states) and perturbation-forced
+  saturations (84.6%, correctly served as railed, not switches)**. The
+  registered bar ("every railed RAF MAPK readout under RAS/RAF perturbations
+  is flagged") conflated them; the detector separated them.
+- RAF1 knockouts (3 folds) also do not flag: unlike ARAF/BRAF, the RAF1 copy
+  is structurally required by the remaining loop's complexes, so its KO
+  leaves no free bistable component. Consistent with the same rule.
+
+## Consequence (the registered one)
+
+The serving bar fails, so the feature does not serve on this spec's
+authority. The proposed amendment, Adam's to accept or reject:
+
+- Bar (a): the detector finds both RAF states where the component is free
+  (the KO cases) with states matching specs/054 — PASSES on this measurement.
+- Bar (b): no false second state anywhere (the monostable control and the
+  searched-and-converged trace above) — PASSES.
+- Bar (c): forced rails keep today's honest `railed: true, switch: false` —
+  by construction, with the 15.4% / 84.6% split documented and served
+  semantics stated in docs: "switch means two states exist UNDER YOUR
+  CONSTRAINTS; a forced rail has one".
+
+Everything else stands regardless: FR-001 parity (unit fixture, the two
+dump replays, and the 24,356-fold end-to-end reproduction), the 47-assert
+suite, label-invariant detection by construction (sorted component order,
+no uuid-dependent choices — the identical-content rebuild check runs with
+the serving decision).
+
+## The informativeness check (registered 2026-11-14, before measuring)
+
+Adam: "can you run something to show if this works better or not?" The
+feature cannot move accuracy (parity-proven); the measurable claim is that
+the split it serves is INFORMATIVE: free-switch rails and forced-saturation
+rails should match the recorded ground truth at different rates. Question,
+registered before looking: on the benchmark record's railed calls, what is
+the share correct (vs curators on the curator axis, vs experiments on the
+experimental axis) for switch=true vs switch=false cases? If the rates
+differ, the served distinction carries information a user (and a finer
+specs/146 confidence stratum) can use; if they are equal, the flag is
+honest but uninformative and the PR should say so. Descriptive stratum
+rates on recorded data — the specs/146 footing; no call changes, no gate.
+
+**Measured (same day):** on the record's railed calls, free-switch rails are
+right 95.4% vs forced-saturation rails 93.2% against curators (+2.3pp,
+z = 2.03 — marginal), and 94.1% vs 95.1% against experiments (−0.9pp,
+z = −0.23, n = 34 — nothing). Verdict, honestly: the flag does NOT
+meaningfully separate hit rates. Both rail classes are highly reliable
+DIRECTION calls; the distinction's value is purely semantic — what the
+served number MEANS (a state of two, or the only state there is) — not
+statistical. A finer specs/146 confidence stratum on this split would buy
+almost nothing. The serving decision should rest on the semantics alone.
