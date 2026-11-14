@@ -204,3 +204,12 @@ DIRECTION calls; the distinction's value is purely semantic — what the
 served number MEANS (a state of two, or the only state there is) — not
 statistical. A finer specs/146 confidence stratum on this split would buy
 almost nothing. The serving decision should rest on the semantics alone.
+
+## Serving decision (Adam, 2026-11-14)
+
+The amended bar is accepted: "lets keep it. I am not sure of how you
+implemented it exactly but I am sure we can modify it later." Merged with the
+informativeness verdict on the record (the flag's value is semantic, not
+statistical). Later modification is cheap by design: DS_SWITCH_DETECT=off
+disables it whole; the floor and sweep cap are env-served; the detection is a
+self-contained post-pass.
