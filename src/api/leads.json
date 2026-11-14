@@ -59,8 +59,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection; decryptM perturbs upstream of it (specs/153) but its untouched readouts are not bridge-reachable (0-2 bridged calls per drug), so no rate can be measured on the current record",
+      "spec": "specs/153-arrow-rating-decryptm (S2)"
      }
     }
    ]
@@ -205,8 +205,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection; decryptM perturbs upstream of it (specs/153) but its untouched readouts are not bridge-reachable (0-2 bridged calls per drug), so no rate can be measured on the current record",
+      "spec": "specs/153-arrow-rating-decryptm (S2)"
      }
     },
     {
@@ -259,8 +259,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection; decryptM perturbs upstream of it (specs/153) but its untouched readouts are not bridge-reachable (0-2 bridged calls per drug), so no rate can be measured on the current record",
+      "spec": "specs/153-arrow-rating-decryptm (S2)"
      }
     }
    ]
