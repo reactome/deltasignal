@@ -119,3 +119,47 @@ ignored by the existing comparators by construction, asserted not to change
 any compared byte). The serving decision then follows the gates, is recorded
 here, and the PR ships table + lookup together. WebsiteAngular consumption is
 its own spec afterwards (the specs/154 → WA specs/026 pattern).
+
+## The measurement (P1, run 2026-11-14 — the registered gates)
+
+**R1a resolved first**: the decryptM record's own `all_sites.tsv` carries the
+paper's fitted `effect_size` per (site, experiment) — plateau ratio − 1 (down
+calls bounded near −1, up calls unbounded) — so the measured fold is
+max(0, 1 + effect_size) and decryptM IS admitted (LODO unit: drug). Its cases
+file records no convergence flag, so its strata resolve at the
+converged-free levels. korkut pairs: 11,413 over 78 drug sets (canonical
+`a490cdc/k134_abund_a3` scoring × `expr.csv` per-condition folds); decryptM:
+5,931 over 18 drugs (`a47898d/s114_f92_hand` × effect sizes).
+
+**A construction bug caught by its own coverage, before any gate reading**:
+the first band construction sorted pairs by (predicted, measured) and split
+tied predicted folds across bands — stratifying bands by the MEASURED value,
+which is circular. It covered 17% at nominal 50% IN-SAMPLE, which is how it
+was caught. Fixed: bands never split a tied predicted fold (`cell_b`), and
+the rerun is the measurement below.
+
+**Gate 1 (coverage, LODO by whole drug, 95% bootstrap over units) — PASSES
+for both arms on both axes**:
+
+| axis | arm | 50% share | 90% share |
+|---|---|---|---|
+| korkut_rppa (11,413 pairs, 78 units) | (a) | 0.499 [0.466, 0.533] | 0.898 [0.881, 0.914] |
+| korkut_rppa | (b) | 0.499 [0.467, 0.531] | 0.895 [0.878, 0.911] |
+| decryptm_phospho (5,931 pairs, 18 units) | (a) | 0.479 [0.417, 0.551] | 0.911 [0.886, 0.927] |
+| decryptm_phospho | (b) | 0.472 [0.424, 0.545] | 0.909 [0.883, 0.922] |
+
+**Gate 2 (arm (b) ≥10% median width reduction) — FAILS decisively**: 0.17%
+on korkut, 3.0% on decryptM. Conditioning on the predicted fold narrows the
+intervals by essentially nothing: the predicted magnitude carries no interval
+information beyond the answer's class. This confirms specs/128–131's finding
+(the magnitude signal is too weak to fit) from an entirely independent angle.
+
+**Verdict, per the registration: serve arm (a) on both axes.** The shipped
+table (`src/api/fold_ranges.json`, 9 KB) is fitted on all pairs, stamped for
+the served record (`20261113-1311_baf608b_r98fix` / `12b5db3`; the pairs
+carry the frozen-97 predicted folds, which specs/152 proved that record
+reproduces exactly). What it says is the feature's point: a confident strong
+down call (magnitude bin gt3, converged, not railed) on the drug-RPPA record
+measured between **0.64× and 0.95×** half the time (n 95) — the model's
+magnitudes overshoot measured reality, and now the product says so with the
+record's own numbers.
