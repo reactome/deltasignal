@@ -1313,6 +1313,10 @@ function readouts_handler(req)
             end
         end
         conf_table, conf_reason = DeltaSignal.load_confidence_table()
+        # specs/155: the measured fold-interval table, refused unless its
+        # provenance matches the catalog this server actually serves.
+        fr_table, fr_reason = DeltaSignal.load_fold_ranges_table(
+            served_build = get(catalog_provenance(CATALOG_DIR), "build_id", nothing))
         # One output-entity map per request, not per proxy query.
         output_entities = DeltaSignal._readout_output_entities(
             network.edges, pin_index, ridx.cofactors)
@@ -1363,6 +1367,15 @@ function readouts_handler(req)
                         entry["confidence"] = conf
                         entry["confidence_stratum"] = stratum
                     end
+                    # specs/155: where the record's measured folds landed for
+                    # answers in this class. Absence is field absence.
+                    if value !== nothing && fr_table !== nothing && entry["call"] !== nothing
+                        ranges = DeltaSignal.readout_fold_ranges(
+                            fr_table, entry["call"], entry["railed"],
+                            resolved.basis, value / baseline;
+                            converged = req_converged)
+                        ranges === nothing || (entry["measured_fold_ranges"] = ranges)
+                    end
                     # specs/154: the same resolution valued under each overlay.
                     if overlays !== nothing
                         alts = Union{Nothing, Float64}[
@@ -1409,6 +1422,14 @@ function readouts_handler(req)
                             converged = req_converged)
                         entry["confidence"] = conf
                         entry["confidence_stratum"] = stratum
+                    end
+                    # specs/155: the same table on an abundance fold.
+                    if scored.value !== nothing && fr_table !== nothing && entry["call"] !== nothing
+                        ranges = DeltaSignal.readout_fold_ranges(
+                            fr_table, entry["call"], entry["railed"],
+                            entry["basis"], scored.value / baseline;
+                            converged = req_converged)
+                        ranges === nothing || (entry["measured_fold_ranges"] = ranges)
                     end
                     # specs/154: the same abundance valuation under each overlay.
                     if overlays !== nothing
@@ -1460,6 +1481,12 @@ function readouts_handler(req)
             # specs/146 FR-005: when the confidence table cannot be read,
             # every confidence is null and this names why.
             "confidence_table" => conf_table === nothing ? conf_reason : "ok",
+            # specs/155: the fold-interval table's version, or why no ranges
+            # are served (absent, malformed, or a provenance mismatch).
+            "fold_ranges" => fr_table === nothing ? fr_reason :
+                             "ok: " * string(fr_table[:version]),
+            "fold_ranges_min_cell" => fr_table === nothing ? nothing :
+                                      Int(fr_table[:min_cell]),
             "results" => results,
         )
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
