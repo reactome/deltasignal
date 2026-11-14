@@ -1,40 +1,40 @@
+# The test files that actually assert. Single source of truth: CI, the docker
+# test-runner and the CLAUDE.md count check all read this list, so they cannot
+# drift apart.
 #
+# The other seven files in test/ execute code and print output. They pass
+# whatever the code does, so running them proves nothing and they are
+# deliberately NOT listed here.
 #
 # Adding a file here without assertions, or removing one that has them, is
 # caught by scripts/check_doc_counts.py in CI.
-# deliberately NOT listed here.
-# drift apart.
-test_and_curves
-test_api_errors
-test_carrier_loops
-test_cli_observations
 test_config_validation
-test_conserved
+test_and_curves
 test_cycle_handling
-test_cycles
-test_drugs
-test_edge_curves
-test_limit_cycles
-test_loop_elasticity
-test_loop_pool
-test_material_loops
-test_observation_pinning
-test_pin_protocol
-test_propagator_invariants
-test_readout_protocol
-test_recycled_twin
-test_resting_baseline
-# test-runner and the CLAUDE.md count check all read this list, so they cannot
-test_scc_break_roles
-test_scope_statement
-test_self_fed
-test_self_inhibition
-test_sequestration
-test_set_pool
-test_solver_determinism
-test/test_switch_states.jl
 test_worked_example
+test_observation_pinning
+test_propagator_invariants
+test_cli_observations
+test_api_errors
+test_loop_elasticity
+test_solver_determinism
+test_loop_pool
+test_scc_break_roles
+test_self_inhibition
+test_drugs
+test_set_pool
+test_conserved
+test_cycles
+test_self_fed
+test_carrier_loops
 test_zero_supply
-# The other seven files in test/ execute code and print output. They pass
-# The test files that actually assert. Single source of truth: CI, the docker
-# whatever the code does, so running them proves nothing and they are
+test_recycled_twin
+test_sequestration
+test_limit_cycles
+test_material_loops
+test_resting_baseline
+test_edge_curves
+test_pin_protocol
+test_readout_protocol
+test_scope_statement
+test_switch_states
