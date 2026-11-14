@@ -1393,6 +1393,70 @@ function _nonconv_restart_sweeps()::Int
     n
 end
 
+# ---------------------------------------------------------------------------
+# specs/154: switch detection. A cyclic component with positive feedback can
+# have two stable fixed points; the canonical solve lands in one of them, and
+# until now the other was invisible — a railed readout served a state's
+# coordinates as if they were a magnitude (specs/054 RAF, specs/082
+# PTEN/MKRN1). The post-pass below re-sweeps each converged cyclic component
+# from a high and a low basin, with pins held, pool-managed nodes left to
+# their pools, and everything outside the component frozen at the canonical
+# state. It never touches the canonical answer: FR-001 of specs/154 is that
+# every existing field stays byte-identical, and the parity replays prove it.
+
+function _switch_detect_on()::Bool
+    v = get(ENV, "DS_SWITCH_DETECT", "on")
+    v in ("on", "off") || throw(ArgumentError(
+        "DS_SWITCH_DETECT=\"$v\" is not a recognised mode; expected \"on\" or \"off\"."))
+    return v == "on"
+end
+
+function _switch_max_sweeps()::Int
+    n = round(Int, _float_env("DS_SWITCH_MAX_SWEEPS", 250.0))
+    n < 1 && throw(ArgumentError("DS_SWITCH_MAX_SWEEPS=$n must be at least 1."))
+    n
+end
+
+function _switch_floor()::Float64
+    f = _float_env("DS_SWITCH_FLOOR", 1e-3)
+    (isfinite(f) && f > 0.0) || throw(ArgumentError(
+        "DS_SWITCH_FLOOR=$f must be a positive number (internal [0,1] scale)."))
+    f
+end
+
+"""
+Damped gauss-seidel sweep of ONE component's reactions (their sorted,
+label-free order) plus its pool update, confined to `y`; pinned and
+pool-managed targets are never written. Returns true when the undamped model
+residual |F(y) - y| over the component (pool delta included) fell below `tol`
+within `budget` sweeps. The same per-sweep sequence as the canonical loop, on
+the same mutated reactions, so both basins live under the same rulebook.
+"""
+function _sweep_component!(y::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector{IndexedReaction},
+                           obs_set::Set{Int}, managed::Set{Int}, λ::Float64, supply,
+                           config::ReactionEvalConfig, pools, shared::Set{Int},
+                           baseline_vec, carriers::Bool, tol::Float64, budget::Int)::Bool
+    for _ in 1:budget
+        maxch = 0.0
+        @inbounds for ri in rs
+            r = rxns_idx[ri]
+            t = r.target_idx
+            (t in obs_set || t in managed) && continue
+            fwd = compute_reaction_output_vec(y, r; supply = supply, config = config)
+            ch = abs(fwd - y[t])
+            ch > maxch && (maxch = ch)
+            y[t] = (1.0 - λ) * y[t] + λ * fwd
+        end
+        if pools !== nothing
+            ch = update_pools!(y, pools, shared, rxns_idx, baseline_vec, obs_set, config;
+                               carriers = carriers)
+            ch > maxch && (maxch = ch)
+        end
+        maxch < tol && return true
+    end
+    return false
+end
+
 function nonconv_pools_mode()::String
     v = get(ENV, "DS_NONCONV_POOLS", "joint")
     v in DS_VALID_NONCONV_POOLS || throw(ArgumentError(
@@ -2228,6 +2292,96 @@ function solve_scc_ordered!(
             last_change = max(last_change, comp_residual)
         end
     end
+    # specs/154: switch detection post-pass. Additive by construction — it
+    # reads `x` and writes only pool_stats; the canonical state, reactions
+    # and every diagnostic above are already final.
+    if _switch_detect_on()
+        sw_floor = _switch_floor()
+        sw_budget = _switch_max_sweeps()
+        sw_found = Vector{Dict{String, Any}}()
+        sw_searched = 0
+        sw_capped = 0
+        empty_shared = Set{Int}()
+        @inbounds for c in n_comp:-1:1
+            (comp_size[c] > 1 || comp_has_self_loop[c]) || continue
+            rs = comp_rxns[c]
+            isempty(rs) && continue
+            members = Int[i for i in eachindex(comp_id) if comp_id[i] == c]
+            free = Int[u for u in members if !(u in obs_set) && !(u in managed)]
+            isempty(free) && continue
+            pools_c = get(comp_pools, c, nothing)
+            shared_c = get(comp_shared, c, empty_shared)
+            supply_c = use_supply ? x : nothing
+            # The canonical point must stand on its own (specs/066): a
+            # component above tolerance anchors no second-state claim.
+            res0 = pools_c === nothing ?
+                _component_residual(x, rs, rxns_idx, obs_set, supply_c, config) :
+                _component_residual_pools(x, rs, rxns_idx, obs_set, supply_c, config,
+                                          managed, pools_c, shared_c, baseline_vec, pool_carriers)
+            res0 < tol || continue
+            sw_searched += 1
+            best = nothing   # (distance, state)
+            for init in (1.0, 0.0)
+                y = copy(x)
+                for u in free
+                    y[u] = init
+                end
+                conv = _sweep_component!(y, rs, rxns_idx, obs_set, managed, λ, supply_c,
+                                         config, pools_c, shared_c, baseline_vec,
+                                         pool_carriers, tol, sw_budget)
+                if !conv
+                    sw_capped += 1
+                    continue
+                end
+                dist = 0.0
+                for u in members
+                    d = abs(y[u] - x[u])
+                    d > dist && (dist = d)
+                end
+                if dist > sw_floor && (best === nothing || dist > best[1])
+                    best = (dist, y)
+                end
+            end
+            best === nothing && continue
+            # Propagate the flip downstream (components after c in the
+            # topological order), warm-started: an unchanged component
+            # converges immediately; a moved one re-settles in its own basin.
+            z = best[2]
+            for c2 in (c - 1):-1:1
+                rs2 = comp_rxns[c2]
+                isempty(rs2) && continue
+                if comp_size[c2] == 1 && !comp_has_self_loop[c2]
+                    for ri in rs2
+                        t = rxns_idx[ri].target_idx
+                        (t in obs_set || t in managed) && continue
+                        z[t] = compute_reaction_output_vec(z, rxns_idx[ri];
+                                                           supply = use_supply ? z : nothing,
+                                                           config = config)
+                    end
+                else
+                    _sweep_component!(z, rs2, rxns_idx, obs_set, managed, λ,
+                                      use_supply ? z : nothing, config,
+                                      get(comp_pools, c2, nothing),
+                                      get(comp_shared, c2, empty_shared),
+                                      baseline_vec, pool_carriers, tol, sw_budget)
+                end
+            end
+            alt = Dict{Int, Float64}()
+            @inbounds for i in eachindex(z)
+                abs(z[i] - x[i]) > sw_floor && (alt[i] = z[i])
+            end
+            isempty(alt) && continue
+            push!(sw_found, Dict{String, Any}("id" => c, "size" => length(members), "alt" => alt))
+        end
+        pool_stats["switch_detect"] = "on"
+        pool_stats["switch_components_searched"] = sw_searched
+        pool_stats["switch_components_found"] = length(sw_found)
+        pool_stats["switch_sweeps_capped"] = sw_capped
+        pool_stats["switch_components_idx"] = sw_found
+    else
+        pool_stats["switch_detect"] = "off"
+    end
+
     stats = (method = scc_method, pooled = n_pooled, iterated = n_iterated,
              fallback_negative = n_fb_neg, fallback_inconsistent = n_fb_inc,
              pooled_nodes = n_pooled_nodes)
@@ -2598,6 +2752,20 @@ function solve_steady_state_penalty(
     result_dict = Dict{String, Float64}(all_nodes[i] => clamp(x[i], 0.0, 1.0) for i in 1:n)
     solve_time = time() - start_time
 
+    # specs/154: index-keyed alternates from the detection post-pass, converted
+    # to uuid keys on the node_activities scale. Served only on a converged
+    # solve (specs/066: a cap-decided point anchors no second-state claim).
+    switch_components = Vector{Dict{String, Any}}()
+    if converged
+        for sc in get(index_stats, "switch_components_idx", Dict{String, Any}[])
+            alt = Dict{String, Float64}(all_nodes[i] => clamp(v, 0.0, 1.0)
+                                        for (i, v) in sc["alt"])
+            push!(switch_components, Dict{String, Any}(
+                "id" => sc["id"], "size" => sc["size"], "alt_activities" => alt))
+        end
+    end
+    sort!(switch_components; by = d -> d["id"])
+
     return SolverResult(
         result_dict,
         converged,
@@ -2678,6 +2846,12 @@ function solve_steady_state_penalty(
             "nonconv_restart_rescued" => get(index_stats, "nonconv_restart_rescued", 0),
             "nonconv_pool_improved" => get(index_stats, "nonconv_pool_improved", 0),
             "nonconv_pool_rescued" => get(index_stats, "nonconv_pool_rescued", 0),
+            # specs/154: switch detection — the second fixed points, served.
+            "switch_detect" => get(index_stats, "switch_detect", "off"),
+            "switch_components_searched" => get(index_stats, "switch_components_searched", 0),
+            "switch_components_found" => length(switch_components),
+            "switch_sweeps_capped" => get(index_stats, "switch_sweeps_capped", 0),
+            "switch_components" => switch_components,
         ),
     )
 end

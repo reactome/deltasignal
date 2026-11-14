@@ -321,6 +321,19 @@ A network parsed without a node table refuses with a `400`, as `/api/pins`
 does: the direct step shares the pin index, and matching ids flatly would be
 a second, unvalidated protocol.
 
+**Switch states (specs/154, additive).** The request may carry back the
+solve's `switch_components` (below) verbatim. Each entry valued with
+`activities` then also serves `switch` (bool): true means the readout's fold
+at the other stable state would produce a DIFFERENT call — the number is a
+basin's coordinates, not a magnitude. When `switch` is true the entry carries
+`state` (`"high"`/`"low"`, by the readout's own value: a readout the switch
+represses is `"low"` when the component is on) and `other_state_fold` (its
+fold at the unselected state, same scale as `fold`). Passing
+`switch_components` without `activities`, or malformed, is a `400`. The
+`protocol` object names `switch_rule`, `switch_floor`, `switch_max_sweeps`
+and the `switch_components` count received, so a client never hardcodes the
+rule. Omitting the field leaves the response exactly as before.
+
 ### `POST /api/solve`
 Solve the steady state under a set of perturbations. JSON body:
 ```json
@@ -502,6 +515,19 @@ Response:
 - **`influence_scores`**: `uuid → Σ|∂F/∂input|` at the solution, computed with
   the same propagator as the solve (so inhibitors carry real influence). Use for
   a "what drove this?" view; higher = more influential.
+
+**Switch states (specs/154, additive).** When `DS_SWITCH_DETECT=on` (the
+default) and the solve converged, the response carries `switch_components`:
+one entry per cyclic component with a second stable fixed point —
+`{"id", "size", "alt_activities"}`, where `alt_activities` holds ONLY the
+nodes whose value at the other state differs beyond the floor (the flipped
+component and its re-solved downstream), on the same 0–1 scale as
+`node_activities`. `[]` means detection ran and found nothing bistable; the
+field is ABSENT when detection is off or the solve did not converge (a
+cap-decided point anchors no second-state claim, specs/066). Diagnostics:
+`switch_detect`, `switch_components_searched`, `switch_components_found`,
+`switch_sweeps_capped`. Pass the list back to `/api/readouts` to get
+per-readout switch fields.
 
 ## Notes for the WebsiteAngular client
 - Treat this contract as the integration boundary. Keep all Angular code in the
