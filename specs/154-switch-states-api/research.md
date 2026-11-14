@@ -213,3 +213,36 @@ informativeness verdict on the record (the flag's value is semantic, not
 statistical). Later modification is cheap by design: DS_SWITCH_DETECT=off
 disables it whole; the floor and sweep cap are env-served; the detection is a
 self-contained post-pass.
+
+## The FR-005 label-invariance check (run 2026-11-14, after serving, as specified)
+
+Detection re-run on two Release-97 catalogs of identical content and different
+uuids — the frozen catalog `20261026-1349_8b6527e` and the rebuild
+`20261113-1235_baf608b_hgncfix97` — through the merged, served engine
+(`bench/analysis/154/dump_switches_inv.py`, which re-resolves pins per catalog
+from the specs/140 dump's stable_ids; `compare_inv.py`; the specs/140-142
+dumps supply the 24,356-fold case list).
+
+- **The registered check PASSES**: both catalogs flag the identical
+  (axis, pathway, gene, direction, readout) switch set (2,300 flagged folds,
+  zero flag differences), with identical states (zero differences), and the
+  canonical folds agree to 1.3e-12 (both reproduce the recorded folds to the
+  dump's 5e-7 rounding).
+- **One traced, documented finding on the alternate COORDINATE**: 10 of the
+  2,300 flagged folds — all of them SMAD2 and SMAD3 knockouts in TGF-beta —
+  serve an `other_state_fold` that differs between the catalogs by up to 0.5
+  at ~50× (≤1% relative), and the values SWAP between the two genes'
+  perturbations (frozen SMAD3 reads what rebuild SMAD2 reads, and mirrored).
+  The mechanism: SMAD2/SMAD3 are structurally symmetric paralogs, so the
+  component holds two near-degenerate alternate fixed points ~1% apart, and
+  which one a basin re-solve lands on follows the sweep order's tie-break —
+  which is label order exactly where structure is tied (the specs/013 record:
+  "tied positions keep label order"). The switch's existence, its state
+  labels, and the canonical answer are unaffected; only the second state's
+  last 1% of magnitude is, in exactly the component class where the two
+  states' coordinates are near-mirror-images anyway.
+- Served honestly as is: the note's claim is "two states exist and yours is
+  the low one; the other reads ~N×" — a ≤1% label dependence on N in one
+  symmetric pair does not change any claim the panel makes. Recorded here so
+  a future exact-replication harness knows to compare the alternate at 1%
+  tolerance, not bit for bit.
