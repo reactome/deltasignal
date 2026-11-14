@@ -163,3 +163,27 @@ down call (magnitude bin gt3, converged, not railed) on the drug-RPPA record
 measured between **0.64× and 0.95×** half the time (n 95) — the model's
 magnitudes overshoot measured reality, and now the product says so with the
 record's own numbers.
+
+## FR-001 parity, end to end (P3, 2026-11-14)
+
+The whole recorded benchmark (every (pathway, gene, direction) of the tracked
+98-record dumps, `specs/152-release-98-redo/g4/`) replayed through the
+feature branch's SERVED stack — parse → pins → solve → readouts — on the
+serving catalog with the fold-ranges table installed and serving: **all
+24,356 recorded folds reproduce to the dump's own rounding (max |diff|
+5e-7), zero past 1e-5** (`report/parity_folds_155.tsv`). The live response
+carries `measured_fold_ranges` and `fold_ranges: ok: 2026-11-14` beside
+unchanged folds, calls, railed flags, confidences and switch fields.
+
+Two traps hit and recorded on the way:
+- A first replay mixed the Release-97 record's pin dumps with the 98 serving
+  catalog: 5 folds differed, all RUNX1 over-expression — the 97 stable_ids
+  resolve a different pin set on the re-curated 98 network. Not a code
+  effect; the right dumps show zero. Lesson: a parity replay's query dumps
+  must come from the SAME record as the catalog they drive.
+- A second replay silently compared a stale output file: the runner had
+  crashed on a missing input (untracked working copies of the g4 dumps from
+  the specs/154 session no longer exist) and the `| tail` pipe ate the error
+  while the old TSV sat where the result should be. Caught because the
+  "corrected" numbers were impossibly identical. The tracked g4 dumps are the
+  durable inputs; untracked copies are not a record.
