@@ -93,6 +93,9 @@ def korkut_pairs(cases_tsv, data_dir):
             unmatched.add(key)
             continue
         fold = float(r["pred_ui"])
+        if fold == 1.0:
+            continue  # untouched: the server serves such a readout NO range
+                      # (specs/146 amendment 1), so it neither fits nor counts
         conv = r.get("converged") == "1"
         for log2v in values[key]:
             pairs.append({
@@ -127,6 +130,8 @@ def decryptm_pairs(cases_tsv, sites_tsv):
         if r["status"] != "scored" or not r["pred_ui"]:
             continue
         fold = float(r["pred_ui"])
+        if fold == 1.0:
+            continue  # untouched, never served a range (specs/146 amendment 1)
         for cell in r["cell_lines"].split(";"):
             for e in effects.get((r["uniprot"], r["position"], r["drug"], cell), ()):
                 pairs.append({

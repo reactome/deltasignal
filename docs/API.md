@@ -299,9 +299,10 @@ of `{axis, share, lo, hi, n}` — on that axis's record (`korkut_rppa`,
 readout's class landed between `lo`× and `hi`× over `n` recorded pairs. It is
 a share of the record, never a probability, and it is a lookup in the
 versioned `src/api/fold_ranges.json` (fitted under the registered
-out-of-sample gates; the measurement found the predicted magnitude narrows
-the intervals by under 3%, so the class-level arm is what serves — specs/155
-research.md). The field is ABSENT for untouched or call-less readouts and
+out-of-sample gates — specs/155 research.md: on the drug-RPPA record the
+class-level intervals serve, because banding on the predicted fold
+under-covered at the 90% share; on the phospho record the predicted-fold
+bands serve, measured calibrated and 26% narrower). The field is ABSENT for untouched or call-less readouts and
 classes below the table's minimum pair count. The top-level `fold_ranges`
 says `ok: <version>`, or names why nothing serves (absent, malformed, or a
 provenance mismatch with the served catalog — a stale table never quietly

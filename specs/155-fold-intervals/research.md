@@ -187,3 +187,29 @@ Two traps hit and recorded on the way:
   while the old TSV sat where the result should be. Caught because the
   "corrected" numbers were impossibly identical. The tracked g4 dumps are the
   durable inputs; untracked copies are not a record.
+
+## Amendment 1 (pre-serving, 2026-11-14): the fitter mirrors the served population
+
+The adversarial review of the branch caught a population mismatch: the first
+measurement's pairs included cases with predicted fold exactly 1.0 —
+untouched readouts, which the server NEVER serves a range (the specs/146
+amendment-1 rule). They were most of the korkut pairs (11,413 → 2,177 touched;
+decryptM 5,931 → 2,761). The fitter now excludes them from fitting and
+evaluation both, so the gates are measured on exactly the population the
+product serves. The first measurement stands above as the mixed-population
+record; THIS one is the serving decision:
+
+| axis | arm | 50% share | 90% share | median width cut |
+|---|---|---|---|---|
+| korkut_rppa (2,177 pairs, 78 units) | (a) | 0.491 [0.439, 0.540] | 0.892 [0.865, 0.915] | — |
+| korkut_rppa | (b) | 0.490 [0.447, 0.531] | **0.875 [0.851, 0.897] — fails** | 25.9% |
+| decryptm_phospho (2,761 pairs, 18 units) | (a) | 0.455 [0.395, 0.538] | 0.924 [0.872, 0.939] | — |
+| decryptm_phospho | (b) | 0.439 [0.400, 0.514] | 0.917 [0.851, 0.936] | 26.4% |
+
+**Verdict, per the registered gates: korkut_rppa serves (a); decryptm_phospho
+serves (b)** — on the touched population the predicted magnitude DOES carry
+interval information on the phospho axis (26% narrower, still calibrated at
+both shares), while korkut's banded intervals under-cover at the 90% share and
+are refused. The mixed-population "narrows nothing" conclusion above was an
+artifact of drowning the touched pairs in untouched ones. The shipped table
+(`src/api/fold_ranges.json`) carries these verdicts in its `gates` block.

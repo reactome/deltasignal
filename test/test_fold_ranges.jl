@@ -153,18 +153,32 @@ load_fixture(t; served = SERVED_BUILD) =
         @test string(t[:spec]) == "specs/155-fold-intervals"
         @test string(t[:solver_commit]) == SERVED_SOLVER
         @test Int(t[:min_cell]) == 30
-        # the measured verdict: arm (a) on every axis — (b) narrowed nothing
-        for (_, arm) in pairs(t[:arms])
-            @test string(arm) == "a"
-        end
-        # every shipped cell honours the minimum and is a real interval
-        for (_, levels) in pairs(t[:table]), (_, cells) in pairs(levels),
+        # the measured verdicts (research.md amendment 1): class-level on the
+        # drug-RPPA record, predicted-fold bands on the phospho record
+        @test string(t[:arms][:korkut_rppa]) == "a"
+        @test string(t[:arms][:decryptm_phospho]) == "b"
+        # every shipped cell honours the minimum and is a real interval;
+        # a banded cell's bands do too, and only the banded axis carries any
+        seen_bands = false
+        for (axis, levels) in pairs(t[:table]), (_, cells) in pairs(levels),
             (_, cell) in pairs(cells)
             @test Int(cell[:n]) >= 30
             for (_, iv) in pairs(cell[:shares])
                 @test Float64(iv[:lo]) <= Float64(iv[:hi])
             end
+            if haskey(cell, :bands)
+                seen_bands = true
+                @test axis == :decryptm_phospho
+                for b in cell[:bands]
+                    @test Int(b[:n]) >= 30
+                    @test Float64(b[:fold_lo]) <= Float64(b[:fold_hi])
+                    for (_, iv) in pairs(b[:shares])
+                        @test Float64(iv[:lo]) <= Float64(iv[:hi])
+                    end
+                end
+            end
         end
+        @test seen_bands
         # a different serving record refuses the shipped table too
         t2, reason2 = DeltaSignal.load_fold_ranges_table(shipped_path;
                                                          served_build = "other-build")
