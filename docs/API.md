@@ -290,7 +290,23 @@ reliable against expert expectation and mostly WRONG against experiments
 that expected a change (the lost-route class), so present "the perturbation
 does not reach this readout in this network", never a confident no-change.
 A top-level `confidence_table` field says `ok`, or names why every
-confidence is null when the table cannot be read). The top level
+confidence is null when the table cannot be read).
+
+**Measured fold ranges (specs/155, additive).** An entry with a call whose
+class the record covers additionally carries `measured_fold_ranges`: a list
+of `{axis, share, lo, hi, n}` — on that axis's record (`korkut_rppa`,
+`decryptm_phospho`), the middle `share` of MEASURED folds for answers in this
+readout's class landed between `lo`× and `hi`× over `n` recorded pairs. It is
+a share of the record, never a probability, and it is a lookup in the
+versioned `src/api/fold_ranges.json` (fitted under the registered
+out-of-sample gates; the measurement found the predicted magnitude narrows
+the intervals by under 3%, so the class-level arm is what serves — specs/155
+research.md). The field is ABSENT for untouched or call-less readouts and
+classes below the table's minimum pair count. The top-level `fold_ranges`
+says `ok: <version>`, or names why nothing serves (absent, malformed, or a
+provenance mismatch with the served catalog — a stale table never quietly
+describes a new model); `fold_ranges_min_cell` carries the minimum (null when
+no table serves). The top level
 carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
 baseline and cutoffs, and `rail_low` / `rail_high` — the stop values the
 flag was computed with, 0.01 and 99.0 at the default baseline, so a client

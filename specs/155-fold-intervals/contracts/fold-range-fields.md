@@ -23,11 +23,12 @@ A result entry that (1) has a `call`, (2) has a stratum other than
   `min_cell`).
 - The field is ABSENT otherwise — never null, never an empty list.
 
-## Response, protocol object (additive)
+## Response, top level (additive — beside `confidence_table`, the specs/146
+## precedent for table-status fields)
 
 ```json
 "fold_ranges": "ok: 2026-11-xx",          // or the refusal/absence reason
-"fold_ranges_min_cell": 30
+"fold_ranges_min_cell": 30                 // null when no table serves
 ```
 
 Refusal reasons mirror the specs/146 wording: absent file, unreadable file,

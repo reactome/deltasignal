@@ -1261,6 +1261,7 @@ other seven execute code and print output.
 | `test/test_pin_protocol.jl` | 36 | specs/140, added 2026-11-06: the bench's pin protocol in the engine |
 | `test/test_scope_statement.jl` | 251 | specs/143, added 2026-11-06: the served scope statement — provenance-complete file, catalog comparison, honest refusals; the leads table and composite listing exclusion (specs/149) 2026-11-07. The count follows the shipped leads table's content (per-centre/per-arrow loops): 269 on the 97 table (11 centres), 251 on the 98 table (10 centres, specs/152 switch) |
 | `test/test_switch_states.jl` | 47 | specs/154, added 2026-11-13: switch detection — the bistable fixture's two states, honest absence, the call-cutoff readout rule |
+| `test/test_fold_ranges.jl` | 128 | specs/155, added 2026-11-14: measured fold intervals — the loader's refusals (provenance above all), the stratum-walk lookup, the arm-(b) band rule, and the shipped table pinned to the serving record |
 | `test/test_readout_protocol.jl` | 187 | specs/141, added 2026-11-06: the bench's readout protocol (entity-mean, abundance, context filter, env cutoffs) in the engine; the rail stops (specs/142) same day; the confidence lookup and its shipped table's provenance (specs/146) 2026-11-07 |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |

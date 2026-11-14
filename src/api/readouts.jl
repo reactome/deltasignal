@@ -294,6 +294,95 @@ function readout_confidence(table, call::String, is_railed::Bool,
     return Float64(cell[:confidence]), "call_only"
 end
 
+# specs/155: measured fold intervals — where the record's MEASURED folds
+# landed for answers in this class, served from the versioned table
+# `src/api/fold_ranges.json` (fitted by bench/analysis/155/fit_155.py under
+# the registered out-of-sample gates; arm (a) shipped on both axes because
+# conditioning on the predicted fold narrowed nothing — the record is
+# specs/155 research.md). A range is a share of the record, never a
+# probability, and nothing here computes a quantile: lookup only.
+
+const FOLD_RANGES_TABLE_PATH = joinpath(@__DIR__, "fold_ranges.json")
+
+"""Load the fold-ranges table; `nothing` plus a reason when absent, unreadable
+or fitted for a different serving record (FR-003: a stale table must never
+quietly describe a new model). `served_build` is the serving catalog's
+build_id; `nothing` or a sentinel means the serving record is unverifiable,
+which is itself a refusal."""
+function load_fold_ranges_table(path::AbstractString = FOLD_RANGES_TABLE_PATH;
+                                served_build = nothing)
+    isfile(path) || return nothing, "missing"
+    t = try
+        JSON3.read(read(path, String))
+    catch
+        return nothing, "malformed"
+    end
+    (haskey(t, :table) && haskey(t, :min_cell) && haskey(t, :nominal_shares) &&
+     haskey(t, :catalog_build) && haskey(t, :arms)) || return nothing, "malformed"
+    served = served_build === nothing ? nothing : string(served_build)
+    (served === nothing || served in ("unrecorded", "unreadable BUILD.json", "uninspectable")) &&
+        return nothing, "serving record unrecorded: the table's provenance cannot be verified"
+    string(t[:catalog_build]) == served ||
+        return nothing, "provenance mismatch: table fitted for $(t[:catalog_build]), serving $(served)"
+    return t, ""
+end
+
+"""specs/155 lookup, mirroring `fit_155.serve` for the shipped arm: the same
+stratum walk as the confidence lookup, per axis; the first cell with
+n >= min_cell serves. Under arm (b) the band containing the predicted fold
+refines the cell; outside every band the cell's own shares serve (refinement,
+never extrapolation). Returns a Vector of {axis, share, lo, hi, n} or
+`nothing` — an untouched readout (fold exactly 1.0) is served nothing, as the
+confidence rule's amendment 1 reads it."""
+function readout_fold_ranges(table, call::String, is_railed::Bool,
+                             basis::Union{Nothing, String}, fold::Float64;
+                             converged::Union{Missing, Bool} = missing)
+    fold == 1.0 && return nothing
+    call == "normal" && (call = "not")
+    mag = confidence_magnitude_bin(fold)
+    min_cell = Int(table[:min_cell])
+    rail = _conf_bool(is_railed)
+    keys_by_level = Pair{String, String}[]
+    if converged !== missing
+        conv = _conf_bool(converged)
+        basis !== nothing &&
+            push!(keys_by_level, "full" => join((call, rail, basis, mag, conv), "|"))
+        push!(keys_by_level, "no_basis" => join((call, rail, mag, conv), "|"))
+        push!(keys_by_level, "no_magnitude" => join((call, rail, conv), "|"))
+    end
+    push!(keys_by_level, "no_converged" => join((call, rail), "|"))
+    push!(keys_by_level, "call_only" => call)
+    out = Vector{Dict{String, Any}}()
+    for axis in sort!([String(k) for k in keys(table[:table])])
+        levels = table[:table][Symbol(axis)]
+        arm = string(get(table[:arms], Symbol(axis), "a"))
+        for (level, key) in keys_by_level
+            lv = get(levels, Symbol(level), nothing)
+            lv === nothing && continue
+            cell = get(lv, Symbol(key), nothing)
+            cell === nothing && continue
+            Int(cell[:n]) >= min_cell || continue
+            shares, n = cell[:shares], Int(cell[:n])
+            if arm == "b" && haskey(cell, :bands)
+                for b in cell[:bands]
+                    if Float64(b[:fold_lo]) <= fold <= Float64(b[:fold_hi])
+                        shares, n = b[:shares], Int(b[:n])
+                        break
+                    end
+                end
+            end
+            for s in sort!([String(k) for k in keys(shares)])
+                iv = shares[Symbol(s)]
+                push!(out, Dict{String, Any}(
+                    "axis" => axis, "share" => parse(Float64, s),
+                    "lo" => Float64(iv[:lo]), "hi" => Float64(iv[:hi]), "n" => n))
+            end
+            break
+        end
+    end
+    return isempty(out) ? nothing : out
+end
+
 """specs/142: a fold at the model's stop is a switch state, not a measured
 magnitude. This is the bench's `railed(fold, ceiling)`
 (`bench/analysis/score_124.py`, the one function behind every recorded rails%
