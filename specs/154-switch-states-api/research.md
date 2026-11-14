@@ -180,3 +180,27 @@ dump replays, and the 24,356-fold end-to-end reproduction), the 47-assert
 suite, label-invariant detection by construction (sorted component order,
 no uuid-dependent choices — the identical-content rebuild check runs with
 the serving decision).
+
+## The informativeness check (registered 2026-11-14, before measuring)
+
+Adam: "can you run something to show if this works better or not?" The
+feature cannot move accuracy (parity-proven); the measurable claim is that
+the split it serves is INFORMATIVE: free-switch rails and forced-saturation
+rails should match the recorded ground truth at different rates. Question,
+registered before looking: on the benchmark record's railed calls, what is
+the share correct (vs curators on the curator axis, vs experiments on the
+experimental axis) for switch=true vs switch=false cases? If the rates
+differ, the served distinction carries information a user (and a finer
+specs/146 confidence stratum) can use; if they are equal, the flag is
+honest but uninformative and the PR should say so. Descriptive stratum
+rates on recorded data — the specs/146 footing; no call changes, no gate.
+
+**Measured (same day):** on the record's railed calls, free-switch rails are
+right 95.4% vs forced-saturation rails 93.2% against curators (+2.3pp,
+z = 2.03 — marginal), and 94.1% vs 95.1% against experiments (−0.9pp,
+z = −0.23, n = 34 — nothing). Verdict, honestly: the flag does NOT
+meaningfully separate hit rates. Both rail classes are highly reliable
+DIRECTION calls; the distinction's value is purely semantic — what the
+served number MEANS (a state of two, or the only state there is) — not
+statistical. A finer specs/146 confidence stratum on this split would buy
+almost nothing. The serving decision should rest on the semantics alone.
