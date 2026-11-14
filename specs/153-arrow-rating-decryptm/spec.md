@@ -41,3 +41,35 @@ cannot reach them either.
 
 No new arrows, no rule changes, no re-scoring of korkut or the benchmarks;
 decryptM stays FIT (this is a fitting-side use).
+
+## Amendment 1 (2026-11-13): S1 result, registered S2 arms
+
+S1 (s1_coverage.py, s1_coverage.tsv; anchors expand a set-valued arrow entity
+to its Neo4j leaf descendants): **six of 16 arrows are decryptM-coverable**,
+with per-centre attribution unambiguous (in every covered centre only one
+arrow's source carries the covering drug's targets):
+
+- PTEN Regulation -> PTEN -> PIP3 (AZD8055, Dactolisib via MTOR; MK2206 via
+  AKT1-3; 50 centre sites) — unrated today.
+- Hedgehog 'off' -> GLI3R -> RUNX2 (Tideglusib via GSK3B, the kinase that
+  makes GLI3R; 10 sites) — unrated today.
+- DSB Response -> p-S456-ABL1 -> RUNX1 (Dasatinib, Imatinib, Nintedanib via
+  ABL1; 6 sites) — unrated today.
+- The three p-AKT arrows (ERBB2: 9 drugs/21 sites; Intrinsic Apoptosis: 1/7;
+  Mitotic G1: 2/29) — already rated on korkut; decryptM gives an independent
+  rating.
+
+The other ten arrows have no decryptM drug reaching them: they stay
+"unrated — no dataset in the record perturbs upstream" and S1 is their
+closure on the current record.
+
+S2 arms (registered here before running): control `r98fix_dm153` on
+`20261113-1311_baf608b_r98fix` and arm `arrows98fix_dm153` on
+`20261113-arrows98fix-10c`, both on the SAME case file
+`cases_153_centres.tsv` (the kinobeads case table restricted to the ten
+centres: 658 cases, 9 centres with cases, 15 drugs) so denominators are
+equal by construction. F discipline as specs/148: the centre's own answer
+where it routes; a bridged answer counts only on control-untouched cases.
+Per covered (arrow, drug set): bridged change calls on control-untouched
+sites vs the measured regulation, exact binomial interval; fewer than 20
+bridged calls -> reported, arrow stays unrated in the served table.
