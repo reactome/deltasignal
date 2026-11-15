@@ -213,3 +213,14 @@ flag changes the solve; a request without soft observations is bit-identical
 either way, FR-001). The benchmark protocol never sends soft observations,
 so no recorded figure moves. WebsiteAngular consumption (entering measured
 levels) is its own spec, now unblocked.
+
+**Protocol note**: the arm ran through dedicated flag-on replay servers (the
+specs/154/155 pattern: `docker compose run` with `DS_SOFT_OBS=blend`, build
+pinned to the serving record, the flag verified POSITIVELY by a soft-carrying
+probe before any measurement — in the script itself), not `run_arm.sh` as the
+plan's wording had it: run_arm.sh serves the `current` symlink's build, which
+deliberately stays on the frozen 97 record, while this arm must run on the
+SERVED 98 build. The run_arm.sh guarantees are met by other means: the env is
+proven in-container (positively, not from the env), the code is the pushed
+branch commit (d1335f4 first run; 6432d0b re-run), and the results live under
+the spec, named by run.
