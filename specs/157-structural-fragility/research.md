@@ -144,3 +144,43 @@ suite's pattern — the lookup (class present/absent), the minimum-cell
 refusal, the provenance refusal, additive parity on the existing fixture.
 The scorer is fixture-checked on computed known-answer TSVs before the real
 run (the specs/156 scorer discipline).
+
+## The measurement (2026-11-15) — GATE PASSES
+
+All 21 runs (canonical + the 20 registry variants) completed on the served 98
+build through per-variant replay servers, every probe passing (variant live,
+every other registry env canonical). Self-check: the canonical run reproduces
+the recorded call on 34,789 of 34,825 truth-joined pairs — curator and
+experimental exactly (24,356/24,356), korkut 10,433/10,469 (36 borderline
+valuation differences between /api/readouts and the bench's own korkut
+reduction; internally consistent since every variant is compared against the
+canonical RUN's calls, same valuation both sides).
+
+34,820 labelled pairs (5 excluded below the 80% contribution floor), scored by
+`score_157.py` (10k bootstrap, seed 157):
+
+| axis | robust acc (n) | fragile acc (n, share) | delta [95% boot] | verdict |
+|---|---|---|---|---|
+| curator | 0.9068 (23,058) | 0.6250 (448, 1.9%) | **+0.2818 [+0.1298, +0.4573]** | PASS |
+| — RAF aside | 0.9073 | 0.6038 | +0.3035 [+0.1428, +0.4888] | — |
+| experimental | 0.7776 (769) | 0.5921 (76, 9.0%) | +0.1855 [−0.0192, +0.4183] | fail (direction holds, small n) |
+| korkut | 0.8303 (10,216) | **0.1976** (253, 2.4%) | **+0.6326 [+0.5441, +0.7048]** | PASS |
+
+**The gate passes on two of three axes.** The informativeness statement: a
+fragile korkut call is right one time in five; a robust one five times in six.
+Fragility is RARE — the model's answers are structurally stable almost
+everywhere — and where it appears it marks exactly the contested-choice
+dependence the flag exists to name.
+
+**Flip anatomy** (a pair may flip under several variants): own_entity 326,
+depl_share 116, open_fed_single 114, drug_propagate 91, ub_inert 79,
+rna_twin_off 77, base_full 54, pool_supply_and 40, own_full 12,
+comp_twin_off 11, setpool_mean 8, pathogen_propagate 7, drive_twins 4 — and
+SEVEN variants with zero flips (metab_pools, catalyst_loops, act_leaves,
+act_weight_off, inh_copies_off, reeval_full, moves_keep), exactly the arms
+their specs recorded as no-class-change, which is itself a consistency check
+of the whole pipeline.
+
+**Serving decision (per the registration)**: the gate passes → the flag
+serves, as the R3 shape (per-class fragility-rate table, specs/146 pattern,
+min cell 30, provenance refusal). P4 proceeds.
