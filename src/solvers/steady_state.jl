@@ -130,7 +130,11 @@ where:
 function solve_steady_state(
     network::ReactionNetwork,
     observations::Dict{String, Tuple{Float64, Float64}},  # node_uuid -> (activity, confidence)
-    params::SteadyStateParams = default_steady_state_params()
+    params::SteadyStateParams = default_steady_state_params();
+    # specs/156: soft observations, node_uuid -> (activity_ui, weight) — their
+    # OWN input, never a reinterpretation of the hard confidence.
+    soft_observations::Dict{String, Tuple{Float64, Float64}} =
+        Dict{String, Tuple{Float64, Float64}}(),
 )::SolverResult
     
     start_time = time()
@@ -404,7 +408,8 @@ function solve_steady_state(
                                              node_keys = node_keys,
                                              pool_signal_pairs = signal_pairs,
                                              structural = recycle_pairs,
-                                             catalyst_pairs = cat_pairs)
+                                             catalyst_pairs = cat_pairs,
+                                             soft_observations = soft_observations)
     own_mode = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
     if own_mode == "suppress_only_source"
         # specs/061 amendments 4-5: no cap is applied during an iteration. Pass 1
@@ -423,7 +428,8 @@ function solve_steady_state(
                                                node_keys = node_keys,
                                                pool_signal_pairs = signal_pairs,
                                                structural = recycle_pairs,
-                                               catalyst_pairs = cat_pairs)
+                                               catalyst_pairs = cat_pairs,
+                                               soft_observations = soft_observations)
         first_pass = pfull(reactions)
         down(u) = haskey(first_pass.node_activities, u) &&
                   first_pass.node_activities[u] < get(resting_baseline, baseline_activities, u) * (1 - 1e-6)
