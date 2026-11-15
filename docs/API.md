@@ -307,7 +307,19 @@ classes below the table's minimum pair count. The top-level `fold_ranges`
 says `ok: <version>`, or names why nothing serves (absent, malformed, or a
 provenance mismatch with the served catalog — a stale table never quietly
 describes a new model); `fold_ranges_min_cell` carries the minimum (null when
-no table serves). The top level
+no table serves). A readout with a call in a class the ensemble record
+covers also carries `fragility`: `{rate, n}` — the share of recorded ensemble
+pairs in this class whose call FLIPPED under at least one of the twenty
+recorded near-equivalent rule variants (specs/157: the registered ensemble of
+measured arms the record could barely distinguish). It is stability across
+contested structure, never correctness — the record behind it: a structurally
+fragile drug-record call was right one time in five, a robust one five times
+in six. Lookup in the versioned `src/api/fragility.json` (level walk
+full → no_converged → call_only on call, magnitude bin and the request's
+`converged`); the field is ABSENT for untouched or call-less readouts and
+classes below the minimum. The top-level `fragility_table` says
+`ok: <version>` or names why nothing serves (the same provenance refusal);
+`fragility_min_cell` carries the minimum. The top level
 carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
 baseline and cutoffs, and `rail_low` / `rail_high` — the stop values the
 flag was computed with, 0.01 and 99.0 at the default baseline, so a client

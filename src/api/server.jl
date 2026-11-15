@@ -1358,6 +1358,9 @@ function readouts_handler(req)
         # provenance matches the catalog this server actually serves.
         fr_table, fr_reason = DeltaSignal.load_fold_ranges_table(
             served_build = get(catalog_provenance(CATALOG_DIR), "build_id", nothing))
+        # specs/157: the structural-fragility table, same provenance rule.
+        frag_table, frag_reason = DeltaSignal.load_fragility_table(
+            served_build = get(catalog_provenance(CATALOG_DIR), "build_id", nothing))
         # One output-entity map per request, not per proxy query.
         output_entities = DeltaSignal._readout_output_entities(
             network.edges, pin_index, ridx.cofactors)
@@ -1417,6 +1420,15 @@ function readouts_handler(req)
                             converged = req_converged)
                         ranges === nothing || (entry["measured_fold_ranges"] = ranges)
                     end
+                    # specs/157: how often calls in this class flipped under the
+                    # recorded rule ensemble. Absence is field absence.
+                    if value !== nothing && frag_table !== nothing && entry["call"] !== nothing
+                        fr = DeltaSignal.readout_fragility(
+                            frag_table, entry["call"], value / baseline;
+                            converged = req_converged)
+                        fr === nothing || (entry["fragility"] =
+                            Dict("rate" => fr[1], "n" => fr[2]))
+                    end
                     # specs/154: the same resolution valued under each overlay.
                     if overlays !== nothing
                         alts = Union{Nothing, Float64}[
@@ -1471,6 +1483,14 @@ function readouts_handler(req)
                             entry["basis"], scored.value / baseline;
                             converged = req_converged)
                         ranges === nothing || (entry["measured_fold_ranges"] = ranges)
+                    end
+                    # specs/157: the same table on an abundance fold.
+                    if scored.value !== nothing && frag_table !== nothing && entry["call"] !== nothing
+                        fr = DeltaSignal.readout_fragility(
+                            frag_table, entry["call"], scored.value / baseline;
+                            converged = req_converged)
+                        fr === nothing || (entry["fragility"] =
+                            Dict("rate" => fr[1], "n" => fr[2]))
                     end
                     # specs/154: the same abundance valuation under each overlay.
                     if overlays !== nothing
@@ -1528,6 +1548,11 @@ function readouts_handler(req)
                              "ok: " * string(fr_table[:version]),
             "fold_ranges_min_cell" => fr_table === nothing ? nothing :
                                       Int(fr_table[:min_cell]),
+            # specs/157: the fragility table's version, or why no rates serve.
+            "fragility_table" => frag_table === nothing ? frag_reason :
+                                 "ok: " * string(frag_table[:version]),
+            "fragility_min_cell" => frag_table === nothing ? nothing :
+                                    Int(frag_table[:min_cell]),
             "results" => results,
         )
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))

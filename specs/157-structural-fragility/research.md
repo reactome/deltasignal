@@ -184,3 +184,14 @@ of the whole pipeline.
 **Serving decision (per the registration)**: the gate passes → the flag
 serves, as the R3 shape (per-class fragility-rate table, specs/146 pattern,
 min cell 30, provenance refusal). P4 proceeds.
+
+**R3 refinement, fixed before the table is fitted**: the serving table's
+classes use exactly the features the readouts endpoint knows per entry AND the
+ensemble record carries per pair — call, magnitude bin (the specs/146 bin on
+the canonical fold), converged — with the level walk full (call|mag|conv) →
+no_converged (call|mag) → call_only (call), min cell 30, pooled across the
+three record axes (per-axis counts kept in the table's validation block). The
+confidence table's basis/railed features are not in the ensemble record and
+re-running 21 arms to add them buys nothing the gate needs; recorded here as
+the registered shape before any fitting. An untouched readout (fold exactly
+1.0) serves no fragility, the specs/146 amendment-1 rule.

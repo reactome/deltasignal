@@ -1,0 +1,104 @@
+{
+ "version": "2026-11-15",
+ "spec": "specs/157-structural-fragility",
+ "catalog_build": "20261113-1311_baf608b_r98fix",
+ "solver_commit": "7fe3dcc",
+ "min_cell": 30,
+ "levels": [
+  "full",
+  "no_converged",
+  "call_only"
+ ],
+ "untouched_rule": "a fold of exactly 1.0 serves no fragility",
+ "claim": "the share of recorded ensemble pairs in this class whose call flipped under at least one recorded near-equivalent rule variant (the registered 20-variant ensemble) \u2014 stability across contested structure, never correctness",
+ "validation": {
+  "gate": "specs/157 research.md 2026-11-15: curator +0.2818 [+0.1298, +0.4573], korkut +0.6326 [+0.5441, +0.7048]",
+  "per_axis_pairs": {
+   "curator": 23490,
+   "experimental": 845,
+   "korkut": 4064
+  },
+  "per_axis_fragile": {
+   "curator": 448,
+   "experimental": 76,
+   "korkut": 253
+  },
+  "untouched_skipped": 6421
+ },
+ "table": {
+  "full": {
+   "down|gt3|True": {
+    "fragile_rate": 0.027,
+    "n": 3551
+   },
+   "down|le1|True": {
+    "fragile_rate": 0.1379,
+    "n": 1436
+   },
+   "down|le3|True": {
+    "fragile_rate": 0.0949,
+    "n": 980
+   },
+   "not|le1|True": {
+    "fragile_rate": 0.0064,
+    "n": 17312
+   },
+   "up|gt3|True": {
+    "fragile_rate": 0.0265,
+    "n": 4345
+   },
+   "up|le1|True": {
+    "fragile_rate": 0.2181,
+    "n": 188
+   },
+   "up|le3|True": {
+    "fragile_rate": 0.2095,
+    "n": 587
+   }
+  },
+  "no_converged": {
+   "down|gt3": {
+    "fragile_rate": 0.027,
+    "n": 3551
+   },
+   "down|le1": {
+    "fragile_rate": 0.1379,
+    "n": 1436
+   },
+   "down|le3": {
+    "fragile_rate": 0.0949,
+    "n": 980
+   },
+   "not|le1": {
+    "fragile_rate": 0.0064,
+    "n": 17312
+   },
+   "up|gt3": {
+    "fragile_rate": 0.0265,
+    "n": 4345
+   },
+   "up|le1": {
+    "fragile_rate": 0.2181,
+    "n": 188
+   },
+   "up|le3": {
+    "fragile_rate": 0.2095,
+    "n": 587
+   }
+  },
+  "call_only": {
+   "down": {
+    "fragile_rate": 0.0649,
+    "n": 5967
+   },
+   "not": {
+    "fragile_rate": 0.0064,
+    "n": 17312
+   },
+   "up": {
+    "fragile_rate": 0.0545,
+    "n": 5120
+   }
+  }
+ }
+}
