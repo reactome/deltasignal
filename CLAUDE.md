@@ -1256,12 +1256,13 @@ other seven execute code and print output.
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
 | `test/test_resting_baseline.jl` | 23 | specs/124, added 2026-11-02 |
 | `test/test_edge_curves.jl` | 72 | specs/128, added 2026-11-02 |
-| `test/test_cli_observations.jl` | 50 | |
-| `test/test_api_errors.jl` | 167 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141), rail flags (specs/142) and the scope constant (specs/143) 2026-11-06; confidence (specs/146), leads constant (specs/149) 2026-11-07 |
+| `test/test_cli_observations.jl` | 53 | soft-observations CSV (specs/156) 2026-11-15 |
+| `test/test_api_errors.jl` | 190 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141), rail flags (specs/142) and the scope constant (specs/143) 2026-11-06; confidence (specs/146), leads constant (specs/149) 2026-11-07; soft observations (specs/156) 2026-11-14 |
 | `test/test_pin_protocol.jl` | 36 | specs/140, added 2026-11-06: the bench's pin protocol in the engine |
 | `test/test_scope_statement.jl` | 251 | specs/143, added 2026-11-06: the served scope statement — provenance-complete file, catalog comparison, honest refusals; the leads table and composite listing exclusion (specs/149) 2026-11-07. The count follows the shipped leads table's content (per-centre/per-arrow loops): 269 on the 97 table (11 centres), 251 on the 98 table (10 centres, specs/152 switch) |
 | `test/test_switch_states.jl` | 47 | specs/154, added 2026-11-13: switch detection — the bistable fixture's two states, honest absence, the call-cutoff readout rule |
 | `test/test_fold_ranges.jl` | 233 | specs/155, added 2026-11-14: measured fold intervals — the loader's refusals (provenance above all), the stratum-walk lookup, the arm-(b) band rule, and the shipped table (every cell and band ≥ the minimum, the measured per-axis arms) pinned to the serving record |
+| `test/test_soft_observations.jl` | 79 | specs/156, added 2026-11-14: the soft-observation blend — weight-1 ≡ hard pin, the gate, monotone between with the exact fixed-point identity, roots, cyclic components, precedence reported, bit-identity without soft entries; the LM fallback solves the blended system on the specs/066 Goodwin ring (cap-independent, 2026-11-15) |
 | `test/test_readout_protocol.jl` | 187 | specs/141, added 2026-11-06: the bench's readout protocol (entity-mean, abundance, context filter, env cutoffs) in the engine; the rail stops (specs/142) same day; the confidence lookup and its shipped table's provenance (specs/146) 2026-11-07 |
 | `test/test_cycle_handling.jl` | 34 | + 2 `@test_broken` |
 | `test/test_observation_pinning.jl` | 23 | |

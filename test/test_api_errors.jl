@@ -201,6 +201,54 @@ const SRV = DeltaSignal
         @test occursin("edge_redirects", String(resp.body))
     end
 
+    # specs/156: soft observations — refused while DS_SOFT_OBS=off (a client
+    # must never believe it conditioned a solve that ignored it), validated
+    # and reported while on, with hard-pin precedence named.
+    @testset "/api/solve soft_observations" begin
+        post(path, b) = SRV.HTTP.Request("POST", path, ["Content-Type" => "application/json"], b)
+        parsed = SRV.JSON3.read(String(SRV.parse_handler(post("/api/parse", "")).body))
+        u = String(parsed[:nodes][1][:uuid])
+        v = String(parsed[:nodes][2][:uuid])
+        body = """{"network_id": "$(parsed[:network_id])", "observations": {"$u": [50.0, 1.0]},
+                   "soft_observations": {"$v": [2.0, 0.5]}}"""
+        resp = SRV.solve_handler(post("/api/solve", body))
+        @test resp.status == 400
+        @test SRV.JSON3.read(String(resp.body))[:message] == SRV.SOFT_OBS_OFF_ERROR
+
+        withenv("DS_SOFT_OBS" => "blend") do
+            r = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", body)).body))
+            @test r[:status] == "success"
+            @test r[:soft_obs_rule] == "blend"
+            @test r[:soft_observed] == 1
+            @test isempty(r[:soft_overridden])
+
+            # a hard pin on the same node wins and is REPORTED, never averaged
+            both = """{"network_id": "$(parsed[:network_id])",
+                       "observations": {"$u": [50.0, 1.0]},
+                       "soft_observations": {"$u": [2.0, 0.5]}}"""
+            rr = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", both)).body))
+            @test rr[:soft_observed] == 0
+            @test length(rr[:soft_overridden]) == 1
+            @test rr[:soft_overridden][1][:reason] == "pin"
+
+            # malformed entries are 400s naming the shape rule
+            for bad_entry in ("[2.0, 1.5]", "[150.0, 0.5]", "[2.0]", "\"2.0\"")
+                bad = """{"network_id": "$(parsed[:network_id])",
+                          "observations": {"$u": [50.0, 1.0]},
+                          "soft_observations": {"$v": $(bad_entry)}}"""
+                br = SRV.solve_handler(post("/api/solve", bad))
+                @test br.status == 400
+                @test SRV.JSON3.read(String(br.body))[:message] == SRV.SOFT_OBS_SHAPE_ERROR
+            end
+
+            # without the field the response says so and nothing changes
+            plain = """{"network_id": "$(parsed[:network_id])", "observations": {"$u": [50.0, 1.0]}}"""
+            pr = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", plain)).body))
+            @test pr[:soft_obs_rule] == "off"
+            @test pr[:soft_observed] == 0
+        end
+    end
+
     # specs/044: an uploaded network is saved under its part name, so the
     # sibling rule cannot find boundary_edges.csv; it is its own part.
     @testset "/api/parse reads an uploaded boundary_edges part" begin

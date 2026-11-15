@@ -94,6 +94,11 @@ function parse_solve_args()
             help = "Observations CSV file"
             arg_type = String
             required = true
+        "--soft-observations"
+            help = "Soft observations CSV (node, value, weight) — specs/156. " *
+                   "Each node settles at weight*value + (1-weight)*network; " *
+                   "requires DS_SOFT_OBS=blend, refused otherwise."
+            arg_type = String
         "--mode", "-m"
             help = "Solver mode"
             arg_type = String
@@ -267,6 +272,27 @@ function solve_provenance(scc_method::String, params::SteadyStateParams,
 end
 
 """
+    read_soft_observations(path) -> Dict{String, Tuple{Float64, Float64}}
+
+Read a soft-observations CSV (node, value, weight — specs/156) into the
+solver's soft map. A node listed twice with different values is a conflict,
+exactly as hard observations treat it; range checks live in the solver.
+"""
+function read_soft_observations(path::String)::Dict{String, Tuple{Float64, Float64}}
+    df = CSV.read(path, DataFrame)
+    soft = Dict{String, Tuple{Float64, Float64}}()
+    for row in eachrow(df)
+        uuid = String(row[1])
+        v, w = Float64(row[2]), Float64(row[3])
+        if haskey(soft, uuid) && soft[uuid] != (v, w)
+            error("Soft observation for $uuid listed twice with different values.")
+        end
+        soft[uuid] = (v, w)
+    end
+    return soft
+end
+
+"""
     read_observations(obs_path) -> Dict{String, Tuple{Float64, Float64}}
 
 Read an observations CSV into the solver's observation map.
@@ -424,6 +450,19 @@ function execute_solve_command(args)
                   "they will be ignored: $shown$suffix"
         end
 
+        # specs/156: soft observations, their own file — never the hard
+        # observations' confidence. Refused while DS_SOFT_OBS=off, so a run
+        # cannot believe it conditioned a solve that ignored the file.
+        soft_observations = Dict{String, Tuple{Float64, Float64}}()
+        soft_path = get(args, Symbol("soft-observations"), nothing)
+        if soft_path !== nothing
+            DeltaSignal.soft_obs_mode() == "blend" || error(
+                "--soft-observations requires DS_SOFT_OBS=blend (specs/156); " *
+                "the server-side default is off.")
+            soft_observations = read_soft_observations(soft_path)
+            println("✓ Loaded $(length(soft_observations)) soft observations")
+        end
+
         # Create solver parameters
         params = solve_params(args)
 
@@ -449,7 +488,8 @@ function execute_solve_command(args)
         println("   - max iterations: $(params.max_iters)")
         println("   - tolerance: $(params.tolerance)")
 
-        result = solve_steady_state(network, observations, params)
+        result = solve_steady_state(network, observations, params;
+                                    soft_observations = soft_observations)
 
         # Report results
         println("\n📊 Solver completed:")

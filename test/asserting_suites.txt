@@ -39,3 +39,4 @@ test_readout_protocol
 test_scope_statement
 test_switch_states
 test_fold_ranges
+test_soft_observations

@@ -533,6 +533,23 @@ Response:
   the same propagator as the solve (so inhibitors carry real influence). Use for
   a "what drove this?" view; higher = more influential.
 
+**Soft observations (specs/156, gated by `DS_SOFT_OBS`, default off).** The
+request may carry `soft_observations`: `{"<node_uuid>": [activity, weight]}`
+(activity 0–100 like observations, weight 0–1). Each such node settles at the
+weight-blend of its observed value and what the network computes for it —
+weight 1 behaves as a hard pin, a weight at/below the confidence tolerance is
+discarded, and between them the network's evidence can pull a noisy
+measurement; downstream nodes read the reconciled value, and convergence is
+measured against the reconciled system. The existing `observations` field
+keeps HARD semantics under every setting (the recorded benchmarks sent
+confidence 0.9 as a convention; it is never reinterpreted). A hard pin on the
+same node wins and is reported, never averaged. While `DS_SOFT_OBS=off` a
+request carrying the field is a `400` — a client must never believe it
+conditioned a solve that ignored its measurements. The response reports
+`soft_obs_rule`, `soft_observed` and `soft_overridden` (each with its
+reason: a hard `pin`, or a `pool`-managed node, whose cycle balance v1 does
+not blend). Not supported under `DS_SCC_METHOD=minimize` (refused).
+
 **Switch states (specs/154, additive).** When `DS_SWITCH_DETECT=on` (the
 default) and the solve converged, the response carries `switch_components`:
 one entry per cyclic component with a second stable fixed point —

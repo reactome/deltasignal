@@ -86,6 +86,37 @@ inoperative for root nodes, the case the benchmark almost always exercises.
 const OBS_CONFIDENCE_TOL = 1e-6
 
 """
+specs/156: soft observations — a node whose update target becomes
+`w*y + (1-w)*F(x)` at EVERY solve path's update and residual site, so the
+fixed point reconciles the measurement with the network and convergence is
+measured against the reconciled system. `y` is the internal-scale target and
+`w` the weight, both indexed like `x`; `w = 0` means no soft observation.
+Hard observations always win (the caller filters), and the existing
+`observations` confidence is NEVER reinterpreted — the recorded benchmarks
+sent 0.9 as a convention.
+"""
+struct SoftObs
+    y::Vector{Float64}
+    w::Vector{Float64}
+end
+
+@inline _soft_blend(::Nothing, ::Int, fwd::Float64) = fwd
+@inline function _soft_blend(soft::SoftObs, t::Int, fwd::Float64)
+    w = @inbounds soft.w[t]
+    return w > 0.0 ? w * (@inbounds soft.y[t]) + (1.0 - w) * fwd : fwd
+end
+
+"""`DS_SOFT_OBS`: off (default — soft observations refused at the API/CLI
+boundary) | blend (specs/156). The solver itself honours whatever
+`soft_observations` it is handed; this mode is the caller's gate."""
+function soft_obs_mode()::String
+    v = get(ENV, "DS_SOFT_OBS", "off")
+    v in ("off", "blend") || throw(ArgumentError(
+        "DS_SOFT_OBS=\"$v\" is not a recognised mode; expected \"off\" or \"blend\"."))
+    return v
+end
+
+"""
 Solve steady-state network given observations.
 Implements the penalty formulation:
 
@@ -99,7 +130,11 @@ where:
 function solve_steady_state(
     network::ReactionNetwork,
     observations::Dict{String, Tuple{Float64, Float64}},  # node_uuid -> (activity, confidence)
-    params::SteadyStateParams = default_steady_state_params()
+    params::SteadyStateParams = default_steady_state_params();
+    # specs/156: soft observations, node_uuid -> (activity_ui, weight) — their
+    # OWN input, never a reinterpretation of the hard confidence.
+    soft_observations::Dict{String, Tuple{Float64, Float64}} =
+        Dict{String, Tuple{Float64, Float64}}(),
 )::SolverResult
     
     start_time = time()
@@ -373,7 +408,8 @@ function solve_steady_state(
                                              node_keys = node_keys,
                                              pool_signal_pairs = signal_pairs,
                                              structural = recycle_pairs,
-                                             catalyst_pairs = cat_pairs)
+                                             catalyst_pairs = cat_pairs,
+                                             soft_observations = soft_observations)
     own_mode = get(ENV, "DS_DEPLETION_OWN_PRODUCT", DS_DEPLETION_OWN_PRODUCT_DEFAULT)
     if own_mode == "suppress_only_source"
         # specs/061 amendments 4-5: no cap is applied during an iteration. Pass 1
@@ -392,7 +428,8 @@ function solve_steady_state(
                                                node_keys = node_keys,
                                                pool_signal_pairs = signal_pairs,
                                                structural = recycle_pairs,
-                                               catalyst_pairs = cat_pairs)
+                                               catalyst_pairs = cat_pairs,
+                                               soft_observations = soft_observations)
         first_pass = pfull(reactions)
         down(u) = haskey(first_pass.node_activities, u) &&
                   first_pass.node_activities[u] < get(resting_baseline, baseline_activities, u) * (1 - 1e-6)
@@ -844,10 +881,15 @@ struct ComponentProblem
     gamma::Float64
     config::ReactionEvalConfig
     supply::Union{Nothing, Vector{Float64}}
+    # specs/156: a soft-observed target's residual row is `g(x) - x_t` with
+    # `g = w*y + (1-w)*F(x)` — the system the sweep iterates — so the LM
+    # fallback finds the BLENDED fixed point, never the un-blended one.
+    soft::Union{Nothing, SoftObs}
 end
 
 function ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
-                          mu, gamma, config, supply)
+                          mu, gamma, config, supply;
+                          soft::Union{Nothing, SoftObs} = nothing)
     free = Int[]
     @inbounds for ri in rs
         t = rxns_idx[ri].target_idx
@@ -865,8 +907,12 @@ function ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
         deps[k] = unique!(sort!(filter(i -> haskey(slot, i), d)))
     end
     ComponentProblem(collect(rs), rxns_idx, free, slot, deps, copy(x),
-                     baseline_vec, mu, gamma, config, supply)
+                     baseline_vec, mu, gamma, config, supply, soft)
 end
+
+# The blend weight the LM paths read for target t (0.0 = no soft observation).
+_soft_w(soft::Nothing, t::Int) = 0.0
+_soft_w(soft::SoftObs, t::Int) = @inbounds soft.w[t]
 
 """`L(z) = mu*||F(x) - x||^2 + gamma*||x - x0||^2` restricted to the component."""
 function component_objective(p::ComponentProblem, z::Vector{Float64})::Float64
@@ -878,7 +924,8 @@ function component_objective(p::ComponentProblem, z::Vector{Float64})::Float64
         r = p.rxns[ri]
         t = r.target_idx
         haskey(p.slot, t) || continue
-        d = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config) - p.xbuf[t]
+        fval = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config)
+        d = _soft_blend(p.soft, t, fval) - p.xbuf[t]
         acc += d * d
     end
     prior = 0.0
@@ -914,7 +961,8 @@ function component_gradient!(G::Vector{Float64}, p::ComponentProblem, z::Vector{
         haskey(p.slot, t) || continue
         d = p.deps[k]
         fval = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config)
-        resid = fval - p.xbuf[t]
+        w = _soft_w(p.soft, t)
+        resid = _soft_blend(p.soft, t, fval) - p.xbuf[t]
         if !isempty(d)
             local_in = Float64[p.xbuf[i] for i in d]
             fr = function (v)
@@ -923,7 +971,8 @@ function component_gradient!(G::Vector{Float64}, p::ComponentProblem, z::Vector{
             end
             gloc = ForwardDiff.gradient(fr, local_in)
             @inbounds for (m, i) in enumerate(d)
-                G[p.slot[i]] += 2.0 * p.mu * resid * gloc[m]
+                # d(blend)/dx_i = (1-w) * dF/dx_i: y and w are constants.
+                G[p.slot[i]] += 2.0 * p.mu * resid * (1.0 - w) * gloc[m]
             end
         end
         G[p.slot[t]] -= 2.0 * p.mu * resid
@@ -973,7 +1022,8 @@ function component_residual_jacobian(p::ComponentProblem, z::Vector{Float64};
         row += 1
         d = p.deps[k]
         fval = compute_reaction_output_vec(p.xbuf, rx; supply=p.supply, config=p.config)
-        r[row] = sm * (fval - p.xbuf[t])
+        w = _soft_w(p.soft, t)
+        r[row] = sm * (_soft_blend(p.soft, t, fval) - p.xbuf[t])
         if !isempty(d)
             local_in = Float64[p.xbuf[i] for i in d]
             fr = function (v)
@@ -982,10 +1032,11 @@ function component_residual_jacobian(p::ComponentProblem, z::Vector{Float64};
             end
             gloc = ForwardDiff.gradient(fr, local_in)
             for (mm, i) in enumerate(d)
-                push!(I, row); push!(Jc, p.slot[i]); push!(V, sm * gloc[mm])
+                # specs/156: d(blend)/dx_i = (1-w) * dF/dx_i.
+                push!(I, row); push!(Jc, p.slot[i]); push!(V, sm * (1.0 - w) * gloc[mm])
             end
         end
-        # d(F_r - x_t)/dx_t also carries the -1 from the subtracted target.
+        # d(g_r - x_t)/dx_t also carries the -1 from the subtracted target.
         push!(I, row); push!(Jc, p.slot[t]); push!(V, -sm)
     end
     @inbounds for k in 1:nfree
@@ -1070,9 +1121,10 @@ function minimize_component!(
     config::ReactionEvalConfig,
     supply::Union{Nothing,Vector{Float64}};
     lm_cap::Union{Nothing,Int} = nothing,
+    soft::Union{Nothing, SoftObs} = nothing,
 )::Float64
     prob = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
-                            params.mu, params.gamma, config, supply)
+                            params.mu, params.gamma, config, supply; soft = soft)
     isempty(prob.free) && return 0.0
 
     z0 = Float64[x[t] for t in prob.free]
@@ -1111,7 +1163,7 @@ function minimize_component!(
             @inbounds for (k, t) in enumerate(prob.free)
                 x[t] = clamp(zb[k], 0.0, 1.0)
             end
-            return _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+            return _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
         end
         lower = zeros(Float64, length(prob.free))
         upper = ones(Float64, length(prob.free))
@@ -1133,17 +1185,21 @@ function minimize_component!(
         @warn "component minimisation failed; keeping the fixed-point warm start" exception=(err, catch_backtrace()) n_free=length(prob.free)
     end
 
-    return _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+    return _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
 end
 
-"""Worst `|F(x) - x|` over a component's unobserved targets."""
-function _component_residual(x, rs, rxns_idx, obs_set, supply, config)::Float64
+"""Worst `|F(x) - x|` over a component's unobserved targets (specs/156: a
+soft-observed target is tested against its blend `g(x)` — the system it
+actually settles to)."""
+function _component_residual(x, rs, rxns_idx, obs_set, supply, config;
+                             soft::Union{Nothing, SoftObs} = nothing)::Float64
     resid = 0.0
     @inbounds for ri in rs
         r = rxns_idx[ri]
         t = r.target_idx
         t in obs_set && continue
-        d = abs(compute_reaction_output_vec(x, r; supply=supply, config=config) - x[t])
+        d = abs(_soft_blend(soft, t,
+                compute_reaction_output_vec(x, r; supply=supply, config=config)) - x[t])
         d > resid && (resid = d)
     end
     return resid
@@ -1224,7 +1280,9 @@ function component_residual_jacobian(p::PoolComponentProblem, z::Vector{Float64}
             grow[t] = row
         else
             d = b.deps[k]
-            r[row] = compute_reaction_output_vec(b.xbuf, rx; supply=b.supply, config=b.config) - b.xbuf[t]
+            fval = compute_reaction_output_vec(b.xbuf, rx; supply=b.supply, config=b.config)
+            w = _soft_w(b.soft, t)
+            r[row] = _soft_blend(b.soft, t, fval) - b.xbuf[t]
             if !isempty(d)
                 local_in = Float64[b.xbuf[i] for i in d]
                 fr = function (v)
@@ -1233,7 +1291,8 @@ function component_residual_jacobian(p::PoolComponentProblem, z::Vector{Float64}
                 end
                 gloc = ForwardDiff.gradient(fr, local_in)
                 for (mm, i) in enumerate(d)
-                    push!(I, row); push!(Jc, b.slot[i]); push!(V, gloc[mm])
+                    # specs/156: d(blend)/dx_i = (1-w) * dF/dx_i.
+                    push!(I, row); push!(Jc, b.slot[i]); push!(V, (1.0 - w) * gloc[mm])
                 end
             end
         end
@@ -1262,13 +1321,15 @@ end
 targets and `|G(x) - x|` over the nodes its pools write (specs/073), the two
 quantities the final convergence check reads."""
 function _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed, pools, shared,
-                                   baseline_vec, carriers)::Float64
+                                   baseline_vec, carriers;
+                                   soft::Union{Nothing, SoftObs} = nothing)::Float64
     resid = 0.0
     @inbounds for ri in rs
         r = rxns_idx[ri]
         t = r.target_idx
         (t in obs_set || t in managed) && continue
-        d = abs(compute_reaction_output_vec(x, r; supply=supply, config=config) - x[t])
+        d = abs(_soft_blend(soft, t,
+                compute_reaction_output_vec(x, r; supply=supply, config=config)) - x[t])
         d > resid && (resid = d)
     end
     d = update_pools!(copy(x), pools, shared, rxns_idx, baseline_vec, obs_set, config; carriers = carriers)
@@ -1280,8 +1341,9 @@ Levenberg-Marquardt over a pool component's free nodes (specs/073), from `x`.
 Writes the result into `x` and returns `_component_residual_pools`.
 """
 function minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
-                                   pools, shared, managed, carriers; lm_cap::Int, tol::Float64)::Float64
-    base = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec, 1.0, 0.0, config, supply)
+                                   pools, shared, managed, carriers; lm_cap::Int, tol::Float64,
+                                   soft::Union{Nothing, SoftObs} = nothing)::Float64
+    base = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec, 1.0, 0.0, config, supply; soft = soft)
     if !isempty(base.free)
         prob = PoolComponentProblem(base, pools, shared, managed, obs_set, rxns_idx, carriers)
         z = Float64[x[t] for t in base.free]
@@ -1295,7 +1357,7 @@ function minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, confi
         end
     end
     return _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed, pools, shared,
-                                     baseline_vec, carriers)
+                                     baseline_vec, carriers; soft = soft)
 end
 
 
@@ -1435,14 +1497,18 @@ the same mutated reactions, so both basins live under the same rulebook.
 function _sweep_component!(y::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector{IndexedReaction},
                            obs_set::Set{Int}, managed::Set{Int}, λ::Float64, supply,
                            config::ReactionEvalConfig, pools, shared::Set{Int},
-                           baseline_vec, carriers::Bool, tol::Float64, budget::Int)::Bool
+                           baseline_vec, carriers::Bool, tol::Float64, budget::Int;
+                           soft::Union{Nothing, SoftObs} = nothing)::Bool
     for _ in 1:budget
         maxch = 0.0
         @inbounds for ri in rs
             r = rxns_idx[ri]
             t = r.target_idx
             (t in obs_set || t in managed) && continue
-            fwd = compute_reaction_output_vec(y, r; supply = supply, config = config)
+            # specs/156: an alternate stable state honours a soft observation
+            # exactly as the canonical sweep does.
+            fwd = _soft_blend(soft, t,
+                compute_reaction_output_vec(y, r; supply = supply, config = config))
             ch = abs(fwd - y[t])
             ch > maxch && (maxch = ch)
             y[t] = (1.0 - λ) * y[t] + λ * fwd
@@ -1547,6 +1613,7 @@ function solve_scc_ordered!(
     entry_supply::Union{Nothing, Vector{Float64}} = nothing,
     order_key::Union{Nothing, Vector{UInt64}} = nothing,
     catalyst_pairs::Set{Tuple{Int, Int}} = Set{Tuple{Int, Int}}(),
+    soft::Union{Nothing, SoftObs} = nothing,
 )
     # Damping must lie in (0, 1]. The update nv = (1-λ)·x + λ·F(x) is written
     # back unclamped, so λ outside [0,1] extrapolates past the model's [0,1]
@@ -2055,7 +2122,8 @@ function solve_scc_ordered!(
                 # A closure edge into an acyclic node reads the current state,
                 # which IS its entry value (upstream is final, downstream is
                 # still at its initial value).
-                x[t] = compute_reaction_output_vec(x, rxns_idx[ri]; supply = use_supply ? x : nothing, config=config)
+                x[t] = _soft_blend(soft, t,
+                    compute_reaction_output_vec(x, rxns_idx[ri]; supply = use_supply ? x : nothing, config=config))
             end
         else
             if pooling
@@ -2165,7 +2233,11 @@ function solve_scc_ordered!(
                         t = r.target_idx
                         t in obs_set && continue
                         t in managed && continue       # specs/039: solved by its pool below
-                        fwd = compute_reaction_output_vec(x, r; supply=supply, config=config)
+                        # specs/156: a soft observation redefines the update
+                        # target BEFORE the damping and the residual test, so
+                        # both measure the reconciled system.
+                        fwd = _soft_blend(soft, t,
+                            compute_reaction_output_vec(x, r; supply=supply, config=config))
                         nv = (1.0 - λ) * x[t] + λ * fwd
                         # Measure the UNDAMPED model residual |F(x) - x|, not the
                         # damped step |nv - x|. The damped step is λ·|F(x) - x|, so
@@ -2207,9 +2279,9 @@ function solve_scc_ordered!(
                     if haskey(comp_pools, c)
                         comp_residual = _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed,
                                                                   comp_pools[c], comp_shared[c], baseline_vec,
-                                                                  pool_carriers)
+                                                                  pool_carriers; soft = soft)
                     elseif !any(u -> u in managed, comp_nodes[c])
-                        comp_residual = _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+                        comp_residual = _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
                     end
                 end
                 # specs/066: a component still above tolerance after the cap is
@@ -2217,6 +2289,10 @@ function solve_scc_ordered!(
                 # but repels damped relaxation. Find it by least squares on the
                 # residual instead, and keep it only if it is closer to F(x) = x.
                 # A component bounded on purpose (DS_SCC_NEG_MODE) is left alone.
+                # specs/156: a soft-observed target's residual row is its blend
+                # `g(x) - x`, so the fallback solves the SAME system the sweep
+                # iterates (research.md R1), with the baseline's convergence
+                # machinery — never the un-blended fixed point.
                 if nonconv_lm && !minimize && !is_neg && comp_residual >= tol
                     # specs/076: the specs/066 and 073 counters describe the first
                     # attempt; restarts are counted separately
@@ -2230,10 +2306,11 @@ function solve_scc_ordered!(
                         first && (pool_stats["nonconv_pool_components"] = get(pool_stats, "nonconv_pool_components", 0) + 1)
                         saved = x[comp_nodes[c]]
                         r0 = _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed,
-                                                       comp_pools[c], comp_shared[c], baseline_vec, pool_carriers)
+                                                       comp_pools[c], comp_shared[c], baseline_vec, pool_carriers;
+                                                       soft = soft)
                         r1 = minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
                                                        comp_pools[c], comp_shared[c], managed, pool_carriers;
-                                                       lm_cap = _nonconv_lm_iters(), tol = tol)
+                                                       lm_cap = _nonconv_lm_iters(), tol = tol, soft = soft)
                         if r1 < r0
                             comp_residual = r1
                             first && (pool_stats["nonconv_pool_improved"] = get(pool_stats, "nonconv_pool_improved", 0) + 1)
@@ -2247,10 +2324,10 @@ function solve_scc_ordered!(
                         attempted = false
                     else
                         saved = x[comp_nodes[c]]
-                        r0 = _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+                        r0 = _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
                         pz = SteadyStateParams(1.0, 0.0, params.max_iters, tol, params.method)
                         r1 = minimize_component!(x, rs, rxns_idx, obs_set, baseline_vec, pz, config, supply;
-                                                 lm_cap = _nonconv_lm_iters())
+                                                 lm_cap = _nonconv_lm_iters(), soft = soft)
                         if r1 < r0
                             comp_residual = r1
                             first && (pool_stats["nonconv_improved"] = get(pool_stats, "nonconv_improved", 0) + 1)
@@ -2315,9 +2392,10 @@ function solve_scc_ordered!(
             # The canonical point must stand on its own (specs/066): a
             # component above tolerance anchors no second-state claim.
             res0 = pools_c === nothing ?
-                _component_residual(x, rs, rxns_idx, obs_set, supply_c, config) :
+                _component_residual(x, rs, rxns_idx, obs_set, supply_c, config; soft = soft) :
                 _component_residual_pools(x, rs, rxns_idx, obs_set, supply_c, config,
-                                          managed, pools_c, shared_c, baseline_vec, pool_carriers)
+                                          managed, pools_c, shared_c, baseline_vec, pool_carriers;
+                                          soft = soft)
             res0 < tol || continue
             sw_searched += 1
             best = nothing   # (distance, state)
@@ -2328,7 +2406,7 @@ function solve_scc_ordered!(
                 end
                 conv = _sweep_component!(y, rs, rxns_idx, obs_set, managed, λ, supply_c,
                                          config, pools_c, shared_c, baseline_vec,
-                                         pool_carriers, tol, sw_budget)
+                                         pool_carriers, tol, sw_budget; soft = soft)
                 if !conv
                     sw_capped += 1
                     continue
@@ -2354,16 +2432,17 @@ function solve_scc_ordered!(
                     for ri in rs2
                         t = rxns_idx[ri].target_idx
                         (t in obs_set || t in managed) && continue
-                        z[t] = compute_reaction_output_vec(z, rxns_idx[ri];
-                                                           supply = use_supply ? z : nothing,
-                                                           config = config)
+                        z[t] = _soft_blend(soft, t,
+                            compute_reaction_output_vec(z, rxns_idx[ri];
+                                                        supply = use_supply ? z : nothing,
+                                                        config = config))
                     end
                 else
                     _sweep_component!(z, rs2, rxns_idx, obs_set, managed, λ,
                                       use_supply ? z : nothing, config,
                                       get(comp_pools, c2, nothing),
                                       get(comp_shared, c2, empty_shared),
-                                      baseline_vec, pool_carriers, tol, sw_budget)
+                                      baseline_vec, pool_carriers, tol, sw_budget; soft = soft)
                 end
             end
             alt = Dict{Int, Float64}()
@@ -2532,6 +2611,8 @@ function solve_steady_state_penalty(
     pool_signal_pairs::Union{Nothing, Set{Tuple{String, String}}} = nothing,
     structural::Vector{Tuple{String, String}} = Tuple{String, String}[],
     catalyst_pairs::Set{Tuple{String, String}} = Set{Tuple{String, String}}(),
+    soft_observations::Dict{String, Tuple{Float64, Float64}} =
+        Dict{String, Tuple{Float64, Float64}}(),
 )::SolverResult
 
     all_nodes = collect(keys(x0))
@@ -2590,6 +2671,62 @@ function solve_steady_state_penalty(
     # network-depth iterations; for cyclic networks (negative feedback loops)
     # it may oscillate, which we accept and report via the consistency residual.
     obs_set = Set(obs_indices)
+
+    # specs/156: soft observations — their OWN input, never a reinterpretation
+    # of the hard observations' confidence (the recorded benchmarks sent 0.9
+    # as a convention). A hard pin on the same node wins and is reported; a
+    # weight at/below the tolerance is discarded like a gated hard one.
+    soft = nothing
+    soft_overridden = Vector{Tuple{String, String}}()
+    soft_accepted = Set{Int}()
+    n_soft = 0
+    if !isempty(soft_observations)
+        get(ENV, "DS_SCC_METHOD", "fixed_point") == "minimize" && throw(ArgumentError(
+            "soft observations are not supported under DS_SCC_METHOD=minimize " *
+            "(the minimiser optimises the un-blended system; specs/156)."))
+        soft_y = zeros(Float64, n)
+        soft_w = zeros(Float64, n)
+        for (uuid, (val, w)) in soft_observations
+            haskey(uuid_to_idx, uuid) || continue
+            (0.0 <= w <= 1.0) || throw(ArgumentError(
+                "soft observation weight $w for $uuid is out of range; must be in [0, 1]."))
+            (0.0 <= val <= 100.0) || throw(ArgumentError(
+                "soft observation value $val for $uuid is out of range; must be in [0, 100]."))
+            w > OBS_CONFIDENCE_TOL || continue
+            i = uuid_to_idx[uuid]
+            if i in obs_set
+                push!(soft_overridden, (uuid, "pin"))
+                continue
+            end
+            soft_y[i] = val / 100.0
+            soft_w[i] = w
+            push!(soft_accepted, i)
+            n_soft += 1
+            # Seed at the blend with baseline. For a ROOT (no producing
+            # reaction) this IS the answer — its F is its resting value and
+            # nothing moves it; for every other node the iteration refines it.
+            bl = get(resting_baseline, baseline_activities, all_nodes[i])
+            x[i] = w * soft_y[i] + (1.0 - w) * bl
+        end
+        if n_soft > 0
+            # specs/156 R1, the root rule: a node NO reaction produces has
+            # F = its resting value, so its seeded blend above IS its fixed
+            # point. Zero its weight after seeding — otherwise the flat path
+            # and the final consistency check, whose forward value for such a
+            # node is just its own current x, blend it AGAIN: the value drifts
+            # toward y with every sweep and the check reports a phantom
+            # residual w*(1-w)*|y - x| that condemned every conditioned solve
+            # carrying a root (the first arm run).
+            target_set = Set{Int}(r.target_idx for r in rxns_idx)
+            @inbounds for i in eachindex(soft_w)
+                soft_w[i] > 0.0 && !(i in target_set) && (soft_w[i] = 0.0)
+            end
+            soft = SoftObs(soft_y, soft_w)
+        end
+    end
+    index_stats["soft_obs_rule"] = soft === nothing ? "off" : "blend"
+    index_stats["soft_observed"] = n_soft
+
     converged = false
     iters = 0
     scc_stats = (method = "flat", pooled = 0, iterated = 0, fallback_negative = 0,
@@ -2666,9 +2803,26 @@ function solve_steady_state_penalty(
                                      if haskey(uuid_to_idx, a) && haskey(uuid_to_idx, b)),
             entry_supply = entry_supply, order_key = order_key,
             catalyst_pairs = Set{Tuple{Int, Int}}((uuid_to_idx[a], uuid_to_idx[b]) for (a, b) in catalyst_pairs
-                                                  if haskey(uuid_to_idx, a) && haskey(uuid_to_idx, b)))
+                                                  if haskey(uuid_to_idx, a) && haskey(uuid_to_idx, b)),
+            soft = soft)
         @inbounds for i in eachindex(entry_supply)
             isnan(entry_supply[i]) && (entry_supply[i] = x[i])
+        end
+        # specs/156: a soft observation on a pool-managed node was never
+        # blended (its pool writes it); report it as overridden, never
+        # silently averaged.
+        if soft !== nothing
+            # Tested against ACCEPTED entries, not the surviving weight: a
+            # pool-managed node the root rule had already zeroed (a resting
+            # copy fed only by a structural recycle edge) is still written by
+            # its pool, so its seed did not stand either.
+            for i in get(index_stats, "cycle_managed", Set{Int}())
+                i in soft_accepted || continue
+                soft.w[i] = 0.0
+                n_soft -= 1
+                push!(soft_overridden, (all_nodes[i], "pool"))
+            end
+            index_stats["soft_observed"] = n_soft
         end
         converged = max_change < params.tolerance
     else
@@ -2680,7 +2834,8 @@ function solve_steady_state_penalty(
                 if i in obs_set
                     continue  # pinned observation, don't update
                 end
-                new_val = damping > 0.0 ? (1.0 - damping) * x[i] + damping * x_fwd[i] : x_fwd[i]
+                fwd_i = _soft_blend(soft, i, x_fwd[i])
+                new_val = damping > 0.0 ? (1.0 - damping) * x[i] + damping * fwd_i : fwd_i
                 change = abs(new_val - x[i])
                 change > max_change && (max_change = change)
                 x[i] = new_val
@@ -2733,7 +2888,7 @@ function solve_steady_state_penalty(
     @inbounds for i in 1:n
         i in obs_set && continue
         i in managed_final && continue
-        d = abs(x[i] - x_fwd_final[i])
+        d = abs(x[i] - _soft_blend(soft, i, x_fwd_final[i]))
         if !isfinite(d)
             # Track separately rather than skipping: filtering non-finite values
             # out of the max would leave free_residual finite and report
@@ -2848,6 +3003,11 @@ function solve_steady_state_penalty(
             "nonconv_pool_rescued" => get(index_stats, "nonconv_pool_rescued", 0),
             # specs/154: switch detection — the second fixed points, served.
             "switch_detect" => get(index_stats, "switch_detect", "off"),
+            # specs/156: soft observations — the rule, how many applied, and
+            # which were overridden (by a hard pin or a pool), with reasons.
+            "soft_obs_rule" => get(index_stats, "soft_obs_rule", "off"),
+            "soft_observed" => get(index_stats, "soft_observed", 0),
+            "soft_overridden" => [Dict("uuid" => u, "reason" => r) for (u, r) in soft_overridden],
             "switch_components_searched" => get(index_stats, "switch_components_searched", 0),
             "switch_components_found" => length(switch_components),
             "switch_sweeps_capped" => get(index_stats, "switch_sweeps_capped", 0),
