@@ -100,3 +100,14 @@ blend), the root rule, precedence (`pin`/`pool` overrides reported), the 400s
 flag on vs off, no soft entries), and a cyclic-component fixture where the
 blend's fixed point is computed by hand. `test_api_errors.jl` gains the
 request-shape cases.
+
+## FR-001 parity, end to end (P3b, 2026-11-14)
+
+The whole recorded benchmark (the tracked 98-record dumps,
+`specs/152-release-98-redo/g4/`) replayed through the feature branch's served
+stack with `DS_SOFT_OBS=blend` LIVE in the container (verified positively: a
+soft-carrying solve succeeds and reports `blend`/1 — never inferred from the
+env alone, the container-env rule) and NO soft entries in the replay's
+requests: **all 24,356 recorded folds reproduce to the dump's rounding (max
+|diff| 5e-7, zero past 1e-5)** (`parity_folds_156.tsv`). The flag alone
+changes nothing; only a request's own soft observations do — exactly FR-001.
