@@ -1113,6 +1113,11 @@ function solve_handler(req)
             "edge_curve_slots" => get(solver_result.diagnostics, "edge_curve_slots", Dict{String, Int}()),
             # specs/107 (additive): metabolite pools and multi-step carriers
             "metabolite_pools_rule" => get(solver_result.diagnostics, "metabolite_pools_rule", "off"),
+            # specs/157 (additive): the three rule diagnostics the ensemble's
+            # positive env probes read that were not yet exposed.
+            "depletion_combine" => get(solver_result.diagnostics, "depletion_combine", "product"),
+            "set_pool_mode" => get(solver_result.diagnostics, "set_pool_mode", "product"),
+            "pool_drive_twins_rule" => get(solver_result.diagnostics, "pool_drive_twins_rule", "off"),
             "metabolite_pools" => get(solver_result.diagnostics, "metabolite_pools", 0),
             "carrier_multistep_rule" => get(solver_result.diagnostics, "carrier_multistep_rule", "off"),
             "carrier_multistep_forms" => get(solver_result.diagnostics, "carrier_multistep_forms", 0),
