@@ -149,3 +149,9 @@ specs/066 — which NEEDS the fallback — now pins the behaviour in
 cap-independent blended fixed point, and weight 1 through the fallback equals
 the hard pin. The arm re-runs on the fixed solver; the verdict that counts is
 that one.
+
+**Parity re-run on the fixed solver (2026-11-15)**: the same g4 replay through
+the LM-fixed branch (flag verified positively on the serving container, no
+soft entries sent): all 24,356 recorded folds reproduce, max |diff| 5e-7,
+zero past 1e-5 (`parity_folds_156.tsv` refreshed). FR-001 holds after the
+fallback change, as construction said it must.
