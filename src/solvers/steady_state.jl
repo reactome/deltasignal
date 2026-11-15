@@ -881,10 +881,15 @@ struct ComponentProblem
     gamma::Float64
     config::ReactionEvalConfig
     supply::Union{Nothing, Vector{Float64}}
+    # specs/156: a soft-observed target's residual row is `g(x) - x_t` with
+    # `g = w*y + (1-w)*F(x)` — the system the sweep iterates — so the LM
+    # fallback finds the BLENDED fixed point, never the un-blended one.
+    soft::Union{Nothing, SoftObs}
 end
 
 function ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
-                          mu, gamma, config, supply)
+                          mu, gamma, config, supply;
+                          soft::Union{Nothing, SoftObs} = nothing)
     free = Int[]
     @inbounds for ri in rs
         t = rxns_idx[ri].target_idx
@@ -902,8 +907,12 @@ function ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
         deps[k] = unique!(sort!(filter(i -> haskey(slot, i), d)))
     end
     ComponentProblem(collect(rs), rxns_idx, free, slot, deps, copy(x),
-                     baseline_vec, mu, gamma, config, supply)
+                     baseline_vec, mu, gamma, config, supply, soft)
 end
+
+# The blend weight the LM paths read for target t (0.0 = no soft observation).
+_soft_w(soft::Nothing, t::Int) = 0.0
+_soft_w(soft::SoftObs, t::Int) = @inbounds soft.w[t]
 
 """`L(z) = mu*||F(x) - x||^2 + gamma*||x - x0||^2` restricted to the component."""
 function component_objective(p::ComponentProblem, z::Vector{Float64})::Float64
@@ -915,7 +924,8 @@ function component_objective(p::ComponentProblem, z::Vector{Float64})::Float64
         r = p.rxns[ri]
         t = r.target_idx
         haskey(p.slot, t) || continue
-        d = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config) - p.xbuf[t]
+        fval = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config)
+        d = _soft_blend(p.soft, t, fval) - p.xbuf[t]
         acc += d * d
     end
     prior = 0.0
@@ -951,7 +961,8 @@ function component_gradient!(G::Vector{Float64}, p::ComponentProblem, z::Vector{
         haskey(p.slot, t) || continue
         d = p.deps[k]
         fval = compute_reaction_output_vec(p.xbuf, r; supply=p.supply, config=p.config)
-        resid = fval - p.xbuf[t]
+        w = _soft_w(p.soft, t)
+        resid = _soft_blend(p.soft, t, fval) - p.xbuf[t]
         if !isempty(d)
             local_in = Float64[p.xbuf[i] for i in d]
             fr = function (v)
@@ -960,7 +971,8 @@ function component_gradient!(G::Vector{Float64}, p::ComponentProblem, z::Vector{
             end
             gloc = ForwardDiff.gradient(fr, local_in)
             @inbounds for (m, i) in enumerate(d)
-                G[p.slot[i]] += 2.0 * p.mu * resid * gloc[m]
+                # d(blend)/dx_i = (1-w) * dF/dx_i: y and w are constants.
+                G[p.slot[i]] += 2.0 * p.mu * resid * (1.0 - w) * gloc[m]
             end
         end
         G[p.slot[t]] -= 2.0 * p.mu * resid
@@ -1010,7 +1022,8 @@ function component_residual_jacobian(p::ComponentProblem, z::Vector{Float64};
         row += 1
         d = p.deps[k]
         fval = compute_reaction_output_vec(p.xbuf, rx; supply=p.supply, config=p.config)
-        r[row] = sm * (fval - p.xbuf[t])
+        w = _soft_w(p.soft, t)
+        r[row] = sm * (_soft_blend(p.soft, t, fval) - p.xbuf[t])
         if !isempty(d)
             local_in = Float64[p.xbuf[i] for i in d]
             fr = function (v)
@@ -1019,10 +1032,11 @@ function component_residual_jacobian(p::ComponentProblem, z::Vector{Float64};
             end
             gloc = ForwardDiff.gradient(fr, local_in)
             for (mm, i) in enumerate(d)
-                push!(I, row); push!(Jc, p.slot[i]); push!(V, sm * gloc[mm])
+                # specs/156: d(blend)/dx_i = (1-w) * dF/dx_i.
+                push!(I, row); push!(Jc, p.slot[i]); push!(V, sm * (1.0 - w) * gloc[mm])
             end
         end
-        # d(F_r - x_t)/dx_t also carries the -1 from the subtracted target.
+        # d(g_r - x_t)/dx_t also carries the -1 from the subtracted target.
         push!(I, row); push!(Jc, p.slot[t]); push!(V, -sm)
     end
     @inbounds for k in 1:nfree
@@ -1107,9 +1121,10 @@ function minimize_component!(
     config::ReactionEvalConfig,
     supply::Union{Nothing,Vector{Float64}};
     lm_cap::Union{Nothing,Int} = nothing,
+    soft::Union{Nothing, SoftObs} = nothing,
 )::Float64
     prob = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec,
-                            params.mu, params.gamma, config, supply)
+                            params.mu, params.gamma, config, supply; soft = soft)
     isempty(prob.free) && return 0.0
 
     z0 = Float64[x[t] for t in prob.free]
@@ -1148,7 +1163,7 @@ function minimize_component!(
             @inbounds for (k, t) in enumerate(prob.free)
                 x[t] = clamp(zb[k], 0.0, 1.0)
             end
-            return _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+            return _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
         end
         lower = zeros(Float64, length(prob.free))
         upper = ones(Float64, length(prob.free))
@@ -1170,7 +1185,7 @@ function minimize_component!(
         @warn "component minimisation failed; keeping the fixed-point warm start" exception=(err, catch_backtrace()) n_free=length(prob.free)
     end
 
-    return _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+    return _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
 end
 
 """Worst `|F(x) - x|` over a component's unobserved targets (specs/156: a
@@ -1265,7 +1280,9 @@ function component_residual_jacobian(p::PoolComponentProblem, z::Vector{Float64}
             grow[t] = row
         else
             d = b.deps[k]
-            r[row] = compute_reaction_output_vec(b.xbuf, rx; supply=b.supply, config=b.config) - b.xbuf[t]
+            fval = compute_reaction_output_vec(b.xbuf, rx; supply=b.supply, config=b.config)
+            w = _soft_w(b.soft, t)
+            r[row] = _soft_blend(b.soft, t, fval) - b.xbuf[t]
             if !isempty(d)
                 local_in = Float64[b.xbuf[i] for i in d]
                 fr = function (v)
@@ -1274,7 +1291,8 @@ function component_residual_jacobian(p::PoolComponentProblem, z::Vector{Float64}
                 end
                 gloc = ForwardDiff.gradient(fr, local_in)
                 for (mm, i) in enumerate(d)
-                    push!(I, row); push!(Jc, b.slot[i]); push!(V, gloc[mm])
+                    # specs/156: d(blend)/dx_i = (1-w) * dF/dx_i.
+                    push!(I, row); push!(Jc, b.slot[i]); push!(V, (1.0 - w) * gloc[mm])
                 end
             end
         end
@@ -1323,8 +1341,9 @@ Levenberg-Marquardt over a pool component's free nodes (specs/073), from `x`.
 Writes the result into `x` and returns `_component_residual_pools`.
 """
 function minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
-                                   pools, shared, managed, carriers; lm_cap::Int, tol::Float64)::Float64
-    base = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec, 1.0, 0.0, config, supply)
+                                   pools, shared, managed, carriers; lm_cap::Int, tol::Float64,
+                                   soft::Union{Nothing, SoftObs} = nothing)::Float64
+    base = ComponentProblem(x, rs, rxns_idx, obs_set, baseline_vec, 1.0, 0.0, config, supply; soft = soft)
     if !isempty(base.free)
         prob = PoolComponentProblem(base, pools, shared, managed, obs_set, rxns_idx, carriers)
         z = Float64[x[t] for t in base.free]
@@ -1338,7 +1357,7 @@ function minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, confi
         end
     end
     return _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed, pools, shared,
-                                     baseline_vec, carriers)
+                                     baseline_vec, carriers; soft = soft)
 end
 
 
@@ -2265,21 +2284,16 @@ function solve_scc_ordered!(
                         comp_residual = _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
                     end
                 end
-                # specs/156: the LM fallback minimises |F(x) - x|, which is NOT
-                # the system a soft-observed component settles to; such a
-                # component keeps its iterated best and is counted, never
-                # silently optimised toward the un-blended fixed point.
-                comp_has_soft = soft !== nothing &&
-                    any(ri -> (@inbounds soft.w[rxns_idx[ri].target_idx]) > 0.0, rs)
                 # specs/066: a component still above tolerance after the cap is
                 # usually a limit cycle (a Goodwin ring), whose fixed point exists
                 # but repels damped relaxation. Find it by least squares on the
                 # residual instead, and keep it only if it is closer to F(x) = x.
                 # A component bounded on purpose (DS_SCC_NEG_MODE) is left alone.
-                if nonconv_lm && !minimize && !is_neg && comp_residual >= tol && comp_has_soft
-                    pool_stats["nonconv_skipped_soft"] =
-                        get(pool_stats, "nonconv_skipped_soft", 0) + 1
-                elseif nonconv_lm && !minimize && !is_neg && comp_residual >= tol
+                # specs/156: a soft-observed target's residual row is its blend
+                # `g(x) - x`, so the fallback solves the SAME system the sweep
+                # iterates (research.md R1), with the baseline's convergence
+                # machinery — never the un-blended fixed point.
+                if nonconv_lm && !minimize && !is_neg && comp_residual >= tol
                     # specs/076: the specs/066 and 073 counters describe the first
                     # attempt; restarts are counted separately
                     first = restarts_left == nonconv_restarts
@@ -2292,10 +2306,11 @@ function solve_scc_ordered!(
                         first && (pool_stats["nonconv_pool_components"] = get(pool_stats, "nonconv_pool_components", 0) + 1)
                         saved = x[comp_nodes[c]]
                         r0 = _component_residual_pools(x, rs, rxns_idx, obs_set, supply, config, managed,
-                                                       comp_pools[c], comp_shared[c], baseline_vec, pool_carriers)
+                                                       comp_pools[c], comp_shared[c], baseline_vec, pool_carriers;
+                                                       soft = soft)
                         r1 = minimize_component_pools!(x, rs, rxns_idx, obs_set, baseline_vec, config, supply,
                                                        comp_pools[c], comp_shared[c], managed, pool_carriers;
-                                                       lm_cap = _nonconv_lm_iters(), tol = tol)
+                                                       lm_cap = _nonconv_lm_iters(), tol = tol, soft = soft)
                         if r1 < r0
                             comp_residual = r1
                             first && (pool_stats["nonconv_pool_improved"] = get(pool_stats, "nonconv_pool_improved", 0) + 1)
@@ -2309,10 +2324,10 @@ function solve_scc_ordered!(
                         attempted = false
                     else
                         saved = x[comp_nodes[c]]
-                        r0 = _component_residual(x, rs, rxns_idx, obs_set, supply, config)
+                        r0 = _component_residual(x, rs, rxns_idx, obs_set, supply, config; soft = soft)
                         pz = SteadyStateParams(1.0, 0.0, params.max_iters, tol, params.method)
                         r1 = minimize_component!(x, rs, rxns_idx, obs_set, baseline_vec, pz, config, supply;
-                                                 lm_cap = _nonconv_lm_iters())
+                                                 lm_cap = _nonconv_lm_iters(), soft = soft)
                         if r1 < r0
                             comp_residual = r1
                             first && (pool_stats["nonconv_improved"] = get(pool_stats, "nonconv_improved", 0) + 1)

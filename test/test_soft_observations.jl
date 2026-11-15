@@ -139,6 +139,58 @@ act(r, n) = r.node_activities[n]
         end
     end
 
+    @testset "the LM fallback solves the blended system (research.md R1)" begin
+        # The specs/066 Goodwin ring: P and nine subunits AND-assemble into a
+        # chain ending at D, which depletes every subunit — gain 9 across nine
+        # lags, so the fixed point repels damped relaxation and only the LM
+        # fallback converges it. A soft observation inside the component must
+        # go through the SAME machinery: rows become g(x) - x, the solve
+        # converges, and the answer is the cap-independent blended fixed point.
+        subs = ["S$i" for i in 1:9]
+        names = vcat(["P"], subs, ["C1", "C2", "C3", "D"], ["rA", "rB", "rC", "rD"])
+        nodes = Dict(u => DeltaSignal.NetworkNode(u, "R-$u", "protein", nothing, u, BL)
+                     for u in names)
+        le(s, t, et = "input") =
+            DeltaSignal.LogicNetworkEdge(s, t, et != "output", et != "depletion", 1.0, et)
+        edges = [le("P", "rA"); [le(s, "rA") for s in subs]; le("rA", "C1", "output");
+                 le("C1", "rB"); le("rB", "C2", "output"); le("C2", "rC");
+                 le("rC", "C3", "output"); le("C3", "rD"); le("rD", "D", "output");
+                 [le("D", s, "depletion") for s in subs]]
+        ringnet = DeltaSignal.ReactionNetwork(nodes, edges,
+            Dict{String, DeltaSignal.SetExpansionMapping}(), Set{String}(),
+            Dict{String, Set{String}}(), nothing, nothing, nothing, nothing, nothing)
+        rsolve(obs; soft = Dict{String, Tuple{Float64, Float64}}(), iters = 500) =
+            withenv("DS_DEPLETION_OWN_PRODUCT" => "full") do
+                DeltaSignal.solve_steady_state(ringnet, obs,
+                    DeltaSignal.SteadyStateParams(1.0, 0.1, iters, 1e-6, "penalty");
+                    soft_observations = soft)
+            end
+        pobs = Dict("P" => (80.0, 1.0))
+
+        free = rsolve(pobs)
+        @test free.converged            # the fixture needs and gets the fallback
+        @test free.diagnostics["nonconv_components"] == 1
+        free_d = act(free, "D")
+
+        soft_y = 2.0                    # UI: 2x, far from the ring's own answer
+        for w in (0.25, 0.5, 0.75)
+            r = rsolve(pobs; soft = Dict("D" => (soft_y, w)))
+            # the whole point: a soft-carrying component CONVERGES through LM
+            @test r.converged
+            @test r.diagnostics["soft_observed"] == 1
+            @test min(free_d, soft_y / 100.0) < act(r, "D") < max(free_d, soft_y / 100.0)
+            # cap-independent: the same blended fixed point from a longer sweep
+            r2 = rsolve(pobs; soft = Dict("D" => (soft_y, w)), iters = 2000)
+            @test act(r2, "D") ≈ act(r, "D") rtol = 1e-5
+        end
+        # weight 1 through the fallback equals the hard pin on the same node
+        hard = rsolve(merge(pobs, Dict("D" => (soft_y, 1.0))))
+        w1 = rsolve(pobs; soft = Dict("D" => (soft_y, 1.0)))
+        @test w1.converged
+        @test act(w1, "D") ≈ act(hard, "D") atol = 1e-9
+        @test act(w1, "S1") ≈ act(hard, "S1") rtol = 1e-6
+    end
+
     @testset "DS_SOFT_OBS validation" begin
         @test DeltaSignal.soft_obs_mode() == "off"
         withenv("DS_SOFT_OBS" => "blend") do

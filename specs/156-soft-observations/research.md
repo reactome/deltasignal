@@ -111,3 +111,41 @@ env alone, the container-env rule) and NO soft entries in the replay's
 requests: **all 24,356 recorded folds reproduce to the dump's rounding (max
 |diff| 5e-7, zero past 1e-5)** (`parity_folds_156.tsv`). The flag alone
 changes nothing; only a request's own soft observations do — exactly FR-001.
+
+## The registered arm, first run (2026-11-15) — VOID: the gain was the cap's choice
+
+The arm ran end to end (31,086 solves, 45 pathways, 78 drug sets, 10,362
+held-out rows per weight; `arm/arm_cases.tsv`, scored by
+`bench/analysis/156/score_156.py`). The registered gate nominally PASSED at
+every weight (balanced-accuracy delta over the unconditioned record, 95%
+bootstrap over drug sets: w=0.25 +0.0135 [+0.0003, +0.0269]; w=0.5 +0.0324
+[+0.0109, +0.0515]; w=0.75 +0.0250 [+0.0038, +0.0435]; the gain is UP recall
+0.021 → 0.145).
+
+**The run is void as a gate measurement.** 10,136 of 10,362 solves per weight
+reported non-converged, against a recorded baseline that converged on all
+10,469 scored korkut cases. Cause: the implementation deviated from the
+registered R1 design — instead of giving the LM fallback soft-aware residual
+rows (`g(x) − x`), it SKIPPED the fallback (and the specs/076 restarts) for
+any soft-carrying component (`nonconv_skipped_soft`), so every big cyclic
+component that normally needs LM stayed at its iterated best. The specs/066
+check condemns the result: on the converged-only subset the delta is 0 /
+−0.066 / −0.221 by weight, and all 24 newly-correct UP calls at w=0.5 sit in
+non-converged solves — the "gain" lives exactly where the solver did not
+settle, so it is a property of the iteration cap, not of the blend.
+
+**Fix (same day): implement R1 as registered.** `ComponentProblem` carries
+the solve's `SoftObs`; a soft-observed target's residual row (LM and LBFGS
+paths, pool variant included) becomes `g(x) − x_t` with Jacobian scaled by
+`(1−w)` on the F-term; `minimize_component!`/`minimize_component_pools!` and
+the fallback's r0 computations measure against the blended system; the skip
+branch and `nonconv_skipped_soft` are removed, so a soft component gets the
+baseline's full convergence machinery (fallback + restarts). With no soft
+entries `soft === nothing` and every changed expression reduces to the
+previous one, so FR-001 bit-identity is preserved by construction (and the
+end-to-end parity replay is re-run below). The Goodwin-ring fixture from
+specs/066 — which NEEDS the fallback — now pins the behaviour in
+`test_soft_observations.jl`: a soft-carrying ring converges, serves the
+cap-independent blended fixed point, and weight 1 through the fallback equals
+the hard pin. The arm re-runs on the fixed solver; the verdict that counts is
+that one.
