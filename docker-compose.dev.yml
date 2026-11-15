@@ -20,6 +20,10 @@ services:
       # Winning config default is hill_log; override via host env
       # (DS_AND_MODE=min|signed|geomean|multiplicative|hill_sat).
       - DS_AND_MODE=${DS_AND_MODE:-hill_sat}
+      # specs/156 soft observations: off (code default) refuses requests
+      # carrying soft_observations; the serving decision (gate PASS,
+      # research.md 2026-11-15) enables blend via .env on the dev box.
+      - DS_SOFT_OBS=${DS_SOFT_OBS:-off}
       # OR-cluster aggregation. "max" = best-available alternative (default);
       # "mean" = each alternative carries weight (registers single-member knockouts).
       - DS_OR_MODE=${DS_OR_MODE:-mean}
