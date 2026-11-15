@@ -169,3 +169,47 @@ no reaction produces is zeroed (the seed stands; `soft_observed` still counts
 it — the observation is honoured, not overridden). The root testset now
 asserts `converged` — the assert that would have caught this on day one.
 Suite 75 → 79.
+
+## The registered arm, re-run on the fixed solver (2026-11-15) — GATE PASSES
+
+The same registered protocol, re-run from scratch on the double-fixed solver
+(four pathway shards, 31,086 solves, 45 pathways, 78 drug sets, 10,362
+held-out rows per weight; `arm2/arm_cases_*.tsv`), scored by
+`bench/analysis/156/score_156.py` (10k bootstrap over drug sets, seed 156):
+
+| weight | balanced acc (cond vs uncond) | delta [95% boot] | non-converged |
+|---|---|---|---|
+| 0.25 | 0.4618 vs 0.4484 | +0.0135 [+0.0003, +0.0269] | 126 of 10,362 |
+| 0.5  | 0.4807 vs 0.4484 | **+0.0324 [+0.0108, +0.0514]** | 69 |
+| 0.75 | 0.4733 vs 0.4484 | +0.0250 [+0.0038, +0.0435] | 69 |
+
+**PASS at every registered weight; w=0.5 is the strongest.** The specs/066
+check that voided the first run now clears: 99.3% of conditioned solves
+converge (vs 0.5% before the fixes), the converged-only subset agrees
+(+0.0135 / +0.0310 / +0.0222), and 23 of the 24 newly-correct UP calls at
+w=0.5 are converged. The deltas match the first run's almost exactly — the
+first run's iterated states were evidently near the true blended fixed
+points, but only this run can say so.
+
+**Where the gain lives (traced, not aggregated)**: every new correct UP call
+is one biological case — AKT pT308 under the temsirolimus drug sets (8 sets x
+up to 3 pathways): the rapalog feedback (mTORC1 inhibition relieves
+S6K -> IRS-1 suppression and RAISES AKT phosphorylation), which the
+unconditioned model calls DOWN because the feedback loop is outside the
+curated pathways' scope. The drug set's other measured readouts carry the
+feedback in — exactly the mechanism solver-level conditioning exists to
+serve. UP recall 0.021 -> 0.145 at w=0.5; down recall roughly holds
+(0.465 -> 0.459); the cost is a broad, small not-recall dip (0.859 -> 0.838,
+raw accuracy 0.813 -> 0.796). Concentration honestly stated: per drug set the
+balanced-accuracy delta is positive in 20, negative in 52, zero in 6 of 78
+(the many small negatives are the not-recall dip; the bootstrap prices them
+in and the interval still excludes zero), and per pathway 8 improve / 14
+worsen / 23 unchanged of 45.
+
+**Serving decision (per the registration)**: the gate passes, so the feature
+serves — `DS_SOFT_OBS=blend` goes into the dev API's serving environment
+(the `.env` pin), while the CODE default stays `off` (constitution IV: the
+flag changes the solve; a request without soft observations is bit-identical
+either way, FR-001). The benchmark protocol never sends soft observations,
+so no recorded figure moves. WebsiteAngular consumption (entering measured
+levels) is its own spec, now unblocked.
