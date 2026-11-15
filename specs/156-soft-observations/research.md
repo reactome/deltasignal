@@ -155,3 +155,17 @@ the LM-fixed branch (flag verified positively on the serving container, no
 soft entries sent): all 24,356 recorded folds reproduce, max |diff| 5e-7,
 zero past 1e-5 (`parity_folds_156.tsv` refreshed). FR-001 holds after the
 fallback change, as construction said it must.
+
+**Second defect, same day, found tracing the re-run's still-99.5% non-convergence
+(shard 3 of the sharded re-run)**: the per-case residuals matched
+`w*(1-w)*|y - baseline|` exactly — a double blend. A soft-observed ROOT (no
+producing reaction; the korkut conditioning sets carry simple-entity roots in
+nearly every pathway) is seeded at its blend-with-baseline, which IS its fixed
+point, but the flat path's and the final consistency check's forward value for
+a non-target node is just its own current x, so they blended it AGAIN: the
+value drifts toward y and the check reports a phantom residual that condemned
+virtually every conditioned solve. Fix: after seeding, a soft weight on a node
+no reaction produces is zeroed (the seed stands; `soft_observed` still counts
+it — the observation is honoured, not overridden). The root testset now
+asserts `converged` — the assert that would have caught this on day one.
+Suite 75 → 79.

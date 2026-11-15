@@ -87,6 +87,11 @@ act(r, n) = r.node_activities[n]
                       soft = Dict("S" => (100.0, w)))
             @test act(r, "S") / BL ≈ w * 100.0 + (1 - w) * 1.0 rtol = 1e-6
             @test act(r, "T") / BL > 1.0   # downstream reads the lifted root
+            # the seed IS the root's fixed point: the solve must say so (the
+            # final check used to re-blend the root's own value and report a
+            # phantom residual w*(1-w)*|y - x| — the first arm run's killer)
+            @test r.converged
+            @test r.diagnostics["soft_observed"] == 1
         end
     end
 

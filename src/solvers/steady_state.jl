@@ -2706,7 +2706,21 @@ function solve_steady_state_penalty(
             bl = get(resting_baseline, baseline_activities, all_nodes[i])
             x[i] = w * soft_y[i] + (1.0 - w) * bl
         end
-        n_soft > 0 && (soft = SoftObs(soft_y, soft_w))
+        if n_soft > 0
+            # specs/156 R1, the root rule: a node NO reaction produces has
+            # F = its resting value, so its seeded blend above IS its fixed
+            # point. Zero its weight after seeding — otherwise the flat path
+            # and the final consistency check, whose forward value for such a
+            # node is just its own current x, blend it AGAIN: the value drifts
+            # toward y with every sweep and the check reports a phantom
+            # residual w*(1-w)*|y - x| that condemned every conditioned solve
+            # carrying a root (the first arm run).
+            target_set = Set{Int}(r.target_idx for r in rxns_idx)
+            @inbounds for i in eachindex(soft_w)
+                soft_w[i] > 0.0 && !(i in target_set) && (soft_w[i] = 0.0)
+            end
+            soft = SoftObs(soft_y, soft_w)
+        end
     end
     index_stats["soft_obs_rule"] = soft === nothing ? "off" : "blend"
     index_stats["soft_observed"] = n_soft
