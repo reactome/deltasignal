@@ -148,6 +148,9 @@ const JSON_HEADERS = ["Content-Type" => "application/json"]
 # Fixed, non-reflecting validation messages. The offending node uuid is
 # client-controlled, so it is logged server-side rather than echoed back.
 const OBS_SHAPE_ERROR = "Each observation must be a 2-element numeric array [activity, confidence]."
+# specs/156: soft observations — their own field, never the hard confidence.
+const SOFT_OBS_OFF_ERROR = "soft_observations are not enabled on this server (DS_SOFT_OBS=off); a request carrying them is refused rather than silently un-conditioned."
+const SOFT_OBS_SHAPE_ERROR = "Each soft observation must be a 2-element numeric array [activity, weight] with activity in 0-100 and weight in 0-1."
 const OBS_RANGE_ERROR = "Observation activity must be within 0-100 and confidence within 0-1."
 # A node listed twice with different values: two contradictory measurements
 # are a conflict, not a set (the CLI already rejects this). The API used to keep
@@ -199,7 +202,8 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
                msg == READOUTS_NO_TABLE_ERROR || msg == READOUTS_QUERY_ERROR ||
                msg == READOUTS_CONTEXT_ERROR || msg == SCOPE_STATEMENT_ERROR ||
                msg == LEADS_ERROR ||
-               msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR
+               msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR ||
+               msg == SOFT_OBS_OFF_ERROR || msg == SOFT_OBS_SHAPE_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
             return 400, "Required input not found."
@@ -984,6 +988,32 @@ function solve_handler(req)
             observations[b] = (0.0, 1.0)
         end
 
+        # specs/156 (additive, gated): soft observations — w*y + (1-w)*F(x).
+        # With DS_SOFT_OBS=off a request carrying them is a 400: a client must
+        # never believe it conditioned a solve that ignored its measurements.
+        soft_observations = Dict{String, Tuple{Float64, Float64}}()
+        soft_raw = get(request_data, :soft_observations, nothing)
+        if soft_raw !== nothing
+            DeltaSignal.soft_obs_mode() == "blend" || throw(ArgumentError(SOFT_OBS_OFF_ERROR))
+            (soft_raw isa AbstractDict || soft_raw isa JSON3.Object) ||
+                throw(ArgumentError(SOFT_OBS_SHAPE_ERROR))
+            for (node_uuid, entry) in pairs(soft_raw)
+                (entry isa AbstractVector && length(entry) == 2) ||
+                    throw(ArgumentError(SOFT_OBS_SHAPE_ERROR))
+                rv, rw = entry[1], entry[2]
+                (rv isa Real && rw isa Real && !(rv isa Bool) && !(rw isa Bool)) ||
+                    throw(ArgumentError(SOFT_OBS_SHAPE_ERROR))
+                v, w = Float64(rv), Float64(rw)
+                (isfinite(v) && 0.0 <= v <= 100.0 && isfinite(w) && 0.0 <= w <= 1.0) ||
+                    throw(ArgumentError(SOFT_OBS_SHAPE_ERROR))
+                key = String(node_uuid)
+                if haskey(soft_observations, key) && soft_observations[key] != (v, w)
+                    throw(ArgumentError(OBS_CONFLICT_ERROR))
+                end
+                soft_observations[key] = (v, w)
+            end
+        end
+
         # Membership. The solver drops observations whose uuid is not in the
         # network (`haskey(uuid_to_idx, uuid) || continue`), silently — so a
         # stale or mistyped uuid perturbs nothing and still returns 200. Report
@@ -1001,7 +1031,8 @@ function solve_handler(req)
         println("Solving with ", length(observations), " observations")
         
         # Solve the steady state
-        solver_result = DeltaSignal.solve_steady_state(network, observations)
+        solver_result = DeltaSignal.solve_steady_state(network, observations;
+                                                        soft_observations = soft_observations)
         
         # Keep node activities in internal 0-1 scale for frontend processing
         node_activities_display = Dict{String, Float64}()
@@ -1029,6 +1060,11 @@ function solve_handler(req)
             # otherwise — a cap-decided point anchors no second-state claim.
             "converged" => solver_result.converged,
             "iterations" => solver_result.iterations,
+            # specs/156 (additive): the soft-observation rule, how many were
+            # applied, and which were overridden (by a hard pin or a pool).
+            "soft_obs_rule" => get(solver_result.diagnostics, "soft_obs_rule", "off"),
+            "soft_observed" => get(solver_result.diagnostics, "soft_observed", 0),
+            "soft_overridden" => get(solver_result.diagnostics, "soft_overridden", []),
             # week review 2026-10-15: a non-converged solve is scored as given;
             # the residual lets a caller see how far from steady it stopped.
             "residual" => solver_result.final_residual,
