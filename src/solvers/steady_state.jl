@@ -2678,6 +2678,7 @@ function solve_steady_state_penalty(
     # weight at/below the tolerance is discarded like a gated hard one.
     soft = nothing
     soft_overridden = Vector{Tuple{String, String}}()
+    soft_accepted = Set{Int}()
     n_soft = 0
     if !isempty(soft_observations)
         get(ENV, "DS_SCC_METHOD", "fixed_point") == "minimize" && throw(ArgumentError(
@@ -2699,6 +2700,7 @@ function solve_steady_state_penalty(
             end
             soft_y[i] = val / 100.0
             soft_w[i] = w
+            push!(soft_accepted, i)
             n_soft += 1
             # Seed at the blend with baseline. For a ROOT (no producing
             # reaction) this IS the answer — its F is its resting value and
@@ -2810,8 +2812,12 @@ function solve_steady_state_penalty(
         # blended (its pool writes it); report it as overridden, never
         # silently averaged.
         if soft !== nothing
+            # Tested against ACCEPTED entries, not the surviving weight: a
+            # pool-managed node the root rule had already zeroed (a resting
+            # copy fed only by a structural recycle edge) is still written by
+            # its pool, so its seed did not stand either.
             for i in get(index_stats, "cycle_managed", Set{Int}())
-                soft.w[i] > 0.0 || continue
+                i in soft_accepted || continue
                 soft.w[i] = 0.0
                 n_soft -= 1
                 push!(soft_overridden, (all_nodes[i], "pool"))

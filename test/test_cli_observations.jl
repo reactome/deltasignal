@@ -220,4 +220,21 @@ end
             @test out[:solver_info][:converged] == ref.converged
         end
     end
+
+    @testset "soft observations CSV (specs/156)" begin
+        soft = with_csv("node,value,weight\nB,2.0,0.5\nC,1.5,0.25\n") do p
+            read_soft_observations(p)
+        end
+        @test soft == Dict("B" => (2.0, 0.5), "C" => (1.5, 0.25))
+
+        # a node listed twice with different values is a conflict, as hard
+        # observations treat it; an exact repeat is fine
+        @test_throws ErrorException with_csv(
+            p -> read_soft_observations(p),
+            "node,value,weight\nB,2.0,0.5\nB,3.0,0.5\n")
+        rep = with_csv("node,value,weight\nB,2.0,0.5\nB,2.0,0.5\n") do p
+            read_soft_observations(p)
+        end
+        @test rep == Dict("B" => (2.0, 0.5))
+    end
 end

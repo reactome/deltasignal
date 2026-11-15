@@ -1256,7 +1256,7 @@ other seven execute code and print output.
 | `test/test_material_loops.jl` | 54 | specs/107, added 2026-10-25; compartment copies (amendment 1) same day |
 | `test/test_resting_baseline.jl` | 23 | specs/124, added 2026-11-02 |
 | `test/test_edge_curves.jl` | 72 | specs/128, added 2026-11-02 |
-| `test/test_cli_observations.jl` | 50 | |
+| `test/test_cli_observations.jl` | 53 | soft-observations CSV (specs/156) 2026-11-15 |
 | `test/test_api_errors.jl` | 190 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141), rail flags (specs/142) and the scope constant (specs/143) 2026-11-06; confidence (specs/146), leads constant (specs/149) 2026-11-07; soft observations (specs/156) 2026-11-14 |
 | `test/test_pin_protocol.jl` | 36 | specs/140, added 2026-11-06: the bench's pin protocol in the engine |
 | `test/test_scope_statement.jl` | 251 | specs/143, added 2026-11-06: the served scope statement — provenance-complete file, catalog comparison, honest refusals; the leads table and composite listing exclusion (specs/149) 2026-11-07. The count follows the shipped leads table's content (per-centre/per-arrow loops): 269 on the 97 table (11 centres), 251 on the 98 table (10 centres, specs/152 switch) |
