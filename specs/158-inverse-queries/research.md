@@ -60,3 +60,7 @@ direction filter, self-exclusion ("what lowers C" never answers "pin C"),
 pin-set dedup, the ancestry filter (an entity with no path to the target is
 reachable=false and unsolved), cap reporting, and the honest zero ("0 of N
 move this readout here").
+
+**Additive parity (P4, 2026-11-16)**: the g4 replay through the feature branch
+(the inverse endpoint registered and live): all 24,356 recorded folds
+reproduce (max |diff| 5e-7, zero past 1e-5; `parity_folds_158.tsv`).

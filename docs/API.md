@@ -319,7 +319,26 @@ full → no_converged → call_only on call, magnitude bin and the request's
 `converged`); the field is ABSENT for untouched or call-less readouts and
 classes below the minimum. The top-level `fragility_table` says
 `ok: <version>` or names why nothing serves (the same provenance refusal);
-`fragility_min_cell` carries the minimum. The top level
+`fragility_min_cell` carries the minimum.
+
+### POST /api/inverse (specs/158)
+
+Which perturbations move a chosen readout. `{network_id, target: {stable_ids,
+members?, mode?}, direction?: "down"|"up"|"any", cap?: 1-500 (default 50),
+doses?: {ko: 0-100, oe: 0-100} (default 0 and 80)}`. Candidates are exactly
+the pin protocol's distinct resolutions of the network's curated entities;
+each is solved at both doses through the ORDINARY solve and readouts paths, so
+every returned number is bit-equal to running /api/solve + /api/readouts for
+that candidate, honesty fields included. A candidate with no directed path to
+the target over the network's own edges is counted under `reachable`, never
+solved; the target's own pins are `self_excluded`. The response's `counts`
+(`candidates_total / self_excluded / reachable / solved / capped / moved /
+returned`) make a capped answer recognizable from the response alone;
+`ordering` is declared (`entity_id` — influence pre-ranking was measured and
+carries no signal, specs/158 research R2), and returned rows are ranked by the
+measured |log2 fold| AFTER solving. Cost: one inverse query is up to
+2 x `cap` forward solves (seconds on a typical pathway; the large tail is why
+the cap exists). The top level
 carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
 baseline and cutoffs, and `rail_low` / `rail_high` — the stop values the
 flag was computed with, 0.01 and 99.0 at the default baseline, so a client
