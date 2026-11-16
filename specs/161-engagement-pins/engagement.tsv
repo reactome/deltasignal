@@ -1,0 +1,12 @@
+901	0.5089	markers MAPKpT202 mean log2 -0.975
+AK	0.1953	markers AKTpS473,AKTpT308 mean log2 -2.357
+HN	0.0000	no marker: full knockout (recorded protocol)
+NT	0.8896	markers p53,p21 mean log2 +0.169
+P6	0.8841	markers STAT3pY705,STAT5pY694 mean log2 -0.178
+PLX	0.5984	markers MEKpS217,MAPKpT202 mean log2 -0.741
+RO	0.0000	no marker: full knockout (recorded protocol)
+RY	0.6788	markers RbpS807 mean log2 -0.559
+SR	0.8296	markers SRCpY416 mean log2 -0.269
+ST	0.9044	markers STAT3pY705 mean log2 -0.145
+Tm	0.2788	markers p70S6KpT389,S6pS235,4EBP1pS65 mean log2 -1.843
+ZS	0.3875	markers AKTpS473,AKTpT308 mean log2 -1.368
