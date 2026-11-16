@@ -211,9 +211,14 @@ const SRV = DeltaSignal
         v = String(parsed[:nodes][2][:uuid])
         body = """{"network_id": "$(parsed[:network_id])", "observations": {"$u": [50.0, 1.0]},
                    "soft_observations": {"$v": [2.0, 0.5]}}"""
-        resp = SRV.solve_handler(post("/api/solve", body))
-        @test resp.status == 400
-        @test SRV.JSON3.read(String(resp.body))[:message] == SRV.SOFT_OBS_OFF_ERROR
+        # Pinned explicitly: the dev box's serving .env sets DS_SOFT_OBS=blend
+        # (specs/156 serving decision) and compose passes it into this
+        # container, so "ambient off" is not a safe assumption here.
+        withenv("DS_SOFT_OBS" => "off") do
+            resp = SRV.solve_handler(post("/api/solve", body))
+            @test resp.status == 400
+            @test SRV.JSON3.read(String(resp.body))[:message] == SRV.SOFT_OBS_OFF_ERROR
+        end
 
         withenv("DS_SOFT_OBS" => "blend") do
             r = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", body)).body))

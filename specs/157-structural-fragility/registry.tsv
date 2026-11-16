@@ -1,0 +1,21 @@
+variant	env	value	measuring_spec	clause	recorded_deltas	note
+own_entity	DS_DEPLETION_OWN_PRODUCT	suppress_only_entity	specs/060	a	heldout 0 / exp -17	entity-containment cap
+own_full	DS_DEPLETION_OWN_PRODUCT	full	specs/060,061	b	heldout 0 alone (specs/060); bundle +32/+7 includes pins+twins	pre-061 default; caveat recorded in research R1
+depl_share	DS_DEPLETION_COMBINE	share	specs/103	a	heldout 0 / exp 0	shared-pool depletion
+setpool_mean	DS_SET_POOL_MODE	mean	specs/033,038	a	~0 / ~0	"mean does not gain"
+ub_inert	DS_UBIQUITIN_MODE	inert	specs/098	a	heldout +6 / exp -4	free ubiquitin held
+pool_supply_and	DS_POOL_SUPPLY_AND	on	specs/090	a	heldout 0 / exp 0	AND-joined pool supply
+drive_twins	DS_POOL_DRIVE_TWINS	hold	specs/104	a	no class change	pool drives hold own-entity copies
+base_full	DS_POOL_BASE_WEIGHT	full	specs/091	b	heldout 0 / exp +1	pre-091 default
+moves_keep	DS_CARRIER_LOOP_MOVES	keep	specs/093	a	heldout -10 / exp 0	compartment-moving releases kept
+open_fed_single	DS_CARRIER_LOOP_OPEN	fed_single	specs/088	b	heldout 0 / exp +1	pre-088 default (ubiquitin as displacer)
+comp_twin_off	DS_CARRIER_COMPONENT_TWIN	off	specs/084	b	heldout 0 / exp +4	pre-084 default
+metab_pools	DS_METABOLITE_POOLS	on	specs/107	a	no class change	small-molecule interconversion pools
+catalyst_loops	DS_SELF_FED_MODE	catalyst_loop	specs/109	a	no class change	catalyst-closed loop holds
+act_leaves	DS_SELF_ACTIVATOR_LEAVES	1	specs/136	a	no call changes	leaf-sharing activator pairs
+act_weight_off	DS_SELF_ACTIVATOR_WEIGHT	off	specs/083	b	no class change	pre-083 default
+inh_copies_off	DS_SELF_INHIBITOR_COPIES	off	specs/095	b	heldout 0 / exp +9	pre-095 default
+reeval_full	DS_CYCLE_REEVAL_CARRIERS	full	specs/075	b	canonical identical	pre-075 default
+rna_twin_off	DS_RNA_TWIN	off	specs/100	b	heldout 0 / exp +4	pre-100 default
+drug_propagate	DS_DRUG_MODE	propagate	specs/055	b	heldout +8 / exp +2	pre-055 default
+pathogen_propagate	DS_PATHOGEN_MODE	propagate	specs/048	b	heldout +1 / exp +7	pre-048 default

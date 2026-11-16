@@ -462,6 +462,9 @@ function solve_steady_state(
     # specs/103: how several depletion edges into one node combine, and how many
     # reactions have more than one (the only ones `share` changes).
     result.diagnostics["depletion_combine"] = resolve_reaction_eval_config().depletion_combine
+    # specs/157: the set-pool aggregation, so an ensemble variant's env can be
+    # verified POSITIVELY from the response (the specs/156 container-env rule).
+    result.diagnostics["set_pool_mode"] = resolve_reaction_eval_config().set_pool_mode
     ndep = Dict{String, Int}()
     for e in network.edges
         e.edge_type == "depletion" && (ndep[e.child_uuid] = get(ndep, e.child_uuid, 0) + 1)

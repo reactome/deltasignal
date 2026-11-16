@@ -383,6 +383,61 @@ function readout_fold_ranges(table, call::String, is_railed::Bool,
     return isempty(out) ? nothing : out
 end
 
+# specs/157: structural fragility — the share of recorded ensemble pairs in
+# this class whose call flipped under at least one recorded near-equivalent
+# rule variant (the registered 20-variant ensemble; the record is specs/157
+# research.md). Stability across contested structure, never correctness. The
+# table is refused unless its provenance matches the served catalog, the
+# specs/155 rule.
+
+const FRAGILITY_TABLE_PATH = joinpath(@__DIR__, "fragility.json")
+
+"""Load the fragility table; `nothing` plus a reason when absent, unreadable
+or fitted for a different serving record."""
+function load_fragility_table(path::AbstractString = FRAGILITY_TABLE_PATH;
+                              served_build = nothing)
+    isfile(path) || return nothing, "missing"
+    t = try
+        JSON3.read(read(path, String))
+    catch
+        return nothing, "malformed"
+    end
+    (haskey(t, :table) && haskey(t, :min_cell) && haskey(t, :levels) &&
+     haskey(t, :catalog_build)) || return nothing, "malformed"
+    served = served_build === nothing ? nothing : string(served_build)
+    (served === nothing || served in ("unrecorded", "unreadable BUILD.json", "uninspectable")) &&
+        return nothing, "serving record unrecorded: the table's provenance cannot be verified"
+    string(t[:catalog_build]) == served ||
+        return nothing, "provenance mismatch: table fitted for $(t[:catalog_build]), serving $(served)"
+    return t, ""
+end
+
+"""specs/157 lookup, mirroring `fit_157.py` exactly: the registered level walk
+full (call|mag|conv) → no_converged (call|mag) → call_only (call), first cell
+at or above `min_cell` wins; an untouched readout (fold exactly 1.0) serves
+nothing, the specs/146 amendment-1 rule. Returns `(rate, n)` or `nothing`."""
+function readout_fragility(table, call::String, fold::Float64;
+                           converged::Union{Missing, Bool} = missing)
+    fold == 1.0 && return nothing
+    call == "normal" && (call = "not")
+    mag = confidence_magnitude_bin(fold)
+    min_cell = Int(table[:min_cell])
+    keys_by_level = Pair{String, String}[]
+    converged !== missing &&
+        push!(keys_by_level, "full" => join((call, mag, _conf_bool(converged)), "|"))
+    push!(keys_by_level, "no_converged" => join((call, mag), "|"))
+    push!(keys_by_level, "call_only" => call)
+    for (level, key) in keys_by_level
+        lv = get(table[:table], Symbol(level), nothing)
+        lv === nothing && continue
+        cell = get(lv, Symbol(key), nothing)
+        cell === nothing && continue
+        Int(cell[:n]) >= min_cell &&
+            return Float64(cell[:fragile_rate]), Int(cell[:n])
+    end
+    return nothing
+end
+
 """specs/142: a fold at the model's stop is a switch state, not a measured
 magnitude. This is the bench's `railed(fold, ceiling)`
 (`bench/analysis/score_124.py`, the one function behind every recorded rails%

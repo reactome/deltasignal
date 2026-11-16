@@ -1113,6 +1113,11 @@ function solve_handler(req)
             "edge_curve_slots" => get(solver_result.diagnostics, "edge_curve_slots", Dict{String, Int}()),
             # specs/107 (additive): metabolite pools and multi-step carriers
             "metabolite_pools_rule" => get(solver_result.diagnostics, "metabolite_pools_rule", "off"),
+            # specs/157 (additive): the three rule diagnostics the ensemble's
+            # positive env probes read that were not yet exposed.
+            "depletion_combine" => get(solver_result.diagnostics, "depletion_combine", "product"),
+            "set_pool_mode" => get(solver_result.diagnostics, "set_pool_mode", "product"),
+            "pool_drive_twins_rule" => get(solver_result.diagnostics, "pool_drive_twins_rule", "off"),
             "metabolite_pools" => get(solver_result.diagnostics, "metabolite_pools", 0),
             "carrier_multistep_rule" => get(solver_result.diagnostics, "carrier_multistep_rule", "off"),
             "carrier_multistep_forms" => get(solver_result.diagnostics, "carrier_multistep_forms", 0),
@@ -1353,6 +1358,9 @@ function readouts_handler(req)
         # provenance matches the catalog this server actually serves.
         fr_table, fr_reason = DeltaSignal.load_fold_ranges_table(
             served_build = get(catalog_provenance(CATALOG_DIR), "build_id", nothing))
+        # specs/157: the structural-fragility table, same provenance rule.
+        frag_table, frag_reason = DeltaSignal.load_fragility_table(
+            served_build = get(catalog_provenance(CATALOG_DIR), "build_id", nothing))
         # One output-entity map per request, not per proxy query.
         output_entities = DeltaSignal._readout_output_entities(
             network.edges, pin_index, ridx.cofactors)
@@ -1412,6 +1420,15 @@ function readouts_handler(req)
                             converged = req_converged)
                         ranges === nothing || (entry["measured_fold_ranges"] = ranges)
                     end
+                    # specs/157: how often calls in this class flipped under the
+                    # recorded rule ensemble. Absence is field absence.
+                    if value !== nothing && frag_table !== nothing && entry["call"] !== nothing
+                        fr = DeltaSignal.readout_fragility(
+                            frag_table, entry["call"], value / baseline;
+                            converged = req_converged)
+                        fr === nothing || (entry["fragility"] =
+                            Dict("rate" => fr[1], "n" => fr[2]))
+                    end
                     # specs/154: the same resolution valued under each overlay.
                     if overlays !== nothing
                         alts = Union{Nothing, Float64}[
@@ -1466,6 +1483,14 @@ function readouts_handler(req)
                             entry["basis"], scored.value / baseline;
                             converged = req_converged)
                         ranges === nothing || (entry["measured_fold_ranges"] = ranges)
+                    end
+                    # specs/157: the same table on an abundance fold.
+                    if scored.value !== nothing && frag_table !== nothing && entry["call"] !== nothing
+                        fr = DeltaSignal.readout_fragility(
+                            frag_table, entry["call"], scored.value / baseline;
+                            converged = req_converged)
+                        fr === nothing || (entry["fragility"] =
+                            Dict("rate" => fr[1], "n" => fr[2]))
                     end
                     # specs/154: the same abundance valuation under each overlay.
                     if overlays !== nothing
@@ -1523,6 +1548,11 @@ function readouts_handler(req)
                              "ok: " * string(fr_table[:version]),
             "fold_ranges_min_cell" => fr_table === nothing ? nothing :
                                       Int(fr_table[:min_cell]),
+            # specs/157: the fragility table's version, or why no rates serve.
+            "fragility_table" => frag_table === nothing ? frag_reason :
+                                 "ok: " * string(frag_table[:version]),
+            "fragility_min_cell" => frag_table === nothing ? nothing :
+                                    Int(frag_table[:min_cell]),
             "results" => results,
         )
         return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
