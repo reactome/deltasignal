@@ -321,6 +321,21 @@ classes below the minimum. The top-level `fragility_table` says
 `ok: <version>` or names why nothing serves (the same provenance refusal);
 `fragility_min_cell` carries the minimum.
 
+### Pinning a drug at its measured engagement (specs/161)
+
+A drug enters the benchmark protocol as a full knockout of its target (the
+target's starting forms pinned at 0). If you know how strongly the drug
+actually hit its target in your cells, for example from its direct marker's
+measured fold, pin the target at that level instead: `observations` take any
+activity from 0 to 100 (1 = resting). On the korkut record, pinning each drug
+at its measured engagement turned 256 false calls right and broke 7, with
+reachable-case specificity 0.70 → 0.79 and precision 0.11 → 0.14. The
+registered balanced-accuracy gate did NOT pass (+0.003, interval including
+0), so this is guidance with its record attached, not a validated accuracy
+claim. The engagement values came from korkut's own markers, so the record
+shows that the protocol helps when engagement is known, not that DeltaSignal
+can predict engagement. An independent replication is registered (specs/162).
+
 ### POST /api/inverse (specs/158)
 
 Which perturbations move a chosen readout. `{network_id, target: {stable_ids,

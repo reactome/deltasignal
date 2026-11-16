@@ -107,6 +107,14 @@ copies, not bound, modified or released forms; a set or pool of those copies car
 no marker on the array (filed as engagement unknown, amendment 2). The
 raw score stays the headline, and gates stay on the raw cases.
 
+**Gates for false-alarm fixes** (Adam, 2026-11-16, after specs/161): a spec whose purpose is removing false
+change calls registers, up front, a paired gate on the calls it moves (fixed vs broken, a sign test) plus a registered
+non-inferiority guard on sensitivity, not balanced accuracy alone. Balanced accuracy averages class recalls, so a
+large one-sided cleanup of false alarms barely moves it (specs/144, specs/161: 256 fixed / 7 broken, balanced
++0.003). The rule is for FUTURE registrations; no recorded verdict is re-read under it. **korkut scorecards exclude a
+drug set's own direct markers** (`marker_names()` in `bench/analysis/161/engagement_161.py`): pinning a target
+trivially moves its own marker, and counting those inflated reachable-case sensitivity from 0.645 to 0.846.
+
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
 of inferring the protocol from flags.
 
