@@ -195,3 +195,8 @@ confidence table's basis/railed features are not in the ensemble record and
 re-running 21 arms to add them buys nothing the gate needs; recorded here as
 the registered shape before any fitting. An untouched readout (fold exactly
 1.0) serves no fragility, the specs/146 amendment-1 rule.
+
+**Additive parity (P4, 2026-11-15)**: the g4 replay through the feature branch
+with the fragility table LIVE: all 24,356 recorded folds reproduce (max |diff|
+5e-7, zero past 1e-5; `parity_folds_157.tsv`). The flag adds fields; nothing
+existing moves.
