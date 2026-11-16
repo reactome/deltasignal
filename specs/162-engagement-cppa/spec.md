@@ -14,7 +14,7 @@ specs/161's engagement came from korkut's own markers, on korkut. CPPA (Zhao 202
 
 ## The registered design
 
-**Population**: single-compound CPPA samples whose drug has at least one specs/139 marker and an inhibitor role in the specs/121 drug-target table: 61 drugs, 530 (drug, cell line) pairs, 3,938 samples.
+**Population**: single-compound CPPA samples whose drug has at least one specs/139 marker and is not a stimulus (every non-stimulus drug enters the recorded protocol as an inhibitor, its targets pinned DOWN, so non-stimulus is the inhibitor set; the drug table's `role` column is the specs/121 split role, corrected here before any value was read): 61 drugs, 530 (drug, cell line) pairs, 3,938 samples.
 
 **Engagement** (per (drug, cell line), the protocol's "you measured your drug's direct marker"): e = min(1, 2^m), with m the mean of the drug's marker delta-p (log2) over that pair's samples (all times and doses). Computed by a committed script before any non-marker value is read.
 
