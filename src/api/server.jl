@@ -152,6 +152,10 @@ const OBS_SHAPE_ERROR = "Each observation must be a 2-element numeric array [act
 const SOFT_OBS_OFF_ERROR = "soft_observations are not enabled on this server (DS_SOFT_OBS=off); a request carrying them is refused rather than silently un-conditioned."
 const SOFT_OBS_SHAPE_ERROR = "Each soft observation must be a 2-element numeric array [activity, weight] with activity in 0-100 and weight in 0-1."
 const OBS_RANGE_ERROR = "Observation activity must be within 0-100 and confidence within 0-1."
+# specs/158: inverse queries.
+const INVERSE_QUERY_ERROR = "inverse requires a known network_id and a 'target' {stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'}; optional 'direction' ('down'|'up'|'any'), 'cap' (1-500), 'doses' {ko: 0-100, oe: 0-100}."
+const INVERSE_CAP_ERROR = "inverse cap must be an integer between 1 and 500 (the registered server maximum; specs/158)."
+const INVERSE_TARGET_ERROR = "the target does not resolve to any node in this network (basis: none) - there is nothing to move."
 # A node listed twice with different values: two contradictory measurements
 # are a conflict, not a set (the CLI already rejects this). The API used to keep
 # whichever came last, so an 80x entry silently became a knockout.
@@ -203,7 +207,9 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
                msg == READOUTS_CONTEXT_ERROR || msg == SCOPE_STATEMENT_ERROR ||
                msg == LEADS_ERROR ||
                msg == OBS_UNKNOWN_ERROR || msg == OBS_CONFLICT_ERROR ||
-               msg == SOFT_OBS_OFF_ERROR || msg == SOFT_OBS_SHAPE_ERROR
+               msg == SOFT_OBS_OFF_ERROR || msg == SOFT_OBS_SHAPE_ERROR ||
+               msg == INVERSE_QUERY_ERROR || msg == INVERSE_CAP_ERROR ||
+               msg == INVERSE_TARGET_ERROR
             return 400, msg
         elseif occursin("not found", msg) || occursin("does not exist", msg)
             return 400, "Required input not found."
@@ -1276,6 +1282,181 @@ function pins_handler(req)
     end
 end
 
+# specs/158: inverse queries — which perturbations move a chosen readout.
+# Every number is the ORDINARY forward product's: the handler drives the
+# public solve and readouts handlers themselves (the same code, the same
+# serialization), so a returned row is bit-equal to running /api/solve +
+# /api/readouts for that candidate. Candidates are exactly the pin protocol's
+# distinct resolutions; a candidate with no directed path to the target over
+# the network's own edges provably cannot move it and is counted, not solved.
+# Influence pre-ranking was measured and refuted (research R2): the order is
+# declared, not claimed.
+
+function _internal_post(handler, path, body)
+    resp = handler(HTTP.Request("POST", path, ["Content-Type" => "application/json"],
+                                JSON3.write(body)))
+    parsed = JSON3.read(String(resp.body))
+    resp.status == 200 || throw(ArgumentError(String(get(parsed, :message, "Invalid input."))))
+    return parsed
+end
+
+function inverse_handler(req)
+    try
+        body = String(req.body)
+        isempty(body) && throw(ArgumentError(INVERSE_QUERY_ERROR))
+        data = JSON3.read(body)
+        nid_raw = get(data, :network_id, nothing)
+        target = get(data, :target, nothing)
+        (nid_raw isa AbstractString && (target isa AbstractDict || target isa JSON3.Object)) ||
+            throw(ArgumentError(INVERSE_QUERY_ERROR))
+        network_id = String(nid_raw)
+        network = get_cached_network(network_id)
+        network === nothing && throw(ArgumentError(UNKNOWN_NETWORK_ERROR))
+
+        direction_raw = get(data, :direction, "any")
+        direction_raw isa AbstractString || throw(ArgumentError(INVERSE_QUERY_ERROR))
+        direction = String(direction_raw)
+        direction in ("down", "up", "any") || throw(ArgumentError(INVERSE_QUERY_ERROR))
+        cap_raw = get(data, :cap, 50)
+        (cap_raw isa Integer || (cap_raw isa Real && isinteger(cap_raw))) ||
+            throw(ArgumentError(INVERSE_CAP_ERROR))
+        cap = Int(cap_raw)
+        1 <= cap <= 500 || throw(ArgumentError(INVERSE_CAP_ERROR))
+        doses_raw = get(data, :doses, nothing)
+        ko_dose, oe_dose = 0.0, 80.0
+        if doses_raw !== nothing
+            (doses_raw isa AbstractDict || doses_raw isa JSON3.Object) ||
+                throw(ArgumentError(INVERSE_QUERY_ERROR))
+            kr = get(doses_raw, :ko, 0.0); or = get(doses_raw, :oe, 80.0)
+            (kr isa Real && or isa Real && 0.0 <= Float64(kr) <= 100.0 &&
+             0.0 <= Float64(or) <= 100.0) || throw(ArgumentError(INVERSE_QUERY_ERROR))
+            ko_dose, oe_dose = Float64(kr), Float64(or)
+        end
+
+        # The target's nodes, through the readouts endpoint itself (no
+        # activities: resolution only), for ancestry and self-exclusion.
+        tq = Dict{String, Any}("id" => "target")
+        for k in (:stable_ids, :members, :mode)
+            haskey(target, k) && (tq[String(k)] = target[k])
+        end
+        tres = _internal_post(readouts_handler, "/api/readouts",
+                              Dict("network_id" => network_id, "queries" => [tq]))
+        tentry = tres[:results][1]
+        String(tentry[:basis]) == "none" && throw(ArgumentError(INVERSE_TARGET_ERROR))
+        target_nodes = Set{String}(String(u) for g in tentry[:groups] for u in g)
+        isempty(target_nodes) && throw(ArgumentError(INVERSE_TARGET_ERROR))
+
+        # Candidates: every curated entity's pin resolution, deduplicated by
+        # pin set (paralogs through one root complex answer as one row).
+        ids = sort!(unique(String[n.reactome_id for n in values(network.nodes)
+                                  if n.reactome_id !== nothing && !isempty(n.reactome_id) &&
+                                     startswith(n.reactome_id, "R-")]))
+        pres = _internal_post(pins_handler, "/api/pins",
+                              Dict("network_id" => network_id,
+                                   "queries" => [Dict("id" => i, "stable_ids" => [i]) for i in ids]))
+        bypins = Dict{Vector{String}, Vector{Any}}()   # sorted pin uuids -> query results
+        for r in pres[:results]
+            isempty(r[:pins]) && continue
+            key = sort!(String[String(pin[:uuid]) for pin in r[:pins]])
+            push!(get!(bypins, key, Any[]), r)
+        end
+
+        # Ancestry: reverse reachability from the target nodes over the solved
+        # network's OWN edges (derived edges included) — a pin outside this set
+        # cannot move the target through the network.
+        preds = Dict{String, Vector{String}}()
+        for e in network.edges
+            push!(get!(preds, e.child_uuid, String[]), e.parent_uuid)
+        end
+        ancestors = Set{String}(target_nodes)
+        queue = collect(target_nodes)
+        while !isempty(queue)
+            u = pop!(queue)
+            for p in get(preds, u, String[])
+                p in ancestors && continue
+                push!(ancestors, p); push!(queue, p)
+            end
+        end
+
+        candidates = sort!(collect(keys(bypins)); by = key -> String(bypins[key][1][:id]))
+        self_excluded = 0
+        reachable = Vector{Vector{String}}()
+        for key in candidates
+            if any(u -> u in target_nodes, key)
+                self_excluded += 1
+            elseif any(u -> u in ancestors, key)
+                push!(reachable, key)
+            end
+        end
+
+        solved_keys = reachable[1:min(cap, length(reachable))]
+        rows = []
+        moved = 0
+        protocol = nothing
+        for key in solved_keys
+            qs = bypins[key]
+            names = sort!(unique(String[String(pin[:name]) for r in qs for pin in r[:pins]]))
+            cids = sort!(unique(String[String(r[:id]) for r in qs]))
+            for (label, dose) in (("knockout", ko_dose), ("overexpression", oe_dose))
+                sol = _internal_post(solve_handler, "/api/solve",
+                                     Dict("network_id" => network_id,
+                                          "observations" => Dict(u => [dose, 1.0] for u in key)))
+                ro = _internal_post(readouts_handler, "/api/readouts",
+                                    Dict("network_id" => network_id,
+                                         "activities" => sol[:node_activities],
+                                         "pinned" => key,
+                                         "converged" => sol[:converged],
+                                         "switch_components" => get(sol, :switch_components, []),
+                                         "queries" => [tq]))
+                protocol = ro[:protocol]
+                entry = copy(Dict(ro[:results][1]))
+                call = get(entry, :call, nothing)
+                changed = call !== nothing && String(call) != "normal"
+                changed && (moved += 1)
+                keep = direction == "any" ? changed :
+                       (call !== nothing && String(call) == direction)
+                keep || continue
+                row = Dict{String, Any}(
+                    "candidates" => cids, "names" => names,
+                    "pins" => key, "dose" => label, "activity" => dose,
+                    "converged" => sol[:converged])
+                for k in (:fold, :call, :railed, :value, :confidence,
+                          :confidence_stratum, :measured_fold_ranges, :fragility,
+                          :switch, :state, :other_state_fold)
+                    haskey(entry, k) && (row[String(k)] = entry[k])
+                end
+                push!(rows, row)
+            end
+        end
+        sort!(rows; by = r -> -(abs(log2(max(Float64(get(r, "fold", 1.0)), 1e-12)))))
+
+        result = Dict(
+            "status" => "success",
+            "direction" => direction,
+            "doses" => Dict("ko" => ko_dose, "oe" => oe_dose),
+            "cap" => cap,
+            # measured, research R2: influence does not pre-rank, so the solve
+            # order claims nothing; returned rows are ranked by the measured
+            # effect AFTER solving.
+            "ordering" => "entity_id",
+            "counts" => Dict(
+                "candidates_total" => length(candidates),
+                "self_excluded" => self_excluded,
+                "reachable" => length(reachable),
+                "solved" => length(solved_keys),
+                "capped" => length(reachable) - length(solved_keys),
+                "moved" => moved,
+                "returned" => length(rows)),
+            "target" => Dict("basis" => tentry[:basis], "nodes" => sort!(collect(target_nodes))),
+            "protocol" => protocol === nothing ? tres[:protocol] : protocol,
+            "results" => rows,
+        )
+        return HTTP.Response(200, JSON_HEADERS, JSON3.write(result))
+    catch e
+        return error_response(e; context="inverse_handler")
+    end
+end
+
 _readout_string_vector(raw, err) = begin
     raw isa AbstractVector || throw(ArgumentError(err))
     all(s -> s isa AbstractString, raw) || throw(ArgumentError(err))
@@ -1643,6 +1824,7 @@ function create_router()
     HTTP.register!(router, "POST", "/api/solve", solve_handler)
     HTTP.register!(router, "POST", "/api/pins", pins_handler)
     HTTP.register!(router, "POST", "/api/readouts", readouts_handler)
+    HTTP.register!(router, "POST", "/api/inverse", inverse_handler)
 
     # Catch-all for unknown routes
     HTTP.register!(router, "*", "*", not_found_handler)
