@@ -15,14 +15,14 @@ The specs/128 per-edge-class response curves (`DS_EDGE_CURVES`): activating slot
 ## The datasets (all FIT; each scored as its own bench writes it)
 
 - **korkut** (`korkut_bench.py`, scored cases).
-- **decryptM** (`decryptm_bench.py`, scored cases; the frozen-92 kinobeads case table and the r97 phospho export, as specs/114's `s114_f92_kb` arm).
+- **decryptM** (`decryptm_bench.py`, scored cases; the kinobeads case table `analysis/114/cases_frozen92_kinobeads.tsv` with the Release-98 phospho export `phospho_ewas_r98.csv`, as specs/153 ran its subset on 98).
 - **CPPA** (`cppa_bench.py`, single-compound samples × mapped antibodies; the prediction for a (drug, readout) is the mean clipped log2 fold over pathways, called at log2 0.85 / 1.15; measured call at ±log2 1.5). Numbers stay outside the repository (CPPA terms).
 
 **Exclusions (the scorecard rule)**: a drug's own direct markers on korkut (specs/138) and CPPA (specs/139); on decryptM, cases whose phosphosite gene is one of the drug's targets.
 
 ## Runs
 
-The frozen canonical build `20261026-1349_8b6527e`, at one commit, with one replay server per grid point carrying exactly `DS_EDGE_CURVES=<table>` (or none for `cf_off`). Each server's curve rule is verified POSITIVELY from the solve response (`edge_curve_rule`) before any bench runs. All three benches run against each server.
+The served Release 98 build `20261113-1311_baf608b_r98fix` (the gene and site lookups use the Release 98 Neo4j on 7687, so the build must be 98; amended before any run), at one commit, with one replay server per grid point carrying exactly `DS_EDGE_CURVES=<table>` (or none for `cf_off`). Each server's curve rule is verified POSITIVELY from the solve response (`edge_curve_rule`) before any bench runs. All three benches run against each server.
 
 ## Leave-one-dataset-out (`bench/analysis/164/score_164.py`, fixture-checked before use)
 
