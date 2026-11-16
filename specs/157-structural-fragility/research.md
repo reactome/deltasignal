@@ -24,7 +24,7 @@ Two exclusions by KIND, registered up front:
   the recorded scoring protocol; a variant must be a solver `DS_*` env the
   served container can carry.
 
-**IN (16 variants)** — each row: setting · measuring spec · recorded deltas
+**IN (20 variants)** — each row: setting · measuring spec · recorded deltas
 (held-out / experimental unless noted):
 
 | # | variant | spec | recorded record-axis deltas |
