@@ -332,9 +332,12 @@ at its measured engagement turned 256 false calls right and broke 7, with
 reachable-case specificity 0.70 → 0.79 and precision 0.11 → 0.14. The
 registered balanced-accuracy gate did NOT pass (+0.003, interval including
 0), so this is guidance with its record attached, not a validated accuracy
-claim. The engagement values came from korkut's own markers, so the record
-shows that the protocol helps when engagement is known, not that DeltaSignal
-can predict engagement. An independent replication is registered (specs/162).
+claim. The engagement values came from korkut's own markers. **An
+independent replication on CPPA (specs/162) FAILED its registered gate**:
+there, pinning at measured engagement removed correct and false change calls
+alike (precision did not improve and ranking skill fell). So this is an option
+when you have measured engagement, not a recommendation, and no accuracy gain
+is claimed.
 
 ### POST /api/inverse (specs/158)
 
