@@ -321,6 +321,18 @@ classes below the minimum. The top-level `fragility_table` says
 `ok: <version>` or names why nothing serves (the same provenance refusal);
 `fragility_min_cell` carries the minimum.
 
+### Filtering calls by the served labels (specs/165)
+
+The labels every call carries (whether the readout is reached, the specs/157
+fragility class, and the specs/146 confidence) work as a precision filter.
+Keeping only calls that are robust (not in a fragile class) AND confident
+(confidence ≥ 0.85) raised change-call precision on every measured axis: the
+curator held-out expectations 0.888 → 0.920 (keeping 77% of calls), MP-BioPath
+gene perturbations 0.876 → 0.911 (79%), and the korkut drug record
+0.109 → 0.152 (58%). Precision on drug readouts stays low in absolute terms:
+on gene perturbations the model's change calls are mostly right, and on drug
+RPPA they mostly are not, even after filtering.
+
 ### Pinning a drug at its measured engagement (specs/161)
 
 A drug enters the benchmark protocol as a full knockout of its target (the
