@@ -24,10 +24,11 @@ predictions? Or do they only add connectivity, the way any extra edges would?
   among the 256.
 - **Dataset roles.** korkut and MP-BioPath experimental are FIT, and curator held-out is SELECT, so
   this is a measurement, not a test.
-- **A difference from our build.** In 7 of the 10 pathways, the `without` arm has a few curated
-  nodes that our served build lacks; nothing is missing. The cause is probably the build
-  environment (ours sets `LNG_EMIT_ONE_SIDED=1` and `LNG_DIAGRAM_DIR`). It does not bias the
-  comparison, because every arm is built from their bundle.
+- **The `without` arm matches our served build.** All 10 pathways have the same edge counts as the
+  served Release 98 build (`20261113-1311_baf608b_r98fix`). Three pathways list a few extra ids in
+  `stid_to_uuid_mapping.csv` and `nodes.csv` (5, 3 and 6; simple entities and dissociation sinks),
+  but no edge uses them, so they are isolated and inert. Every arm is built from their bundle in
+  any case.
 
 ## Arms
 
