@@ -1527,6 +1527,21 @@ def run_pathway(pathway_id: str, pathway_name: str, gene_to_stids_cache=None,
     }
 
 
+def subset_catalog(build_json: Path, catalog_list: Path) -> bool:
+    """True when the build was asked for fewer pathways than the catalog list (a variant build of a few
+    pathways, specs/166). Liveness guards that need a rule to fire somewhere cannot hold on such a build,
+    as on a --limit smoke run."""
+    try:
+        req = json.loads(Path(build_json).read_text()).get("pathways_requested")
+    except (OSError, ValueError):
+        return False
+    n = len(req) if isinstance(req, list) else (int(req) if req is not None else None)
+    if n is None:
+        return False
+    full = sum(1 for line in open(catalog_list) if line.startswith("R-HSA-"))
+    return n < full
+
+
 def network_edge_count(pathway_id: str) -> int:
     d = find_pathway_dir(pathway_id)
     if d is None:
@@ -1637,6 +1652,11 @@ def main():
     if args.limit:
         pathways = pathways[: args.limit]
 
+    subset = subset_catalog(CATALOG_ROOT / "BUILD.json", Path(__file__).resolve().parent / "catalog_pathways.tsv")
+    partial = args.limit is not None or subset
+    if subset:
+        print("Subset catalog: fewer pathways than bench/catalog_pathways.tsv; guards that need a rule to "
+              "fire in particular pathways are skipped, as under --limit", flush=True)
     print(f"Running benchmark on {len(pathways)} pathway(s) …", flush=True)
     print(f"Protocol: DS_PIN_SCOPE={PIN_SCOPE}{' DS_PIN_ROOT_IGNORE=' + PIN_ROOT_IGNORE if PIN_ROOT_IGNORE else ''} DS_PERTURB_UI_DOWN={PERTURB_UI_DOWN:g} "
           f"DS_PERTURB_UI_UP={PERTURB_UI_UP:g} DS_KO_AGG={KO_AGG} "
@@ -1732,7 +1752,7 @@ def main():
     print(f"RNA twins: rule {'/'.join(rnrules) or 'unknown'}, {SOLVE_TALLY['rna_twin_edges']} edge-solves (specs/100)")
     if any(r.startswith("on: no RNA table") for r in rnrules):
         raise SystemExit("DS_RNA_TWIN=on but a network has no rnas.csv (a build that predates it); the arm is not the rule.")
-    if "on" in rnrules and args.limit is None and SOLVE_TALLY["rna_twin_edges"] == 0:
+    if "on" in rnrules and not partial and SOLVE_TALLY["rna_twin_edges"] == 0:
         raise SystemExit("DS_RNA_TWIN=on but no solve added an RNA supply edge; the arm is the control.")
     corders = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("context_bridge_order="))
     print(f"Context bridges: order {'/'.join(corders) or 'unknown'}, {SOLVE_TALLY['context_bridges']} edge-solves, "
@@ -1764,7 +1784,7 @@ def main():
     # networks DID list pathogens and none was held: the listing matched nothing.
     urules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("ubiquitin_rule="))
     print(f"Free ubiquitin: rule {'/'.join(urules) or 'unknown'}, {SOLVE_TALLY['ubiquitin_held']} node-solves held (specs/098)")
-    if "inert" in urules and args.limit is None and SOLVE_TALLY["ubiquitin_held"] == 0:
+    if "inert" in urules and not partial and SOLVE_TALLY["ubiquitin_held"] == 0:
         raise SystemExit("DS_UBIQUITIN_MODE=inert but no solve held a free ubiquitin node; the arm is the control.")
     if "inert" in prules and SOLVE_TALLY["pathogens_held"] == 0:
         if SOLVE_TALLY["pathogens_listed"]:
@@ -1822,14 +1842,14 @@ def main():
     ya = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("pool_supply_and="))
     print(f"Pool supply AND groups: {'/'.join(ya) or 'unknown'}, "
           f"{SOLVE_TALLY['cycle_supply_and_groups']} state-solves with AND-joined producers (specs/090)")
-    if "on" in ya and args.limit is None and SOLVE_TALLY["cycle_supply_and_groups"] == 0:
+    if "on" in ya and not partial and SOLVE_TALLY["cycle_supply_and_groups"] == 0:
         raise SystemExit("DS_POOL_SUPPLY_AND=on but no solve found an AND-joined pool supply; the arm is the control.")
     yb = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("pool_base_weight="))
     ym = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("carrier_loop_moves="))
     print(f"Carrier loop moves: {'/'.join(ym) or 'unknown'} (specs/093)")
     print(f"Pool base weight: {'/'.join(yb) or 'unknown'}, {SOLVE_TALLY['cycle_bases_split']} "
           f"multi-base pool-solves split (specs/091)")
-    if "split" in yb and args.limit is None and SOLVE_TALLY["cycle_bases_split"] == 0:
+    if "split" in yb and not partial and SOLVE_TALLY["cycle_bases_split"] == 0:
         raise SystemExit("DS_POOL_BASE_WEIGHT=split but no solve had a multi-base pool; the arm is the control.")
     ycr = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("cycle_carrier_release="))
     print(f"Carrier release: {'/'.join(ycr) or 'unknown'}, "
@@ -1844,7 +1864,7 @@ def main():
     print(f"Carrier component twins: rule {'/'.join(crules) or 'unknown'}, "
           f"{SOLVE_TALLY['carrier_component_edges']} edge-solves (specs/084)")
     # 7 canonical pathways have a component edge, so a --limit smoke run may have none
-    if "on" in crules and args.limit is None and SOLVE_TALLY["carrier_component_edges"] == 0:
+    if "on" in crules and not partial and SOLVE_TALLY["carrier_component_edges"] == 0:
         raise SystemExit("DS_CARRIER_COMPONENT_TWIN=on but no solve added a component edge; the arm is the control.")
     arules = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_activator_rule="))
     print(f"Self-contained activators: rule {'/'.join(arules) or 'unknown'}, "
@@ -1873,7 +1893,7 @@ def main():
     crs = sorted(k.split("=", 1)[1] for k in SOLVE_TALLY if k.startswith("self_inhibitor_copies="))
     print(f"Self-inhibitor copies: {'/'.join(crs) or 'unknown'}, "
           f"{SOLVE_TALLY['self_inhibitor_copy_pairs']} pair-solves added (specs/095)")
-    if "on" in crs and args.limit is None and SOLVE_TALLY["self_inhibitor_copy_pairs"] == 0:
+    if "on" in crs and not partial and SOLVE_TALLY["self_inhibitor_copy_pairs"] == 0:
         raise SystemExit("DS_SELF_INHIBITOR_COPIES=on but no solve added a copy pair; the arm is the control.")
     if "on" in lrules and SOLVE_TALLY["self_inhibitor_leaf_pairs"] == 0:
         raise SystemExit("DS_SELF_INHIBITOR_LEAVES=1 but no solve flagged a leaf-shared inhibitor; the arm is the control.")

@@ -9,8 +9,15 @@ mapfile -t ARMS < <(ls -d "$HOME"/deltasignal-catalogs/builds/20261118-lit-h12b-
 i=0
 for a in "${ARMS[@]}"; do
   if [ $((i % 4 + 1)) -eq "$W" ]; then
+    sha=$(git rev-parse --short HEAD)
+    if python3 -c 'import json,sys; sys.exit(json.load(open(sys.argv[1]))["exit"])' \
+         "$HOME/deltasignal-catalogs/builds/$a/results/$sha/lit166/ARM.json" 2>/dev/null; then
+      echo "=== $a already complete at $sha"; i=$((i + 1)); continue
+    fi
     echo "=== $a ($(date -Is))"
+    # a shuffled network can hold one slow solve (> the default 600 s, shuf02 Mitotic G1)
     scripts/run_arm.sh lit166 --catalog "$a" --axis curator --axis experimental --axis korkut --port $((8100 + W)) \
+      --bench DS_SOLVE_TIMEOUT=3600 \
       || echo "FAILED $a"
   fi
   i=$((i + 1))

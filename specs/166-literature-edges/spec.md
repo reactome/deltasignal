@@ -42,10 +42,17 @@ All arms are built by `bench/analysis/166/build_arms_166.py` and served by `scri
 | `shuf01`..`shuf19` | The literature edges rewired at random, 19 seeds. Within each class (edge_type, pos_neg, and_or), targets are permuted among that class's edges, so each node keeps its in- and out-degree per class and each edge keeps its sign and type. Self-loops, duplicates and collisions with curated pairs are redrawn. Curated rows are untouched. |
 | `only-<slice>` | Descriptive ablations: `without` plus only the literature edges in one slice. Slices are layer (verified, extracted); sign_source (stated, inferred, na); group (binding/other, regulation, expression); and prior_confidence (< 0.4, 0.4–0.6, ≥ 0.6). |
 
-Literature nodes take part under the bench's existing protocols. A literature node that contains a
-perturbed gene and has no in-edge is a root, so it is pinned; and the readout rules read it like
-any other copy. That is how the generator's tables present those nodes, and it is the same in every
-arm that carries them.
+Literature nodes take part under the bench's existing protocols. **Correction (2026-11-18, after
+registration, before any arm was scored).** The registered text said literature nodes would be
+pinned and read as readout copies. They are neither: both benches resolve genes and readouts to
+Reactome stable ids from Neo4j (`neo4j_gene_to_stids`, readout stids), and literature nodes carry
+`UNIPROT:`/`LIT:` ids, so they only add routes between curated nodes.
+
+Literature edges still change the pins in one way. An edge into a curated root raises its in-degree
+(`root_indegree`), so that root is no longer pinned, and the gene is pinned by the specs/024
+fallback or its case becomes invalid. The shuffles do the same. The intersection keeps only cases
+valid in every primary arm. The number of cases whose pins differ from `without` is reported per
+arm.
 
 ## Cases
 
