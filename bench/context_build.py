@@ -68,6 +68,21 @@ UNION = ("nodes.csv", "stid_to_uuid_mapping.csv", "entity_reaction_proxy_mapping
 EDGE_HEAD = ["source_id", "target_id", "pos_neg", "and_or", "edge_type", "stoichiometry", "edge_reaction_id"]
 
 
+class ContextBuildError(RuntimeError):
+    """A composite that would not be what its plan says (review 2026-11-20: arrow source pathways planned from
+    --sources were read from the base, silently omitted, and their bridges written dangling)."""
+
+
+def member_dir(base, name, sources=None):
+    """The catalog directory holding pathway `name`: the base build first, then the --sources catalog (specs/148).
+    None when neither has its nodes.csv. Planner and builder both resolve through here, so a composite is built from
+    the same tables it was planned from."""
+    for root in (base, sources):
+        if root is not None and (Path(root) / name / "nodes.csv").exists():
+            return Path(root) / name
+    return None
+
+
 def rows(p):
     if not p.exists():
         return None, []
@@ -243,16 +258,13 @@ def plan_arrows(base, arrows, centres, members=None, sources=None):
     arrows = [r for r in csv.DictReader(open(arrows), delimiter="\t") if r["pathway"] in centres]
     info, ents, kinds, roots = {}, {}, {}, {}
 
-    def src_dir(name):
+    def get(name):
         # a source pathway may live in a second catalog (specs/148: the
         # whole-Reactome build supplies arrows whose source the 92 lack)
-        if (base / name / "nodes.csv").exists() or sources is None:
-            return base / name
-        return Path(sources) / name
-
-    def get(name):
         if name not in info:
-            d = src_dir(name)
+            d = member_dir(base, name, sources)
+            if d is None:
+                raise ContextBuildError(f"{name}: no nodes.csv in base {base} or sources {sources}")
             v = load(d)
             info[name] = v
             ents[name] = {r["uuid"]: r["diagram_entity_id"] for r in rows(d / "nodes.csv")[1]}
@@ -264,7 +276,7 @@ def plan_arrows(base, arrows, centres, members=None, sources=None):
     for L in arrows:
         P, Q, e = L["pathway"], L["q"], L["entity"]
         row = dict(L, status="")
-        if not (src_dir(Q) / "nodes.csv").exists():
+        if member_dir(base, Q, sources) is None:
             row["status"] = "no_source_network"; census.append(row); continue
         held = set()
         for t in ("cofactors.csv", "drugs.csv", "pathogens.csv"):
@@ -415,21 +427,29 @@ def keep_row(t, r, kept):
     return True
 
 
-def build_one(base, out, P, nbrs, bridges, prune=True, feedback=True):
+def build_one(base, out, P, nbrs, bridges, prune=True, feedback=True, sources=None):
+    """Write centre P's composite: P from `base`, each neighbour from `base` or, failing that, `sources` (the catalog
+    plan_arrows planned it from). Raises ContextBuildError, before writing anything, when a member's tables are in
+    neither, and after writing when a context_bridge endpoint is not a node of the composite."""
+    members = [P] + nbrs
+    src = {q: member_dir(base, q, None if q == P else sources) for q in members}
+    missing = [q for q in members if src[q] is None]
+    if missing:
+        raise ContextBuildError(f"{P}: no nodes.csv for {', '.join(missing)} in base {base}"
+                                + (f" or sources {sources}" if sources else " (no --sources catalog given)"))
     d = out / P
     d.mkdir(parents=True)
-    members = [P] + nbrs
     kept, edges = {P: None}, {}
     for q in nbrs:
         bq = bridges[(P, q)]
         edges[q] = {(a, b, rid) for a, b, rid in bq["edges"]}
         # unpruned: the whole reduced neighbour, still without P's reactions
-        kept[q] = kept_nodes(base / q, [s for s, _ in bq["in"]], bq["edges"]) if prune else \
+        kept[q] = kept_nodes(src[q], [s for s, _ in bq["in"]], bq["edges"]) if prune else \
             {x for a, b, _ in bq["edges"] for x in (a, b)} | {s for s, _ in bq["in"]} | {t for _, t in bq["out"]}
     for t in UNION:
         head, allr = None, []
         for q in members:
-            h, rs = rows(base / q / t)
+            h, rs = rows(src[q] / t)
             if h is None:
                 continue
             head = head or h
@@ -453,25 +473,31 @@ def build_one(base, out, P, nbrs, bridges, prune=True, feedback=True):
         w = csv.writer(f, lineterminator="\n")
         w.writerow(EDGE_HEAD)
         for q in members:
-            for r in rows(base / q / "logic_network.csv")[1]:
+            for r in rows(src[q] / "logic_network.csv")[1]:
                 if q != P and ((r["source_id"], r["target_id"], r.get("edge_reaction_id") or "") not in edges[q]
                                or not keep_row("logic_network.csv", r, kept[q])):
                     continue
                 w.writerow([r[c] for c in EDGE_HEAD])
-        n = 0
+        written = []
         for q in nbrs:
             bq = bridges[(P, q)]
             outs = [(s_, t_) for s_, t_ in bq["out"] if t_ in kept[q]] if feedback else []
             for s_, t_ in bq["in"] + outs:
                 w.writerow([s_, t_, "pos", "or", "context_bridge", "1", ""])
-                n += 1
+                written.append((q, s_, t_))
+    nodes = {r["uuid"] for r in rows(d / "nodes.csv")[1]}
+    dangling = [(q, s_, t_) for q, s_, t_ in written if s_ not in nodes or t_ not in nodes]
+    if dangling:
+        raise ContextBuildError(f"{P}: {len(dangling)} of {len(written)} context_bridge edges have an endpoint that is "
+                                f"not a node of the composite, e.g. {dangling[0]}")
+    n = len(written)
     with open(d / "context_own.csv", "w", newline="") as f:
-        f.write("uuid\n" + "".join(r["uuid"] + "\n" for r in rows(base / P / "nodes.csv")[1]))
+        f.write("uuid\n" + "".join(r["uuid"] + "\n" for r in rows(src[P] / "nodes.csv")[1]))
     # specs/133 amendment 1: each node's pathway, so the solver's identity rules stay inside one pathway
     with open(d / "context_origin.csv", "w", newline="") as f:
         f.write("uuid,pathway\n")
         for q in members:
-            for r in rows(base / q / "nodes.csv")[1]:
+            for r in rows(src[q] / "nodes.csv")[1]:
                 if kept[q] is None or keep_row("nodes.csv", r, kept[q]):
                     f.write(f"{r['uuid']},{q}\n")
     return n
@@ -565,7 +591,7 @@ def main_arrows(a, base):
     tot = {}
     for p in centres:
         tot[p] = {"neighbours": sorted(nbr[p]),
-                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, False, False)}
+                  "bridges": build_one(base, out, p, sorted(nbr[p]), bridges, False, False, a.sources)}
     b = json.load(open(base / "BUILD.json"))
     repo = Path(__file__).resolve().parent.parent
     sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
@@ -576,6 +602,7 @@ def main_arrows(a, base):
               "context_of": base.name, "context_rule": "diagram_arrows",
               "context_root_ignore": bm.PIN_ROOT_IGNORE or "none",
               "context_links": a.arrows, "context_members": a.members, "context_pruned": False,
+              "context_sources": Path(a.sources).resolve().name if a.sources else None,
               "context_whole": True, "context_feedback": False, "context": tot,
               "pathway_list": a.centres, "pathways_requested": len(centres), "pathways_built": len(tot),
               "status": "complete"})
