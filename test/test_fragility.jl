@@ -109,6 +109,8 @@ end
         t2 = roundtrip(fixture_table())
         # fold exactly 1.0: untouched, nothing served whatever the table holds
         @test DeltaSignal.readout_fragility(t2, "down", 1.0; converged = true) === nothing
+        # a solved untouched fold carries float noise; it reads 1 at the record's precision
+        @test DeltaSignal.readout_fragility(t2, "down", 1.0 + 2e-14; converged = true) === nothing
     end
 
     @testset "the shipped table is the serving record's" begin

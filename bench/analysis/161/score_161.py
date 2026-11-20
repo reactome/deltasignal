@@ -20,7 +20,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 sys.path.insert(0, str(HERE.parents[2]))
 sys.path.insert(0, str(HERE.parent))
+sys.path.insert(0, str(HERE.parents[1]))
 import dataset_roles  # noqa: E402
+from fold_rules import untouched  # noqa: E402
 from engagement_161 import engagement, marker_names  # noqa: E402
 
 N_BOOT = 10_000
@@ -51,7 +53,7 @@ def ba(rows, col):
 
 
 def scorecard(rows, col, fold_col):
-    reach = [r for r in rows if r["base_fold"] != 1.0]
+    reach = [r for r in rows if not untouched(r["base_fold"])]
     chg = [r for r in reach if r["measured"] != "not"]
     nc = [r for r in reach if r["measured"] == "not"]
     called = [r for r in reach if r[col] != "not"]
@@ -83,12 +85,16 @@ def main():
         if any(r["readout"] in marks.get(d, set()) for d in drugs):
             excluded += 1
             continue
-        engaged_all = all(eng[d][0] <= 0.85 for d in drugs)  # anatomy only
+        # anatomy only. A drug with no marker on the array has a placeholder e = 0 (full knockout,
+        # the recorded protocol), so its engagement is unknown, not strong (2026-11-20 review).
+        unknown = any(eng[d][1].startswith("no marker") for d in drugs)
+        engaged_all = all(eng[d][0] <= 0.85 for d in drugs)
         rows.append({"drug_set": r["drug_set"], "pathway": r["pathway_id"],
                      "measured": r["measured"],
                      "base": base[k][0], "base_fold": base[k][1],
                      "arm": arm[k][0], "arm_fold": arm[k][1],
-                     "group": "strongly engaged" if engaged_all else "weak/none engaged"})
+                     "group": ("engagement unknown" if unknown else
+                               "strongly engaged" if engaged_all else "weak/none engaged")})
     print(f"{len(rows)} scored rows ({excluded} marker readouts excluded from both arms)")
 
     by_set = defaultdict(list)
@@ -111,7 +117,7 @@ def main():
     nr = [r for r in rows if r["pathway"] != RAF]
     print(f"  (RAF set aside: delta {ba(nr, 'arm') - ba(nr, 'base'):+.4f})")
 
-    print("\nreachable-case scorecard (reachable = full-knockout fold != 1):")
+    print("\nreachable-case scorecard (reachable = full-knockout fold not 1 at the record's precision):")
     for col, fc, name in (("base", "base_fold", "full-knockout"), ("arm", "arm_fold", "engagement")):
         se, sp, pr, auc, n = scorecard(rows, col, fc)
         print(f"  {name:>14}: sensitivity {se:.3f}  specificity {sp:.3f}  precision {pr:.3f}  "
@@ -120,7 +126,7 @@ def main():
     moved = [r for r in rows if r["arm"] != r["base"]]
     print(f"\ncalls moved {len(moved)}: fixed {sum(r['arm'] == r['measured'] for r in moved)}, "
           f"broken {sum(r['base'] == r['measured'] for r in moved)}")
-    for g in ("weak/none engaged", "strongly engaged"):
+    for g in ("weak/none engaged", "strongly engaged", "engagement unknown"):
         mg = [r for r in moved if r["group"] == g]
         print(f"  {g:>18}: moved {len(mg)}, fixed {sum(r['arm'] == r['measured'] for r in mg)}, "
               f"broken {sum(r['base'] == r['measured'] for r in mg)}")

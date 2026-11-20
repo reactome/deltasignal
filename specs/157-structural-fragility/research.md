@@ -212,3 +212,27 @@ today's main (`43066b15`); the only `src/` difference between `7fe3dcc` and
 `bbcc44b2` is P4's serving code (the table itself, `readouts.jl`,
 `server.jl`). The table is unchanged; the recorded commit names the code that
 produced it, and the solver it describes is the one main serves.
+## Amendment, 2026-11-20 (code review): the untouched rule read real folds exactly
+
+The fitter (`fit_157.py`) and the engine tested `fold == 1.0` on folds replayed straight from solves,
+which carry float noise (1.0000000000000218). The recorded case files print 6 figures, so there an
+untouched readout reads exactly 1. Of 22,975 record-untouched pairs in `runs/calls_canonical.tsv.gz`,
+16,576 had a replayed fold that was not exactly 1.0. The shipped table's moved-but-normal cell
+(`not|le1|True`, n 17,312, rate 0.0064) was 96% untouched readouts.
+
+Fix: one rule, the fold rounded to 6 significant figures (`bench/analysis/fold_rules.py`, engine
+`record_fold` / `readout_untouched` in `src/api/readouts.jl`), for untouched, railed and the magnitude
+bin. Real-fold check (`bench/analysis/review_1120/untouched_parity.py`, replay vs record, 34,825 joined
+pairs): untouched mismatches 16,576 → 67; railed mismatches 71 → 35. The residual 67 + 35 are all
+korkut, and they are not rounding: 394 korkut replay folds differ from the record beyond print
+precision, because this replay sent korkut phospho readouts as `forms` queries (first resolving
+stable id) while `korkut_bench.py` takes the union of a readout's sites over unpinned copies. Filed as
+its own issue; it touches the korkut side of the labels and the gate below.
+
+Refitted table (`src/api/fragility.json`, version 2026-11-20): 11,780 pairs (curator 9,141,
+experimental 707, korkut 1,932; 23,040 untouched skipped). The moved-but-normal class is now
+`not|le1|True` 0.1457 (n 693), not 0.0064. Other cells move by at most 0.005. The labels and the
+registered gate do not use folds, so the gate result above stands. The specs/165 figures read the
+recorded (rounded) folds and stand.
+The refitted table keeps `solver_commit: 7fe3dcc` (the code the ensemble runs were solved with, note above),
+passed explicitly: `fit_157.py runs src/api/fragility.json 7fe3dcc`.
