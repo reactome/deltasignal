@@ -60,3 +60,47 @@ def test_balanced_accuracy_three_class():
     recs = [{"drug": "D", "cell_line": "c", "minutes": None, "corr": {},
              "calls": {"fold": [(-1, -1), (0, 0), (1, 0), (1, 1)]}}]
     assert sf.balanced(recs, "fold") == (1.0 + 1.0 + 0.5) / 3
+
+
+def _drug_records():
+    # four drugs, unequal sample counts and spread, so a regrouping bug changes the interval
+    vals = {"D1": [0.9, 0.7], "D2": [-0.4], "D3": [0.1, 0.2, 0.3], "D4": [-0.8, -0.6]}
+    return [{"drug": d, "cell_line": f"c{i}", "minutes": None, "corr": {"fold": v}, "calls": {"fold": []}}
+            for d, vs in vals.items() for i, v in enumerate(vs)]
+
+
+def test_drug_bootstrap_matches_direct_reference():
+    # review 2026-11-20: resampling drugs must weight a drug by how many times it was drawn. The reference draws
+    # drug means directly with the same generator: the textbook bootstrap over drugs.
+    import random
+    recs = _drug_records()
+    point, ci, n_drugs, n_units = sf.primary(recs, "fold", "drug")
+    means = sf.per_drug(recs, "fold")
+    drugs = sorted(means)
+    rng = random.Random(sf.SEED)
+    draws = sorted(sum(means[rng.choice(drugs)] for _ in drugs) / len(drugs) for _ in range(sf.N_BOOT))
+    ref = [draws[int(0.025 * sf.N_BOOT)], draws[int(0.975 * sf.N_BOOT) - 1]]
+    assert n_drugs == n_units == 4
+    assert math.isclose(point, sum(means.values()) / 4)
+    assert all(math.isclose(a, b, abs_tol=1e-12) for a, b in zip(ci, ref))
+    assert math.isclose(ci[1] - ci[0], ref[1] - ref[0], abs_tol=1e-12)
+    assert ci[1] - ci[0] > 0.5        # four drugs this far apart cannot give a narrow interval
+
+
+def test_drug_drawn_twice_counts_twice(monkeypatch):
+    # every resample draws D1, D1, D2: the mean over drugs is (m1 + m1 + m2) / 3, not (m1 + m2) / 2
+    recs = [r for r in _drug_records() if r["drug"] in ("D1", "D2")] + \
+           [{"drug": "D3", "cell_line": "c0", "minutes": None, "corr": {"fold": 0.0}, "calls": {"fold": []}}]
+    picks = iter(["D1", "D1", "D2"] * sf.N_BOOT)
+
+    class Fixed:
+        def __init__(self, seed):
+            pass
+
+        def choice(self, seq):
+            return next(picks)
+
+    monkeypatch.setattr(sf.random, "Random", Fixed)
+    _, ci, _, _ = sf.primary(recs, "fold", "drug")
+    expect = (0.8 + 0.8 - 0.4) / 3
+    assert math.isclose(ci[0], expect) and math.isclose(ci[1], expect)

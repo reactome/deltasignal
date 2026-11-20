@@ -21,6 +21,7 @@ HERE = Path(__file__).resolve()
 sys.path.insert(0, str(HERE.parents[2]))
 sys.path.insert(0, str(HERE.parents[1] / "157"))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
+import dataset_roles  # noqa: E402
 import drug_activity as da  # noqa: E402
 from cppa_bench import drug_genes  # noqa: E402
 from ensemble_157 import load_registry, verify_env  # noqa: E402
@@ -30,6 +31,8 @@ from korkut_bench import (neo4j_site_stids, read_tsv, readout_nodes, readout_sti
 
 def main():
     registry, engagement_tsv, drug_targets, acc_gene, readouts_tsv, out_tsv = sys.argv[1:7]
+    for ds in ("cppa_train", "cppa_test"):       # specs/051: the pins are fitted from CPPA (engagement_162)
+        dataset_roles.require_role(ds, "fit")
     verify_env(load_registry(registry), None)
     eng = defaultdict(dict)
     for r in csv.DictReader(open(engagement_tsv), delimiter="\t"):

@@ -105,7 +105,17 @@ def primary(records, arm, unit):
         by_unit[r[unit]].append(r)
     draws = []
     for _ in range(N_BOOT):
-        rs = [r for _ in units for r in by_unit[rng.choice(units)]]
+        rs = []
+        for i in range(len(units)):
+            u = rng.choice(units)
+            # Resampling drugs: each draw is its own pseudo-drug, so a drug drawn k times counts k times in the
+            # mean over drugs (review 2026-11-20). Before, per_drug() regrouped the copies into one drug, which
+            # counted it once and made drug-unit intervals too narrow. Resampling cell lines needs no relabel:
+            # a line drawn k times already contributes k copies of its samples to each drug's mean.
+            if unit == "drug":
+                rs.extend(dict(r, drug=(r["drug"], i)) for r in by_unit[u])
+            else:
+                rs.extend(by_unit[u])
         pd = per_drug(rs, arm)
         draws.append(sum(pd.values()) / len(pd))
     draws.sort()

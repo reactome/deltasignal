@@ -29,8 +29,8 @@ precision@20.
 2. **Magnitude ordering on top of reachability barely helps, and does not
    replicate.** On korkut the model's top 10 adds a little over
    reachability, but by the top 20 it falls below; on CPPA it adds nothing.
-3. **A correction to the motivating claim.** The AUROC 0.63–0.67 "consistent
-   ranking signal" that motivated this spec scores unreachable readouts at
+3. **A correction to the motivating claim.** The AUROC "consistent ranking
+   signal" (korkut 0.65–0.67; the CPPA figure, removed 2026-11-20 under FR-003, is in the private notes) that motivated this spec scores unreachable readouts at
    the bottom (predicted fold 1), so it largely measures reachability too.
    It was not evidence that the magnitudes rank well.
 

@@ -112,6 +112,9 @@ def score(samples, pred, eng, markers):
 
 def main():
     import cppa_data_121 as cd
+    import dataset_roles
+    for ds in ("cppa_train", "cppa_test"):       # specs/051: this score decides the gate
+        dataset_roles.require_role(ds, "select")
     from engagement_162 import markers as load_markers
     (unpacked, split_tsv, markers_tsv, drug_targets, engagement_tsv,
      readouts_tsv, out_json, *arm_files) = sys.argv[1:]

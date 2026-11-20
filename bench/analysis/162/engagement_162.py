@@ -18,7 +18,9 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import cppa_data_121 as cd  # noqa: E402
+import dataset_roles  # noqa: E402
 
 
 def markers(markers_tsv, drug_targets_tsv):
@@ -45,6 +47,8 @@ def engagement(unpacked, split_tsv, mk):
 
 def main():
     unpacked, split_tsv, markers_tsv, drug_targets_tsv, out_tsv = sys.argv[1:6]
+    for ds in ("cppa_train", "cppa_test"):       # specs/051: engagement is fitted on every portion
+        dataset_roles.require_role(ds, "fit")
     mk = markers(markers_tsv, drug_targets_tsv)
     eng = engagement(unpacked, split_tsv, mk)
     with open(out_tsv, "w", newline="") as f:

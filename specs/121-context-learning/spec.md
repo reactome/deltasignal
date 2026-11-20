@@ -193,3 +193,17 @@ records only whether the registered expectations held:
 
 Both CPPA portions are now FIT (`bench/datasets.tsv`); there is no remaining untouched RPPA test. Lun 2019 (CyTOF,
 overexpression) remains the sealed reserve.
+
+## Amendment 7 (2026-11-20): the drug-unit bootstrap, corrected and re-scored
+
+Found by code review (fix approved by Adam, 2026-11-20). `score_121_final.py` resampled drugs with replacement for
+portions A and C, but then regrouped the resample by drug, so a drug drawn k times counted once in the mean over drugs
+and the drug-unit intervals came out too narrow. Each draw is now its own pseudo-drug (`primary()`; unit tests in
+`bench/test_score_121_final.py` check the interval against a direct bootstrap over drug means and that a drug drawn
+twice counts twice). Resampling cell lines (portion B) was already correct and is unchanged.
+
+The registered final test was re-scored with the corrected code on the same inputs (the `94e8f79` frozen and gated
+runs); the numbers are in the private notes, outside the repository (the CPPA terms). Point estimates and balanced
+accuracy reproduce exactly; only the A and C intervals widen. **No verdict changes**: portion A (E1 fails; E2 fails;
+E3 holds), portion B (E2 holds; E3 holds; identical, as its unit is the cell line) and portion C (E2 fails; E3 holds)
+read as recorded above, and no interval moves across 0.

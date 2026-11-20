@@ -178,6 +178,8 @@ def load_cppa(runs, arms, unpacked, split_tsv, markers_tsv, drug_targets):
 def main():
     import dataset_roles
     dataset_roles.require_role("korkut2015", "fit")
+    for ds in ("decryptm1", "cppa_train", "cppa_test"):   # specs/051: each chooses the arm for the others
+        dataset_roles.require_role(ds, "select")
     runs = Path(sys.argv[1])
     unpacked, split_tsv, markers_tsv, drug_targets, out_json = sys.argv[2:7]
     arms = sorted(p.name for p in runs.iterdir() if (p / "cppa" / "cppa_predict_cases.tsv").exists())

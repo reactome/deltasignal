@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "138"))
+import dataset_roles  # noqa: E402
 import korkut_bench as k  # noqa: E402
 from engagement import MARKERS, table as engagement_table  # noqa: E402  the specs/138 code itself
 
@@ -95,6 +96,7 @@ def main():
     ap.add_argument("cases")
     ap.add_argument("--seed", type=int, default=144)
     args = ap.parse_args()
+    dataset_roles.require_role("korkut2015", "fit")   # specs/051: alpha is fitted on korkut
 
     rows = [r for r in csv.DictReader(open(args.cases), delimiter="\t")
             if r["status"] == "scored" and r["measured"] != ""]

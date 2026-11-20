@@ -200,3 +200,15 @@ the registered shape before any fitting. An untouched readout (fold exactly
 with the fragility table LIVE: all 24,356 recorded folds reproduce (max |diff|
 5e-7, zero past 1e-5; `parity_folds_157.tsv`). The flag adds fields; nothing
 existing moves.
+
+**Provenance note (2026-11-20, code review): `solver_commit: 7fe3dcc` in
+`src/api/fragility.json`.** `7fe3dcc` is not on main, and that is expected:
+it is the P3 measurement commit on PR #261's branch
+(`origin/specs/157-structural-fragility`, still on the remote), and #261 was
+squash-merged as `bbcc44b2`, which replaced the branch's commits with one. The
+ensemble the table was fitted from ran at `7fe3dcc`. Checked: `src/solvers`,
+`src/core` and `src/io` are identical at `7fe3dcc`, at `bbcc44b2` and at
+today's main (`43066b15`); the only `src/` difference between `7fe3dcc` and
+`bbcc44b2` is P4's serving code (the table itself, `readouts.jl`,
+`server.jl`). The table is unchanged; the recorded commit names the code that
+produced it, and the solver it describes is the one main serves.

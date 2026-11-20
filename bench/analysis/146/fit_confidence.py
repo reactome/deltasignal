@@ -27,6 +27,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve()
 sys.path.insert(0, str(HERE.parents[1]))
+sys.path.insert(0, str(HERE.parents[2]))
+import dataset_roles  # noqa: E402
 from holdout_report import TUNING_PATHWAYS  # noqa: E402
 from score_124 import railed  # noqa: E402
 
@@ -173,6 +175,10 @@ def main():
     ap.add_argument("--solver-commit", default="05dc867")
     args = ap.parse_args()
     rd = Path(args.results_dir)
+    # specs/051: the table is fitted on tuning (and carries experimental counts); held-out decides the H1 gate
+    dataset_roles.require_role("mpbiopath_curator_tuning", "fit")
+    dataset_roles.require_role("mpbiopath_experimental", "fit")
+    dataset_roles.require_role("mpbiopath_curator_heldout", "select")
 
     basis_by_key = load_basis(args.basis)
     curator = cases(rd / "curator_cases.tsv", basis_by_key)
