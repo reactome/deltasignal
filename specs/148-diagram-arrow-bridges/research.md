@@ -107,3 +107,8 @@ no measured rate" where none does; never as main-class answers. The
 whole-Reactome arrow set is now fully in hand (the source catalog exists),
 so a future dataset with perturbations upstream of the new arrows can rate
 them the same way.
+
+**Correction (2026-11-20, specs/149 amendment 1):** the 12 out-of-catalog arrows above were never in the
+scored networks. The builder wrote their bridges but not their source pathways, so 18 of the 32 bridges in
+`20261107-arrows97-11c` dangle. "The 12 new arrows change no korkut answer" is that defect, and the explanation
+given for it is unsupported. The p-AKT measurement is unaffected.

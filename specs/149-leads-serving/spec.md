@@ -27,3 +27,73 @@
 - No automatic composite generation in catalog.sh (manual packaging for 11 dirs now; tooling later if adopted).
 - No rate invention: `unrated` stays `unrated` until a dataset perturbs upstream of an arrow.
 - No release-98 content (the coordinated upgrade is its own plan).
+
+## Amendment 1 (2026-11-20, code review): 11 of the 16 served arrows are no-ops in the served composites
+
+**Defect.** For `--arrows` builds, `plan_arrows` resolved each arrow's source pathway from the base catalog or,
+failing that, the `--sources` catalog, but `build_one` read every member's tables from the base only, and `rows()`
+returns nothing for a missing file. A source pathway that lives only in `--sources` was therefore planned, counted
+in BUILD.json (`context.<centre>.neighbours`, `bridges`) and given its `context_bridge` edges, but none of its nodes,
+edges or side tables were written. Each such bridge starts at a uuid that is not a node of the composite. Nothing
+upstream of it is in the network, so it cannot carry any perturbation into the centre.
+
+**Counted read-only on the served catalog** (`builds/20261113-r98fix-plus-leads`, composites copied from
+`20261113-arrows98fix-10c`, sources `20261113-1345_baf608b_r98src2`). Every dangling bridge's source uuid is a node
+of the named pathway in `r98src2`, and every target is a node of the centre. Only the source is missing.
+
+| composite (centre) | bridges | dangling | dangling arrows (source → entity) |
+|---|---|---|---|
+| ctx-arrows_R-HSA-109606 Intrinsic apoptosis | 3 | 0 | none (p-AKT from PIP3, intact) |
+| ctx-arrows_R-HSA-1227986 ERBB2 | 3 | 0 | none (p-AKT, intact) |
+| ctx-arrows_R-HSA-1257604 PIP3 | 6 | **6** | PTEN Regulation (R-HSA-6807070) → PTEN |
+| ctx-arrows_R-HSA-140534 DR caspases | 1 | **1** | TNF signaling (R-HSA-75893) → K63polyUb-CFLAR |
+| ctx-arrows_R-HSA-376176 ROBO | 3 | **3** | RHO GTPases activate PAKs (R-HSA-5627123) → PAK |
+| ctx-arrows_R-HSA-446728 Cell junctions | 2 | **2** | Homotypic cell-cell adhesion (R-HSA-9759476) → classic cadherin |
+| ctx-arrows_R-HSA-453279 Mitotic G1 | 6 | **3** | OIS (R-HSA-2559585), OSIS (R-HSA-2559580), SASP (R-HSA-2559582) → INK4; p-AKT intact |
+| ctx-arrows_R-HSA-8848021 PTK6 | 2 | **2** | Cellular response to hypoxia (R-HSA-1234174) → HIF1A,EPAS1 |
+| ctx-arrows_R-HSA-8878166 RUNX2 | 7 | **4** | Hedgehog 'off' (R-HSA-5610787) → GLI3R; Hedgehog 'on' (R-HSA-5632684) → 2p-GLI2; RUNX2 expression (R-HSA-8939902) → RUNX2; NOTCH1 HES/HEY intact |
+| ctx-arrows_R-HSA-8878171 RUNX1 | 1 | 0 | none (p-S456-ABL1 from DSB Response, intact) |
+| **total** | **34** | **21** | **11 of the 16 arrows in `src/api/leads.json`** |
+
+Five of the ten served composites (PIP3, DR caspases, ROBO, cell junctions, PTK6) contain no working bridge, so
+every lead the client shows for them is the centre's own answer under a "via a connected pathway" label. The 11 are
+exactly the arrows whose source pathway is outside the 92-pathway catalog. The 5 intact arrows have in-catalog
+sources.
+
+**The release-97 arm had the same defect.** `20261107-arrows97-11c` (the specs/148 full-arrow arm) has 18 of 32
+bridges dangling, and they are exactly its 12 out-of-catalog arrows. `20261107-arrows97-6c` has 0 of 14 (all
+in-catalog). The specs/148 addendum's finding that "the 12 new arrows change no korkut answer" is therefore this
+defect, not biology: those arrows were never in the networks scored. Its explanation (their entities feed readouts
+korkut's drugs already reach or do not move) is unsupported and should not be cited.
+
+**What this does to the served rates.**
+- **The one measured rate is not affected.** The p-AKT down-call precision (37 of 156 right, 0.24) comes only from
+  the three PIP3 → p-AKT arrows. Their source is in the base and their bridges resolve in both releases. The pooled
+  korkut H1 figure (n = 2,715, balanced +0.0501) includes untouched readouts in the five no-op centres. Those
+  readouts can only reproduce the always-no-change answer, so the figure is diluted, not inflated. It was not
+  recomputed here.
+- **Two `unrated` statements rest on the artefact.** The PTEN Regulation → PTEN arrow (into PIP3) and the
+  Hedgehog 'off' → GLI3R arrow (into RUNX2) say "its untouched readouts are not bridge-reachable", citing specs/153
+  S2 ("all 29 untouched PIP3 sites under the PTEN arrow stay 1.0"). The bridge was not there to reach them, so the
+  measured zero is the defect's zero. It is not a finding about the arrow. specs/153's third covered arrow
+  (p-S456-ABL1 into RUNX1) is intact, so its result stands. The S1 coverage screen read the source networks directly
+  and is unaffected.
+- The other nine dangling arrows are served as "no dataset in the record perturbs upstream of it yet". That is
+  still true, but the client would show a lead from them that cannot move.
+
+**Fix (this change, builder only).** `build_one` now resolves every member through `member_dir`, the same lookup
+`plan_arrows` uses (base first, then `--sources`). It raises `ContextBuildError` before writing anything when a
+member's tables are in neither catalog, and after writing when a `context_bridge` endpoint is not a node of the
+composite. Arrow builds record `context_sources` in BUILD.json. `bench/test_context_build.py` pins both the
+resolution and the refusals. No catalog is rebuilt or re-served, and `src/api/leads.json` is unchanged: a rebuilt
+composite changes served answers and needs its own measurement.
+
+**Proposed remedy (Adam's decision).**
+1. *Rebuild*: re-run `context_build.py <r98fix> OUT --arrows … --sources <r98src2>` with the fixed builder. All 21
+   dangling source uuids exist in `r98src2`, so every bridge would resolve. Then re-score the specs/152 G5 arm
+   (korkut H1, curator/experimental H2) and specs/153 S2 on the rebuilt composites before re-packaging. This is the
+   first measurement of the 11 arrows, and it may move the p-AKT centres' shared numbers (Mitotic G1 and RUNX2 gain
+   their INK4 and GLI/RUNX2 inputs).
+2. *Until then*: mark the 11 arrows in `leads.json` as `unreachable in this build` (rate class `not_built`). Correct
+   the PTEN and GLI3R statements, and have the client skip the composite run for the five centres with no working
+   bridge. This is a served-content change and needs its own review.

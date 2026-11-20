@@ -421,3 +421,52 @@ def test_bench_refuses_last_order_without_an_origin_table():
         bm.refuse_unless_default_model({"zero_supply_rule": "off", "context_bridge_order": "last: no origin table"}, "P")
     for order in ("first", "last"):
         bm.refuse_unless_default_model({"zero_supply_rule": "off", "context_bridge_order": order}, "P")
+
+
+def _arrows_fixture(tmp_path):
+    # review 2026-11-20: P (centre) in the base; arrow source Q only in a second catalog (the specs/148 --sources
+    # build). Q: U -> S -> X, so Q's X is produced; P's X is a root feeding Y.
+    base, srcs = tmp_path / "base", tmp_path / "srcs"
+    base.mkdir()
+    srcs.mkdir()
+    (base / "BUILD.json").write_text(json.dumps({"build_id": "base", "status": "complete"}))
+    _pathway(base, "R-HSA-1", [("px", "simple_entity", "R-X"), ("py", "simple_entity", "R-Y")], [("px", "py")])
+    _pathway(srcs, "R-HSA-9", [("qu", "simple_entity", "R-U"), ("qs", "reaction", "R-S"),
+                               ("qx", "simple_entity", "R-X")], [("qu", "qs"), ("qs", "qx")])
+    (tmp_path / "arrows.tsv").write_text("pathway\tq\tentity\nR-HSA-1\tR-HSA-9\tR-X\n")
+    (tmp_path / "centres.tsv").write_text("id\tpathway_name\nR-HSA-1\tP\n")
+    return base, srcs
+
+
+def test_arrow_sources_are_read_from_the_catalog_they_were_planned_from(tmp_path):
+    base, srcs = _arrows_fixture(tmp_path)
+    bridges, census = cb.plan_arrows(base, tmp_path / "arrows.tsv", {"R-HSA-1"}, sources=srcs)
+    assert bridges[("R-HSA-1", "R-HSA-9")]["in"] == [("qx", "px")] and census[0]["status"] == "bridged"
+    out = tmp_path / "ctx"
+    cb.main([str(base), str(out), "--arrows", str(tmp_path / "arrows.tsv"), "--centres", str(tmp_path / "centres.tsv"),
+             "--sources", str(srcs)])
+    d = out / "R-HSA-1"
+    e = _edges(d)
+    assert ("qx", "px", "context_bridge") in e and ("qu", "qs", "input") in e and ("qs", "qx", "input") in e
+    with open(d / "nodes.csv", newline="") as f:
+        nodes = {r["uuid"] for r in csv.DictReader(f)}
+    assert nodes == {"px", "py", "qu", "qs", "qx"}
+    assert all(s in nodes and t in nodes for s, t, _ in e)      # no edge dangles
+    origin = dict(line.split(",") for line in (d / "context_origin.csv").read_text().split()[1:])
+    assert origin["qx"] == "R-HSA-9" and origin["px"] == "R-HSA-1"
+    bj = json.load(open(out / "BUILD.json"))
+    assert bj["context_sources"] == "srcs" and bj["context"]["R-HSA-1"] == {"neighbours": ["R-HSA-9"], "bridges": 1}
+
+
+def test_a_member_missing_from_every_catalog_fails_the_build(tmp_path):
+    import pytest
+    base, srcs = _arrows_fixture(tmp_path)
+    bridges, _ = cb.plan_arrows(base, tmp_path / "arrows.tsv", {"R-HSA-1"}, sources=srcs)
+    # the planner found Q in --sources; a builder reading only the base used to write the bridge with no Q nodes
+    with pytest.raises(cb.ContextBuildError, match="R-HSA-9"):
+        cb.build_one(base, tmp_path / "o1", "R-HSA-1", ["R-HSA-9"], bridges, False, False)
+    assert not (tmp_path / "o1" / "R-HSA-1").exists()           # refused before writing anything
+    # a bridge endpoint that is not a node of the composite (a stale or hand-edited plan) also fails
+    bad = {("R-HSA-1", "R-HSA-9"): dict(bridges[("R-HSA-1", "R-HSA-9")], **{"in": [("ghost", "px")]})}
+    with pytest.raises(cb.ContextBuildError, match="not a node"):
+        cb.build_one(base, tmp_path / "o2", "R-HSA-1", ["R-HSA-9"], bad, False, False, srcs)
