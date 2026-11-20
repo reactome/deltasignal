@@ -76,7 +76,7 @@ def stats(cases, unit, resamples=RESAMPLES, seed=SEED):
     t = m.sum(axis=0)
     rng = np.random.default_rng(seed)
     boot = []
-    for _ in range(resamples):
+    for _ in range(resamples if len(m) else 0):
         b = lift(m[rng.integers(0, len(m), len(m))].sum(axis=0))
         if b is not None:
             boot.append(b)

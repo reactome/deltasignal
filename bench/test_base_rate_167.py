@@ -59,6 +59,11 @@ def test_no_reached_case_is_reported_as_absent():
     assert r["base_rate_reached"] is None and r["precision_change"] is None
 
 
+def test_an_empty_axis_is_reported_as_absent():
+    r = b.stats({}, unit, resamples=10)
+    assert r["cases"] == 0 and r["units"] == 0 and r["lift"] is None and r["lift_ci"] == [None, None]
+
+
 def test_decryptm_loader_keeps_scored_rows(tmp_path):
     p = tmp_path / "d.tsv"
     p.write_text("pathway_id\tdrug\tuniprot\tposition\tmeasured\tstatus\tpred_ui\tpredicted\n"

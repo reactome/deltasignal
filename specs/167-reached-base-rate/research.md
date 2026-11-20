@@ -43,19 +43,24 @@ Reached readouts the model declined to call:
    declined readouts are labelled a change, and on experimental all 20. That is why every contraction of
    propagation gained on the drug axes and lost on the gene axes (specs/128, specs/164): where nine reached
    readouts in ten are labelled a change, declining any of them loses.
-5. **The gene axes are selected readouts.** Readouts the network cannot reach changed 70.3% of the time on the
-   experimental axis, which is 90% changes overall: it is a set of reported effects. On the curator axes the
-   label is close to a statement about reach (0.88–0.93 where a route exists, 0.04–0.07 where none does):
-   curators derived the expectation by reading the same pathway. korkut measures every readout on its array
-   whatever was expected (unreached 0.049). decryptM sits between (0.246; its cases start from regulated sites).
+5. **Neither gene axis is an unselected panel of measurements.** Readouts the network cannot reach changed 70.3%
+   of the time on the experimental axis, which is 90% changes overall: it is a set of reported effects. On the
+   curator axes the label is close to a statement about reach (0.88–0.93 where a route exists, 0.04–0.07 where
+   none does): the label is a curator's expectation, written from the pathway. The spec's phrase "readouts
+   chosen because a change was expected" is loose for the curator axes; there it is the label, not the choice of
+   readout, that comes from the pathway. korkut measures every readout on its array whatever was expected
+   (unreached 0.049). On decryptM 0.246 of unreached readouts changed.
+6. **Reach separates changed from unchanged readouts very differently by axis**: changed among reached over
+   changed among unreached is 12 and 25 on the curator axes, 2.9 on korkut, and 1.3 on both experimental and
+   decryptM.
 
 ## Correction to specs/165, reading 2
 
 specs/165's gates and figures stand. Its reading that "the low precision is specific to drug readouts", and the
 conclusion drawn from it and from specs/164 that drug responses propagate more weakly than gene perturbations, do
-not follow from this record. The recorded axes confound the perturbation type with how the readouts were chosen:
-every gene-perturbation axis has readouts chosen because a change was expected or reported, and every axis that
-measures an unselected panel is a drug axis. Precision by axis is recorded correctly; "by perturbation type" is
+not follow from this record. The recorded axes confound the perturbation type with where the labels come from:
+the gene-perturbation axes are curators' expectations and reported effects, and every axis that measures an
+unselected panel is a drug axis. Precision by axis is recorded correctly; "by perturbation type" is
 not established. `docs/API.md` is reworded accordingly.
 
 What the record supports: the model carries reach and direction. A reached readout is about 3 times as likely
