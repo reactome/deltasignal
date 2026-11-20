@@ -30,3 +30,9 @@ the combination is the best on every axis.
 
 Per FR-003, a pass documents the labels as a usable filter, with these
 measured figures (docs/API.md). No engine change.
+
+## Note, 2026-11-20 (specs/167)
+
+The gates and figures above stand. Reading 2 does not: specs/167 shows that on every axis precision is the share
+of reached readouts that changed (88–94% on the gene axes, 14% on korkut) plus at most 0.024, and that the recorded
+axes confound the perturbation type with how readouts were chosen. See `specs/167-reached-base-rate/research.md`.

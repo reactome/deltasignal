@@ -329,9 +329,14 @@ Keeping only calls that are robust (not in a fragile class) AND confident
 (confidence ≥ 0.85) raised change-call precision on every measured axis: the
 curator held-out expectations 0.888 → 0.920 (keeping 77% of calls), MP-BioPath
 gene perturbations 0.876 → 0.911 (79%), and the korkut drug record
-0.109 → 0.152 (58%). Precision on drug readouts stays low in absolute terms:
-on gene perturbations the model's change calls are mostly right, and on drug
-RPPA they mostly are not, even after filtering.
+0.109 → 0.152 (58%). Precision on the drug RPPA record stays low in absolute
+terms, even after filtering. That difference follows how often a reached
+readout changed on each record (specs/167): 88–94% on the curator and
+MP-BioPath records, whose readouts were chosen where a change was expected or
+reported, and 14% on korkut, which measures every readout on its array. A
+change call adds about two points to that share on either kind of record. Read
+a call as "a route reaches this readout, in this direction"; on an unselected
+panel, expect most reached readouts not to change by more than the cutoff.
 
 ### Pinning a drug at its measured engagement (specs/161)
 

@@ -65,3 +65,18 @@ def test_decryptm_loader_keeps_scored_rows(tmp_path):
                  "P\tD\tQ1\t5\tdown\tscored\t0.5\tdown\n"
                  "P\tD\tQ1\t9\tnot\tno_readout\t\t\n")
     assert b.load_decryptm(p) == {("P", "D", "Q1", "5"): ("down", "down", 0.5)}
+
+
+def test_transcript_feasibility_counts_reached_and_unreached_pairs():
+    import transcript_feasibility as t
+    # A (root) -> r1 -> T1 ; B (root) feeds nothing ; C is fed, so it is not perturbable ; D is fed only by depletion
+    edges = [("a", "r1", "input"), ("r1", "t1", "output"), ("r1", "c", "output"), ("c", "d", "depletion")]
+    nodes = [("a", ["sA"]), ("b", ["sB", "sX"]), ("c", ["sC"]), ("d", ["sD"]), ("t1", ["sT1"]), ("t2", ["sT2"])]
+    gene_of = {"sA": "A", "sB": "B", "sC": "C", "sD": "D", "sT1": "T1", "sT2": "T2"}
+    targets = {"T1": {"t1"}, "T2": {"t2"}, "A": {"a"}, "ABSENT": set()}
+    pairs, reached, roots = t.pathway_pairs(edges, nodes, gene_of, targets)
+    assert roots == {"A", "B", "D", "T2"}                      # c and t1 are fed; d only by depletion
+    assert ("A", "T1") in reached and ("A", "T2") not in reached
+    assert ("A", "A") not in pairs and all(p[1] != "ABSENT" for p in pairs)
+    assert reached == {("A", "T1")} and ("B", "T1") in pairs and ("D", "A") in pairs
+    assert len(pairs) == 4 * 3 - 2                             # A and T2 are targets too: no self pairs
