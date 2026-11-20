@@ -1,7 +1,7 @@
 # specs/166: literature edges from FullTextMining, registered comparison
 
-Status: REGISTERED 2026-11-18, before any arm was scored. Only the smoke test had run: every pathway
-parses and solves in the `with` and `without` arms; no case was benchmarked.
+Status: REGISTERED 2026-11-18 before any arm was scored. Only the smoke test had run: every pathway
+parses and solves in the `with` and `without` arms. **RESULT: FAIL** (see research.md).
 
 ## Question
 
@@ -110,3 +110,44 @@ Each shuffle's three numbers are reported beside the real arm's, as context.
 - The scorer is `bench/analysis/166/score_166.py`. Its output goes to `research.md` in this
   directory, whatever it says.
 - Results are posted to FullTextMining as numbered files in the shared nibi mailbox.
+
+## Amendment 1 (2026-11-19, during the run): a time cap on shuffle arms
+
+Some shuffled networks solve pathologically slowly.
+- shuf02 failed twice on a single Mitotic G1 solve: first past the 600 s solve timeout, then past a
+  3,600 s one.
+- shuf01 spent 2 h 24 min on the curator axis's Mitotic G1 cases without finishing.
+- shuf03 cleared the same pathway in 142 s, so the slowness depends on the seed.
+
+Rule from here on: a shuffle arm still running after 9,000 s is stopped and recorded as not
+finished.
+
+**Revised at 03:15.** shuf03 was stopped at 9,000 s with only TP53 left on the curator axis (DSB
+Repair alone took 5,393 s), so a shuffle arm needs about 4–6 h and a 9,000 s cap would let none
+finish. The cap is now 21,600 s. The run order is now:
+1. the 11 descriptive slices, which are cheap;
+2. shuf08–19;
+3. a retry of shuf01–03, which were stopped under the first cap.
+
+At most four arms run at once (scheduler log: `analysis/166/run2/sched.log`). The gate's rank test uses the seeds that finished, and every unfinished seed is listed.
+
+Why this cannot change the verdict:
+- Condition 1 (net(with) > 0) was decided before this amendment. It needs only `with` and
+  `without`, which both finished.
+- The shuffles answer only the second question: are the real edges better or worse than random
+  ones?
+
+What this does change: the seeds that finish are a selected subset, the ones the solver can handle.
+This is recorded beside every shuffle number.
+
+**Revised at 06:05.** No shuffle finished the curator axis within 3–5 h: shuf04 stalled on Mitotic G1
+for over 4 h, and shuf05 and shuf06 were still on TP53. Curator is reported, not gated. From here on,
+shuffle arms run only the gate's axes, experimental and korkut, under run name `lit166p`. Curator
+results from the shuffles are kept as partial, descriptive per-pathway numbers in `lit166/curator.log`.
+shuf04–07 were stopped mid-curator and requeued under the new rule. The 6 h cap still applies.
+
+**Ended at 21:14 on 2026-11-19 (Adam, option 2).** Four seeds finished: shuf08, shuf10, shuf12 and
+shuf13. The rest are unfinished or were not run, and `research.md` lists each one. Condition 1
+(net(with) > 0) fails, which settles the verdict. Condition 2 is reported with the four seeds:
+`with` beats every one, at rank p 0.20. The orchestration that ran the arms (`sched_166.sh`,
+`cap_166p.sh`) is committed beside the arms.

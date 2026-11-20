@@ -11,7 +11,9 @@ Also reported: the three numbers per axis (coverage gained, newly covered,
 previously covered) for every arm, and the `only-<slice>` ablations (descriptive).
 
 Usage: score_166.py BUILDS_ROOT SHA UNREACHED_DIR OUT_JSON
-(results are read from BUILDS_ROOT/20261118-lit-h12b-<arm>/results/SHA/lit166/)
+(results are read from BUILDS_ROOT/20261118-lit-h12b-<arm>/results/SHA/lit166/; shuffles, after amendment 1,
+from .../lit166p/, experimental and korkut only, and only where ARM.json records exit 0. A seed without such
+a run is listed as unfinished.)
 """
 import csv
 import json
@@ -26,6 +28,7 @@ sys.path.insert(0, str(HERE.parents[1] / "161"))
 
 PREFIX = "20261118-lit-h12b-"
 RUN = "lit166"
+RUN_SHUF = "lit166p"
 CODE = {"0": "down", "1": "not", "2": "up"}
 PRIMARY = ("korkut", "experimental")
 ALPHA = 0.05
@@ -57,9 +60,9 @@ def load_korkut(path, marks):
     return out
 
 
-def load_arm(run_dir, tuning, marks):
+def load_arm(run_dir, tuning, marks, labs=("curator", "experimental")):
     axes = {}
-    for lab in ("curator", "experimental"):
+    for lab in labs:
         axes.update(load_mpb(run_dir / f"{lab}_cases.tsv", tuning, lab))
     axes["korkut"] = load_korkut(run_dir / "korkut_cases.tsv", marks)
     return axes
@@ -102,9 +105,12 @@ def gate(nets_real, nets_shuf):
 
 
 def common_keys(arms, axis):
+    """Cases scored in every arm that ran this axis (shuffles run only the gate's axes)."""
     ks = None
     for a in arms.values():
-        s = set(a.get(axis, {}))
+        if axis not in a:
+            continue
+        s = set(a[axis])
         ks = s if ks is None else ks & s
     return sorted(ks or ())
 
@@ -148,9 +154,9 @@ def score(arms, lists=None):
         if n == "without":
             continue
         ks = keys if n in primary else {ax: common_keys({"w": base, "x": a}, ax) for ax in axes}
-        r = {ax: three_numbers(base[ax], a[ax], ks[ax]) for ax in axes}
+        r = {ax: three_numbers(base[ax], a[ax], ks[ax]) for ax in axes if ax in a}
         r["primary_net"] = sum(r[ax]["all"]["net"] for ax in PRIMARY if ax in r)
-        if lists is not None:
+        if lists is not None and all(ax in a for ax in axes):
             r["unreached_lists"] = unreached_gains(base, a, ks, lists)
         res["arms"][n] = r
     shuf = [res["arms"][n]["primary_net"] for n in sorted(res["arms"]) if n.startswith("shuf")]
@@ -165,13 +171,26 @@ def main():
     dataset_roles.require_role("korkut2015", "fit")
     builds, sha, lists_dir, out_json = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]), Path(sys.argv[4])
     marks = marker_names()
-    arms = {}
+    arms, unfinished = {}, []
     for d in sorted(builds.glob(PREFIX + "*")):
+        name = d.name[len(PREFIX):]
+        if name.startswith("shuf"):
+            run = d / "results" / sha / RUN_SHUF
+            try:
+                ok = json.loads((run / "ARM.json").read_text())["exit"] == 0
+            except (OSError, ValueError, KeyError):
+                ok = False
+            if not ok:
+                unfinished.append(name)
+                continue
+            arms[name] = load_arm(run, set(TUNING_PATHWAYS), marks, labs=("experimental",))
+            continue
         run = d / "results" / sha / RUN
         if not (run / "korkut_cases.tsv").exists():
             raise SystemExit(f"{d.name}: no completed run at {run}")
-        arms[d.name[len(PREFIX):]] = load_arm(run, set(TUNING_PATHWAYS), marks)
+        arms[name] = load_arm(run, set(TUNING_PATHWAYS), marks)
     res = score(arms, load_lists(lists_dir))
+    res["shuffles_unfinished"] = unfinished
     out_json.write_text(json.dumps(res, indent=1, default=str))
     g = res["gate"]
     print(f"common cases: {res['common']}")
@@ -181,7 +200,7 @@ def main():
             f"{ax} {r[ax]['all']['net']:+d} (gain {r[ax]['coverage_gained']})" for ax in sorted(r)
             if isinstance(r[ax], dict) and "all" in r[ax]))
     print(f"GATE: net(with) {g['net_with']:+d}; shuffles {g['net_shuffles']}; rank p {g['rank_p']:.3f} -> "
-          f"{'PASS' if g['pass'] else 'FAIL'}")
+          f"{'PASS' if g['pass'] else 'FAIL'}; unfinished seeds {unfinished}")
 
 
 if __name__ == "__main__":

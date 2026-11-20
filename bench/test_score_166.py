@@ -81,3 +81,14 @@ def test_unreached_gains_match_list_keys():
     a = dict(base, korkut=w)
     out = s.unreached_gains(base, a, keys, ({("P", "d", "A"), ("P", "d", "D")}, set()))
     assert out["korkut_list_scored"] == 2 and out["korkut_list_gained"] == 1
+
+
+def test_shuffles_without_curator_leave_the_curator_set_to_with_and_without():
+    cur = {("P", "g", "0", "o"): ("down", "down", 0.5)}
+    w = {"korkut": dict(BASE), "experimental": {}, "curator_heldout": dict(cur)}
+    x = {"korkut": dict(BASE), "experimental": {}, "curator_heldout": dict(cur)}
+    sh = {"korkut": dict(BASE), "experimental": {}}
+    res = s.score({"without": w, "with": x, "shuf01": sh})
+    assert res["common"]["curator_heldout"] == 1
+    assert "curator_heldout" not in res["arms"]["shuf01"]
+    assert res["arms"]["with"]["curator_heldout"]["cases"] == 1

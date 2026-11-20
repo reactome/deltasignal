@@ -1,5 +1,6 @@
 #!/bin/bash
 # specs/166: run every arm through scripts/run_arm.sh, as worker W of 4 (port 8100+W).
+# Superseded on 2026-11-19 by sched_166.sh (amendment 1); kept as the record of the first runs.
 # Usage: bench/analysis/166/run_166.sh W
 set -u
 W=$1
