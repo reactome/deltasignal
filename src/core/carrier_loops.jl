@@ -246,8 +246,8 @@ end
 The network the solve actually runs under the active `DS_CARRIER_LOOP_MODE`:
 for influence scores, which must differentiate the edges the solve used (the
 twin's `carrier_supply` edge, specs/059's `recycled_supply` edges and specs/063's
-sequestration depletions), not the
-loop edges it dropped. Recycle edges (specs/081) are stripped first, as the
+sequestration depletions, and any silo bridges), not the
+loop edges it dropped. /api/inverse (specs/158) reads its edges for reachability. Recycle edges (specs/081) are stripped first, as the
 solve does: left in, a starting copy with a recycle in-edge stopped being a
 root and gained `recycled_supply` edges the solve never had (review
 2026-10-22, L1CAM: 13 edges).
@@ -261,5 +261,13 @@ function solved_carrier_network(network::ReactionNetwork)
     ruled = first(apply_sequestration(first(apply_rna_twins(first(apply_recycled_twins(
         first(apply_carrier_loops(net, carrier_loop_mode(); origin = origin)),
         recycled_twin_mode())), rna_twin_mode())), sequestration_mode()))
+    # silo bridges (off by default) are added where the solve adds them: after sequestration, before the
+    # cross-origin drop (review 2026-11-20: /api/inverse reads this network's edges for reachability)
+    bridges = silo_bridge_edges(ruled)
+    if !isempty(bridges)
+        ruled = ReactionNetwork(ruled.nodes, vcat(ruled.edges, bridges), ruled.set_mappings, ruled.cofactor_stids,
+                                ruled.containment, ruled.drug_stids, ruled.pools, ruled.pathogen_stids,
+                                ruled.carrier_loops, ruled.node_leaves, ruled.rna_stids)
+    end
     restore_context_bridges(first(drop_cross_origin_edges(ruled, origin)), held)
 end

@@ -237,4 +237,68 @@ end
         end
         @test rep == Dict("B" => (2.0, 0.5))
     end
+
+    # Review 2026-11-20 (D1): the solve command looked the option up as
+    # Symbol("soft-observations"), but ArgParse (autofix_names, as_symbols)
+    # names it :soft_observations, so the file was silently ignored and the
+    # DS_SOFT_OBS=off refusal never fired. Driven here through the real
+    # argument parser, not a hand-built args Dict.
+    @testset "--soft-observations through the argument parser (D1, D2)" begin
+        ex = joinpath(@__DIR__, "..", "examples")
+        obs_path = joinpath(ex, "sample_observations.csv")
+        mktempdir() do dir
+            net_json = joinpath(dir, "network.json")
+            pa = Dict{Symbol,Any}(:logic => joinpath(ex, "sample_logic_network.tsv"),
+                                  :uuid_map => joinpath(ex, "sample_uuid_mapping.tsv"),
+                                  :set_map => joinpath(ex, "sample_set_mappings.tsv"),
+                                  :boundary => nothing, :output => net_json, :validate => false)
+            redirect_stdout(() -> execute_parse_command(pa), devnull)
+            soft = joinpath(dir, "soft.csv")
+            write(soft, "node,value,weight\nRAS,50.0,0.5\n")   # RAS is not hard-observed
+            argv(res, extra...) = String["--network", net_json, "--observations", obs_path,
+                                         "--output", res, extra...]
+            res0, res1 = joinpath(dir, "plain.json"), joinpath(dir, "soft.json")
+            a0 = parse_solve_args(argv(res0))
+            a1 = parse_solve_args(argv(res1, "--soft-observations", soft))
+            @test get(a0, :soft_observations, nothing) === nothing
+            @test a1[:soft_observations] == soft
+
+            # off: refused, and nothing is written
+            withenv("DS_SOFT_OBS" => "off") do
+                @test_throws ErrorException redirect_stdout(() -> solve_command(a1), devnull)
+            end
+            @test !isfile(res1)
+
+            # blend: the file conditions the solve, exactly as the library does
+            withenv("DS_SOFT_OBS" => "blend") do
+                redirect_stdout(() -> solve_command(a1), devnull)
+                redirect_stdout(() -> solve_command(a0), devnull)
+                net = DeltaSignal.parse_complete_network(pa[:logic], pa[:uuid_map], pa[:set_map];
+                                                         boundary_path = :sibling)
+                ref = DeltaSignal.solve_steady_state(net, read_observations(obs_path);
+                                                     soft_observations = read_soft_observations(soft))
+                out1 = JSON3.read(read(res1, String))
+                out0 = JSON3.read(read(res0, String))
+                @test get(out1[:solver_info][:diagnostics], :soft_observed, 0) == 1
+                @test get(out0[:solver_info][:diagnostics], :soft_observed, 0) == 0
+                @test Float64(out1[:node_activities][:RAS]) != Float64(out0[:node_activities][:RAS])
+                acts = out1[:node_activities]
+                @test all(isapprox(Float64(acts[Symbol(k)]), v * 100; atol = 1e-9)
+                          for (k, v) in ref.node_activities)
+            end
+
+            # D2: every observation, hard and soft, naming nothing in the
+            # network is refused, as the API refuses it
+            nowhere = joinpath(dir, "nowhere.csv")
+            write(nowhere, "node,value,confidence\nNOT_A_NODE,2.0,1.0\n")
+            softnowhere = joinpath(dir, "softnowhere.csv")
+            write(softnowhere, "node,value,weight\nALSO_NOT,2.0,0.5\n")
+            a2 = parse_solve_args(String["--network", net_json, "--observations", nowhere,
+                                         "--output", joinpath(dir, "x.json"),
+                                         "--soft-observations", softnowhere])
+            withenv("DS_SOFT_OBS" => "blend") do
+                @test_throws ErrorException redirect_stdout(() -> solve_command(a2), devnull)
+            end
+        end
+    end
 end

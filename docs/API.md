@@ -117,10 +117,16 @@ Parse a logic network into nodes + edges. Three input modes (checked in order):
    curated one alone. A catalog `pathway_id` reads it automatically.
    The bundle's tables can come as optional parts too, named `drugs`,
    `pathogens`, `carrier_loops`, `pools`, `pool_transitions`, `pool_carriers`,
-   `containment`, `cofactors` and `nodes` (each the bundle's `<name>.csv`).
-   Without them the solve runs, but the rules that read them are inert and
-   say so (`drug_rule: "inert: no drug table"` and so on): send them to get
-   the same model a catalog `pathway_id` gets.
+   `containment`, `cofactors` and `nodes` (each the bundle's `<name>.csv`),
+   and `proxies`: the bundle's `entity_reaction_proxy_mapping.csv` (specs/141),
+   saved under that file name, which `/api/readouts` reads for its proxy step
+   (an entity with no direct node is read through the reactions that make
+   it). Without it, a readout that needs proxies falls through to
+   `set_members` or `none`, and `missing_tables` names the file.
+   Without the tables the solve runs, but the rules that read them are inert
+   and say so (`drug_rule: "inert: no drug table"` and so on): send them to
+   get the same model a catalog `pathway_id` gets. A `nodes` part that cannot
+   be read does not fail the parse (see `/api/pins`).
    A request that declares `multipart/form-data` but is missing either required
    part is a **`400`** — it is not silently treated as mode 3.
 3. **No body** — falls back to the bundled sample network. This applies only to
@@ -232,7 +238,10 @@ Response:
 A network parsed without a node table (an upload missing the `nodes` part, or
 the bundled sample) is a `400` naming the missing table: exact-id matching
 would be a second, unvalidated protocol, so the server refuses rather than
-approximates.
+approximates. A node table that was sent but cannot be read (a malformed
+`nodes.csv`) does not fail the parse, because the network itself is still
+solvable; `/api/pins` and `/api/readouts` then refuse with a separate `400`
+saying the table is present but unreadable, never that it is absent.
 
 ### `POST /api/readouts`
 Resolve and aggregate a **readout** the way the benchmarks read one
@@ -326,6 +335,50 @@ served most untouched readouts a confidence, range and fragility). The top-level
 `ok: <version>` or names why nothing serves (the same provenance refusal);
 `fragility_min_cell` carries the minimum.
 
+The top level of the response carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
+baseline and cutoffs, and `rail_low` / `rail_high` — the stop values the
+flag was computed with, 0.01 and 99.0 at the default baseline, so a client
+never hardcodes them), `missing_tables` — bundle tables the proxy step would
+read that this network was parsed without
+(`entity_reaction_proxy_mapping.csv` as the `proxies` upload part,
+`cofactors.csv` as `cofactors`); an entity needing them falls through
+honestly to `set_members`/`none`, never a silent approximation — and
+`malformed_tables`: a PRESENT table that could not be read, recorded with the
+reason and never reported as merely absent (and never failing the parse). In
+a context build (specs/056) readouts are cut to the pathway's own nodes
+(`context_own.csv`), as the bench cuts them; a context bundle whose own-nodes
+table cannot be read is refused with a `400` rather than answered with
+neighbouring pathways' copies included.
+
+**`mode: "abundance"`** (specs/134, the adopted `abundance_a3`): a
+total-protein antibody reads only copies nothing makes from the protein
+itself. Resolution is the korkut rule — the union of direct matches over ALL
+`stable_ids`, one flat group — cut to abundance copies (carry edges close the
+set; made-from edges and producing reactions fed from it drop copies;
+`recycle` does not count as made-from). With `activities`, the value is the
+mean over **unpinned** kept copies and the entry carries `status`:
+`"scored"`, `"trivial"` (every kept copy pinned — the benchmarks leave such a
+readout out of scoring; say so rather than scoring the pin back), or
+`"no_copy"`. `occurrences` is the resolved count before the cut.
+
+A network parsed without a node table refuses with a `400`, as `/api/pins`
+does: the direct step shares the pin index, and matching ids flatly would be
+a second, unvalidated protocol. A node table that was sent but could not be
+read refuses with its own `400` message (see `/api/pins`).
+
+**Switch states (specs/154, additive).** The request may carry back the
+solve's `switch_components` (below) verbatim. Each entry valued with
+`activities` then also serves `switch` (bool): true means the readout's fold
+at the other stable state would produce a DIFFERENT call — the number is a
+basin's coordinates, not a magnitude. When `switch` is true the entry carries
+`state` (`"high"`/`"low"`, by the readout's own value: a readout the switch
+represses is `"low"` when the component is on) and `other_state_fold` (its
+fold at the unselected state, same scale as `fold`). Passing
+`switch_components` without `activities`, or malformed, is a `400`. The
+`protocol` object names `switch_rule`, `switch_floor`, `switch_max_sweeps`
+and the `switch_components` count received, so a client never hardcodes the
+rule. Omitting the field leaves the response exactly as before.
+
 ### Filtering calls by the served labels (specs/165)
 
 The labels every call carries (whether the readout is reached, the specs/157
@@ -368,66 +421,50 @@ alike (precision did not improve and ranking skill fell). So this is an option
 when you have measured engagement, not a recommendation, and no accuracy gain
 is claimed.
 
-### POST /api/inverse (specs/158)
+### `POST /api/inverse` (specs/158)
 
 Which perturbations move a chosen readout. `{network_id, target: {stable_ids,
 members?, mode?}, direction?: "down"|"up"|"any", cap?: 1-500 (default 50),
 doses?: {ko: 0-100, oe: 0-100} (default 0 and 80)}`. Candidates are exactly
-the pin protocol's distinct resolutions of the network's curated entities;
-each is solved at both doses through the ORDINARY solve and readouts paths, so
-every returned number is bit-equal to running /api/solve + /api/readouts for
-that candidate, honesty fields included. A candidate with no directed path to
-the target over the network's own edges is counted under `reachable`, never
-solved; the target's own pins are `self_excluded`. The response's `counts`
+the pin protocol's distinct resolutions of the network's curated **physical
+entities**: a reaction's stable id is never offered, and an id whose
+resolution pins a reaction node is dropped (both counted as
+`reaction_ids_excluded`). Each candidate is solved at both doses through the
+ORDINARY solve and readouts paths, so every returned row is bit-equal to
+running /api/solve + /api/readouts for that candidate, every served field
+included (`fold`, `call`, `value`, `railed`, `confidence`,
+`confidence_stratum`, `measured_fold_ranges`, `fragility`, and, in
+`abundance` mode, `status` / `occurrences`). The solve's `switch_components`
+is passed through exactly as a client passes it: when the solve has none
+(detection off, or a non-converged solve) the row carries no `switch` field,
+as the forward path carries none. The target's own resolution (`basis`, the
+node list) is served once under `target`, not per row.
+
+A candidate with no directed path to the target over the edges the **solve**
+uses is counted (it is not in `reachable`) and never solved. That walk reads
+the parsed edges plus every edge the solver derives at solve time
+(`carrier_supply`, `carrier_component`, `recycled_supply`, `rna_supply`,
+sequestration depletions, silo bridges), under the server's own `DS_*`
+config, and treats the members of a cycle-balance pool as reaching each
+other. Until 2026-11-20 it read the parsed edges alone and missed answers
+(specs/158 amendment 1). The top-level `reachability` says `"solve_edges"`,
+or `"unfiltered"` under `DS_ZERO_SUPPLY_MODE=hold`, whose holds act by leaf
+rather than along edges: then every candidate is solvable up to the cap. The
+target's own pins are `self_excluded`. The response's `counts`
 (`candidates_total / self_excluded / reachable / solved / capped / moved /
-returned`) make a capped answer recognizable from the response alone;
-`ordering` is declared (`entity_id` — influence pre-ranking was measured and
+returned / reaction_ids_excluded`) make a capped answer recognizable from the
+response alone. `moved` counts **candidates** (either dose changing the call
+counts the candidate once), not solves.
+`ordering` is declared (`entity_id`: influence pre-ranking was measured and
 carries no signal, specs/158 research R2), and returned rows are ranked by the
 measured |log2 fold| AFTER solving. Cost: one inverse query is up to
 2 x `cap` forward solves (seconds on a typical pathway; the large tail is why
-the cap exists). The top level
-carries `protocol` (on the record: `ko_agg`, `total_readout`, the RESOLVED
-baseline and cutoffs, and `rail_low` / `rail_high` — the stop values the
-flag was computed with, 0.01 and 99.0 at the default baseline, so a client
-never hardcodes them), `missing_tables` — bundle tables the proxy step would
-read that this network was parsed without
-(`entity_reaction_proxy_mapping.csv` as the `proxies` upload part,
-`cofactors.csv` as `cofactors`); an entity needing them falls through
-honestly to `set_members`/`none`, never a silent approximation — and
-`malformed_tables`: a PRESENT table that could not be read, recorded with the
-reason and never reported as merely absent (and never failing the parse). In
-a context build (specs/056) readouts are cut to the pathway's own nodes
-(`context_own.csv`), as the bench cuts them; a context bundle whose own-nodes
-table cannot be read is refused with a `400` rather than answered with
-neighbouring pathways' copies included.
+the cap exists). `protocol` is the readouts endpoint's, verbatim.
 
-**`mode: "abundance"`** (specs/134, the adopted `abundance_a3`): a
-total-protein antibody reads only copies nothing makes from the protein
-itself. Resolution is the korkut rule — the union of direct matches over ALL
-`stable_ids`, one flat group — cut to abundance copies (carry edges close the
-set; made-from edges and producing reactions fed from it drop copies;
-`recycle` does not count as made-from). With `activities`, the value is the
-mean over **unpinned** kept copies and the entry carries `status`:
-`"scored"`, `"trivial"` (every kept copy pinned — the benchmarks leave such a
-readout out of scoring; say so rather than scoring the pin back), or
-`"no_copy"`. `occurrences` is the resolved count before the cut.
-
-A network parsed without a node table refuses with a `400`, as `/api/pins`
-does: the direct step shares the pin index, and matching ids flatly would be
-a second, unvalidated protocol.
-
-**Switch states (specs/154, additive).** The request may carry back the
-solve's `switch_components` (below) verbatim. Each entry valued with
-`activities` then also serves `switch` (bool): true means the readout's fold
-at the other stable state would produce a DIFFERENT call — the number is a
-basin's coordinates, not a magnitude. When `switch` is true the entry carries
-`state` (`"high"`/`"low"`, by the readout's own value: a readout the switch
-represses is `"low"` when the component is on) and `other_state_fold` (its
-fold at the unselected state, same scale as `fold`). Passing
-`switch_components` without `activities`, or malformed, is a `400`. The
-`protocol` object names `switch_rule`, `switch_floor`, `switch_max_sweeps`
-and the `switch_components` count received, so a client never hardcodes the
-rule. Omitting the field leaves the response exactly as before.
+Errors keep their class: a refusal from the inner pins, solve or readouts step
+is forwarded as its own `400` message (for example `/api/readouts`' refusal of
+a context bundle whose own-nodes table cannot be read), and an inner server
+fault is a `500`, never a `400` "Invalid input."
 
 ### `POST /api/solve`
 Solve the steady state under a set of perturbations. JSON body:
@@ -449,6 +486,12 @@ Solve the steady state under a set of perturbations. JSON body:
   `0–1`. Confidence `> 0` pins the node as a hard constraint; `0` ignores it.
   A uuid repeated in the object with **different** values is a `400`
   (two contradictory measurements are a conflict); an exact repeat is fine.
+  A uuid the network does not contain perturbs nothing: the response names
+  such uuids in `unknown_observations` (and soft ones in
+  `unknown_soft_observations`), and a request whose observations, hard and
+  soft together, **all** miss is a `400` ("No observation matched a node in
+  this network"), which usually means the uuids come from another catalog
+  build.
 - **`edge_redirects`** (optional, specs/122): a list of `[parent_uuid, child_uuid]`
   edges of the network to cut, as a drug blocking its target's activity. Each
   keeps its type and sign but takes its input from a new block node the server
@@ -626,7 +669,10 @@ request carrying the field is a `400` — a client must never believe it
 conditioned a solve that ignored its measurements. The response reports
 `soft_obs_rule`, `soft_observed` and `soft_overridden` (each with its
 reason: a hard `pin`, or a `pool`-managed node, whose cycle balance v1 does
-not blend). Not supported under `DS_SCC_METHOD=minimize` (refused).
+not blend). Not supported under `DS_SCC_METHOD=minimize` (refused). A soft
+observation on a uuid the network does not contain gets the hard ones'
+membership guard (since 2026-11-20; it used to be dropped silently): it is
+named in `unknown_soft_observations`, and counts toward the all-miss `400`.
 
 **Switch states (specs/154, additive).** When `DS_SWITCH_DETECT=on` (the
 default) and the solve converged, the response carries `switch_components`:

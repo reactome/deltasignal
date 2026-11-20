@@ -251,7 +251,83 @@ const SRV = DeltaSignal
             pr = SRV.JSON3.read(String(SRV.solve_handler(post("/api/solve", plain)).body))
             @test pr[:soft_obs_rule] == "off"
             @test pr[:soft_observed] == 0
+            @test isempty(pr[:unknown_soft_observations])
+
+            # review 2026-11-20 (D2): soft observations get the hard ones'
+            # membership guard. A partial miss is named...
+            nid = parsed[:network_id]
+            part = """{"network_id": "$nid", "observations": {"$u": [50.0, 1.0]},
+                       "soft_observations": {"$v": [2.0, 0.5], "NOT-A-NODE": [2.0, 0.5]}}"""
+            presp = SRV.solve_handler(post("/api/solve", part))
+            @test presp.status == 200
+            pp = SRV.JSON3.read(String(presp.body))
+            @test collect(String.(pp[:unknown_soft_observations])) == ["NOT-A-NODE"]
+            @test isempty(pp[:unknown_observations])
+            @test pp[:soft_observed] == 1
+            # ...a known soft observation keeps a request whose hard ones all miss...
+            mixed = """{"network_id": "$nid", "observations": {"NOPE": [50.0, 1.0]},
+                        "soft_observations": {"$v": [2.0, 0.5]}}"""
+            mresp = SRV.solve_handler(post("/api/solve", mixed))
+            @test mresp.status == 200
+            @test collect(String.(SRV.JSON3.read(String(mresp.body))[:unknown_observations])) == ["NOPE"]
+            # ...and a request whose observations, hard and soft together, ALL
+            # miss is the OBS_UNKNOWN_ERROR refusal, soft-only included
+            for allmiss in ("""{"network_id": "$nid", "observations": {"NOPE": [50.0, 1.0]},
+                                "soft_observations": {"NOPE2": [2.0, 0.5]}}""",
+                            """{"network_id": "$nid", "soft_observations": {"NOPE2": [2.0, 0.5]}}""")
+                aresp = SRV.solve_handler(post("/api/solve", allmiss))
+                @test aresp.status == 400
+                @test SRV.JSON3.read(String(aresp.body))[:message] == SRV.OBS_UNKNOWN_ERROR
+            end
         end
+    end
+
+    # Review 2026-11-20 (D4): a PRESENT but unreadable nodes.csv. The parser
+    # keeps such a network in service (DS_ZERO_SUPPLY_MODE=off), so the pin
+    # index must not take the parse down: the network is served, and the pin
+    # and readout protocols refuse with the malformed-table message, never the
+    # "no table" one and never a 500.
+    @testset "/api/parse serves a network whose node table is malformed" begin
+        hdr = "source_id,target_id,pos_neg,and_or,edge_type,stoichiometry\n"
+        part(name, text) = SRV.HTTP.Multipart("$(name).csv", IOBuffer(text), "text/csv")
+        f = Dict(
+            "logic_network" => part("logic_network", hdr * "u-x,u-r,pos,and,input,1\nu-r,u-y,pos,,output,1\n"),
+            "uuid_mapping" => part("map", "uuid,stable_id\nu-x,R-HSA-2\nu-r,R-HSA-3\nu-y,R-HSA-4\n"),
+            "nodes" => part("nodes", "uuid,foo\nu-x,1\n"))
+        form = SRV.HTTP.Form(f)
+        req = SRV.HTTP.Request("POST", "/api/parse",
+            ["Content-Type" => "multipart/form-data; boundary=$(form.boundary)"], read(form))
+        resp = withenv("DS_ZERO_SUPPLY_MODE" => "off") do
+            SRV.parse_handler(req)
+        end
+        @test resp.status == 200
+        nid = String(SRV.JSON3.read(String(resp.body))[:network_id])
+        @test SRV.get_cached_pin_index(nid) === nothing
+        @test SRV.get_pin_index_error(nid) !== nothing
+        jpost(path, b) = SRV.HTTP.Request("POST", path, ["Content-Type" => "application/json"], b)
+        q = """{"network_id": "$nid", "queries": [{"stable_ids": ["R-HSA-2"]}]}"""
+        for h in (SRV.pins_handler, SRV.readouts_handler)
+            r = h(jpost("/api", q))
+            @test r.status == 400
+            @test String(SRV.JSON3.read(String(r.body))[:message]) == SRV.PINS_TABLE_ERROR
+        end
+        # the network itself still solves
+        sresp = SRV.solve_handler(jpost("/api/solve", """{"network_id": "$nid", "observations": {"u-x": [0.0, 1.0]}}"""))
+        @test sresp.status == 200
+
+        # re-caching an id replaces its index AND its recorded error together,
+        # so neither outlives the parse that produced it
+        idx = SRV.PinIndex(Dict("R-HSA-2" => ["u-x"]), Dict{String, String}())
+        SRV.cache_pin_index!(nid, idx)
+        @test SRV.get_cached_pin_index(nid) === idx
+        @test SRV.get_pin_index_error(nid) === nothing
+        SRV.cache_pin_index!(nid, nothing; error = "bad table")
+        @test SRV.get_cached_pin_index(nid) === nothing
+        @test SRV.get_pin_index_error(nid) == "bad table"
+        SRV.cache_pin_index!(nid, nothing)
+        @test SRV.get_pin_index_error(nid) === nothing
+        r = SRV.pins_handler(jpost("/api/pins", q))
+        @test String(SRV.JSON3.read(String(r.body))[:message]) == SRV.PINS_NO_TABLE_ERROR
     end
 
     # specs/044: an uploaded network is saved under its part name, so the
@@ -520,7 +596,13 @@ const SRV = DeltaSignal
     end
 
     @testset "a bad structural switch stops the server at start (review 2026-11-05)" begin
-        for (k, bad) in ("DS_CONTEXT_BRIDGE_ORDER" => "late", "DS_SELF_ACTIVATOR_LEAVES" => "yes")
+        # review 2026-11-20 (D3): and every per-request setting added since,
+        # each through its own parser
+        for (k, bad) in ("DS_CONTEXT_BRIDGE_ORDER" => "late", "DS_SELF_ACTIVATOR_LEAVES" => "yes",
+                         "DS_SWITCH_DETECT" => "yes", "DS_SWITCH_FLOOR" => "0",
+                         "DS_SWITCH_FLOOR" => "lots", "DS_SWITCH_MAX_SWEEPS" => "0",
+                         "DS_SOFT_OBS" => "on", "DS_DOWN_CUTOFF" => "low",
+                         "DS_UP_CUTOFF" => "1.15x", "DS_PIN_ROOT_IGNORE" => "dissociation")
             old = get(ENV, k, nothing)
             ENV[k] = bad
             try

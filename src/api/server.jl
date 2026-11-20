@@ -173,6 +173,7 @@ const EDGE_REDIRECT_ERROR = "edge_redirects must be a list of [parent_uuid, chil
 const UNKNOWN_NETWORK_ERROR = "Unknown network_id. The server cache is per-process and is cleared on restart; call /api/parse again."
 const NO_NETWORK_ERROR = "Request must provide a network: a pathway_id, an uploaded network, an inline network, or a known network_id."
 const PINS_NO_TABLE_ERROR = "This network has no node table, so the pin protocol cannot resolve. Parse a catalog pathway, or upload the bundle's nodes.csv as the 'nodes' part."
+const PINS_TABLE_ERROR = "This network's node table (nodes.csv) is present but could not be read, so the pin and readout protocols cannot resolve. Rebuild the bundle; the network itself is still served for /api/solve."
 const PINS_QUERY_ERROR = "pins requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...]} objects."
 const READOUTS_NO_TABLE_ERROR = "This network has no node table, so the readout protocol cannot resolve. Parse a catalog pathway, or upload the bundle's nodes.csv as the 'nodes' part."
 const READOUTS_QUERY_ERROR = "readouts requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'} objects; 'activities' (uuid: number) and 'pinned' (uuid list) are optional."
@@ -202,7 +203,7 @@ function user_facing_error(e::Exception)::Tuple{Int, String}
         elseif msg == OBS_SHAPE_ERROR || msg == OBS_RANGE_ERROR || msg == NODE_BASELINE_ERROR ||
                msg == UPLOAD_ERROR || msg == UNKNOWN_NETWORK_ERROR || msg == NO_NETWORK_ERROR ||
                msg == EDGE_REDIRECT_ERROR ||
-               msg == PINS_NO_TABLE_ERROR || msg == PINS_QUERY_ERROR ||
+               msg == PINS_NO_TABLE_ERROR || msg == PINS_QUERY_ERROR || msg == PINS_TABLE_ERROR ||
                msg == READOUTS_NO_TABLE_ERROR || msg == READOUTS_QUERY_ERROR ||
                msg == READOUTS_CONTEXT_ERROR || msg == SCOPE_STATEMENT_ERROR ||
                msg == LEADS_ERROR ||
@@ -272,11 +273,31 @@ const NETWORK_CACHE_LOCK = ReentrantLock()
 # the specific message instead of resolving a protocol it cannot run.
 const PIN_INDEX_CACHE = Dict{String, Union{DeltaSignal.PinIndex, Nothing}}()
 
-function cache_pin_index!(network_id::String, index::Union{DeltaSignal.PinIndex, Nothing})
+# Review 2026-11-20 (D4): why a parsed network has no pin index when its node
+# table was PRESENT but could not be read (absent from this map: no table, or
+# an index). Kept separate so the refusal names the malformed table instead of
+# calling it merely absent, as /api/readouts' malformed_tables does.
+const PIN_INDEX_ERRORS = Dict{String, String}()
+
+function cache_pin_index!(network_id::String, index::Union{DeltaSignal.PinIndex, Nothing};
+                          error::Union{Nothing, String} = nothing)
     lock(NETWORK_CACHE_LOCK) do
         PIN_INDEX_CACHE[network_id] = index
+        error === nothing ? delete!(PIN_INDEX_ERRORS, network_id) :
+                            (PIN_INDEX_ERRORS[network_id] = error)
     end
 end
+
+"""The recorded reason a network's node table could not be indexed, or `nothing`."""
+function get_pin_index_error(network_id::String)
+    lock(NETWORK_CACHE_LOCK) do
+        get(PIN_INDEX_ERRORS, network_id, nothing)
+    end
+end
+
+"""The refusal for a network with no pin index: malformed table or no table."""
+_no_pin_index_error(network_id::String, absent::String) =
+    get_pin_index_error(network_id) === nothing ? absent : PINS_TABLE_ERROR
 
 function get_cached_pin_index(network_id::String)
     lock(NETWORK_CACHE_LOCK) do
@@ -770,14 +791,27 @@ function parse_handler(req)
         # by id instead of re-shipping the whole network each time.
         network_id = pathway_id !== nothing ? "pw:" * pathway_id :
                      "net:" * string(hash(logic_network_path))
-        cache_network!(network_id, network)
         # specs/140: index the bundle's nodes.csv for /api/pins while the
-        # files still exist (an upload's temp dir is removed below).
-        cache_pin_index!(network_id,
-            DeltaSignal.build_pin_index(joinpath(dirname(logic_network_path), "nodes.csv")))
+        # files still exist (an upload's temp dir is removed below). Review
+        # 2026-11-20 (D4): the parser keeps a network with a malformed node
+        # table in service (tsv_parser.jl, DS_ZERO_SUPPLY_MODE=off), so the
+        # index must not take the parse down either: the error is recorded and
+        # the network is served with no pin index, which /api/pins and
+        # /api/readouts refuse with PINS_TABLE_ERROR. Both indexes are built
+        # BEFORE anything is cached, so a re-parse never leaves a stale index
+        # beside a new network.
+        pin_index, pin_index_error = try
+            DeltaSignal.build_pin_index(joinpath(dirname(logic_network_path), "nodes.csv")), nothing
+        catch err
+            err isa ArgumentError || rethrow()
+            @warn "Serving without a pin index: the node table could not be read" network_id exception = err
+            nothing, sprint(showerror, err)
+        end
         # specs/141: the readout tables live beside the logic network too.
-        cache_readout_index!(network_id,
-            DeltaSignal.build_readout_index(dirname(logic_network_path)))
+        readout_index = DeltaSignal.build_readout_index(dirname(logic_network_path))
+        cache_network!(network_id, network)
+        cache_pin_index!(network_id, pin_index; error = pin_index_error)
+        cache_readout_index!(network_id, readout_index)
 
         # Replace placeholder names with real Reactome display names + types.
         # No-op if the network already has them or if ContentService is down.
@@ -1024,14 +1058,22 @@ function solve_handler(req)
         # network (`haskey(uuid_to_idx, uuid) || continue`), silently — so a
         # stale or mistyped uuid perturbs nothing and still returns 200. Report
         # partial misses; reject a total miss, which cannot be intentional.
+        # Review 2026-11-20 (D2): soft observations are dropped by the solver
+        # the same way, so the same guard covers them: reported by name, and
+        # a request whose observations, hard and soft together, ALL miss is
+        # rejected.
         unknown_observations = sort([u for u in keys(observations)
                                      if !haskey(network.nodes, u)])
-        if !isempty(observations) && length(unknown_observations) == length(observations)
-            @warn "No observation matched a node in this network" count=length(observations)
+        unknown_soft_observations = sort([u for u in keys(soft_observations)
+                                          if !haskey(network.nodes, u)])
+        n_given = length(observations) + length(soft_observations)
+        n_unknown = length(unknown_observations) + length(unknown_soft_observations)
+        if n_given > 0 && n_unknown == n_given
+            @warn "No observation matched a node in this network" count=n_given
             throw(ArgumentError(OBS_UNKNOWN_ERROR))
         end
-        if !isempty(unknown_observations)
-            @warn "Some observations name nodes not in this network" unknown=length(unknown_observations) total=length(observations)
+        if n_unknown > 0
+            @warn "Some observations name nodes not in this network" unknown=n_unknown total=n_given
         end
 
         println("Solving with ", length(observations), " observations")
@@ -1059,6 +1101,7 @@ function solve_handler(req)
             # Named explicitly so a caller can tell "perturbation had no effect"
             # from "perturbation was never applied".
             "unknown_observations" => unknown_observations,
+            "unknown_soft_observations" => unknown_soft_observations,   # review 2026-11-20 (D2)
             "edge_redirects" => length(block_uuids),   # specs/122
             "influence_scores" => influence_scores,
             # specs/154 (additive): the second fixed points. Present (possibly
@@ -1246,7 +1289,7 @@ function pins_handler(req)
         network = get_cached_network(network_id)
         network === nothing && throw(ArgumentError(UNKNOWN_NETWORK_ERROR))
         index = get_cached_pin_index(network_id)
-        index === nothing && throw(ArgumentError(PINS_NO_TABLE_ERROR))
+        index === nothing && throw(ArgumentError(_no_pin_index_error(network_id, PINS_NO_TABLE_ERROR)))
 
         root_ignore = DeltaSignal.pin_root_ignore()
         results = []
@@ -1287,18 +1330,112 @@ end
 # public solve and readouts handlers themselves (the same code, the same
 # serialization), so a returned row is bit-equal to running /api/solve +
 # /api/readouts for that candidate. Candidates are exactly the pin protocol's
-# distinct resolutions; a candidate with no directed path to the target over
-# the network's own edges provably cannot move it and is counted, not solved.
+# distinct resolutions of physical-entity stable ids; a candidate with no
+# directed path to the target over the edges the SOLVE uses (review
+# 2026-11-20: the parsed edges plus every solver-derived edge, and cycle-pool
+# coupling) cannot move it and is counted, not solved.
 # Influence pre-ranking was measured and refuted (research R2): the order is
 # declared, not claimed.
+
+"""An inner handler's failure, re-raised by `_internal_post` with its status
+class kept (review 2026-11-20, C3): an inner 5xx is a server fault and must
+reach the client as a 500, never as a 400 "Invalid input."."""
+struct InnerServerError <: Exception
+    path::String
+    status::Int
+end
 
 function _internal_post(handler, path, body)
     resp = handler(HTTP.Request("POST", path, ["Content-Type" => "application/json"],
                                 JSON3.write(body)))
+    resp.status >= 500 && throw(InnerServerError(path, resp.status))
     parsed = JSON3.read(String(resp.body))
+    # An inner 4xx: its message is re-thrown as an ArgumentError, so the
+    # allow-list in `user_facing_error` forwards the specific message it
+    # carries (and only an allow-listed one).
     resp.status == 200 || throw(ArgumentError(String(get(parsed, :message, "Invalid input."))))
     return parsed
 end
+
+# Reactome's ReactionLikeEvent classes, for a network without a node table
+# whose entity_type came from the sample format or ContentService enrichment.
+const _REACTION_ENTITY_TYPES = Set(["reaction", "blackboxevent", "polymerisation",
+                                    "depolymerisation", "failedreaction", "reactionlikeevent"])
+
+"""Whether `u` is a reaction node: the generator's node kind when the bundle
+has a node table, else the entity type (review 2026-11-20, C4: /api/inverse
+must never offer "a knockout of a reaction")."""
+function _is_reaction_node(network::DeltaSignal.ReactionNetwork, u::AbstractString)::Bool
+    nl = network.node_leaves
+    nl !== nothing && haskey(nl, u) && return first(nl[u]) == "reaction"
+    nd = get(network.nodes, u, nothing)
+    return nd !== nothing && lowercase(nd.entity_type) in _REACTION_ENTITY_TYPES
+end
+
+"""
+    inverse_ancestors(network, target_nodes) -> Union{Nothing, Set{String}}
+
+The nodes with a directed path to any target node over the edges the solve
+actually uses (review 2026-11-20, C1). The cached parsed network lacks every
+edge the solver derives at solve time (`carrier_supply`, `carrier_component`,
+`recycled_supply`, `rna_supply`, sequestration depletions, silo bridges): on
+R-HSA-1257604 a root pin of p-T308,S473-AKT1 reached 11 nodes over the
+parsed edges and 571 more through `recycled_supply`, so /api/inverse skipped
+a knockout that drives p-S99-BAD to 1.4e-6. The walk therefore reads the
+union of the parsed edges (recycle edges included) and
+`solved_carrier_network`'s edges, built by the same rule functions under the
+same DS_* config the solve resolves; and a cycle-balance pool couples its
+members by conservation, not only by edges, so reaching any member reaches
+all of them. Every addition only widens the set: a wrong widening costs a
+solve, a wrong narrowing a missed answer.
+
+Returns `nothing` (no sound pre-filter: every candidate is solvable up to the
+cap) under DS_ZERO_SUPPLY_MODE=hold, whose holds act by leaf, not along edges.
+"""
+function inverse_ancestors(network::DeltaSignal.ReactionNetwork, target_nodes::Set{String})
+    DeltaSignal.zero_supply_mode() == "off" || return nothing
+    solved = DeltaSignal.solved_carrier_network(network)
+    preds = Dict{String, Vector{String}}()
+    for es in (network.edges, solved.edges), e in es
+        push!(get!(preds, e.child_uuid, String[]), e.parent_uuid)
+    end
+    groups = Dict{String, Vector{Vector{String}}}()
+    for pools in (network.pools, solved.pools)
+        pools === nothing && continue
+        for p in pools
+            members = String[]
+            append!(members, p.forms); append!(members, p.intermediates); append!(members, p.bases)
+            for (a, b) in p.carriers
+                push!(members, a); push!(members, b)
+            end
+            for path in p.paths, (a, b, rxns) in path.steps
+                push!(members, a); push!(members, b); append!(members, rxns)
+            end
+            unique!(members)
+            for m in members
+                push!(get!(groups, m, Vector{String}[]), members)
+            end
+        end
+    end
+    ancestors = Set{String}(target_nodes)
+    queue = collect(target_nodes)
+    function visit(v)
+        v in ancestors && return
+        push!(ancestors, v); push!(queue, v)
+    end
+    while !isempty(queue)
+        u = pop!(queue)
+        foreach(visit, get(preds, u, String[]))
+        for g in get(groups, u, Vector{String}[])
+            foreach(visit, g)
+        end
+    end
+    return ancestors
+end
+
+# The readout fields that describe the TARGET's resolution, identical for every
+# candidate; served once under `target`, not copied into each row.
+const _INVERSE_TARGET_FIELDS = (:id, :mode, :basis, :groups, :pinned)
 
 function inverse_handler(req)
     try
@@ -1346,37 +1483,38 @@ function inverse_handler(req)
         target_nodes = Set{String}(String(u) for g in tentry[:groups] for u in g)
         isempty(target_nodes) && throw(ArgumentError(INVERSE_TARGET_ERROR))
 
-        # Candidates: every curated entity's pin resolution, deduplicated by
-        # pin set (paralogs through one root complex answer as one row).
-        ids = sort!(unique(String[n.reactome_id for n in values(network.nodes)
-                                  if n.reactome_id !== nothing && !isempty(n.reactome_id) &&
-                                     startswith(n.reactome_id, "R-")]))
-        pres = _internal_post(pins_handler, "/api/pins",
-                              Dict("network_id" => network_id,
-                                   "queries" => [Dict("id" => i, "stable_ids" => [i]) for i in ids]))
+        # Candidates: every curated PHYSICAL ENTITY's pin resolution,
+        # deduplicated by pin set (paralogs through one root complex answer as
+        # one row). A reaction's stable id is not a perturbation (review
+        # 2026-11-20, C4): ids of reaction nodes are not offered, and an id
+        # whose resolution pins a reaction node is dropped; both are counted.
+        reaction_ids = Set{String}()
+        entity_ids = Set{String}()
+        for (u, n) in network.nodes
+            rid = n.reactome_id
+            (rid !== nothing && !isempty(rid) && startswith(rid, "R-")) || continue
+            push!(_is_reaction_node(network, u) ? reaction_ids : entity_ids, rid)
+        end
+        ids = sort!(collect(setdiff(entity_ids, reaction_ids)))
+        reaction_excluded = length(reaction_ids)
+        pin_results = isempty(ids) ? Any[] :
+            _internal_post(pins_handler, "/api/pins",
+                           Dict("network_id" => network_id,
+                                "queries" => [Dict("id" => i, "stable_ids" => [i]) for i in ids]))[:results]
         bypins = Dict{Vector{String}, Vector{Any}}()   # sorted pin uuids -> query results
-        for r in pres[:results]
+        for r in pin_results
             isempty(r[:pins]) && continue
             key = sort!(String[String(pin[:uuid]) for pin in r[:pins]])
+            if any(u -> _is_reaction_node(network, u), key)
+                reaction_excluded += 1
+                continue
+            end
             push!(get!(bypins, key, Any[]), r)
         end
 
-        # Ancestry: reverse reachability from the target nodes over the solved
-        # network's OWN edges (derived edges included) — a pin outside this set
-        # cannot move the target through the network.
-        preds = Dict{String, Vector{String}}()
-        for e in network.edges
-            push!(get!(preds, e.child_uuid, String[]), e.parent_uuid)
-        end
-        ancestors = Set{String}(target_nodes)
-        queue = collect(target_nodes)
-        while !isempty(queue)
-            u = pop!(queue)
-            for p in get(preds, u, String[])
-                p in ancestors && continue
-                push!(ancestors, p); push!(queue, p)
-            end
-        end
+        # Ancestry over the edges the solve uses (see inverse_ancestors);
+        # `nothing` means no sound pre-filter, so every candidate is solvable.
+        ancestors = inverse_ancestors(network, target_nodes)
 
         candidates = sort!(collect(keys(bypins)); by = key -> String(bypins[key][1][:id]))
         self_excluded = 0
@@ -1384,35 +1522,41 @@ function inverse_handler(req)
         for key in candidates
             if any(u -> u in target_nodes, key)
                 self_excluded += 1
-            elseif any(u -> u in ancestors, key)
+            elseif ancestors === nothing || any(u -> u in ancestors, key)
                 push!(reachable, key)
             end
         end
 
         solved_keys = reachable[1:min(cap, length(reachable))]
         rows = []
-        moved = 0
+        moved = 0          # candidates (pin sets) that either dose moved
         protocol = nothing
         for key in solved_keys
             qs = bypins[key]
             names = sort!(unique(String[String(pin[:name]) for r in qs for pin in r[:pins]]))
             cids = sort!(unique(String[String(r[:id]) for r in qs]))
+            candidate_moved = false
             for (label, dose) in (("knockout", ko_dose), ("overexpression", oe_dose))
                 sol = _internal_post(solve_handler, "/api/solve",
                                      Dict("network_id" => network_id,
                                           "observations" => Dict(u => [dose, 1.0] for u in key)))
-                ro = _internal_post(readouts_handler, "/api/readouts",
-                                    Dict("network_id" => network_id,
-                                         "activities" => sol[:node_activities],
-                                         "pinned" => key,
-                                         "converged" => sol[:converged],
-                                         "switch_components" => get(sol, :switch_components, []),
-                                         "queries" => [tq]))
+                rbody = Dict{String, Any}("network_id" => network_id,
+                                          "activities" => sol[:node_activities],
+                                          "pinned" => key,
+                                          "converged" => sol[:converged],
+                                          "queries" => [tq])
+                # Review 2026-11-20 (C2): the solve's switch_components pass
+                # through exactly as on the forward path. Absent (detection
+                # off, or a non-converged solve) stays absent, so no row
+                # claims switch:false where nothing was searched.
+                haskey(sol, :switch_components) &&
+                    (rbody["switch_components"] = sol[:switch_components])
+                ro = _internal_post(readouts_handler, "/api/readouts", rbody)
                 protocol = ro[:protocol]
-                entry = copy(Dict(ro[:results][1]))
+                entry = ro[:results][1]
                 call = get(entry, :call, nothing)
                 changed = call !== nothing && String(call) != "normal"
-                changed && (moved += 1)
+                changed && (candidate_moved = true)
                 keep = direction == "any" ? changed :
                        (call !== nothing && String(call) == direction)
                 keep || continue
@@ -1420,13 +1564,16 @@ function inverse_handler(req)
                     "candidates" => cids, "names" => names,
                     "pins" => key, "dose" => label, "activity" => dose,
                     "converged" => sol[:converged])
-                for k in (:fold, :call, :railed, :value, :confidence,
-                          :confidence_stratum, :measured_fold_ranges, :fragility,
-                          :switch, :state, :other_state_fold)
-                    haskey(entry, k) && (row[String(k)] = entry[k])
+                # Every field the forward readout serves for this answer,
+                # honesty fields included; the target's own resolution is
+                # served once, under `target`.
+                for (k, v) in pairs(entry)
+                    k in _INVERSE_TARGET_FIELDS && continue
+                    row[String(k)] = v
                 end
                 push!(rows, row)
             end
+            candidate_moved && (moved += 1)
         end
         sort!(rows; by = r -> -(abs(log2(max(Float64(get(r, "fold", 1.0)), 1e-12)))))
 
@@ -1439,13 +1586,19 @@ function inverse_handler(req)
             # order claims nothing; returned rows are ranked by the measured
             # effect AFTER solving.
             "ordering" => "entity_id",
+            # review 2026-11-20 (C1): how `reachable` was decided — over the
+            # edges the solve uses, or unfiltered where no sound filter exists
+            "reachability" => ancestors === nothing ? "unfiltered" : "solve_edges",
             "counts" => Dict(
                 "candidates_total" => length(candidates),
                 "self_excluded" => self_excluded,
                 "reachable" => length(reachable),
                 "solved" => length(solved_keys),
                 "capped" => length(reachable) - length(solved_keys),
+                # candidates (pin sets), not solves: either dose moving the
+                # call counts the candidate once
                 "moved" => moved,
+                "reaction_ids_excluded" => reaction_excluded,
                 "returned" => length(rows)),
             "target" => Dict("basis" => tentry[:basis], "nodes" => sort!(collect(target_nodes))),
             "protocol" => protocol === nothing ? tres[:protocol] : protocol,
@@ -1476,7 +1629,7 @@ function readouts_handler(req)
         network = get_cached_network(network_id)
         network === nothing && throw(ArgumentError(UNKNOWN_NETWORK_ERROR))
         pin_index = get_cached_pin_index(network_id)
-        pin_index === nothing && throw(ArgumentError(READOUTS_NO_TABLE_ERROR))
+        pin_index === nothing && throw(ArgumentError(_no_pin_index_error(network_id, READOUTS_NO_TABLE_ERROR)))
         ridx = get_cached_readout_index(network_id)
         ridx === nothing && (ridx = DeltaSignal.ReadoutIndex(
             Dict{String, Vector{String}}(), Set{String}(), false, false, String[], nothing))
@@ -1842,6 +1995,14 @@ function resolve_server_env()
     DeltaSignal.resolve_reaction_eval_config()
     DeltaSignal.context_bridge_order()     # specs/133
     DeltaSignal.self_activator_leaves()    # specs/136
+    # Review 2026-11-20 (D3): the per-request settings added since, each read
+    # by its own parser, so boot fails exactly where a request would.
+    DeltaSignal._switch_detect_on()        # specs/154
+    DeltaSignal._switch_floor()
+    DeltaSignal._switch_max_sweeps()
+    DeltaSignal.soft_obs_mode()            # specs/156
+    DeltaSignal.readout_cutoffs()          # specs/137 (DS_DOWN_CUTOFF / DS_UP_CUTOFF)
+    DeltaSignal.pin_root_ignore()          # specs/058, specs/140
     return nothing
 end
 
