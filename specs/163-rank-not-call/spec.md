@@ -6,7 +6,9 @@
 
 **Status**: Draft, registered BEFORE any scoring
 
-**Input**: Adam, 2026-11-16 ("ok to your plan"). Every attempt to turn the model's predicted magnitudes into better yes/no calls has failed (specs/137, 144, 161, 162). Yet the predicted |log2 fold| ranks real changes above non-changes consistently: AUROC 0.65–0.67 on korkut and 0.63 on CPPA (non-marker readouts). The question: is a per-condition RANKING of readouts by predicted effect a measurably useful product output where calls are not?
+**Input**: Adam, 2026-11-16 ("ok to your plan"). Every attempt to turn the model's predicted magnitudes into better yes/no calls has failed (specs/137, 144, 161, 162). Yet the predicted |log2 fold| ranks real changes above non-changes consistently: AUROC 0.65–0.67 on korkut, and above 0.5 on CPPA (non-marker readouts; the CPPA figure is in the private notes). The question: is a per-condition RANKING of readouts by predicted effect a measurably useful product output where calls are not?
+
+*2026-11-20 (code review): a CPPA AUROC that this Input line committed, against FR-003 and the dataset register, was removed; the verdict wording stands.*
 
 ## User Scenarios & Testing *(mandatory)*
 

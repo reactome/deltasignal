@@ -122,7 +122,10 @@ def korkut(cases_tsv):
 
 def cppa(unpacked, split_tsv, markers_tsv, drug_targets, case_files):
     import cppa_data_121 as cd
+    import dataset_roles
     from engagement_162 import markers as load_markers
+    for ds in ("cppa_train", "cppa_test"):       # as the korkut path: every portion is read
+        dataset_roles.require_role(ds, "fit")
     marks = load_markers(markers_tsv, drug_targets)
     acc = defaultdict(list); reach = defaultdict(bool)
     for path in case_files:

@@ -55,6 +55,9 @@ curl localhost:8080/api/health | jq .catalog    # what the RUNNING API is servin
   cannot be parsed. Results go to `builds/<id>/results/<solver-sha>/`, so every
   number is traceable to a catalog build and a solver commit. **Cite that pair
   in a spec, not a scratch path.**
+- A set `PATHWAY_CATALOG` (the dev box's untracked `.env` pins the served Release 98 build) mounts that build instead
+  of `current`, so plain `bench` refuses there; run `scripts/catalog.sh bench --build <dir under builds/>` for the
+  served build (the refusal lists the matching directories). Do not move `current` or edit `.env` to pass the check.
 - `BUILD.json` records the Reactome release, release date and content checksum
   from the database's own `DBInfo` node, because the same generator commit
   against a different release builds a different catalog.
@@ -679,6 +682,12 @@ env vars only override for benchmark sweeps:
   different calls). ADDITIVE ONLY: the canonical answer is untouched (parity-replayed). `DS_SWITCH_MAX_SWEEPS`
   (default 250) caps each re-solve; hitting it is honest absence. The solve reports `switch_detect`,
   `switch_components_searched/found`, `switch_sweeps_capped`.
+- `DS_SOFT_OBS=off` (default; specs/156) | `blend`: soft observations (`soft_observations` on /api/solve,
+  `{uuid: [value_ui, weight]}`, weight in [0, 1]; CLI `solve --soft-observations`) blend a node toward a measured
+  value, x = w·y + (1 − w)·F(x): weight 1 is the hard pin, weight 0 no observation. Under `off` a request carrying
+  them is refused (400), never silently un-conditioned; with none in the request the solve is bit-identical. A hard
+  pin, a cofactor/drug/pathogen hold or a pool overrides a soft entry. The benchmark protocol never uses them. Reports
+  `soft_obs_rule`, `soft_observed` and `soft_overridden`.
 - Export aggregation default: `stoichiometry_weighted`.
 
 ### Where design decisions live
@@ -1238,8 +1247,8 @@ behaviour, not the whole directory; `ls specs/` is the complete list.
 Per-feature numbers belong in that feature's `research.md`, not here.
 
 ### Testing Strategy
-**Most of the test suite cannot fail.** Twenty-nine files contain assertions; the
-other seven execute code and print output.
+**Most of the test suite cannot fail.** Thirty-four files contain assertions (the
+list in `test/asserting_suites.txt`); the other seven execute code and print output.
 
 | file | assertions | note |
 |---|---|---|

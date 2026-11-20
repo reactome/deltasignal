@@ -36,6 +36,10 @@
 #                                 build by solver commit; refuses unless the
 #                                 running API serves that build and the code
 #                                 that produces the numbers is committed
+#   scripts/catalog.sh bench --build <dir>
+#                                 the same, for builds/<dir> instead of current
+#                                 (the dev API serves PATHWAY_CATALOG when it is
+#                                 set, e.g. in the repo's .env, not current)
 set -euo pipefail
 
 HOME_DIR="$(realpath -m "${DS_CATALOG_HOME:-$HOME/deltasignal-catalogs}")"
@@ -322,7 +326,8 @@ cmd_use() {
 # code default).
 check_server_code() {
   local compose="$DS_REPO/docker-compose.dev.yml" cid started src_time want have
-  cid="$(docker compose -f "$compose" ps -q julia-api 2>/dev/null)"
+  # `|| true`: under set -e a failing docker exited here silently, before the message
+  cid="$(docker compose -f "$compose" ps -q julia-api 2>/dev/null || true)"
   [ -n "$cid" ] || die "julia-api (dev compose) is not running; the bench scores that container"
   # Limit: this compares times, not the commit the container loaded; a
   # checkout to an OLDER branch after starting it would pass. Recreate after
@@ -340,15 +345,43 @@ print("\n".join(sorted(f"{k}={v}" for k,v in e.items() if k.startswith("DS_") an
 $(diff <(echo "$want") <(echo "$have") | grep '^[<>]')"
 }
 
+# builds/<dir> whose manifest names build id $1 (a build may be copied under
+# another directory name, e.g. with extra context files; its id is unchanged).
+dirs_with_build_id() {
+  local d
+  for d in "$HOME_DIR"/builds/*/; do
+    [ "$(manifest_field "$d/BUILD.json" build_id)" = "$1" ] && basename "$d"
+  done
+  return 0
+}
+
 cmd_bench() {
+  local explicit=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --build) [ -n "${2:-}" ] || die "--build needs a directory name under $HOME_DIR/builds"; explicit="$2"; shift 2 ;;
+      *) die "unknown bench option $1" ;;
+    esac
+  done
   local cur="$HOME_DIR/current"
-  [ -L "$cur" ] || die "no current catalog (run: scripts/catalog.sh build)"
   local py target build ds dirty
+  if [ -n "$explicit" ]; then
+    [[ "$explicit" =~ ^[A-Za-z0-9._-]+$ ]] && [ "$explicit" != . ] && [ "$explicit" != .. ] ||
+      die "--build takes a directory name under $HOME_DIR/builds, not a path"
+    target="$HOME_DIR/builds/$explicit"
+    [ -f "$target/BUILD.json" ] || die "no build $explicit (no $target/BUILD.json)"
+    [ "$(manifest_field "$target/BUILD.json" status)" = "complete" ] || die "build $explicit is not complete"
+  else
+    [ -L "$cur" ] || die "no current catalog (run: scripts/catalog.sh build)"
+    # Resolve ONCE. Reading through the symlink per axis let a mid-run repoint
+    # send the second axis to a different build.
+    target="$(readlink -f "$cur")"
+  fi
   py="$(lng_python)"   # the benchmark needs py2neo, which lives in the generator venv
-  # Resolve ONCE. Reading through the symlink per axis let a mid-run repoint
-  # send the second axis to a different build.
-  target="$(readlink -f "$cur")"
-  build="$(basename "$target")"
+  # The id the API reports is the manifest's build_id; the directory name is the
+  # same for a build made here, but not for a copy (e.g. *-plus-leads).
+  build="$(manifest_field "$target/BUILD.json" build_id)"
+  [ -n "$build" ] || build="$(basename "$target")"
   ds="$(git -C "$DS_REPO" rev-parse --short HEAD)"
   # Everything that produces the numbers must be committed, not just src/.
   dirty="$(git -C "$DS_REPO" status --porcelain src bench Project.toml | wc -l | tr -d ' ')"
@@ -357,7 +390,21 @@ cmd_bench() {
   check_served() {
     local s; s="$(served_build)"
     [ -n "$s" ] || die "cannot read the served catalog from $API/api/health (is the API up?)"
-    [ "$s" = "$build" ] || die "API at $API serves '$s' but this run is scoring '$build'${1:+ ($1)}; recreate it: docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api"
+    [ "$s" = "$build" ] && return 0
+    [ -z "$1" ] || die "API at $API serves '$s' but this run is scoring '$build' ($1); recreate it: docker compose -f docker-compose.dev.yml up -d --force-recreate julia-api"
+    local hint cands
+    cands="$(dirs_with_build_id "$s" | paste -sd ' ')"
+    if [ -z "$explicit" ]; then
+      hint="The dev API mounts PATHWAY_CATALOG when it is set (the repo's untracked .env pins the served build), and
+current only otherwise, so the two can differ by design. To benchmark what the API serves:
+  scripts/catalog.sh bench --build <dir>      (builds/ dirs with build id '$s': ${cands:-none found})
+Which build the API serves is a serving decision (PATHWAY_CATALOG, then a recreate of julia-api);
+do not move current or edit .env just to get past this check."
+    else
+      hint="Pass --build with a directory whose build id is '$s' (${cands:-none found under builds/}), or serve '$explicit' (PATHWAY_CATALOG) and recreate julia-api."
+    fi
+    die "API at $API serves '$s' but this run is scoring '$build' ($( [ -n "$explicit" ] && echo "builds/$explicit" || echo "current -> $(basename "$target")")).
+$hint"
   }
   check_served ""
 
@@ -423,7 +470,7 @@ PY
 
 case "${1:-status}" in
   build)  shift; cmd_build "$@" ;;
-  bench)  cmd_bench ;;
+  bench)  shift; cmd_bench "$@" ;;
   status) cmd_status ;;
   list)   cmd_list ;;
   use)    shift; cmd_use "$@" ;;
