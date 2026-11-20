@@ -334,7 +334,8 @@ terms, even after filtering. That difference follows how often a reached
 readout changed on each record (specs/167): 88–94% on the curator and
 MP-BioPath records, whose labels are curators' expectations and reported
 effects, and 14% on korkut, which measures every readout on its array. A
-change call adds about two points to that share on either kind of record. Read
+change call adds about two points to that share on the curator held-out and
+korkut records, and nothing on the others. Read
 a call as "a route reaches this readout, in this direction"; on an unselected
 panel, expect most reached readouts not to change by more than the cutoff.
 
