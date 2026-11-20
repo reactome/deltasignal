@@ -58,10 +58,10 @@ every gene-perturbation axis has readouts chosen because a change was expected o
 measures an unselected panel is a drug axis. Precision by axis is recorded correctly; "by perturbation type" is
 not established. `docs/API.md` is reworded accordingly.
 
-What the record supports: the model carries reach and direction. A reached readout is 2–3 times as likely to
-have changed as an unreached one on korkut (0.142 against 0.049), and a call on a real change has the right
-direction 66% (korkut, own markers excluded), 94% (experimental) and 98% (curator held-out) of the time. It does
-not carry which reached readouts change by more than the cutoff.
+What the record supports: the model carries reach and direction. A reached readout is about 3 times as likely
+to have changed as an unreached one on korkut (0.142 against 0.049), and a call on a real change has the right
+direction 66% of the time on korkut (86% with own markers included), 94% on experimental and 98% on curator
+held-out. It does not carry which reached readouts change by more than the cutoff.
 
 ## What would separate perturbation type from readout selection (FR-004)
 
@@ -83,7 +83,7 @@ solves. It is large enough to split by perturbation into FIT, SELECT and TEST be
 count on the served build with Release 98 gene-expression regulations from Neo4j; output
 `~/deltasignal-catalogs/analysis/167/transcript_feasibility.json`; no external data):
 
-- Reactome 98 curates 1,446 gene-expression regulations on 1,155 events; 846 genes are the product of one.
+- Reactome 98 curates 1,446 gene-expression regulations on 1,066 events; 846 genes are the product of one.
 - 371 of those target genes are nodes of the 92 served networks, and 3,698 genes have a root copy to perturb.
 - That gives 93,853 (perturbed gene, target gene) pairs in the same pathway, 18,479 of them reached, in 79
   pathways. korkut has 9,476 scored cases and 1,307 reached.
