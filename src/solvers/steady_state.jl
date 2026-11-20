@@ -1526,6 +1526,53 @@ function _sweep_component!(y::Vector{Float64}, rs::Vector{Int}, rxns_idx::Vector
     return false
 end
 
+"""
+    _reaction_reads(r) -> Vector{Int}
+
+Every node index the propagator can read when it evaluates `r`: its activator,
+inhibitor, depletion and substrate inputs and the nodes the self-inhibitor,
+self-activator and own-source rules consult. Structural (`recycle`) edges are
+not here: no rule reads them (specs/081).
+"""
+function _reaction_reads(r::IndexedReaction)::Vector{Int}
+    v = vcat(r.activator_indices, r.inhibitor_indices, r.depletion_indices, r.substrate_indices)
+    for s in r.inhibitor_shared; append!(v, s); end
+    for s in r.activator_shared; append!(v, s); end
+    for s in r.depletion_own_src, (u, _) in s; push!(v, u); end
+    return v
+end
+
+"""
+    _switch_downstream(rxns_idx, comp_id, n_comp, comp_pools) -> Vector{Vector{Int}}
+
+The condensation's READ graph for the switch post-pass (specs/154 review
+2026-11-20, B2): `down[a]` lists the components that read a node of component
+`a`, through a reaction's inputs or through a pool's referenced nodes and
+reactions. Built from the same reaction and pool data the sweeps evaluate, so a
+component outside `a`'s reach cannot move when `a` flips.
+"""
+function _switch_downstream(rxns_idx::Vector{IndexedReaction}, comp_id::Vector{Int}, n_comp::Int,
+                            comp_pools)::Vector{Vector{Int}}
+    down = [Set{Int}() for _ in 1:n_comp]
+    link(src_nodes, c2) = for s in src_nodes
+        c1 = comp_id[s]
+        c1 != c2 && push!(down[c1], c2)
+    end
+    for r in rxns_idx
+        link(_reaction_reads(r), comp_id[r.target_idx])
+    end
+    for (c2, ps) in comp_pools
+        link(pool_update_inputs(ps, rxns_idx), c2)
+        for p in ps
+            link(p.drive_twins, c2)
+            ris = vcat(p.carrier_rxn, p.reeval_rxn, filter(!=(0), p.form_rxn))
+            for st in p.path_steps, (copies, _) in st; append!(ris, copies); end
+            for ri in ris; link(_reaction_reads(rxns_idx[ri]), c2); end
+        end
+    end
+    return [sort!(collect(d)) for d in down]
+end
+
 function nonconv_pools_mode()::String
     v = get(ENV, "DS_NONCONV_POOLS", "joint")
     v in DS_VALID_NONCONV_POOLS || throw(ArgumentError(
@@ -2382,16 +2429,55 @@ function solve_scc_ordered!(
         sw_searched = 0
         sw_capped = 0
         empty_shared = Set{Int}()
+        sw_down = _switch_downstream(rxns_idx, comp_id, n_comp, comp_pools)
+        # Sweep a component to its fixed point and confirm it with the test
+        # the canonical loop's verdict uses: |F(y) - y| (pool delta included)
+        # of the state actually kept, not the mid-sweep change alone.
+        # (As there, a component with managed nodes and no pool of its own has
+        # no residual row for them and is judged by the sweep.)
+        function _switch_settle!(y, rs_, pools_, shared_, supply_)
+            _sweep_component!(y, rs_, rxns_idx, obs_set, managed, λ, supply_,
+                              config, pools_, shared_, baseline_vec,
+                              pool_carriers, tol, sw_budget; soft = soft) || return false
+            if pools_ !== nothing
+                return _component_residual_pools(y, rs_, rxns_idx, obs_set, supply_, config,
+                                                 managed, pools_, shared_, baseline_vec, pool_carriers;
+                                                 soft = soft) < tol
+            end
+            any(ri -> rxns_idx[ri].target_idx in managed, rs_) && return true
+            return _component_residual(y, rs_, rxns_idx, obs_set, supply_, config; soft = soft) < tol
+        end
+        # A held edge (specs/018 closures, specs/040 self-fed) reads the
+        # component's ENTRY state, as the canonical loop's `supply = copy(x)`
+        # at entry does: the state outside the component (here the
+        # alternate's), and the component's own nodes as they stood before it
+        # was solved (`entry_supply`), never their live values.
+        function _switch_supply(state, c_)
+            use_supply || return nothing
+            sup = copy(state)
+            if entry_supply !== nothing
+                for u in comp_nodes[c_]
+                    isnan(entry_supply[u]) || (sup[u] = entry_supply[u])
+                end
+            end
+            return sup
+        end
         @inbounds for c in n_comp:-1:1
             (comp_size[c] > 1 || comp_has_self_loop[c]) || continue
             rs = comp_rxns[c]
             isempty(rs) && continue
             members = Int[i for i in eachindex(comp_id) if comp_id[i] == c]
-            free = Int[u for u in members if !(u in obs_set) && !(u in managed)]
+            # Review 2026-11-20 (B1): seed only what the sweep WRITES — the
+            # target of one of the component's reactions, unpinned and not
+            # pool-managed. A member joined to the cycle only by a structural
+            # `recycle` edge (specs/081) has no reaction; a seed there would
+            # survive untouched and fabricate a second state.
+            written = Set{Int}(rxns_idx[ri].target_idx for ri in rs)
+            free = Int[u for u in members if u in written && !(u in obs_set) && !(u in managed)]
             isempty(free) && continue
             pools_c = get(comp_pools, c, nothing)
             shared_c = get(comp_shared, c, empty_shared)
-            supply_c = use_supply ? x : nothing
+            supply_c = _switch_supply(x, c)
             # The canonical point must stand on its own (specs/066): a
             # component above tolerance anchors no second-state claim.
             res0 = pools_c === nothing ?
@@ -2407,9 +2493,7 @@ function solve_scc_ordered!(
                 for u in free
                     y[u] = init
                 end
-                conv = _sweep_component!(y, rs, rxns_idx, obs_set, managed, λ, supply_c,
-                                         config, pools_c, shared_c, baseline_vec,
-                                         pool_carriers, tol, sw_budget; soft = soft)
+                conv = _switch_settle!(y, rs, pools_c, shared_c, supply_c)
                 if !conv
                     sw_capped += 1
                     continue
@@ -2424,11 +2508,23 @@ function solve_scc_ordered!(
                 end
             end
             best === nothing && continue
-            # Propagate the flip downstream (components after c in the
-            # topological order), warm-started: an unchanged component
-            # converges immediately; a moved one re-settles in its own basin.
+            # Propagate the flip downstream — only the components c's flip
+            # can reach (review 2026-11-20, B2), in topological order,
+            # warm-started: an unchanged component converges immediately; a
+            # moved one re-settles in its own basin. A downstream component
+            # that does not settle makes the alternate capped (honest
+            # absence), never a drifting value served as a state.
+            reach = falses(n_comp); reach[c] = true
+            queue = [c]
+            while !isempty(queue)
+                for c2 in sw_down[pop!(queue)]
+                    reach[c2] || (reach[c2] = true; push!(queue, c2))
+                end
+            end
             z = best[2]
+            down_ok = true
             for c2 in (c - 1):-1:1
+                reach[c2] || continue
                 rs2 = comp_rxns[c2]
                 isempty(rs2) && continue
                 if comp_size[c2] == 1 && !comp_has_self_loop[c2]
@@ -2440,13 +2536,16 @@ function solve_scc_ordered!(
                                                         supply = use_supply ? z : nothing,
                                                         config = config))
                     end
-                else
-                    _sweep_component!(z, rs2, rxns_idx, obs_set, managed, λ,
-                                      use_supply ? z : nothing, config,
-                                      get(comp_pools, c2, nothing),
-                                      get(comp_shared, c2, empty_shared),
-                                      baseline_vec, pool_carriers, tol, sw_budget; soft = soft)
+                elseif !_switch_settle!(z, rs2, get(comp_pools, c2, nothing),
+                                        get(comp_shared, c2, empty_shared),
+                                        _switch_supply(z, c2))
+                    down_ok = false
+                    break
                 end
+            end
+            if !down_ok
+                sw_capped += 1
+                continue
             end
             alt = Dict{Int, Float64}()
             @inbounds for i in eachindex(z)

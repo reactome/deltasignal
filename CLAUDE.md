@@ -680,7 +680,9 @@ env vars only override for benchmark sweeps:
   internal) is served as a sparse alternate (`switch_components` on /api/solve; /api/readouts values a readout under
   the overlays and serves `switch`/`state`/`other_state_fold` — a switch is a readout whose two folds produce
   different calls). ADDITIVE ONLY: the canonical answer is untouched (parity-replayed). `DS_SWITCH_MAX_SWEEPS`
-  (default 250) caps each re-solve; hitting it is honest absence. The solve reports `switch_detect`,
+  (default 250) caps each re-solve; hitting it is honest absence. Only members a reaction writes are seeded (a copy
+  joined by a structural `recycle` edge keeps its canonical value), and a flip is propagated only to the components
+  that read it; one that does not settle caps the alternate (review 2026-11-20). The solve reports `switch_detect`,
   `switch_components_searched/found`, `switch_sweeps_capped`.
 - `DS_SOFT_OBS=off` (default; specs/156) | `blend`: soft observations (`soft_observations` on /api/solve,
   `{uuid: [value_ui, weight]}`, weight in [0, 1]; CLI `solve --soft-observations`) blend a node toward a measured
@@ -1277,7 +1279,7 @@ list in `test/asserting_suites.txt`); the other seven execute code and print out
 | `test/test_api_errors.jl` | 231 | specs/122 edge redirects added 2026-10-29; /api/pins (specs/140) 2026-11-06; /api/readouts (specs/141), rail flags (specs/142) and the scope constant (specs/143) 2026-11-06; confidence (specs/146), leads constant (specs/149) 2026-11-07; soft observations (specs/156) 2026-11-14; inverse constants (specs/158) 2026-11-15; unknown soft observations, the malformed node table, boot validation of the per-request DS_* settings (review 2026-11-20) |
 | `test/test_pin_protocol.jl` | 38 | specs/140, added 2026-11-06: the bench's pin protocol in the engine; DS_PIN_ROOT_IGNORE accepts only depletion or none (review 2026-11-20) |
 | `test/test_scope_statement.jl` | 251 | specs/143, added 2026-11-06: the served scope statement — provenance-complete file, catalog comparison, honest refusals; the leads table and composite listing exclusion (specs/149) 2026-11-07. The count follows the shipped leads table's content (per-centre/per-arrow loops): 269 on the 97 table (11 centres), 251 on the 98 table (10 centres, specs/152 switch) |
-| `test/test_switch_states.jl` | 47 | specs/154, added 2026-11-13: switch detection — the bistable fixture's two states, honest absence, the call-cutoff readout rule |
+| `test/test_switch_states.jl` | 191 | specs/154, added 2026-11-13: switch detection — the bistable fixture's two states, honest absence, the call-cutoff readout rule; review 2026-11-20: unwritten members not seeded, only reachable downstream components re-swept, a downstream component that does not settle caps the alternate |
 | `test/test_fold_ranges.jl` | 234 | specs/155, added 2026-11-14: measured fold intervals — the loader's refusals (provenance above all), the stratum-walk lookup, the arm-(b) band rule, and the shipped table (every cell and band ≥ the minimum, the measured per-axis arms) pinned to the serving record |
 | `test/test_soft_observations.jl` | 79 | specs/156, added 2026-11-14: the soft-observation blend — weight-1 ≡ hard pin, the gate, monotone between with the exact fixed-point identity, roots, cyclic components, precedence reported, bit-identity without soft entries; the LM fallback solves the blended system on the specs/066 Goodwin ring (cap-independent, 2026-11-15) |
 | `test/test_fragility.jl` | 59 | specs/157, added 2026-11-15: structural fragility — the loader's refusals (provenance above all), the level walk computed from fixture labels, the minimum-cell refusal, the untouched rule, and the shipped table pinned to the serving record |
