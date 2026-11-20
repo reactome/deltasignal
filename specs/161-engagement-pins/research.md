@@ -52,3 +52,22 @@ any pin value, so a user who knows their drug's measured engagement can pin
 at it today. What the gate failure withholds is a documented, validated
 protocol claim. Whether the 256-vs-7 raw-accuracy cleanup justifies
 documenting it anyway is Adam's call.
+
+## Amendment, 2026-11-20 (code review): the reachable scorecard counted untouched rows
+
+`score_161.py` took "reachable" as `base_fold != 1.0` on replayed folds, which carry float noise, so
+2,000-odd untouched korkut rows entered the scorecard. Re-scored with the record-precision rule
+(`bench/analysis/fold_rules.py`), same runs, n = 1,241:
+
+| | sensitivity | specificity | precision | AUROC |
+|---|---|---|---|---|
+| full-knockout | 0.659 | 0.166 | 0.113 | 0.640 |
+| engagement | 0.621 | 0.408 | 0.141 | 0.733 |
+
+The specificities above (0.697, 0.785) were mostly untouched rows read as "no change". The gate does
+not use reach: it stands (+0.0028 [−0.0060, +0.0089], FAIL), as do the 256 fixed / 7 broken.
+
+The anatomy grouped drug sets with a no-marker drug (HN, RO: engagement placeholder 0) as "strongly
+engaged". Regrouped: weak/none 132 moved (131 fixed, 1 broken), strongly engaged 89 (82 / 6),
+engagement unknown 43 (43 / 0). n = 1,241 here against 1,307 in the record: the replay valued korkut
+phospho readouts differently (specs/157 amendment of the same date).

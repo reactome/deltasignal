@@ -9,7 +9,8 @@ across the three record axes with per-axis counts kept. Provenance (catalog
 build, solver commit, spec) travels with the table and the loader refuses a
 mismatch (the specs/146/155 pattern).
 
-Usage: fit_157.py RUNS_DIR OUT_JSON  (reads labels.tsv + calls_canonical.tsv[.gz])
+Usage: fit_157.py RUNS_DIR OUT_JSON [SOLVER_COMMIT]  (reads labels.tsv + calls_canonical.tsv[.gz]; SOLVER_COMMIT names
+the code the ensemble runs were solved with, default this checkout's HEAD)
 """
 import gzip
 import json
@@ -20,13 +21,16 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import dataset_roles  # noqa: E402
+from fold_rules import record_fold, untouched  # noqa: E402
 
 MIN_CELL = 30
 BUILD_JSON = Path.home() / "deltasignal-catalogs/builds/20261113-r98fix-plus-leads/BUILD.json"
 
 
 def mag_bin(fold):
+    fold = record_fold(fold)
     if fold == 1.0:
         return "baseline"
     a = abs(math.log2(fold)) if fold > 0 else float("inf")
@@ -63,7 +67,7 @@ def main():
             fold, conv = canon.get(key, (None, None))
             if fold is None:
                 continue
-            if fold == 1.0:
+            if untouched(fold):
                 skipped_untouched += 1   # served nothing (the untouched rule)
                 continue
             frag = r["fragile"] == "1"
@@ -83,17 +87,17 @@ def main():
                 for k, (f, n) in sorted(table.items()) if n >= MIN_CELL}
 
     build = json.loads(BUILD_JSON.read_text())
-    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
-                            capture_output=True, text=True,
-                            cwd=Path(__file__).resolve().parents[2]).stdout.strip()
+    commit = sys.argv[3] if len(sys.argv) > 3 else subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
+        cwd=Path(__file__).resolve().parents[2]).stdout.strip()
     doc = {
-        "version": "2026-11-15",
+        "version": "2026-11-20",   # 2026-11-15 table refitted with the record-precision untouched rule
         "spec": "specs/157-structural-fragility",
         "catalog_build": build["build_id"],
         "solver_commit": commit,
         "min_cell": MIN_CELL,
         "levels": ["full", "no_converged", "call_only"],
-        "untouched_rule": "a fold of exactly 1.0 serves no fragility",
+        "untouched_rule": "a fold that reads 1 at 6 significant figures serves no fragility",
         "claim": ("the share of recorded ensemble pairs in this class whose call "
                   "flipped under at least one recorded near-equivalent rule variant "
                   "(the registered 20-variant ensemble) — stability across contested "

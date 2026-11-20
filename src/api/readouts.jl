@@ -219,12 +219,22 @@ function readout_rail_stops(; baseline::Float64 = resting_baseline())::Tuple{Flo
     return (0.01, 0.99 / baseline)
 end
 
+"""The fold at the record's printed precision, 6 significant figures (the benches print
+`:.6g` / `:.6f`). Every honesty label (untouched, rail, magnitude bin) is read off this
+value, because the tables were fitted on recorded folds: a solved untouched readout carries
+float noise (1.0000000000000218) and must still read as untouched (2026-11-20 review; the
+bench twin is `bench/analysis/fold_rules.py`)."""
+record_fold(fold::Float64)::Float64 = isfinite(fold) ? round(fold; sigdigits = 6) : fold
+
+"""A readout the perturbation does not reach: its fold reads 1 at the record's precision."""
+readout_untouched(fold::Float64)::Bool = record_fold(fold) == 1.0
+
 # specs/146: per-call confidence — the measured share of same-stratum
 # validation-record calls that matched the curators, served from the
 # versioned table `src/api/confidence.json` (fitted by
 # bench/analysis/146/fit_confidence.py on the curator tuning split; the
 # calibration record is specs/146 research.md). Amendment 1: an untouched
-# readout (fold exactly 1.0) is served no confidence at all — its two truth
+# readout (fold reads 1 at the record's precision) is served no confidence at all — its two truth
 # axes disagree (curator 0.96, experimental 0.30: the lost-route class) — the
 # client says "the perturbation does not reach this readout here".
 
@@ -251,6 +261,7 @@ _conf_bool(b::Bool) = b ? "True" : "False"
 served as `untouched`, amendment 1); otherwise |log2 fold| at 1 and 3, a
 non-positive fold counting as infinite."""
 function confidence_magnitude_bin(fold::Float64)::String
+    fold = record_fold(fold)
     fold == 1.0 && return "baseline"
     a = fold > 0 ? abs(log2(fold)) : Inf
     return a <= 1 ? "le1" : (a <= 3 ? "le3" : "gt3")
@@ -260,14 +271,14 @@ end
 registered >= min_cell hierarchy (full -> no basis -> no magnitude -> no
 converged -> per-call), levels keying on `converged` skipped when the client
 did not say. Returns `(confidence, stratum)`; `(nothing, "untouched")` for a
-fold of exactly 1.0 (amendment 1).
+fold that reads 1 at the record's precision (amendment 1).
 
 `basis` is the readout's served basis; only "direct", "proxy" and
 "set_members" resolve at the full level (the fitter's vocabulary)."""
 function readout_confidence(table, call::String, is_railed::Bool,
                             basis::Union{Nothing, String}, fold::Float64;
                             converged::Union{Missing, Bool} = missing)
-    fold == 1.0 && return nothing, "untouched"
+    readout_untouched(fold) && return nothing, "untouched"
     # The endpoint says "normal"; the record's tables say "not" (the bench's
     # NAMES). One vocabulary seam, normalized here — the live smoke caught
     # every moved-but-normal call falling through to "unknown".
@@ -332,12 +343,12 @@ stratum walk as the confidence lookup, per axis; the first cell with
 n >= min_cell serves. Under arm (b) the band containing the predicted fold
 refines the cell; outside every band the cell's own shares serve (refinement,
 never extrapolation). Returns a Vector of {axis, share, lo, hi, n} or
-`nothing` — an untouched readout (fold exactly 1.0) is served nothing, as the
+`nothing` — an untouched readout (fold reads 1 at the record's precision) is served nothing, as the
 confidence rule's amendment 1 reads it."""
 function readout_fold_ranges(table, call::String, is_railed::Bool,
                              basis::Union{Nothing, String}, fold::Float64;
                              converged::Union{Missing, Bool} = missing)
-    fold == 1.0 && return nothing
+    readout_untouched(fold) && return nothing
     call == "normal" && (call = "not")
     mag = confidence_magnitude_bin(fold)
     min_cell = Int(table[:min_cell])
@@ -414,11 +425,11 @@ end
 
 """specs/157 lookup, mirroring `fit_157.py` exactly: the registered level walk
 full (call|mag|conv) → no_converged (call|mag) → call_only (call), first cell
-at or above `min_cell` wins; an untouched readout (fold exactly 1.0) serves
+at or above `min_cell` wins; an untouched readout (fold reads 1 at the record's precision) serves
 nothing, the specs/146 amendment-1 rule. Returns `(rate, n)` or `nothing`."""
 function readout_fragility(table, call::String, fold::Float64;
                            converged::Union{Missing, Bool} = missing)
-    fold == 1.0 && return nothing
+    readout_untouched(fold) && return nothing
     call == "normal" && (call = "not")
     mag = confidence_magnitude_bin(fold)
     min_cell = Int(table[:min_cell])
@@ -445,6 +456,7 @@ figure): `fold >= 0.99 * ceiling or fold <= 0.01`, boundary folds railed, as
 its comparisons say."""
 function readout_railed(fold::Float64;
                         stops::Tuple{Float64, Float64} = readout_rail_stops())::Bool
+    fold = record_fold(fold)
     return fold >= stops[2] || fold <= stops[1]
 end
 

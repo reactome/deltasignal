@@ -317,7 +317,12 @@ fragile drug-record call was right one time in five, a robust one five times
 in six. Lookup in the versioned `src/api/fragility.json` (level walk
 full → no_converged → call_only on call, magnitude bin and the request's
 `converged`); the field is ABSENT for untouched or call-less readouts and
-classes below the minimum. The top-level `fragility_table` says
+classes below the minimum. "Untouched" means the fold reads 1 at the record's
+printed precision (6 significant figures): a solve leaves float noise such as
+1.0000000000000218 on a readout nothing reaches, and every honesty label
+(untouched, railed, magnitude class) is read off the fold at that precision,
+as the tables were fitted (2026-11-20; before it, an exact `== 1.0` test
+served most untouched readouts a confidence, range and fragility). The top-level `fragility_table` says
 `ok: <version>` or names why nothing serves (the same provenance refusal);
 `fragility_min_cell` carries the minimum.
 
@@ -325,11 +330,16 @@ classes below the minimum. The top-level `fragility_table` says
 
 The labels every call carries (whether the readout is reached, the specs/157
 fragility class, and the specs/146 confidence) work as a precision filter.
-Keeping only calls that are robust (not in a fragile class) AND confident
-(confidence ≥ 0.85) raised change-call precision on every measured axis: the
-curator held-out expectations 0.888 → 0.920 (keeping 77% of calls), MP-BioPath
-gene perturbations 0.876 → 0.911 (79%), and the korkut drug record
-0.109 → 0.152 (58%). Precision on the drug RPPA record stays low in absolute
+Keeping only calls that are robust AND confident (confidence ≥ 0.85) raised
+change-call precision on every measured axis: the curator held-out
+expectations 0.888 → 0.920 (keeping 77% of calls), MP-BioPath gene
+perturbations 0.876 → 0.911 (79%), and the korkut drug record
+0.109 → 0.152 (58%). "Robust" there is a PER-CALL label from the offline
+20-variant replay (did this call flip?), which the API does not serve; the
+served `fragility` is a class rate. With served fields alone, keep calls with
+`confidence` ≥ 0.85: 0.888 → 0.918 (78%), 0.876 → 0.891 (84%) and
+0.109 → 0.139 (64%) on the same records (descriptive; the registered gate was
+on the combined filter). Precision on the drug RPPA record stays low in absolute
 terms, even after filtering. That difference follows how often a reached
 readout changed on each record (specs/167): 88–94% on the curator and
 MP-BioPath records, whose labels are curators' expectations and reported
@@ -347,7 +357,8 @@ actually hit its target in your cells, for example from its direct marker's
 measured fold, pin the target at that level instead: `observations` take any
 activity from 0 to 100 (1 = resting). On the korkut record, pinning each drug
 at its measured engagement turned 256 false calls right and broke 7, with
-reachable-case specificity 0.70 → 0.79 and precision 0.11 → 0.14. The
+reachable-case specificity 0.17 → 0.41 and precision 0.11 → 0.14 (figures
+corrected 2026-11-20: the first scorecard counted untouched readouts as reachable). The
 registered balanced-accuracy gate did NOT pass (+0.003, interval including
 0), so this is guidance with its record attached, not a validated accuracy
 claim. The engagement values came from korkut's own markers. **An

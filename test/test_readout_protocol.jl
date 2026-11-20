@@ -164,6 +164,9 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
         @test !readout_railed(98.999)
         @test readout_railed(0.01)
         @test !readout_railed(0.010001)
+        # noise above the stop rounds to it, as the recorded 0.010000 did (2026-11-20 review)
+        @test readout_railed(0.01 + 1.1e-11)
+        @test readout_railed(99.0 - 1e-9)
         # A resolved group read entirely at baseline folds to 1.0: not railed.
         @test !readout_railed(readout_entity_mean([["absent"]], acts) / 0.01)
     end
@@ -239,6 +242,18 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
         # amendment 1: an untouched readout gets no confidence at all
         @test readout_confidence(table, "not", false, "direct", 1.0; converged = true) ==
               (nothing, "untouched")
+        # 2026-11-20 review: a solved untouched readout carries float noise. The fold here
+        # COMPUTES: three copies at 0.1 * 0.1 (= 0.010000000000000002) entity-mean to just
+        # above the 0.01 baseline. The record printed 6 significant figures, so it is untouched.
+        noisy = Dict("c1" => 0.1 * 0.1, "c2" => 0.1 * 0.1, "c3" => 0.1 * 0.1)
+        nf = readout_entity_mean([["c1", "c2", "c3"]], noisy) / 0.01
+        @test nf != 1.0
+        @test DeltaSignal.readout_untouched(nf)
+        @test readout_confidence(table, "not", false, "direct", nf; converged = true) ==
+              (nothing, "untouched")
+        @test DeltaSignal.confidence_magnitude_bin(nf) == "baseline"
+        @test !DeltaSignal.readout_untouched(1.00001)      # a real move survives the rounding
+        @test DeltaSignal.confidence_magnitude_bin(2.0 + 1e-12) == "le1"
         # magnitude bins are the fitter's, boundaries included
         @test DeltaSignal.confidence_magnitude_bin(1.0) == "baseline"
         @test DeltaSignal.confidence_magnitude_bin(2.0) == "le1"

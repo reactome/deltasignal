@@ -122,6 +122,7 @@ load_fixture(t; served = SERVED_BUILD) =
 
         # an untouched readout is served nothing (amendment-1 rule).
         @test DeltaSignal.readout_fold_ranges(t, "down", false, nothing, 1.0) === nothing
+        @test DeltaSignal.readout_fold_ranges(t, "down", false, nothing, 1.0 + 2e-14) === nothing
 
         # an up call has no cell at any level: honest absence.
         @test DeltaSignal.readout_fold_ranges(t, "up", false, nothing, 3.0) === nothing

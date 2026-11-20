@@ -1,5 +1,5 @@
 {
- "version": "2026-11-15",
+ "version": "2026-11-20",
  "spec": "specs/157-structural-fragility",
  "catalog_build": "20261113-1311_baf608b_r98fix",
  "solver_commit": "7fe3dcc",
@@ -9,21 +9,21 @@
   "no_converged",
   "call_only"
  ],
- "untouched_rule": "a fold of exactly 1.0 serves no fragility",
+ "untouched_rule": "a fold that reads 1 at 6 significant figures serves no fragility",
  "claim": "the share of recorded ensemble pairs in this class whose call flipped under at least one recorded near-equivalent rule variant (the registered 20-variant ensemble) \u2014 stability across contested structure, never correctness",
  "validation": {
   "gate": "specs/157 research.md 2026-11-15: curator +0.2818 [+0.1298, +0.4573], korkut +0.6326 [+0.5441, +0.7048]",
   "per_axis_pairs": {
-   "curator": 23490,
-   "experimental": 845,
-   "korkut": 4064
+   "curator": 9141,
+   "experimental": 707,
+   "korkut": 1932
   },
   "per_axis_fragile": {
-   "curator": 448,
+   "curator": 438,
    "experimental": 76,
    "korkut": 253
   },
-  "untouched_skipped": 6421
+  "untouched_skipped": 23040
  },
  "table": {
   "full": {
@@ -32,28 +32,28 @@
     "n": 3551
    },
    "down|le1|True": {
-    "fragile_rate": 0.1379,
-    "n": 1436
+    "fragile_rate": 0.1339,
+    "n": 1479
    },
    "down|le3|True": {
-    "fragile_rate": 0.0949,
-    "n": 980
+    "fragile_rate": 0.0993,
+    "n": 937
    },
    "not|le1|True": {
-    "fragile_rate": 0.0064,
-    "n": 17312
+    "fragile_rate": 0.1457,
+    "n": 693
    },
    "up|gt3|True": {
     "fragile_rate": 0.0265,
-    "n": 4345
+    "n": 4340
    },
    "up|le1|True": {
     "fragile_rate": 0.2181,
     "n": 188
    },
    "up|le3|True": {
-    "fragile_rate": 0.2095,
-    "n": 587
+    "fragile_rate": 0.2078,
+    "n": 592
    }
   },
   "no_converged": {
@@ -62,28 +62,28 @@
     "n": 3551
    },
    "down|le1": {
-    "fragile_rate": 0.1379,
-    "n": 1436
+    "fragile_rate": 0.1339,
+    "n": 1479
    },
    "down|le3": {
-    "fragile_rate": 0.0949,
-    "n": 980
+    "fragile_rate": 0.0993,
+    "n": 937
    },
    "not|le1": {
-    "fragile_rate": 0.0064,
-    "n": 17312
+    "fragile_rate": 0.1457,
+    "n": 693
    },
    "up|gt3": {
     "fragile_rate": 0.0265,
-    "n": 4345
+    "n": 4340
    },
    "up|le1": {
     "fragile_rate": 0.2181,
     "n": 188
    },
    "up|le3": {
-    "fragile_rate": 0.2095,
-    "n": 587
+    "fragile_rate": 0.2078,
+    "n": 592
    }
   },
   "call_only": {
@@ -92,8 +92,8 @@
     "n": 5967
    },
    "not": {
-    "fragile_rate": 0.0064,
-    "n": 17312
+    "fragile_rate": 0.1457,
+    "n": 693
    },
    "up": {
     "fragile_rate": 0.0545,
