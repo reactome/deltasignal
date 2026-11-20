@@ -2,7 +2,9 @@
 """specs/167 FR-004: how much of an unselected genetic-perturbation transcript panel could the served networks score?
 
 A structural count; no external data. Per pathway of a build:
-  perturbable gene  a node with no in-edge (depletion ignored, as the bench's root rule) carries the gene
+  perturbable gene  a node with no in-edge in logic_network.csv, depletion edges ignored, carries the gene
+                    (NOT the bench's root rule: boundary edges are not read, recycle and context_bridge in-edges
+                    count, and depletion-only dead ends stay roots)
   target gene       an output of a curated gene-expression-regulated event is a node of the network
   pair              (perturbable gene, target gene), gene != target; reached when a root copy reaches a target node
 Approximate on purpose: the bench's pin protocol (root_cycle) and readout rules are not applied.
