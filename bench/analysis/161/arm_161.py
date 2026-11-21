@@ -3,13 +3,16 @@
 
 Identical to the specs/157 canonical run's korkut leg (same pin resolution,
 the same /api/readouts valuation) except each drug's pins are set to its
-measured engagement (engagement_161.py) instead of 0. The env is verified by
+measured engagement (engagement_161.py) instead of 0. Korkut phospho readouts
+are valued in `sites` mode (issue #278, korkut_bench's valuation);
+`--phospho-mode forms` reproduces the 2026-11-16 arm. The env is verified by
 the specs/157 positive probe (every registry rule canonical) before any
 measurement.
 
 Usage: DELTASIGNAL_BASE=... DS_CATALOG_ROOT=<served build> \
-  arm_161.py REGISTRY_TSV KORKUT_CASES_TSV OUT_TSV
+  arm_161.py REGISTRY_TSV KORKUT_CASES_TSV OUT_TSV [--phospho-mode sites|forms]
 """
+import argparse
 import csv
 import sys
 from pathlib import Path
@@ -22,12 +25,17 @@ import benchmark_vs_mpbiopath as bm  # noqa: E402
 import drug_activity as da  # noqa: E402
 import dataset_roles  # noqa: E402
 import korkut_bench as kb  # noqa: E402
-from ensemble_157 import load_registry, post, verify_env  # noqa: E402
+from ensemble_157 import korkut_query_mode, load_registry, post, verify_env  # noqa: E402
 from engagement_161 import engagement  # noqa: E402
 
 
 def main():
-    registry_tsv, cases_tsv, out_tsv = sys.argv[1:4]
+    ap = argparse.ArgumentParser()
+    ap.add_argument("registry_tsv"); ap.add_argument("cases_tsv"); ap.add_argument("out_tsv")
+    ap.add_argument("--phospho-mode", default="sites", choices=["sites", "forms"])
+    a = ap.parse_args()
+    registry_tsv, cases_tsv, out_tsv, phospho_mode = a.registry_tsv, a.cases_tsv, a.out_tsv, a.phospho_mode
+    print(f"korkut phospho mode {phospho_mode}", flush=True)
     dataset_roles.require_role("korkut2015", "fit")
     verify_env(load_registry(registry_tsv), None)
     eng = {d: e for d, (e, _) in engagement().items()}
@@ -90,7 +98,7 @@ def main():
                     raise SystemExit(f"{pdir.name} {ds_name}: solve failed")
                 solves += 1
                 queries = [{"id": n, "stable_ids": sorted(r_stids[n]),
-                            "mode": "abundance" if kinds.get(n) == "total" else "forms"}
+                            "mode": korkut_query_mode(kinds.get(n), phospho_mode)}
                            for n in names]
                 ro = post("readouts", {"network_id": parsed["network_id"],
                                        "activities": sol.get("node_activities") or {},
