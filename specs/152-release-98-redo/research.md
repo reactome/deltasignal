@@ -117,3 +117,39 @@ exactly — the statement now says so in words. test_readout_protocol
 provenance assertions and the CLAUDE.md scope-suite count (251 on the
 10-centre table) move with it. Serving: PATHWAY_CATALOG ->
 `builds/20261113-r98fix-plus-leads`.
+
+## Amendment 1 (2026-11-20): G5 re-run on composites with every source pathway built
+
+specs/149 amendment 1 (code review) found that `20261113-arrows98fix-10c`, the G5 composites, wrote the bridges of
+the 11 arrows whose source pathway is outside the 92 but not the source pathways themselves, so 21 of 34 bridges
+dangled. Adam chose the rebuild (2026-11-20). Rebuilt with the fixed builder, the same inputs and
+`--sources 20261113-1345_baf608b_r98src2`: `builds/20261120-arrows98fix-10c-src`, **0 of 34 bridges dangling**,
+counted independently. G5 was then re-run exactly as registered: `run_arm.sh` at `206e3bbb`, arms `arrows98src_k`
+(korkut) and `arrows98src_w` (curator + experimental, `--limit 10`), scored with
+`specs/148-diagram-arrow-bridges/build/score_148.py` against controls `r98fix_korkut_h` and `r98fix_frozen_h`,
+re-run at the same commit on `20261113-1311_baf608b_r98fix`. The controls are identical to the recorded
+`r98fix_korkut` (cff961d) and `r98fix_frozen` (12b5db3): 0 fold differences on 11,626 korkut, 24,100 curator and 849
+experimental rows.
+
+| | recorded (dangling composites) | rebuilt composites |
+|---|---|---|
+| H1 korkut untouched, n | 2,715 | 2,715 |
+| balanced, arm vs always-no-change | 0.3834 vs 0.3333 | **0.3834 vs 0.3333** |
+| difference, 95% by-drug-set | +0.0501 [+0.0212, +0.0786] | **+0.0501 [+0.0212, +0.0786]: PASSES** |
+| differing answers; right / false / inverted downs | 156; 37 / 108 / 11 | 156; 37 / 108 / 11 |
+| H2 curator untouched (4,687): fixed / broken | 6 / 6 | **6 / 11** |
+| H2 experimental untouched (20) | 0 changed | 0 changed |
+
+- **H1 is unchanged to the digit.** The 11 arrows that are now built move no korkut untouched answer, fold or call,
+  in any centre: PIP3 0 of 786, RUNX2 0 of 360, Cell junctions 0 of 281, PTK6 0 of 195, ROBO 0 of 56. Mitotic G1's
+  75 moved answers are the same p-AKT ones. specs/148's addendum claim ("the 12 new arrows change no korkut answer")
+  is now true as a measurement, though the reason it gave was not one.
+- The bridges are live. In PIP3 the PTEN bridge changes 250 of the 273 scored korkut readouts PIP3 already routes.
+  F keeps PIP3's own answer for all of them, so H1 does not see them.
+- **H2 gains five breaks, all on the new arrows.** RB1 overexpression in Mitotic G1 reads DOWN at three readouts
+  (0.73–0.83×) through the senescence → INK4 arrows. RB1 knockout moves six more readouts slightly (1.01–1.12×, still
+  NORMAL). RAC1 in ROBO reads DOWN under knockout (0.75×) and UP under overexpression (20.75×) through PAK. The
+  curators say NORMAL in every case. H2 was registered "net-positive on each axis", so it now fails negatively on
+  curator (−5), where before it failed neutrally. The curator set is SELECT. The client serves such answers
+  only as labelled leads.
+- Per-arrow outcomes and the served statements: specs/149 amendment 2.

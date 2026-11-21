@@ -97,3 +97,62 @@ composite changes served answers and needs its own measurement.
 2. *Until then*: mark the 11 arrows in `leads.json` as `unreachable in this build` (rate class `not_built`). Correct
    the PTEN and GLI3R statements, and have the client skip the composite run for the five centres with no working
    bridge. This is a served-content change and needs its own review.
+
+## Amendment 2 (2026-11-20): the composites rebuilt with every source pathway, re-measured, re-packaged
+
+Adam chose remedy 1 ("rebuild the missing source pathways", 2026-11-20).
+
+**Build.** `bench/context_build.py` at `206e3bbb` (the amendment-1 builder), same inputs as
+`20261113-arrows98fix-10c` (base `20261113-1311_baf608b_r98fix`; `specs/150-release-98/r3/arrows_98.tsv`,
+`centres_98.tsv`, `arrow_members_98.tsv`), plus `--sources builds/20261113-1345_baf608b_r98src2`, into
+`builds/20261120-arrows98fix-10c-src`. It built without `ContextBuildError`. The arrow census and the BUILD.json
+`context` block (16 arrows, 34 bridges, 10 centres) are identical to the old build. **Dangling bridges, counted
+independently** (each `context_bridge` row of `logic_network.csv` against the composite's `nodes.csv`): **0 of 34**
+(old build and the served package: 21 of 34). The three intact composites (Intrinsic Apoptosis, ERBB2, RUNX1) are
+byte-identical to the old ones. In the seven repaired ones every old node and edge is still present; what is added
+is the source pathways (+208 to +6,558 nodes per composite).
+
+**Measurements** (all through `run_arm.sh` at `206e3bbb`; controls re-run at the same commit reproduce the recorded
+ones exactly: curator 24,100, experimental 849, korkut 11,626 rows and decryptM 658 cases, 0 fold differences):
+
+- specs/152 G5 (amendment 1 there): H1 unchanged to the digit, +0.0501 [+0.0212, +0.0786], n = 2,715, the
+  same 156 differing answers. The 11 newly built arrows move **no** korkut untouched answer (fold or call). This
+  is now a measurement; amendment 1 found the old one was the defect. H2 changes: curator 6 fixed / 11 broken
+  (was 6 / 6). The 5 new breaks are RB1 overexpression in Mitotic G1 (3, through INK4) and RAC1 in ROBO (2, through
+  PAK). Experimental is unchanged (0 changed of 20).
+- specs/153 S2 (amendment 2 there): still 2 bridged change calls of 103 covered untouched sites, the same two,
+  both wrong. No arrow gains a rate.
+
+**Per arrow** (untouched = the centre's own answer is exactly 1.0; moved = the composite's fold differs):
+
+| arrow (source → entity → centre) | old build | korkut untouched moved | decryptM untouched moved | curator/experimental untouched moved | served statement |
+|---|---|---|---|---|---|
+| PIP3 → p-AKT → Intrinsic Apoptosis | intact | 12 of 192 (H1 pool) | 0 of 5 | curator 12 (TP53, as before) | measured 0.24, unchanged |
+| PIP3 → p-AKT → ERBB2 | intact | 69 of 264 (H1 pool) | 1 of 62 (Dasatinib, wrong) | 0 | measured 0.24, unchanged |
+| PIP3 → p-AKT → Mitotic G1 | intact | 75 of 440 (H1 pool) | 1 of 8 (Dasatinib, wrong) | curator 6 (as before) | measured 0.24, unchanged |
+| PTEN Regulation → PTEN → PIP3 | dangling | 0 of 786 | 0 of 166 (25 under the drugs reaching PTEN Regulation) | none in record | unrated; now a real "not bridge-reachable" |
+| TNF signaling → CFLAR → DR caspases | dangling | none in record | none in record | none | unrated, nothing in the record moves it |
+| RHO GTPases activate PAKs → PAK → ROBO | dangling | 0 of 56 | 0 of 4 | curator 2 (RAC1 KO 0.75×, OE 20.75×), both calls against curator NORMAL | unrated, n = 2 |
+| Homotypic adhesion → cadherin → Cell junctions | dangling | 0 of 281 | 0 of 11 | 0 of 766 | unrated, nothing moves it |
+| OIS / OSIS / SASP → INK4 → Mitotic G1 (3 arrows) | dangling | 0 new | 0 new | curator 12 new (RB1 KO/OE), 3 change calls (RB1 OE down), all against curator NORMAL; experimental 2 (RB1 KO, still NORMAL) | unrated, n = 3 |
+| Hypoxia → HIF1A,EPAS1 → PTK6 | dangling | 0 of 195 | 0 of 12 | 0 of 66 | unrated, nothing moves it |
+| Hedgehog 'off' → GLI3R → RUNX2 | dangling | 0 of 360 | 0 of 32 (8 under Tideglusib) | 0 of 624 | unrated; now a real "not bridge-reachable" |
+| Hedgehog 'on' → 2p-GLI2 → RUNX2 | dangling | 0 | 0 | 0 | unrated, nothing moves it |
+| RUNX2 expression → RUNX2 → RUNX2 | dangling | 0 | 0 | 0 | unrated, nothing moves it |
+| NOTCH1 → HES/HEY → RUNX2 | intact | 0 | 0 | 0 | unrated, nothing moves it |
+| DSB Response → p-S456-ABL1 → RUNX1 | intact | 0 of 141 | 0 of 5 | 0 of 2,038 | unrated, unchanged |
+
+The repaired bridges are live: the PTEN bridge changes 250 of 273 korkut and 138 of 179 decryptM readouts that PIP3
+already routes on its own. The F discipline keeps the centre's answer there, and so does the client. It moves none
+of PIP3's untouched readouts. So both statements amendment 1 withdrew, PTEN → PIP3 and GLI3R → RUNX2 ("its untouched
+readouts are not bridge-reachable"), **hold on the rebuilt composites as measurements**. The served text now cites
+this amendment. "No dataset in the record perturbs upstream of it" is no longer true for PAK and INK4: curator
+perturbations of RAC1 and RB1 move readouts through them. Their statements give those counts (n = 2 and 3, under the
+specs/153 bar of 20).
+
+**Packaging (prepared, not served).** `builds/20261120-r98fix-plus-leads-src` contains the 92 base pathways copied
+from `20261113-1311_baf608b_r98fix` and the ten rebuilt composites under `ctx-arrows_`. Its BUILD.json is the base's,
+so the served scope comparison holds, plus `leads_composites`. Against the served `20261113-r98fix-plus-leads` it
+differs only in the seven repaired composites and BUILD.json. `src/api/leads.json` points `composite_build` at the
+rebuilt build. The rate class set is unchanged (3 measured, 13 unrated), so the scope suite stays at 251. Switching
+`PATHWAY_CATALOG` is the main session's (Adam's) decision.
