@@ -118,6 +118,13 @@ large one-sided cleanup of false alarms barely moves it (specs/144, specs/161: 2
 drug set's own direct markers** (`marker_names()` in `bench/analysis/161/engagement_161.py`): pinning a target
 trivially moves its own marker, and counting those inflated reachable-case sensitivity from 0.645 to 0.846.
 
+**Which data judges external (literature) edges** (Adam, 2026-11-20, after specs/166–167): choosing or tuning
+edges uses the FIT axes only (korkut, MP-BioPath experimental); gates are on korkut + experimental; curator held-out
+is always REPORTED, never gated, split in two: readouts the curated network already reaches are a harm check (an
+edge flipping a curated answer is breaking curated biology), while readouts only the new edges reach are reported as
+uninformative (a curator's expectation is written from the pathway, so "no change" there is a statement about reach,
+specs/167).
+
 Every benchmark log prints `Protocol:` and `Pinned:` lines. Check them instead
 of inferring the protocol from flags.
 
