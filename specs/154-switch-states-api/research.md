@@ -246,3 +246,38 @@ dumps supply the 24,356-fold case list).
   symmetric pair does not change any claim the panel makes. Recorded here so
   a future exact-replication harness knows to compare the alternate at 1%
   tolerance, not bit for bit.
+
+## Amendment (code review 2026-11-20, approved by Adam): seeds and downstream propagation
+
+Two confirmed defects in the detection post-pass, both fixed; the canonical
+answer is untouched (the pass still writes only diagnostics).
+
+- **B1, fabricated states from unwritten members.** The high/low basin
+  re-sweeps seeded every unpinned, unmanaged component member at 1.0 or 0.0,
+  including members no reaction writes: a starting copy joined to a cycle only
+  by a structural `recycle` edge (specs/081). The seed survived untouched, the
+  sweep converged around it, and a second state was served. Live case: the
+  unperturbed solve of Mitotic G1 (R-HSA-453279) reported a switch in its
+  137-node component, with `RBL2 [nucleoplasm]` (canonical 0.01, only in-edge
+  a recycle edge) at 1.0 and 1,313 nodes in the alternate. Now only targets
+  of the component's own reactions are seeded.
+- **B2, propagation.** After a flip, every lower-numbered component was
+  re-swept, not only those that read the flipped one, and the re-sweeps'
+  convergence was discarded, so drifting values were copied into
+  `alt_activities`. Now only components reachable from the flipped one in the
+  read graph (reaction inputs and the nodes the self-inhibitor/activator,
+  own-source and pool rules consult) are re-solved; each must settle by the
+  canonical verdict (`|F(x) - x|` of the kept state, pool delta included), or
+  the alternate counts in `switch_sweeps_capped` and is not served. Held edges
+  read the component's entry state, as in the canonical loop.
+
+Measured on the release-98 build `20261113-1311_baf608b_r98fix`, unperturbed
+solves (no observations) of all 92 pathways, code defaults: components
+searched 112 → 112, switches found 34 → 31 (pathways with a switch 27 → 25),
+capped 37 → 40, converged solves 92 → 92. The changes: Mitotic G1 1 → 0 (B1),
+Signaling by TGF-beta Receptor Complex (R-HSA-170834) 2 → 0 (both alternates
+now capped: a re-solve of the component or of a component it feeds did not
+pass the residual test; the old pass had served them with 424 and 418 nodes
+moved from 10-node components), and R-HSA-8878166 one more capped search (no
+switch either way). Fixtures in `test/test_switch_states.jl` fail on the old
+pass and pass on the new one.

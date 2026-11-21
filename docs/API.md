@@ -679,13 +679,17 @@ default) and the solve converged, the response carries `switch_components`:
 one entry per cyclic component with a second stable fixed point —
 `{"id", "size", "alt_activities"}`, where `alt_activities` holds ONLY the
 nodes whose value at the other state differs beyond the floor (the flipped
-component and its re-solved downstream), on the same 0–1 scale as
+component and the components that read it, re-solved), on the same 0–1 scale as
 `node_activities`. `[]` means detection ran and found nothing bistable; the
 field is ABSENT when detection is off or the solve did not converge (a
 cap-decided point anchors no second-state claim, specs/066). Diagnostics:
 `switch_detect`, `switch_components_searched`, `switch_components_found`,
-`switch_sweeps_capped`. Pass the list back to `/api/readouts` to get
-per-readout switch fields.
+`switch_sweeps_capped` (basin re-solves, or the re-solve of a component
+downstream of a flip, that did not settle within `DS_SWITCH_MAX_SWEEPS`; such
+an alternate is not served). Only nodes a reaction writes are seeded for the
+basin re-solves; a member joined to the loop only by a structural `recycle`
+edge keeps its canonical value (review 2026-11-20). Pass the list back to
+`/api/readouts` to get per-readout switch fields.
 
 ## Notes for the WebsiteAngular client
 - Treat this contract as the integration boundary. Keep all Angular code in the
