@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-21
 
-**Status**: Registered BEFORE any expression value is read. Only the files' structure was looked at: shapes, column
+**Status**: RESULT (2026-11-21, research.md): reached base rate 0.057, the "comparable to drug panels" reading. Registered BEFORE any expression value was read. Only the files' structure was looked at: shapes, column
 names, perturbation ids and the control flag.
 
 **Input**: specs/167 found that on every record precision is the share of reached readouts that changed plus at most

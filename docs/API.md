@@ -401,6 +401,9 @@ change call adds about two points to that share on the curator held-out and
 korkut records, and nothing on the others. Read
 a call as "a route reaches this readout, in this direction"; on an unselected
 panel, expect most reached readouts not to change by more than the cutoff.
+On an unselected genetic panel (specs/169: CRISPRi knockdowns in K562, curated
+transcription targets) a reached target changed 1.5× only 5.7% of the time, no
+more often than an unreached one.
 
 ### Pinning a drug at its measured engagement (specs/161)
 
