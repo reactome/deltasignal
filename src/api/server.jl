@@ -153,7 +153,7 @@ const SOFT_OBS_OFF_ERROR = "soft_observations are not enabled on this server (DS
 const SOFT_OBS_SHAPE_ERROR = "Each soft observation must be a 2-element numeric array [activity, weight] with activity in 0-100 and weight in 0-1."
 const OBS_RANGE_ERROR = "Observation activity must be within 0-100 and confidence within 0-1."
 # specs/158: inverse queries.
-const INVERSE_QUERY_ERROR = "inverse requires a known network_id and a 'target' {stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'}; optional 'direction' ('down'|'up'|'any'), 'cap' (1-500), 'doses' {ko: 0-100, oe: 0-100}."
+const INVERSE_QUERY_ERROR = "inverse requires a known network_id and a 'target' {stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'|'sites'}; optional 'direction' ('down'|'up'|'any'), 'cap' (1-500), 'doses' {ko: 0-100, oe: 0-100}."
 const INVERSE_CAP_ERROR = "inverse cap must be an integer between 1 and 500 (the registered server maximum; specs/158)."
 const INVERSE_TARGET_ERROR = "the target does not resolve to any node in this network (basis: none) - there is nothing to move."
 # A node listed twice with different values: two contradictory measurements
@@ -176,7 +176,7 @@ const PINS_NO_TABLE_ERROR = "This network has no node table, so the pin protocol
 const PINS_TABLE_ERROR = "This network's node table (nodes.csv) is present but could not be read, so the pin and readout protocols cannot resolve. Rebuild the bundle; the network itself is still served for /api/solve."
 const PINS_QUERY_ERROR = "pins requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...]} objects."
 const READOUTS_NO_TABLE_ERROR = "This network has no node table, so the readout protocol cannot resolve. Parse a catalog pathway, or upload the bundle's nodes.csv as the 'nodes' part."
-const READOUTS_QUERY_ERROR = "readouts requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'} objects; 'activities' (uuid: number) and 'pinned' (uuid list) are optional."
+const READOUTS_QUERY_ERROR = "readouts requires a known network_id and a non-empty 'queries' list of {id, stable_ids: [...], members?: [...], mode?: 'forms'|'abundance'|'sites'} objects; 'activities' (uuid: number) and 'pinned' (uuid list) are optional."
 const READOUTS_CONTEXT_ERROR = "This network's context_own.csv could not be read, so readouts cannot be cut to the pathway's own nodes. Rebuild the bundle; answering without the filter would include neighbouring pathways' copies."
 const SCOPE_STATEMENT_ERROR = "The scope statement could not be read on this server. It ships with the engine (src/api/scope.json); serving without it would hide what the figures cover."
 const LEADS_ERROR = "The leads table could not be read on this server. It ships with the engine (src/api/leads.json); serving without it would hide which connections are curator-drawn and how they measured."
@@ -1710,7 +1710,7 @@ function readouts_handler(req)
             mode_raw = get(q, :mode, "forms")
             mode_raw isa AbstractString || throw(ArgumentError(READOUTS_QUERY_ERROR))
             mode = String(mode_raw)
-            mode in ("forms", "abundance") || throw(ArgumentError(READOUTS_QUERY_ERROR))
+            mode in ("forms", "abundance", "sites") || throw(ArgumentError(READOUTS_QUERY_ERROR))
             qid = get(q, :id, nothing)
 
             entry = Dict{String, Any}("id" => qid === nothing ? nothing : string(qid),
@@ -1779,9 +1779,11 @@ function readouts_handler(req)
                     end
                 end
             else
-                occurrences = DeltaSignal.resolve_abundance_occurrences(stids, pin_index;
-                                                                        own = ridx.own)
-                kept = DeltaSignal.abundance_copies(occurrences, network.edges)
+                # abundance (specs/134, korkut totals) and sites (issue #278,
+                # korkut phospho): korkut_bench's union over every stable id,
+                # valued over unpinned copies; only abundance cuts the copies.
+                occurrences, kept = DeltaSignal.union_readout_copies(
+                    mode, stids, pin_index, network.edges; own = ridx.own)
                 entry["basis"] = isempty(occurrences) ? "none" : "direct"
                 entry["groups"] = isempty(kept) ? Vector{Vector{String}}() : [kept]
                 entry["occurrences"] = length(occurrences)

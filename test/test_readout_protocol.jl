@@ -135,6 +135,41 @@ readout_index(; proxies=Dict{String,Vector{String}}(), cofactors=Set{String}(),
         @test abundance_value(["S", "U"], Set{String}(), acts).value ≈ (0.5 + 0.01) / 2
     end
 
+    @testset "sites (issue #278): korkut phospho = union over every site's ids, unpinned, no cut" begin
+        # A phospho readout with two sites' EWAS ids: S1 resolves to the
+        # phosphorylated protein P1 and a complex C assembled from it; S2 to
+        # a second phospho form P2. The drug pins P1 (a root copy of its
+        # target). korkut_bench reads the union [P1, C, P2] minus the pin:
+        # mean(C, P2). Each other rule gives a DIFFERENT number here, so the
+        # fixture fails under any of them:
+        #   forms (first resolving id, every copy incl. the pin): mean(P1, C)
+        #   abundance (cut to copies nothing makes from the readout): [P1, P2]
+        idx = pin_index("S1" => ["P1", "C"], "S2" => ["P2", "C"])
+        edges = [edge("P1", "C"; type="assembly")]
+        acts = Dict("P1" => 0.0, "C" => 0.002, "P2" => 0.03)
+        pinned = Set(["P1"])
+        s = union_readout_copies("sites", ["S1", "S2"], idx, edges)
+        @test s.occurrences == ["P1", "C", "P2"] && s.kept == s.occurrences
+        v = abundance_value(s.kept, pinned, acts)
+        @test v.status == "scored"
+        @test v.value ≈ (0.002 + 0.03) / 2
+        f = resolve_readout(["S1", "S2"], String[], idx, readout_index(), edges)
+        @test readout_entity_mean(f.groups, acts) ≈ (0.0 + 0.002) / 2
+        @test !(readout_entity_mean(f.groups, acts) ≈ v.value)
+        a = union_readout_copies("abundance", ["S1", "S2"], idx, edges)
+        @test a.kept == ["P1", "P2"]
+        @test abundance_value(a.kept, pinned, acts).value ≈ 0.03
+        # every site copy pinned: the readout leaves scoring, never scored back
+        @test abundance_value(s.kept, Set(["P1", "C", "P2"]), acts).status == "trivial"
+        # no id resolves: no_copy
+        n = union_readout_copies("sites", ["nope"], idx, edges)
+        @test isempty(n.kept) && abundance_value(n.kept, pinned, acts).status == "no_copy"
+        # context build: own filter inside the union, as the bench's readout_nodes
+        o = union_readout_copies("sites", ["S1", "S2"], idx, edges; own=Set(["C", "P2"]))
+        @test o.kept == ["C", "P2"]
+        @test_throws ArgumentError union_readout_copies("forms", ["S1"], idx, edges)
+    end
+
     @testset "the call boundaries are the bench's: strict <0.85, inclusive >=1.15" begin
         @test readout_call(0.84) == "down"
         @test readout_call(0.85) == "normal"

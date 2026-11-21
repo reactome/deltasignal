@@ -543,6 +543,25 @@ function abundance_copies(nodes::Vector{String}, edges::Vector{LogicNetworkEdge}
                  for r in get(producers, u, empty_set))]
 end
 
+"""The copies a union-mode readout reads (issue #278): `mode` `"abundance"`
+(korkut total readouts, specs/134) or `"sites"` (korkut phospho readouts).
+Both resolve as `korkut_bench.readout_nodes` does — the union of direct
+matches over ALL the readout's stable ids, own-pathway filter inside the
+union — and `"abundance"` then cuts to `abundance_copies`, while `"sites"`
+keeps every occurrence (the bench cuts only total readouts:
+`total_readout_nodes`). Returns `(occurrences, kept)`; both are valued by
+`abundance_value` (mean over UNPINNED kept copies), the bench's
+`readout=mean(unpinned)` for either kind."""
+function union_readout_copies(mode::AbstractString, stids::Vector{String}, pin_index::PinIndex,
+                              edges::Vector{LogicNetworkEdge};
+                              own::Union{Nothing, Set{String}} = nothing)
+    mode in ("abundance", "sites") ||
+        throw(ArgumentError("union_readout_copies: mode must be abundance or sites, not $mode"))
+    occurrences = resolve_abundance_occurrences(stids, pin_index; own = own)
+    kept = mode == "abundance" ? abundance_copies(occurrences, edges) : occurrences
+    return (occurrences = occurrences, kept = kept)
+end
+
 """The korkut statistic for an abundance readout: the mean over UNPINNED kept
 copies, as a fold over rest. Returns `(status, value)` where status is
 `"scored"`, `"trivial"` (every kept copy pinned — the readout leaves scoring)
