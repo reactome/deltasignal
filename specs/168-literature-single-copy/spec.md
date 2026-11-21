@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-20
 
-**Status**: Registered BEFORE any arm is built or run.
+**Status**: RESULT: FAIL (2026-11-20, research.md). Registered before any arm was built or run.
 
 **Input**: Adam, 2026-11-20: the FullTextMining session "left something in the mailbox for you to run". Their 014 is
 a single-copy rewiring of their v3 bundle (`composite-h12b-v3-single`), answering our mailbox 014. That note found
