@@ -71,3 +71,37 @@ The anatomy grouped drug sets with a no-marker drug (HN, RO: engagement placehol
 engaged". Regrouped: weak/none 132 moved (131 fixed, 1 broken), strongly engaged 89 (82 / 6),
 engagement unknown 43 (43 / 0). n = 1,241 here against 1,307 in the record: the replay valued korkut
 phospho readouts differently (specs/157 amendment of the same date).
+
+## Amendment, 2026-11-21 (issue #278): korkut phospho readouts valued as the record values them
+
+Both arms above (the specs/157 canonical run and the engagement arm) sent korkut phospho readouts to
+`/api/readouts` as `forms` queries: the first stable id that resolves, every copy including pinned ones.
+`korkut_bench.py` reads the union of the readout's sites' ids over unpinned copies, and 442 of the 3,565
+phospho folds differed from the record. The comparison above was internally consistent (same valuation
+both sides) but not the record's statistic. `/api/readouts` now has a `sites` mode that reproduces the
+record exactly (10,469 of 10,469 korkut folds and calls at print precision; specs/157 amendment of the
+same date), and `arm_161.py` sends phospho readouts in it (`--phospho-mode forms` reproduces the arm
+above).
+
+Re-run because it is cheap (one replay, 1,469 solves, about 12 minutes): the engagement arm at `16ae4061`
+(`runs/calls_engagement_sites.tsv.gz`) against the corrected specs/157 canonical run
+(`runs_278/calls_canonical.tsv.gz` in specs/157), on the served 98 build, same rows (9,476 scored, 993
+marker readouts excluded from both):
+
+| | forms (2026-11-16, re-scored 11-20) | sites (2026-11-21) |
+|---|---|---|
+| full-knockout acc / balanced | 0.8580 / 0.4043 | 0.8545 / 0.4031 |
+| engagement acc / balanced | 0.8842 / 0.4070 | 0.8832 / 0.4067 |
+| gate Δ balanced [95% boot, 78 sets] | +0.0028 [−0.0060, +0.0089] FAIL | **+0.0036 [−0.0052, +0.0099] FAIL** |
+| RAF set aside | +0.0031 | +0.0040 |
+| calls moved: fixed / broken | 264: 256 / 7 | **288: 279 / 7** |
+| weak/none · strong · unknown (fixed/broken) | 131/1 · 82/6 · 43/0 | 145/1 · 87/6 · 47/0 |
+| reachable n | 1,241 | 1,307 (the record's own count) |
+| full-knockout sens / spec / prec / AUROC | 0.659 / 0.166 / 0.113 / 0.640 | 0.645 / 0.183 / 0.109 / 0.667 |
+| engagement sens / spec / prec / AUROC | 0.621 / 0.408 / 0.141 / 0.733 | 0.608 / 0.432 / 0.140 / 0.744 |
+
+The verdict does not change: the registered gate fails. The one-sided cleanup is slightly larger (279
+fixed / 7 broken). The reachable scorecard now counts the record's 1,307 reachable rows, and its
+full-knockout row (sensitivity 0.645, specificity 0.183, precision 0.109) equals the record figures in
+the "correction" section above, as it should. The 11-20 note's n = 1,241 discrepancy is explained: it
+came from the `forms` valuation.

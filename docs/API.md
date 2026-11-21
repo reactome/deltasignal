@@ -322,8 +322,8 @@ pairs in this class whose call FLIPPED under at least one of the twenty
 recorded near-equivalent rule variants (specs/157: the registered ensemble of
 measured arms the record could barely distinguish). It is stability across
 contested structure, never correctness — the record behind it: a structurally
-fragile drug-record call was right one time in five, a robust one five times
-in six. Lookup in the versioned `src/api/fragility.json` (level walk
+fragile drug-record call was right 23% of the time, a robust one 83%
+(specs/157, amendment 2026-11-21: korkut valued as the record values it). Lookup in the versioned `src/api/fragility.json` (level walk
 full → no_converged → call_only on call, magnitude bin and the request's
 `converged`); the field is ABSENT for untouched or call-less readouts and
 classes below the minimum. "Untouched" means the fold reads 1 at the record's

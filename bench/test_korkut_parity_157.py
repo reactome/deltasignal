@@ -44,3 +44,38 @@ def test_ensemble_sends_phospho_as_sites_and_totals_as_abundance():
     assert ens.korkut_query_mode("total", "sites") == "abundance"
     assert ens.korkut_query_mode("phospho", "forms") == "forms"   # the 2026-11-15 runs
     assert ens.korkut_query_mode("total", "forms") == "abundance"
+
+
+mrg = _load("merge_korkut_278", HERE / "analysis" / "157" / "merge_korkut_278.py")
+
+
+def _write(path, rows):
+    import gzip
+    with gzip.open(path, "wt") as f:
+        f.write("\t".join(mrg.HEADER) + "\n")
+        for r in rows:
+            f.write("\t".join(r) + "\n")
+
+
+def test_merge_replaces_korkut_rows_and_keeps_the_rest(tmp_path, monkeypatch):
+    old, new, out = tmp_path / "old", tmp_path / "new", tmp_path / "out"
+    old.mkdir(); new.mkdir()
+    cur = ["curator", "P", "G", "0", "1", "0.5", "down", "1"]
+    _write(old / "calls_canonical.tsv.gz", [cur, ["korkut", "P", "SR", "", "A", "1.0", "not", "1"]])
+    _write(new / "calls_canonical.tsv.gz", [["korkut", "P", "SR", "", "A", "0.538", "down", "1"]])
+    monkeypatch.setattr(sys, "argv", ["m", str(old), str(new), str(out)])
+    mrg.main()
+    got = (out / "calls_canonical.tsv").read_text().splitlines()
+    assert got[1].split("\t") == cur
+    assert got[2].split("\t")[5:7] == ["0.538", "down"]
+
+
+def test_merge_refuses_a_different_korkut_population(tmp_path, monkeypatch):
+    import pytest
+    old, new = tmp_path / "old", tmp_path / "new"
+    old.mkdir(); new.mkdir()
+    _write(old / "calls_canonical.tsv.gz", [["korkut", "P", "SR", "", "A", "1.0", "not", "1"]])
+    _write(new / "calls_canonical.tsv.gz", [["korkut", "P", "SR", "", "B", "1.0", "not", "1"]])
+    monkeypatch.setattr(sys, "argv", ["m", str(old), str(new), str(tmp_path / "out")])
+    with pytest.raises(SystemExit):
+        mrg.main()

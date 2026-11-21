@@ -91,7 +91,9 @@ def main():
         ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
         cwd=Path(__file__).resolve().parents[2]).stdout.strip()
     doc = {
-        "version": "2026-11-20",   # 2026-11-15 table refitted with the record-precision untouched rule
+        # 2026-11-20: refitted with the record-precision untouched rule; 2026-11-21: korkut rows re-run with
+        # phospho readouts valued as the record values them (`sites` mode, issue #278; runs_278/)
+        "version": "2026-11-21",
         "spec": "specs/157-structural-fragility",
         "catalog_build": build["build_id"],
         "solver_commit": commit,
@@ -103,7 +105,8 @@ def main():
                   "(the registered 20-variant ensemble) — stability across contested "
                   "structure, never correctness"),
         "validation": {
-            "gate": "specs/157 research.md 2026-11-15: curator +0.2818 [+0.1298, +0.4573], korkut +0.6326 [+0.5441, +0.7048]",
+            "gate": ("specs/157 research.md, amendment 2026-11-21 (korkut re-run, sites mode): curator +0.2818 "
+                     "[+0.1298, +0.4573], korkut +0.6016 [+0.5024, +0.6796]"),
             "per_axis_pairs": dict(per_axis),
             "per_axis_fragile": dict(per_axis_fragile),
             "untouched_skipped": skipped_untouched,

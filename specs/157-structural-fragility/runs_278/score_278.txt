@@ -1,0 +1,23 @@
+self-check: canonical run reproduces the recorded call on 34825 of 34825 truth-joined pairs (0 mismatches)
+34820 labelled pairs (5 excluded below the 80% contribution floor) over 20 variants
+curator: robust 0.9068 (n=23058) vs fragile 0.6250 (n=448, 1.9% of pairs) delta +0.2818 [+0.1298, +0.4573] over 1698 units -> PASS
+  (RAF set aside: robust 0.9073 vs fragile 0.6038 delta +0.3035 [+0.1428, +0.4888])
+experimental: robust 0.7776 (n=769) vs fragile 0.5921 (n=76, 9.0% of pairs) delta +0.1855 [-0.0192, +0.4183] over 193 units -> fail
+korkut: robust 0.8268 (n=10207) vs fragile 0.2252 (n=262, 2.5% of pairs) delta +0.6016 [+0.5024, +0.6796] over 78 units -> PASS
+
+flips by variant (a pair may flip under several):
+  own_entity: 339
+  open_fed_single: 114
+  depl_share: 110
+  drug_propagate: 93
+  ub_inert: 79
+  rna_twin_off: 77
+  base_full: 54
+  pool_supply_and: 40
+  own_full: 12
+  comp_twin_off: 11
+  setpool_mean: 8
+  pathogen_propagate: 7
+  drive_twins: 4
+
+GATE: PASS
