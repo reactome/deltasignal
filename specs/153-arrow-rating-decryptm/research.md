@@ -40,3 +40,27 @@ calls mostly false) but is no rate: n = 2.
   not bridge-reachable. Saying "no dataset perturbs upstream" would be false.
 - decryptM remains FIT; this was a fitting-side use (rates are honesty
   metadata, the specs/146 footing).
+
+## Amendment 2 (2026-11-20): S2 re-run on the rebuilt composites — the verdict stands, now on working bridges
+
+specs/149 amendment 1 found that the composites S2 scored (`20261113-arrows98fix-10c`) dangled 21 of 34 bridges. Two
+of the three newly coverable arrows were affected: PTEN Regulation → PTEN → PIP3 and Hedgehog 'off' → GLI3R → RUNX2.
+So their "not bridge-reachable" was the defect's zero. Re-run as registered (amendment 1: same case file
+`cases_153_centres.tsv`, same `s2_rate.py`, F discipline). Arm `arrows98src_dm153` on
+`20261120-arrows98fix-10c-src` (0 of 34 bridges dangling). Control `r98fix_dm153_h` on
+`20261113-1311_baf608b_r98fix`, both at `206e3bbb`. The control is identical to `r98fix_dm153` (552ba89) on all 658
+cases.
+
+- **The same result**: 658/658 joined; 103 covered control-untouched sites; **2 bridged change calls** (Dasatinib,
+  ERBB2 and Mitotic G1, both through p-AKT, both measured "not"). No arrow reaches n ≥ 20, and none gains a rate.
+- **PTEN → PIP3**: the bridge is now live. It changes 138 of the 179 decryptM site cases PIP3 already routes, under
+  every drug in the table, and F keeps PIP3's own answer there. Of PIP3's 166 untouched site cases, **0 move**,
+  including the 25 under AZD8055, Dactolisib and MK2206 (the drugs that reach PTEN Regulation). "Its untouched
+  readouts are not bridge-reachable" now holds as a measurement.
+- **GLI3R → RUNX2**: 0 of 32 untouched RUNX2 site cases move (8 under Tideglusib). The statement holds.
+- **p-S456-ABL1 → RUNX1** was intact before and is unchanged: 0 of 5.
+- One routed Mitotic G1 call differs from the old arm (Imatinib, down → not, measured not). F keeps the control's
+  answer there, so it does not enter S2.
+
+Served statements: PTEN and GLI3R keep "unrated" with this amendment cited (`src/api/leads.json`, specs/149
+amendment 2).

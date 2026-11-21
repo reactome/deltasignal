@@ -1,9 +1,9 @@
 {
- "version": "2026-11-13",
- "spec": "specs/152-release-98-redo (G5; method specs/148, first measured specs/148/150)",
- "measured_on": "korkut untouched class n=2,715 on the sound Release-98 build: balanced +0.0501 [+0.0212, +0.0786]; identical to the 97 measurement (+0.0503) and to the defective-build replication (+0.0501)",
+ "version": "2026-11-20",
+ "spec": "specs/149-leads-serving amendment 2 (composites rebuilt with every source pathway; G5 re-run specs/152 amendment 1, S2 re-run specs/153 amendment 2; method specs/148)",
+ "measured_on": "korkut untouched class n=2,715 on the rebuilt composites (0 of 34 bridges dangling): balanced +0.0501 [+0.0212, +0.0786], identical to the specs/152 G5 figure; the 11 newly built arrows move no korkut untouched answer",
  "catalog_build": "20261113-1311_baf608b_r98fix",
- "composite_build": "20261113-arrows98fix-10c",
+ "composite_build": "20261120-arrows98fix-10c-src",
  "source_build": "20261113-1345_baf608b_r98src2",
  "composite_prefix": "ctx-arrows_",
  "centres": {
@@ -19,10 +19,10 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "measured",
-      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, reproduced identically on the sound Release-98 build); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, reproduced identically on the composites rebuilt with every source pathway, specs/149 amendment 2); above chance on balanced accuracy (+0.05, interval excluding 0)",
       "down_call_precision": 0.24,
-      "arm": "arrows98fix_w/arrows98fix_k on 20261113-arrows98fix-10c",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "arm": "arrows98src_w/arrows98src_k on 20261120-arrows98fix-10c-src (solver 206e3bbb)",
+      "spec": "specs/152-release-98-redo (G5, amendment 1; method specs/148)"
      }
     }
    ]
@@ -39,10 +39,10 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "measured",
-      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, reproduced identically on the sound Release-98 build); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, reproduced identically on the composites rebuilt with every source pathway, specs/149 amendment 2); above chance on balanced accuracy (+0.05, interval excluding 0)",
       "down_call_precision": 0.24,
-      "arm": "arrows98fix_w/arrows98fix_k on 20261113-arrows98fix-10c",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "arm": "arrows98src_w/arrows98src_k on 20261120-arrows98fix-10c-src (solver 206e3bbb)",
+      "spec": "specs/152-release-98-redo (G5, amendment 1; method specs/148)"
      }
     }
    ]
@@ -59,8 +59,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; decryptM perturbs upstream of it (specs/153) but its untouched readouts are not bridge-reachable (0-2 bridged calls per drug), so no rate can be measured on the current record",
-      "spec": "specs/153-arrow-rating-decryptm (S2)"
+      "statement": "curator-drawn connection, built and live (specs/149 amendment 2): it carries perturbations into PIP3 (it changes 250 korkut and 138 decryptM readouts PIP3 already routes on its own), but none of PIP3's untouched readouts move through it (0 of 786 korkut, 0 of 166 decryptM site cases, 25 of them under the drugs that reach PTEN Regulation), so its leads read no change and no rate can be measured",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     }
    ]
@@ -77,8 +77,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live in this composite (specs/149 amendment 2); no perturbation in the record (korkut, decryptM, curator, experimental) moves an untouched readout through it, so no rate can be measured yet",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     }
    ]
@@ -95,8 +95,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live (specs/149 amendment 2); on the record it moves only RAC1-perturbation readouts (2 curator cases, both change calls, 0 of 2 agree with the curators' no-change), too few calls for a rate",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     }
    ]
@@ -113,8 +113,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live in this composite (specs/149 amendment 2); no perturbation in the record (korkut, decryptM, curator, experimental) moves an untouched readout through it, so no rate can be measured yet",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     }
    ]
@@ -131,8 +131,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live (specs/149 amendment 2); the three senescence arrows into INK4 together move only RB1-perturbation readouts on the record (12 curator cases move, 3 become change calls, 0 of 3 agree with the curators' no-change; 2 experimental cases move, neither changes call; no korkut answer moves), too few calls for a rate",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     },
     {
@@ -143,8 +143,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live (specs/149 amendment 2); the three senescence arrows into INK4 together move only RB1-perturbation readouts on the record (12 curator cases move, 3 become change calls, 0 of 3 agree with the curators' no-change; 2 experimental cases move, neither changes call; no korkut answer moves), too few calls for a rate",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     },
     {
@@ -155,10 +155,10 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "measured",
-      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, reproduced identically on the sound Release-98 build); above chance on balanced accuracy (+0.05, interval excluding 0)",
+      "statement": "down-calls through this connection were right 24% on the korkut record (37 of 156, reproduced identically on the composites rebuilt with every source pathway, specs/149 amendment 2); above chance on balanced accuracy (+0.05, interval excluding 0)",
       "down_call_precision": 0.24,
-      "arm": "arrows98fix_w/arrows98fix_k on 20261113-arrows98fix-10c",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "arm": "arrows98src_w/arrows98src_k on 20261120-arrows98fix-10c-src (solver 206e3bbb)",
+      "spec": "specs/152-release-98-redo (G5, amendment 1; method specs/148)"
      }
     },
     {
@@ -169,8 +169,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live (specs/149 amendment 2); the three senescence arrows into INK4 together move only RB1-perturbation readouts on the record (12 curator cases move, 3 become change calls, 0 of 3 agree with the curators' no-change; 2 experimental cases move, neither changes call; no korkut answer moves), too few calls for a rate",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     }
    ]
@@ -187,8 +187,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live in this composite (specs/149 amendment 2); no perturbation in the record (korkut, decryptM, curator, experimental) moves an untouched readout through it, so no rate can be measured yet",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     }
    ]
@@ -205,8 +205,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; decryptM perturbs upstream of it (specs/153) but its untouched readouts are not bridge-reachable (0-2 bridged calls per drug), so no rate can be measured on the current record",
-      "spec": "specs/153-arrow-rating-decryptm (S2)"
+      "statement": "curator-drawn connection, built and live (specs/149 amendment 2); decryptM perturbs upstream of it (Tideglusib via GSK3B, specs/153) but no untouched RUNX2 readout moves through it (0 of 8 such decryptM site cases; 0 of 360 korkut, 0 of 624 curator), so no rate can be measured on the current record",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     },
     {
@@ -217,8 +217,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live in this composite (specs/149 amendment 2); no perturbation in the record (korkut, decryptM, curator, experimental) moves an untouched readout through it, so no rate can be measured yet",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     },
     {
@@ -229,8 +229,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live in this composite (specs/149 amendment 2); no perturbation in the record (korkut, decryptM, curator, experimental) moves an untouched readout through it, so no rate can be measured yet",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     },
     {
@@ -241,8 +241,8 @@
      "drawn_in_release": "98",
      "rate": {
       "class": "unrated",
-      "statement": "curator-drawn connection; no dataset in the record perturbs upstream of it yet",
-      "spec": "specs/152-release-98-redo (G5; method specs/148)"
+      "statement": "curator-drawn connection, built and live in this composite (specs/149 amendment 2); no perturbation in the record (korkut, decryptM, curator, experimental) moves an untouched readout through it, so no rate can be measured yet",
+      "spec": "specs/149-leads-serving (amendment 2; G5 re-run, specs/152 amendment 1)"
      }
     }
    ]
