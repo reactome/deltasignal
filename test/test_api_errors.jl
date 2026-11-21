@@ -546,6 +546,31 @@ const SRV = DeltaSignal
         @test ra[:status] == "scored" && ra[:value] ≈ 0.5 && ra[:call] == "up"
         @test ra[:railed] == false  # fold 50: below the 99.0 stop
 
+        # sites (issue #278, the korkut phospho rule): the union over EVERY
+        # stable id (R-HSA-2 -> u-x, u-y; R-HSA-4 -> u-y), no abundance cut,
+        # valued over unpinned copies: u-y alone, 0.9. forms reads the first
+        # id's copies with the pin, (0.5 + 0.9) / 2; abundance keeps only the
+        # pinned starting copy (trivial). Three rules, three answers.
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.5, "u-y": 0.9}, "pinned": ["u-x"],
+            "queries": [{"id": "site", "stable_ids": ["R-HSA-2", "R-HSA-4"], "mode": "sites"},
+                        {"id": "forms", "stable_ids": ["R-HSA-2", "R-HSA-4"]},
+                        {"id": "total", "stable_ids": ["R-HSA-2", "R-HSA-4"], "mode": "abundance"}]}"""))
+        @test resp.status == 200
+        rs, rfm, rab = SRV.JSON3.read(String(resp.body))[:results]
+        @test rs[:mode] == "sites" && rs[:basis] == "direct" && rs[:occurrences] == 2
+        @test [[String(u) for u in g] for g in rs[:groups]] == [["u-x", "u-y"]]
+        @test [String(u) for u in rs[:pinned]] == ["u-x"]
+        @test rs[:status] == "scored" && rs[:value] ≈ 0.9 && rs[:fold] ≈ 90.0 && rs[:call] == "up"
+        @test rfm[:value] ≈ 0.7
+        @test rab[:status] == "trivial"
+        # every site copy pinned: trivial, no value
+        resp = SRV.readouts_handler(post("""{"network_id": "$nid",
+            "activities": {"u-x": 0.5, "u-y": 0.9}, "pinned": ["u-x", "u-y"],
+            "queries": [{"id": "site", "stable_ids": ["R-HSA-2", "R-HSA-4"], "mode": "sites"}]}"""))
+        rs = SRV.JSON3.read(String(resp.body))[:results][1]
+        @test rs[:status] == "trivial" && rs[:value] === nothing && rs[:call] === nothing
+
         # without activities: resolution only, no value invented; a numeric id
         # is echoed as text, not a 500-class MethodError
         resp = SRV.readouts_handler(post("""{"network_id": "$nid",

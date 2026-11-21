@@ -265,7 +265,7 @@ Total-protein questions use the specs/134 abundance rule instead (see `mode`).
   ids in order (first that resolves wins); `members` (optional) are a set
   readout's member stable ids, resolved by the client from the Reactome
   ContentService (the engine has no Neo4j, by design); `mode` is `"forms"`
-  (default) or `"abundance"`.
+  (default), `"abundance"` or `"sites"`.
 - **`activities`** (optional): `node_activities` from a prior `/api/solve`,
   verbatim. Omitted → resolution-only response (no `value`/`fold`/`call`).
   A resolved uuid absent from the map reads baseline (0.01), as the bench
@@ -322,8 +322,8 @@ pairs in this class whose call FLIPPED under at least one of the twenty
 recorded near-equivalent rule variants (specs/157: the registered ensemble of
 measured arms the record could barely distinguish). It is stability across
 contested structure, never correctness — the record behind it: a structurally
-fragile drug-record call was right one time in five, a robust one five times
-in six. Lookup in the versioned `src/api/fragility.json` (level walk
+fragile drug-record call was right 23% of the time, a robust one 83%
+(specs/157, amendment 2026-11-21: korkut valued as the record values it). Lookup in the versioned `src/api/fragility.json` (level walk
 full → no_converged → call_only on call, magnitude bin and the request's
 `converged`); the field is ABSENT for untouched or call-less readouts and
 classes below the minimum. "Untouched" means the fold reads 1 at the record's
@@ -360,6 +360,22 @@ mean over **unpinned** kept copies and the entry carries `status`:
 `"scored"`, `"trivial"` (every kept copy pinned — the benchmarks leave such a
 readout out of scoring; say so rather than scoring the pin back), or
 `"no_copy"`. `occurrences` is the resolved count before the cut.
+
+**`mode: "sites"`** (issue #278, 2026-11-21): a multi-site phospho readout
+valued the way the korkut record values it (`bench/korkut_bench.py`,
+`readout=mean(unpinned)`). `stable_ids` are every EWAS id phosphorylated at
+any of the antibody's sites; resolution is the same union as `abundance`
+(all ids, one flat group, the context own-node filter inside the union) with
+NO abundance cut — every resolved copy is read, bound and modified forms
+included — and the value is the mean over **unpinned** copies, with the same
+`status` (`scored` / `trivial` / `no_copy`) and `occurrences`. `forms` is a
+different statistic on such a readout: it takes only the FIRST id that
+resolves and averages its copies pinned ones included (the curator bench's
+per-entity rule), which differs from the korkut record on 442 of 3,565
+phospho folds of the served 98 record (e.g. SRC pY416 under an SRC inhibitor).
+Parity: every korkut fold of the 98 record reproduces through `sites`
+(phospho) and `abundance` (totals) at print precision (specs/157 amendment
+2026-11-21).
 
 A network parsed without a node table refuses with a `400`, as `/api/pins`
 does: the direct step shares the pin index, and matching ids flatly would be

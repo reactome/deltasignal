@@ -18,7 +18,11 @@ Axes:
   direction), value the recorded key_outputs via /api/readouts.
 - korkut: the recorded cases TSV's (pathway, drug set) solves with the
   recorded pin protocol (drug_activity machinery), readouts via
-  /api/readouts with each readout's stable ids (mode per kind).
+  /api/readouts with each readout's stable ids (mode per kind: totals
+  `abundance`; phospho `sites`, korkut_bench's union over the sites'
+  ids, unpinned copies — issue #278). `--korkut-phospho-mode forms`
+  reproduces the 2026-11-15 runs, which sent phospho readouts as `forms`
+  (first resolving id, pinned copies read), 442 folds off the record.
 
 Usage:
   DELTASIGNAL_BASE=http://localhost:PORT DS_CATALOG_ROOT=<served build> \
@@ -167,7 +171,12 @@ def curator_leg(g4, writer):
     return solves
 
 
-def korkut_leg(cases_tsv, writer):
+def korkut_query_mode(kind, phospho_mode):
+    """The /api/readouts mode a korkut readout of this kind is valued in."""
+    return "abundance" if kind == "total" else phospho_mode
+
+
+def korkut_leg(cases_tsv, writer, phospho_mode="sites"):
     dataset_roles.require_role("korkut2015", "fit")
     recorded = set()
     for r in csv.DictReader(open(cases_tsv), delimiter="\t"):
@@ -222,7 +231,7 @@ def korkut_leg(cases_tsv, writer):
                 raise SystemExit(f"{pdir.name} {ds_name}: solve failed")
             solves += 1
             queries = [{"id": name, "stable_ids": sorted(r_stids[name]),
-                        "mode": "abundance" if kinds.get(name) == "total" else "forms"}
+                        "mode": korkut_query_mode(kinds.get(name), phospho_mode)}
                        for name in names]
             ro = post("readouts", {"network_id": parsed["network_id"],
                                    "activities": sol.get("node_activities") or {},
@@ -245,6 +254,8 @@ def main():
     ap.add_argument("registry"); ap.add_argument("g4"); ap.add_argument("korkut_cases")
     ap.add_argument("out_dir")
     ap.add_argument("--axes", default="both", choices=["curator", "korkut", "both"])
+    ap.add_argument("--korkut-phospho-mode", default="sites", choices=["sites", "forms"],
+                    help="sites (korkut_bench's valuation, issue #278); forms reproduces the 2026-11-15 runs")
     a = ap.parse_args()
     registry = load_registry(a.registry)
     row = None if a.variant == "canonical" else registry[a.variant]
@@ -252,7 +263,8 @@ def main():
 
     served = (json.loads(urllib.request.urlopen(f"{bm.DS_BASE}/api/health", timeout=30).read())
               .get("catalog") or {})
-    print(f"server {bm.DS_BASE} serving {served.get('build_id')}", flush=True)
+    print(f"server {bm.DS_BASE} serving {served.get('build_id')}; korkut phospho mode "
+          f"{a.korkut_phospho_mode}", flush=True)
     verify_env(registry, row)
 
     out = out_dir / f"calls_{a.variant}.tsv"
@@ -264,7 +276,7 @@ def main():
         if a.axes in ("curator", "both"):
             n += curator_leg(Path(a.g4), w)
         if a.axes in ("korkut", "both"):
-            n += korkut_leg(a.korkut_cases, w)
+            n += korkut_leg(a.korkut_cases, w, a.korkut_phospho_mode)
     print(f"{a.variant}: {n} solves -> {out}")
 
 

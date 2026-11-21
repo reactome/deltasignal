@@ -74,7 +74,8 @@ export PinIndex, build_pin_index, resolve_pins, pin_root_indegree, pin_root_igno
 export ReadoutIndex, build_readout_index, resolve_readout, readout_entity_mean,
        readout_call, readout_railed, readout_rail_stops,
        load_confidence_table, readout_confidence, confidence_magnitude_bin,
-       resolve_abundance_occurrences, abundance_copies, abundance_value
+       resolve_abundance_occurrences, abundance_copies, abundance_value,
+       union_readout_copies
 export convert_to_reaction_network, aggregate_to_pathway_view, validate_network_pathway_mapping
 export compute_influence_scores, SteadyStateParams
 

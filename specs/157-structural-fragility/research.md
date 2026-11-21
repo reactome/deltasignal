@@ -236,3 +236,75 @@ registered gate do not use folds, so the gate result above stands. The specs/165
 recorded (rounded) folds and stand.
 The refitted table keeps `solver_commit: 7fe3dcc` (the code the ensemble runs were solved with, note above),
 passed explicitly: `fit_157.py runs src/api/fragility.json 7fe3dcc`.
+
+## Amendment, 2026-11-21 (issue #278): the korkut leg re-run with the record's valuation
+
+**Why.** The ensemble's korkut leg sent phospho readouts to `/api/readouts` as `forms` queries (the
+first stable id that resolves, every copy including pinned ones). `korkut_bench.py` values a phospho
+readout over the union of its sites' ids, unpinned copies only. 442 of the 3,565 phospho folds in the
+canonical run differed from the record at print precision (all 6,904 total-readout folds already
+matched under `abundance`). That was the source of the 36 canonical call mismatches in the self-check
+above, and of the residual 67 untouched / 35 railed label mismatches in the 2026-11-20 amendment.
+
+**Fix.** `/api/readouts` gains `mode: "sites"` (korkut_bench's union, own filter inside it, no
+abundance cut, mean over unpinned copies, the abundance mode's `status` / `occurrences`); `forms` and
+`abundance` are unchanged. `ensemble_157.py` sends korkut phospho readouts as `sites`
+(`--korkut-phospho-mode forms` reproduces the 2026-11-15 runs).
+
+**Parity gate** (`bench/analysis/157/korkut_parity_157.py`, replay vs the recorded
+`results/cff961d/r98fix_korkut/korkut_cases.tsv`): **10,469 of 10,469** korkut folds and calls reproduce at
+print precision (phospho 3,565 / 3,565, total 6,904 / 6,904). On the stored canonical run,
+`untouched_parity.py` now finds 0 untouched and 0 railed mismatches over all 34,825 joined pairs (from
+67 and 35).
+
+**Re-run.** All 21 runs (canonical + the 20 registry variants), korkut axis only, at `a8b69661`, on the
+served 98 build (`20261113-r98fix-plus-leads`, pathway directories byte-identical to the record's
+`20261113-1311_baf608b_r98fix`), each in its own replay container with the dev compose environment plus
+exactly that variant's override, every env probe passing (variant live, every other registry rule
+canonical). Two servers at a time, 1,469 solves per run, 10–15 min per run, about 2 h 45 min wall.
+Curator and experimental rows do not depend on the korkut readout mode and are carried over verbatim
+from the 2026-11-15 runs (`merge_korkut_278.py`, which refuses unless every variant's korkut key set
+is identical). The merged record is `runs_278/` (calls gzipped; unpack before `score_157.py`, which
+reads `calls_*.tsv`). `runs/` is kept as the 2026-11-15 record, and re-scoring it reproduces the
+figures above exactly.
+
+**Gate** (`score_157.py`, same registration, seed 157; `runs_278/score_278.txt`):
+
+| axis | 2026-11-15 (forms) | 2026-11-21 (sites) |
+|---|---|---|
+| self-check | 34,789 / 34,825 (36 korkut mismatches) | **34,825 / 34,825** |
+| curator | +0.2818 [+0.1298, +0.4573] PASS | unchanged |
+| experimental | +0.1855 [−0.0192, +0.4183] fail | unchanged |
+| korkut robust acc (n) | 0.8303 (10,216) | 0.8268 (10,207) |
+| korkut fragile acc (n) | 0.1976 (253) | 0.2252 (262) |
+| korkut delta | +0.6326 [+0.5441, +0.7048] PASS | **+0.6016 [+0.5024, +0.6796] PASS** |
+
+**The gate still passes on two of three axes**, and the conclusion stands: a fragile korkut call is
+right about one time in four and a half (was one in five), and a robust one five times in six. Flips by variant change only on
+korkut: own_entity 326 → 339, depl_share 116 → 110, drug_propagate 91 → 93; the other variants are
+unchanged.
+
+**Label changes** (korkut only, 34,820 labelled pairs either way, the same pairs): 25 robust → fragile,
+16 fragile → robust; 36 canonical calls change (now equal to the record), of which 34 were right only
+under the `forms` valuation and 2 were wrong both ways.
+
+**Table refit** (`src/api/fragility.json`, version 2026-11-21; `fit_157.py runs_278 src/api/fragility.json
+"7fe3dcc (curator, experimental) + a8b69661 (korkut)"`, because the two parts of the record ran at two
+commits). Between them `src/solvers` / `src/core` changed only in switch detection (#279) and
+inverse/soft-observation guards (#280), which do not move a canonical fixed point. The korkut canonical
+run at `a8b69661` reproduces the `cff961d` record exactly. The same 17 cells remain. 11,847 pairs
+(korkut 1,932 → 1,999; 22,973 untouched skipped, was 23,040).
+
+| cell | 2026-11-20 rate (n) | 2026-11-21 rate (n) |
+|---|---|---|
+| down\|gt3\|True | 0.0270 (3,551) | 0.0276 (3,550) |
+| down\|le1\|True | 0.1339 (1,479) | 0.1168 (1,404) |
+| down\|le3\|True | 0.0993 (937) | 0.1085 (1,023) |
+| not\|le1\|True | 0.1457 (693) | 0.1531 (725) |
+| up\|gt3\|True | 0.0265 (4,340) | 0.0265 (4,340) |
+| up\|le1\|True | 0.2181 (188) | 0.2687 (201) |
+| up\|le3\|True | 0.2078 (592) | 0.2036 (604) |
+| call_only down / not / up | 0.0649 / 0.1457 / 0.0545 | 0.0624 / 0.1531 / 0.0568 |
+
+(no_converged cells equal the full cells: every labelled pair converged.) The served `fragility` rates
+move by up to 0.051 (`up|le1`). No class appears or disappears.
