@@ -147,3 +147,14 @@ endpoints.
    choose it.
 
 Nothing is adopted. The served catalog and the solver defaults are unchanged.
+
+## Addendum, 2026-11-20: per-edge attribution sent (Adam: "yes")
+
+`bench/analysis/166/attribute_166.py` (tests `bench/test_attribute_166.py`) attributes each change call in `with`
+to the literature edges on its route (directed reach from any node carrying the perturbed gene to a readout node,
+in the `with` network), on the FIT axes only (korkut, own markers excluded; MP-BioPath experimental). Curator
+held-out was not read. Change calls: korkut new 1 right / 442 wrong, kept 39 / 463; experimental new 14 / 9,
+kept 278 / 112. The 1,475 edges on a route fall into 54 count patterns (440 edges share the same 66 new wrong korkut
+calls), so route attribution cannot separate individual edges; leave-one-pattern-out solves could, and are not run.
+Sent as mailbox 017 with the caveat that any edge set chosen from it is judged on new cases. Output (outside the
+repo): `~/deltasignal-catalogs/analysis/166/attribution/`.
