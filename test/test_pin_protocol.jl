@@ -162,8 +162,12 @@ index(pairs::Pair...; diagram=Dict{String,String}()) =
         withenv("DS_PIN_ROOT_IGNORE" => "none") do
             @test pin_root_ignore() == ""
         end
-        withenv("DS_PIN_ROOT_IGNORE" => "dissociation") do
-            @test pin_root_ignore() == "dissociation"
+        # review 2026-11-20 (D3): only the two values the bench accepts; any
+        # other is an error, never a silently different root rule
+        for bad in ("dissociation", "Depletion", "")
+            withenv("DS_PIN_ROOT_IGNORE" => bad) do
+                @test_throws ArgumentError pin_root_ignore()
+            end
         end
     end
 end

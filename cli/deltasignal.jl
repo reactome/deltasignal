@@ -83,7 +83,7 @@ function parse_parse_args()
     return merge(Dict(:command => "parse"), parse_args(ARGS[2:end], s, as_symbols=true))
 end
 
-function parse_solve_args()
+function parse_solve_args(argv::Vector{String} = ARGS[2:end])
     s = ArgParseSettings(autofix_names=true)
     @add_arg_table! s begin
         "--network", "-n"
@@ -134,7 +134,7 @@ function parse_solve_args()
             default = "stoichiometry_weighted"
             range_tester = x -> x in ["mean", "max", "min", "stoichiometry_weighted", "confidence_weighted", "geometric_mean"]
     end
-    return merge(Dict(:command => "solve"), parse_args(ARGS[2:end], s, as_symbols=true))
+    return merge(Dict(:command => "solve"), parse_args(argv, s, as_symbols=true))
 end
 
 function parse_export_args()
@@ -376,9 +376,22 @@ solve_params(args) = DeltaSignal.steady_state_params(mu = args[:mu], gamma = arg
                                                      tolerance = args[:tolerance])
 
 function execute_solve_command(args)
+    try
+        solve_command(args)
+    catch e
+        println("❌ Error in solve: $e")
+        println(stacktrace(catch_backtrace()))
+        exit(1)
+    end
+end
+
+"""The solve command itself, throwing on any failure (`execute_solve_command`
+turns a throw into exit status 1), so a test can drive it from parsed
+arguments without ending the process."""
+function solve_command(args)
     println("🧮 Solving steady-state network...")
 
-    try
+    begin
         # Load network JSON
         println("Loading network from: $(args[:network])")
         network_json = JSON3.read(read(args[:network], String))
@@ -454,13 +467,33 @@ function execute_solve_command(args)
         # observations' confidence. Refused while DS_SOFT_OBS=off, so a run
         # cannot believe it conditioned a solve that ignored the file.
         soft_observations = Dict{String, Tuple{Float64, Float64}}()
-        soft_path = get(args, Symbol("soft-observations"), nothing)
+        # Review 2026-11-20 (D1): ArgParse with autofix_names + as_symbols
+        # names this option :soft_observations; the key used to be
+        # Symbol("soft-observations"), which never matched, so the file was
+        # silently ignored and the DS_SOFT_OBS=off refusal never fired.
+        soft_path = get(args, :soft_observations, nothing)
         if soft_path !== nothing
             DeltaSignal.soft_obs_mode() == "blend" || error(
                 "--soft-observations requires DS_SOFT_OBS=blend (specs/156); " *
                 "the server-side default is off.")
             soft_observations = read_soft_observations(soft_path)
             println("✓ Loaded $(length(soft_observations)) soft observations")
+            # D2: the solver drops an unknown uuid silently, as for hard ones
+            unknown_soft = sort([u for u in keys(soft_observations) if !haskey(network.nodes, u)])
+            if !isempty(unknown_soft)
+                shown = join(first(unknown_soft, 5), ", ")
+                suffix = length(unknown_soft) > 5 ? ", ... ($(length(unknown_soft)) total)" : ""
+                @warn "Soft observations reference nodes that are not in the network; " *
+                      "they will be ignored: $shown$suffix"
+            end
+        end
+        # D2: every observation, hard and soft, naming nothing in the network
+        # perturbs nothing; refuse it, as the API does (OBS_UNKNOWN_ERROR).
+        n_given = length(observations) + length(soft_observations)
+        if n_given > 0 && all(u -> !haskey(network.nodes, u),
+                              Iterators.flatten((keys(observations), keys(soft_observations))))
+            error("No observation matched a node in this network. Check that the uuids " *
+                  "come from the same catalog build as the network.")
         end
 
         # Create solver parameters
@@ -566,11 +599,6 @@ function execute_solve_command(args)
             end
             println("✅ Pathway results saved to: $(args[:output_pathway])")
         end
-
-    catch e
-        println("❌ Error in solve: $e")
-        println(stacktrace(catch_backtrace()))
-        exit(1)
     end
 end
 

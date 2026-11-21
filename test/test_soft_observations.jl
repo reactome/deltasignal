@@ -197,7 +197,11 @@ act(r, n) = r.node_activities[n]
     end
 
     @testset "DS_SOFT_OBS validation" begin
-        @test DeltaSignal.soft_obs_mode() == "off"
+        # the DEFAULT is off; set, not assumed: the serving .env passes
+        # DS_SOFT_OBS=blend into the dev container (review 2026-11-20)
+        withenv("DS_SOFT_OBS" => nothing) do
+            @test DeltaSignal.soft_obs_mode() == "off"
+        end
         withenv("DS_SOFT_OBS" => "blend") do
             @test DeltaSignal.soft_obs_mode() == "blend"
         end

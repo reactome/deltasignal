@@ -91,9 +91,13 @@ function pin_root_indegree(edges::Vector{LogicNetworkEdge};
 end
 
 """`DS_PIN_ROOT_IGNORE` as the bench reads it: `depletion` by default
-(specs/061 adoption); `none` restores the specs/024 rule."""
+(specs/061 adoption); `none` restores the specs/024 rule. Any other value is
+an error, as the bench refuses it (review 2026-11-20: this accepted any string,
+so a typo silently changed which nodes are roots)."""
 function pin_root_ignore()::String
     v = get(ENV, "DS_PIN_ROOT_IGNORE", "depletion")
+    v in ("depletion", "none") || throw(ArgumentError(
+        "DS_PIN_ROOT_IGNORE=$(repr(v)) must be 'depletion' (default) or 'none'."))
     return v == "none" ? "" : v
 end
 

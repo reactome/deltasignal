@@ -39,6 +39,38 @@ arbitrary (`ordering: "entity_id"`) — no ranking claim is made before solving.
 Returned rows are ranked by measured |log2 fold| AFTER solving, which claims
 nothing the solves did not show.
 
+**Amendment 1 (2026-11-20, code review; approved by Adam): the edge-set claim
+above was wrong.** The solver's derived edges do NOT live in `network.edges`.
+The cached parsed network holds only the generator's edges (recycle edges
+included). The solver adds its own at solve time and never writes them back:
+`carrier_supply` and `carrier_component` (specs/049, 084), `recycled_supply`
+(specs/059), `rna_supply` (specs/100), sequestration depletions (specs/063)
+and silo bridges. The filter therefore declared reachable candidates
+unreachable and skipped them. Traced live on R-HSA-1257604: a root pin of
+p-T308,S473-AKT1 (R-HSA-198356) reaches 11 nodes over the parsed edges and
+571 more through `recycled_supply`. Its forward knockout drives p-S99-BAD
+(R-HSA-198335) to 1.4e-6, and the inverse query for that readout did not list
+it. Fixed (`inverse_ancestors` in `src/api/server.jl`): the walk reads the
+union of the parsed edges and `solved_carrier_network`'s edges, the same rule
+functions under the same `DS_*` config the solve resolves (silo bridges were
+added to that function, where the solve adds them). It also treats the
+members of a cycle-balance pool as reaching one another, because the pool is
+solved by conservation, not only along edges. Every addition widens the set,
+so a wrong widening costs a solve and never an answer. Under
+`DS_ZERO_SUPPLY_MODE=hold`, whose holds act by leaf rather than along edges,
+there is no sound filter, and every candidate is solvable up to the cap
+(`reachability: "unfiltered"` in the response). The ordering result above
+(no influence pre-ranking) is unaffected.
+
+The same review also fixed four other things. (C2) A solve without
+`switch_components` (detection off, or a non-converged solve) used to be
+passed on as an empty overlay list, so rows claimed `switch: false`. Absence
+now stays absence, and a row carries every field the forward readout serves.
+(C3) An inner 5xx used to become a 400 "Invalid input."; it is now a 500.
+(C4) Reactions' stable ids were offered as candidates; now only physical
+entities are, and the excluded ids are counted as `reaction_ids_excluded`.
+`moved` now counts candidates, not solves.
+
 ## R3. The endpoint shape (resolved from the code)
 
 `POST /api/inverse`: `{network_id, target: {stable_ids, members?, mode?},
