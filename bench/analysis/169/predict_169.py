@@ -34,6 +34,21 @@ def post(port, ep, body):
         return json.load(r)
 
 
+GENE_STIDS = """MATCH (re:ReferenceEntity)<-[:referenceEntity]-(pe:PhysicalEntity)
+WHERE re.geneName IS NOT NULL RETURN re.geneName AS names, pe.stId AS s"""
+
+
+def gene_stids(graph, genes):
+    """{gene: [stIds]} as bm.neo4j_gene_to_stids (a gene in a reference entity's geneName list), in one pass: the
+    UNWIND form scans every reference entity once per gene, about half an hour for 5,000 genes."""
+    out = defaultdict(set)
+    for r in graph.run(GENE_STIDS):
+        for name in r["names"] or ():
+            if name in genes:
+                out[name].add(r["s"])
+    return {g: sorted(v) for g, v in out.items()}
+
+
 def screen_genes(h5):
     import h5py
     with h5py.File(h5, "r") as f:
@@ -56,7 +71,7 @@ def main():
     for r in g.run(TARGETS):
         if r["g"] in measured:
             target_stids[r["g"]].add(r["s"])
-    g2s = bm.neo4j_gene_to_stids(genes_a)
+    g2s = gene_stids(g, set(genes_a))
     rows, n_solves = [], 0
     for pdir in sorted(p for p in build.iterdir() if (p / "logic_network.csv").exists()):
         s2u = bm.load_stid_to_uuids(pdir)
@@ -79,6 +94,8 @@ def main():
             sol = post(port, "solve", {"network_id": nid, "observations": {u: [0.0, 1.0] for u in pinned}})
             n_solves += 1
             qs = [{"id": t, "stable_ids": ss} for t, ss in sorted(here_t.items()) if t != gn]
+            if not qs:                       # the pathway's only target is the perturbed gene itself
+                continue
             ro = post(port, "readouts", {"network_id": nid, "activities": sol.get("node_activities") or {},
                                           "pinned": pinned, "queries": qs, "converged": bool(sol.get("converged"))})
             for e in ro["results"]:
