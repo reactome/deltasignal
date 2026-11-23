@@ -7,8 +7,8 @@
 **Status**: REGISTERED 2026-11-23 (design and gate). Nothing is coded or run yet. Research resolves the open items below
 before the first arm, and any change to the gate is recorded as an amendment before measuring.
 
-**Input**: Adam, 2026-11-23 (via the FullTextMining session, confirmed here): "Then register full option B as its own
-spec." His rule, from mailbox 016 and 021:
+**Input**: Adam, 2026-11-23 (confirmed in conversation): "Then register full option B as its own
+spec." His rule:
 - Roots are not real. They mark where a curator cut the pathway.
 - Roots and terminals are computed on whatever network we have, curated plus literature.
 - Perturbations and drugs act on nodes that are not roots.
@@ -28,10 +28,9 @@ for that solve.
 
 So "the gene" means one set everywhere: what a perturbation clamps, and what a total-protein readout reads.
 
-**Roots** then mean only where the network's inputs enter, which matters for stimuli and the baseline (mailbox 016
-question 2), and they are computed on the network as served.
+**Roots** then mean only where the network's inputs enter, which matters for stimuli and the baseline, and they are computed on the network as served.
 
-Four structural rules in the solver also identify a gene's own copy as "no in-edge" (mailbox 021):
+Four structural rules in the solver also identify a gene's own copy as "no in-edge":
 - recycled twins (specs/059)
 - closed carrier twins (specs/049)
 - component twins (specs/084)
@@ -98,5 +97,5 @@ re-run under B (specs/168 and 170 arms).
 ## Non-goals
 
 - No literature bundles in this spec's gate. They are re-run under B only after the curated measurement.
-- No stimulus or baseline input (mailbox 016 question 2). That is a separate spec once the context format exists.
+- No stimulus or baseline input. That is a separate spec once the context format exists.
 - No change to served pins or defaults.
