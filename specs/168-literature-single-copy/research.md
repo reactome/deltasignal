@@ -44,6 +44,9 @@ registration no shuffle was run.
    signal through its other copies; v3-single does not, and 1,491 nodes diverge more than 10×. Across the 90 breaks,
    49 have the perturbed gene's starting form unrooted by a literature edge (v3: 19 of 29). The other 41 come through
    a non-local route in PIP3 not traced here.
+   **Corrected by specs/170** (2026-11-23): with every curated pin restored the PIP3 breaks remain. They come from four
+   literature edges PI3K ⊣ MTOR tipping a bistable component into its low state; the unrooting count above was a
+   correlation, not the mechanism (specs/170 research.md).
 3. **The strict selections move almost nothing on the 10 pathways** (v3-strict: 12 broken, 0 fixed). The pilot-strict
    bundle does reach new readouts on the three tuning pathways, but breaks more than it fixes on every axis.
 4. **The dominant mechanism is still the specs/166 one.** A literature in-edge into a curated starting form removes the
