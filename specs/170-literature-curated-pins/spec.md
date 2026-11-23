@@ -6,9 +6,9 @@
 
 **Status**: REGISTERED 2026-11-23, before the rule was coded or any arm was run.
 
-**Input**: Adam, 2026-11-23, relayed through the FullTextMining session and confirmed here: "Approved: run the stepping
+**Input**: Adam, 2026-11-23, confirmed in conversation: "Approved: run the stepping
 stone (the new clamp rule only for genes a literature edge feeds) as a re-run of specs/168. Then register full option B
-as its own spec." The background is mailbox 016, 020 and 021 (both directions):
+as its own spec." The background:
 - Adam's rule: roots and terminals are computed on the combined network, curated plus literature.
 - A perturbation acts on the gene's own copies whatever feeds them.
 - In specs/168, 49 of the 90 broken experimental cases had the perturbed gene's starting form unrooted by a
@@ -94,10 +94,10 @@ korkut cases were 72 fixed / 51 broken. A pin rule does not change reach. I expe
   curated nodes under the rule are compared with its pins in the control. Every difference is listed with its reason.
   An unexplained difference stops the run.
 - **FR-004:** nothing is fitted or selected here. Results are recorded in `research.md` whatever they say, and the
-  verdict goes to the FullTextMining mailbox.
+  verdict goes to the literature source.
 
 ## Non-goals
 
 - No change to the served catalog, the solver, any default, or the protocol of record. The rule is a bench flag for
-  this measurement, never a served protocol. The structural rules that also key on starting copies (mailbox 021) are
+  this measurement, never a served protocol. The structural rules that also key on starting copies are
   untouched here; option B takes them up.

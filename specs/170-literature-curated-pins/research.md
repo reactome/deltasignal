@@ -47,21 +47,13 @@ Traced on trace servers at `be1fbe08` with the bench's own `pin_occurrences` und
 `~/deltasignal-catalogs/analysis/170/trace/`.
 
 - **Pins are not the cause.** ERBB2 is pinned in both arms, and its AKT readouts still read about 0.
-- **The edges.** Four literature `regulator`/`neg` edges, each from one paper (prior confidence 0.475), point into
-  MTOR, which is a curated root:
-
-  | edge | key |
-  |---|---|
-  | PIK3CA ⊣ MTOR | `01deb7ece2bc701d` |
-  | PIK3CB ⊣ MTOR | `0dd658b0a015a8cc` |
-  | PIK3CD ⊣ MTOR | `333fa7d9fa92ff07` |
-  | PIK3CG ⊣ MTOR | `1dd84fb029b57dfc` |
-
-  The PI3K subunits are curated roots too. Literature in-edges, including a literature reaction that feeds itself
-  among them, make them computed. Any over-expression upstream of AKT raises them about 20×.
+- **The edges.** Four literature `regulator`/`neg` edges, PIK3CA, PIK3CB, PIK3CD and PIK3CG ⊣ MTOR, point into MTOR,
+  which is a curated root. (Edge identifiers are kept with the run outside the repo and were sent to the literature
+  source.) The PI3K subunits are curated roots too. Literature in-edges, including a literature reaction that feeds
+  itself among them, make them computed. Any over-expression upstream of AKT raises them about 20×.
 - **The collapse.** With the subunits up about 20×, MTOR falls to about 3e-9 (internal scale). mTORC2, mTORC2:PIP3 and
   p-T309,S474-AKT2 go to about 0, and with them every AKT-target readout.
-- **What holds it down.** A second literature loop, MTOR ⊣ AKT1S1 ⊣ MTOR (`d5e0bbbf855fd1c2`, `2fae6a06d5615627`),
+- **What holds it down.** A second literature loop, MTOR ⊣ AKT1S1 ⊣ MTOR,
   keeps MTOR low.
 - **A switch, not a numerical failure.** Every solve converges (AKT1 OE residual 5.6e-7; the LM fallback never runs).
   At rest the two networks agree on all 4,532 curated nodes. But the switch detector (specs/154) finds a 1,438-node
