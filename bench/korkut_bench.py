@@ -241,8 +241,8 @@ def main():
 
     units = da.active_units() if da.needs_units() else {}
     print(f"Protocol: korkut2015 drug-set bench (specs/062), DS_DRUG_ACTION={da.describe()} DS_PIN_SCOPE={bm.PIN_SCOPE} "
-          f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} "
-          f"readout=mean(unpinned) DS_TOTAL_READOUT={TOTAL_READOUT} cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; measured |log2| >= "
+          f"DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} DS_PIN_CURATED_ROOT={bm.PIN_CURATED_ROOT or '-'} "
+          f"DS_PERTURB_UI_DOWN={bm.PERTURB_UI_DOWN:g} readout=mean(unpinned) DS_TOTAL_READOUT={TOTAL_READOUT} cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; measured |log2| >= "
           f"{THRESHOLD:.3f}; build {build.name}; code {sha}; dataset korkut2015 ({DATA}) registered {role}; "
           f"{'PREDICT ONLY (values unread)' if predict_only else 'scoring'}", flush=True)
     actions = da.drug_actions("korkut", sorted(drugs))

@@ -1018,6 +1018,9 @@ def refuse_unless_default_model(ds_result: dict, pathway_name: str):
 
 
 PIN_NETWORK_ROOT = os.environ.get("DS_PIN_NETWORK_ROOT", "")   # specs/051; empty = the served catalog
+# specs/170: the curated network (a literature bundle's `without` arm). A node it contains is a root exactly when it
+# is a root there; literature nodes are roots by the network as served. Empty = off.
+PIN_CURATED_ROOT = os.environ.get("DS_PIN_CURATED_ROOT", "")
 
 
 CONTEXT_BRIDGE = "context_bridge"   # specs/056, bench/context_build.py
@@ -1100,6 +1103,29 @@ def root_indegree(rows) -> Counter:
     return indeg
 
 
+def _edge_key(row) -> tuple:
+    return row["source_id"], row["target_id"], row.get("edge_type", ""), row.get("pos_neg", "")
+
+
+def curated_pin_rows(pathway_dir: Path, rows) -> list:
+    """specs/170: `rows` without the edges into a curated node that the curated network (DS_PIN_CURATED_ROOT) does not
+    have, so no literature edge decides whether a curated node is pinned. Edges into literature nodes and out of
+    curated ones are kept. Off (rows unchanged) when DS_PIN_CURATED_ROOT is empty."""
+    rows = list(rows)
+    if not PIN_CURATED_ROOT:
+        return rows
+    d = Path(PIN_CURATED_ROOT) / Path(pathway_dir).name
+    if not (d / "logic_network.csv").exists():
+        raise SystemExit(f"DS_PIN_CURATED_ROOT={PIN_CURATED_ROOT}: no {Path(pathway_dir).name}/logic_network.csv")
+    curated_nodes = _node_uuids(d)
+    if not curated_nodes <= _node_uuids(Path(pathway_dir)):
+        raise SystemExit(f"DS_PIN_CURATED_ROOT={PIN_CURATED_ROOT}: {d.name}/nodes.csv lists nodes the served network "
+                         "lacks; the curated network must be the same build's curated part")
+    with open_network(d) as f:
+        curated_edges = {_edge_key(r) for r in csv.DictReader(f)}
+    return [r for r in rows if r["target_id"] not in curated_nodes or _edge_key(r) in curated_edges]
+
+
 def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict):
     """The nodes to pin for each gene under DS_PIN_SCOPE, and the network's
     in-degrees. `gene_to_uuids` is every node that is or contains the gene.
@@ -1108,10 +1134,13 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
 
     Under DS_PIN_NETWORK_ROOT (specs/051 rewired null) the pins are read from
     that catalog's copy of the pathway instead, so a rewired network is
-    perturbed at exactly the real network's nodes."""
+    perturbed at exactly the real network's nodes. Under DS_PIN_CURATED_ROOT
+    (specs/170) a curated node is pinned as the curated network pins it."""
+    served_dir = pathway_dir
     pathway_dir = pin_network_dir(pathway_dir)
     with open_network(pathway_dir) as f:
-        indeg = root_indegree(csv.DictReader(f))
+        pin_rows = curated_pin_rows(served_dir, csv.DictReader(f))
+    indeg = root_indegree(pin_rows)
     if PIN_SCOPE == "entry":
         pin_adj = build_adjacency(pathway_dir)
         gene_to_uuids = {g: entry_occurrences(us, pin_adj) if us else us
@@ -1120,12 +1149,11 @@ def pin_occurrences(pathway_dir: Path, gene_to_uuids: dict, gene_to_stids: dict)
         roots = {g: root_occurrences(us, indeg) for g, us in gene_to_uuids.items()}
         if PIN_SCOPE == "root_cycle" and any(us and not roots[g] for g, us in gene_to_uuids.items()):
             inc, fwd, ident = defaultdict(list), defaultdict(list), {}
-            with open_network(pathway_dir) as f:
-                for row in csv.DictReader(f):
-                    if row.get("edge_type") in (CONTEXT_BRIDGE, RECYCLE_EDGE):
-                        continue
-                    inc[row["target_id"]].append((row["source_id"], row.get("edge_type", "")))
-                    fwd[row["source_id"]].append(row["target_id"])
+            for row in pin_rows:
+                if row.get("edge_type") in (CONTEXT_BRIDGE, RECYCLE_EDGE):
+                    continue
+                inc[row["target_id"]].append((row["source_id"], row.get("edge_type", "")))
+                fwd[row["source_id"]].append(row["target_id"])
             nodes_csv = pathway_dir / "nodes.csv"
             if nodes_csv.exists():
                 with open(nodes_csv) as f:
@@ -1663,7 +1691,8 @@ def main():
           f"DS_BASELINE={BASELINE:g} (ceiling {CEILING:g}x, over-expression pin {PERTURB_FOLD_UP:g}x) "
           f"DS_SKIP_EDGE_TYPES={','.join(sorted(SKIP_EDGE_TYPES)) or '-'} "
           f"DS_SIBLING_REGULATORS={SIBLING_REGULATORS} DS_COMPOSITION_FILTER={COMPOSITION_FILTER} "
-          f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT or '-'} context={context_label()}", flush=True)
+          f"DS_PIN_NETWORK_ROOT={PIN_NETWORK_ROOT or '-'} DS_PIN_CURATED_ROOT={PIN_CURATED_ROOT or '-'} "
+          f"context={context_label()}", flush=True)
     cache = {}
     results = []
     grand_total = 0
