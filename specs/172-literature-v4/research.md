@@ -57,7 +57,7 @@ complex from a subset of its components masks every knockout of the missing comp
 1. Across specs/166, 168, 170 and 172, no literature selection has improved the primary pool against the curated
    network.
    - **Large bundles:** reach new readouts and over-call them. korkut change-call precision on newly reached readouts
-     is about 0.01–0.015.
+     was 0.009 in specs/168 and 0.015 in specs/170.
    - **The strict selection:** reaches nothing new on the gated axes, so it cannot gain there.
 2. Two structural hazards are now traced, each worth a check when a bundle is built:
    - an inhibitory edge against a curated activation, which tips a bistable component (specs/170, PIP3);
