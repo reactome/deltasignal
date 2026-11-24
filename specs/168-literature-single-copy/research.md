@@ -39,18 +39,21 @@ registration no shuffle was run.
 2. **On experimental, attaching once is worse** (−69 against v3's −11). 72 of the 90 already-reached cases it breaks
    are PIP3 over-expressions (ERBB2, PIK3CA, AKT1, KIT, …), which now read DOWN to about 0 where the curated network
    reads 50–100×. Traced on ERBB2 over-expression (trace servers at `91189f0b`): the two networks agree on every node
-   at rest. The literature edge PHF8 → ERBB2 (`b952005a9749f2bf`, `target_is_curated_root = 1`, present in both v3
+   at rest. The literature edge PHF8 → ERBB2 (into a curated root, present in both v3
    and v3-single) unroots ERBB2's free starting form, so it is no longer pinned (6 pins → 5). v3 still carries the
    signal through its other copies; v3-single does not, and 1,491 nodes diverge more than 10×. Across the 90 breaks,
    49 have the perturbed gene's starting form unrooted by a literature edge (v3: 19 of 29). The other 41 come through
    a non-local route in PIP3 not traced here.
+   **Corrected by specs/170** (2026-11-23): with every curated pin restored the PIP3 breaks remain. They come from four
+   literature edges PI3K ⊣ MTOR tipping a bistable component into its low state; the unrooting count above was a
+   correlation, not the mechanism (specs/170 research.md).
 3. **The strict selections move almost nothing on the 10 pathways** (v3-strict: 12 broken, 0 fixed). The pilot-strict
    bundle does reach new readouts on the three tuning pathways, but breaks more than it fixes on every axis.
 4. **The dominant mechanism is still the specs/166 one.** A literature in-edge into a curated starting form removes the
    perturbation's pin, and edges attached to the readout region add change calls that are almost never measured
    changes on korkut.
 
-## For the next bundle (sent to FullTextMining)
+## For the next bundle (sent to the literature source)
 
 - No edge into a curated starting form, even when it is the only copy. Or a bench rule that ignores literature
   in-edges when deciding roots, which would be a protocol change needing its own registration and Adam's approval.
