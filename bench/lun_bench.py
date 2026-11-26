@@ -10,7 +10,8 @@ This script never opens the dataset: it only writes predictions (the values-blin
   pathway that holds a root form of it.
 - A readout (bench/analysis/127/readouts.tsv, Table S2) is the mean over the nodes that are, or contain, an EWAS of the
   gene phosphorylated at the coordinate (phospho) or any EWAS of the gene (total), pinned nodes left out; classified
-  with the curator cutoffs. Reachability: UP when a readout node is reachable from the pinned roots.
+  with the curator cutoffs. A total readout follows DS_TOTAL_READOUT as on the korkut bench (specs/134, specs/175):
+  `abundance` (default) reads only the protein's abundance copies; `forms` reproduces specs/127. Reachability: UP when a readout node is reachable from the pinned roots.
 - A case row is (protein, pathway, readout); `self` marks a protein that is one of the readout's genes.
 
 Usage: DS_CATALOG_ROOT=<build> lun_bench.py OUT_DIR
@@ -26,7 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark_vs_mpbiopath as bm  # noqa: E402
 import dataset_roles  # noqa: E402
 from decryptm_bench import git_state  # noqa: E402
-from korkut_bench import NAMES, neo4j_site_stids, read_tsv, readout_stids  # noqa: E402
+from korkut_bench import (NAMES, TOTAL_READOUT, neo4j_site_stids, read_tsv, readout_stids,  # noqa: E402
+                          total_gene_stids, total_readout_nodes)
 
 MAPS = Path(__file__).resolve().parent / "analysis" / "127"
 
@@ -81,13 +83,15 @@ def main():
     ro_gene_stids = bm.neo4j_gene_to_stids(ro_genes)
     sites = sorted({(s.split(":")[0], int(s.split(":")[1]))
                     for r in readouts if r["kind"] == "phospho" for s in r["sites"].split(",")})
-    r_stids = readout_stids(readouts, ro_gene_stids, neo4j_site_stids(sites))
+    r_stids = readout_stids(readouts, total_gene_stids(readouts, ro_gene_stids), neo4j_site_stids(sites))
+    totals = {r["readout"] for r in readouts if r["kind"] == "total"}
     selfs = {r["readout"]: readout_genes(r) for r in readouts}
     up = bm.PERTURB_FOLD_UP / bm.CEILING * 100.0
 
     print(f"Protocol: Lun 2019 over-expression bench (specs/127), PREDICT ONLY (the dataset is never opened); "
           f"DS_PIN_SCOPE={bm.PIN_SCOPE} DS_PIN_ROOT_IGNORE={bm.PIN_ROOT_IGNORE or 'none'} "
           f"DS_BASELINE={bm.BASELINE:g} over-expression pin {bm.PERTURB_FOLD_UP:g}x (UI {up:g}); readout=mean(unpinned) "
+          f"DS_TOTAL_READOUT={TOTAL_READOUT} "
           f"cutoffs {bm.DOWN_CUTOFF}/{bm.UP_CUTOFF}; build {build.name}; code {sha}; dataset lun2019 registered {role}; "
           f"proteins {len(proteins)} ({sum(1 for g in gene_to_stids.values() if g)} in Reactome); "
           f"readouts {len(readouts)}", flush=True)
@@ -98,6 +102,7 @@ def main():
         ro_nodes = {name: list(dict.fromkeys(u for s in st for u in stid_to_uuids.get(s, [])))
                     for name, st in r_stids.items()}
         ro_nodes = {k: v for k, v in ro_nodes.items() if v}
+        ro_nodes = {k: v for k, v in total_readout_nodes(ro_nodes, totals, pdir).items() if v}
         if not ro_nodes:
             continue
         parsed = adj = None
