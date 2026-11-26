@@ -30,6 +30,11 @@ readouts.
 
 ## Traces (registered groups)
 
+**Clarifications of the registration.** A "readout × perturbed-protein group" was implemented as a readout within a
+class, with every protein in it traced; groups were picked largest first until half the class was covered (at most
+eight). N1 cases have no route by definition, so their groups are described, not traced. The route-length table and
+the hub-protein counts below were not registered (post hoc).
+
 Shortest signed path from the perturbed protein to the readout in each network that reaches it (readout nodes matched
 from `leaf_refs.csv`; p70S6K's and CREB's sites did not match by position, so those groups are partly untraced).
 Mechanism labels are hypotheses from the trace.
