@@ -72,3 +72,36 @@ readouts downstream of kinases).
 - Half B is not read, summarised or plotted, and no count of its values is made.
 - No rule, default or threshold changes here. Anything developed on A is judged later on B, under its own registration.
 - The paper's results (Tables S3–S7, figures, results text) stay unread.
+
+## Amendment 1 (2026-11-26, after the format check, before any marker value is read)
+
+**What the format check found** (research.md has the details):
+- The deposited per-cell file (`complete_dat.csv`) is **truncated in the deposit**. Its listed size equals the archive
+  entry, its last row stops at 24 of 36 fields, and it holds 3 of the 14 plate pairs (about 105 proteins). It cannot
+  support the screen.
+- The authors' per-sample binned file (`bindat_perbin.csv`) covers all 14 plate pairs: 649 constructs (all Table S1
+  markers map, 636 genes) plus 26 FLAG-GFP and 27 untransfected control samples. It holds basal (timepoint 0) and EGF
+  10 min, and 30 readouts. Per sample and readout, it has ten GFP bins with the cell count and median per bin.
+- From the paper's methods: the bins are ten equal-width bins over each sample's own GFP range (2.5% trimmed). No cells
+  are gated as transfected. So bin k is not the same dose across samples, and specs/127 steps 2–4 (dose-matched
+  comparison with FLAG-GFP) cannot be built.
+- `Data S1` (pre-analysed) is result plots and is not opened. The per-sample statistics file (`bindat_persample.csv`)
+  holds the authors' significance calls and is not read.
+
+**The amended measured call** (`bench/analysis/173/lun_a_173.py`, tested on synthetic samples). It asks specs/126's
+question directly: the direction of a readout's change as the protein's dose rises.
+1. Basal samples only (timepoint 0). A bin counts if it holds at least 20 cells.
+2. Dose slope S(s, r) = median of the bin medians in the top three bins − median in the bottom three bins. At least two
+   usable bins are needed in each group, otherwise (s, r) is not measured.
+3. Control correction: E(s, r) = S(s, r) − the median S of the FLAG-GFP samples on the same plate pair (all FLAG-GFP
+   samples if the plate pair has none). This removes what GFP expression itself does to a readout.
+4. A gene's E is the median over its samples (constructs and replicates).
+5. Threshold δ_r: each FLAG-GFP sample's E against the other FLAG-GFP samples (leave one out), δ_r = the 95th
+   percentile of |E|, or the maximum under 10 controls. The call is UP if E > δ_r, DOWN if E < −δ_r, otherwise NOT.
+6. The positive control (specs/127 step 7) is unchanged and gates everything.
+
+Readouts in the file but not predicted (p-NFkB, p-mTOR: sites not curated) are measured and not scored. Predicted
+readouts the file lacks (cyclin B1, p-RB) are not scored.
+
+**Splitting.** The binned file is split as registered (controls to both halves). The truncated per-cell extract and the
+per-sample statistics file are deleted unread beyond the format check. The time-course files were never extracted.
