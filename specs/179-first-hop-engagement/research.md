@@ -65,3 +65,8 @@ against 0.378 for the model (+0.018 [−0.002, +0.035]).
 
 A possible use that needs no gate: report Lun (and serve over-expression results) by engagement beside the raw score,
 as korkut is reported (specs/138), and state the measured precision for each group. Not done here.
+
+## Release 98 (added 2026-11-27)
+
+Repeated on the Release 98 predictions, as registered: specs/178's research has the table. Nothing changes (36 / 49
+proteins, precision 35.9% vs 5.8%, the gate still fails on half B's recall).
