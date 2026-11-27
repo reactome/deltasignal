@@ -11,7 +11,8 @@ This script never opens the dataset: it only writes predictions (the values-blin
 - A readout (bench/analysis/127/readouts.tsv, Table S2) is the mean over the nodes that are, or contain, an EWAS of the
   gene phosphorylated at the coordinate (phospho) or any EWAS of the gene (total), pinned nodes left out; classified
   with the curator cutoffs. A total readout follows DS_TOTAL_READOUT as on the korkut bench (specs/134, specs/175):
-  `abundance` (default) reads only the protein's abundance copies; `forms` reproduces specs/127. Reachability: UP when a readout node is reachable from the pinned roots.
+  `abundance` (default) reads only the protein's abundance copies; `forms` reproduces specs/127. Reachability: UP
+  when a readout node is reachable from the pinned roots.
 - A case row is (protein, pathway, readout); `self` marks a protein that is one of the readout's genes.
 
 Usage: DS_CATALOG_ROOT=<build> lun_bench.py OUT_DIR
