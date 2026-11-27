@@ -5,7 +5,9 @@ scored on one half of Lun 2019 with the specs/173 measured call.
   rule: the protein is tyrosine-specific (tyrosine_kinases.tsv) and the readout has a tyrosine at a registered site
         (readout_sites.tsv) -> UP, where the model itself calls no change
 
-Usage: score_177.py HALF HALF_FILE PREDICTIONS OUT_JSON      HALF = A (development) or B (the sealed test, once)
+Usage: score_177.py HALF HALF_FILE PREDICTIONS OUT_JSON [CLASS_DIR]
+  HALF = A (development) or B (the sealed test, scored once by specs/177)
+  CLASS_DIR holds tyrosine_kinases.tsv (default: this directory, Release 97; specs/178 passes its Release 98 table)
 """
 import csv
 import json
@@ -28,8 +30,9 @@ ARMS = ("candidate", "model", "reach", "rule_only", "never")
 
 
 def read_classes(here=HERE.parent):
-    tk = {r["gene"] for r in A.read_tsv(here / "tyrosine_kinases.tsv") if r["tyrosine_specific"] == "1"}
-    tyr = {r["readout"] for r in A.read_tsv(here / "readout_sites.tsv") if r["has_tyrosine"] == "1"}
+    """(tyrosine-specific kinases from `here`, readouts with a tyrosine site: release-independent, always specs/177's)."""
+    tk = {r["gene"] for r in A.read_tsv(Path(here) / "tyrosine_kinases.tsv") if r["tyrosine_specific"] == "1"}
+    tyr = {r["readout"] for r in A.read_tsv(HERE.parent / "readout_sites.tsv") if r["has_tyrosine"] == "1"}
     return tk, tyr
 
 
@@ -109,7 +112,7 @@ def main():
     half, path, pred_file, out = sys.argv[1:5]
     dataset_roles.require_role(*ROLE[half])
     genes = A.marker_genes()
-    tk, tyr = read_classes()
+    tk, tyr = read_classes(sys.argv[5]) if len(sys.argv) > 5 else read_classes()
     m = measured(path, genes, half)
     res = {"half": half, "measured_pairs": len(m), "tyrosine_specific_proteins_measured": len({g for g, _ in m} & tk)}
 
