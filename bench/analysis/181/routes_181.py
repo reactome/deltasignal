@@ -49,17 +49,8 @@ def distances(net, sources):
     return dist
 
 
-def main():
-    import dataset_roles
-    pred_file, build, out, a_file, b_file = sys.argv[1:6]
-    tk, tyr = S.read_classes(sys.argv[6]) if len(sys.argv) > 6 else S.read_classes()
-    genes = A.marker_genes()
-    m, p = {}, {}
-    for half, path in (("A", a_file), ("B", b_file)):
-        dataset_roles.require_role(f"lun2019_{half.lower()}", "fit")
-        m.update(S.measured(path, genes, half))
-        p.update(S.predictions(pred_file, half))
-    cases = {(c["gene"], c["readout"]): c for c in S.build_cases(m, p, tk, tyr) if c["reach"] == "up"}
+def route_lengths(pred_file, build, cases):
+    """{(gene, readout): reaction steps on the shortest curated route} for `cases` ({(gene, readout): case})."""
     by_pw = defaultdict(lambda: defaultdict(set))
     for r in csv.DictReader(open(pred_file), delimiter="\t"):
         k = (r["gene"], r["readout"])
@@ -80,6 +71,21 @@ def main():
                 ds = [dist[t][1] for t in targets[r] if t in dist]
                 if ds and ((g, r) not in best or min(ds) < best[(g, r)]):
                     best[(g, r)] = min(ds)
+    return best
+
+
+def main():
+    import dataset_roles
+    pred_file, build, out, a_file, b_file = sys.argv[1:6]
+    tk, tyr = S.read_classes(sys.argv[6]) if len(sys.argv) > 6 else S.read_classes()
+    genes = A.marker_genes()
+    m, p = {}, {}
+    for half, path in (("A", a_file), ("B", b_file)):
+        dataset_roles.require_role(f"lun2019_{half.lower()}", "fit")
+        m.update(S.measured(path, genes, half))
+        p.update(S.predictions(pred_file, half))
+    cases = {(c["gene"], c["readout"]): c for c in S.build_cases(m, p, tk, tyr) if c["reach"] == "up"}
+    best = route_lengths(pred_file, build, cases)
     tab = defaultdict(Counter)
     for k, c in cases.items():
         tab[band(best.get(k))][outcome(c)] += 1
