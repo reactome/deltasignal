@@ -1,6 +1,6 @@
 # specs/178: Lun 2019 on Release 98
 
-**Status:** registered 2026-11-26, before the Release 98 build or any Release 98 prediction was made.
+**Status:** registered 2026-11-26, before the Release 98 build or any Release 98 prediction was made. Run 2026-11-27: every specs/177 verdict holds (`research.md`).
 **Requested by:** Adam, 2026-11-26 ("you should be using Release98 anyways").
 
 ## Why
