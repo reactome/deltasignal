@@ -110,6 +110,14 @@ copies, not bound, modified or released forms; a set or pool of those copies car
 no marker on the array (filed as engagement unknown, amendment 2). The
 raw score stays the headline, and gates stay on the raw cases.
 
+**Lun 2019 protocol of record** (specs/180, Adam 2026-11-27): the frozen model under the abundance rule plus the
+bench-side tyrosine-kinase rule (specs/177; a tyrosine-specific kinase at a tyrosine-site readout reads UP where the
+model calls no change), on the Release 98 build `20261126-2322_d6d026b_top98` (specs/178). Report every arm side by
+side with `bench/analysis/180/lun_report.py PREDICTIONS A_FILE B_FILE bench/analysis/178`: the gain is the rule's, and
+the model alone does not beat reachability. The report also splits by first-hop engagement (specs/179), as korkut's
+does; the raw rows are the headline and the split never withholds a call. Both halves are FIT. The tyrosine-kinase
+statement is not served.
+
 **Gates for false-alarm fixes** (Adam, 2026-11-16, after specs/161): a spec whose purpose is removing false
 change calls registers, up front, a paired gate on the calls it moves (fixed vs broken, a sign test) plus a registered
 non-inferiority guard on sensitivity, not balanced accuracy alone. Balanced accuracy averages class recalls, so a
