@@ -10,8 +10,8 @@ specs/127. Scoring: `bench/analysis/175/score_175.py` at `1aa46476`; output outs
 ## Control
 
 **0 differences** on phospho-readout rows: the same rows, the same `predicted` and `reach_predicted`, and `pred_ui`
-within 1e-6. HEAD's solver reproduces `0d16eb9` on these networks. The file has 108 more rows than specs/127's, all
-total-readout rows in pathways where an abundance copy now resolves; none falls in the measured half-A pairs.
+within 1e-6. HEAD's solver reproduces `0d16eb9` on these networks. Both files have the same 11,028 (pathway,
+protein, readout) rows.
 
 ## Gate (registered, half A)
 
