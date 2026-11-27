@@ -98,7 +98,7 @@ RAF_MAP_kinase_cascade`, and both figures are reported. Headlines keep RAF.
 that resolves to several nodes weighs each curated entity once (a proxy reaction copy by its output entity, a set
 by its member), not each variant copy. `DS_KO_AGG=mean` reproduces numbers from before 2026-10-26.
 
-**`DS_TOTAL_READOUT=abundance` (korkut and CPPA benches, default since 2026-11-04, specs/134 amendment 1)**: a
+**`DS_TOTAL_READOUT=abundance` (korkut and CPPA benches, default since 2026-11-04, specs/134 amendment 1; the Lun 2019 bench since 2026-11-26, specs/175: 35 fixed / 0 broken on half A)**: a
 total-protein antibody reads only the protein copies nothing makes from the protein itself (starting and translated
 copies, not bound, modified or released forms; a set or pool of those copies carries the protein, amendment 2). A drug's own target whose every such copy is pinned leaves scoring.
 `DS_TOTAL_READOUT=forms` reproduces numbers from before 2026-11-04. Each version of the rule keeps a value
