@@ -40,6 +40,7 @@ READOUT_ACC = {
     "ITK": "Q08881", "RPS6KA1": "Q15418", "RPS6KA2": "Q15349", "RPS6KA3": "P51812", "SMAD2": "Q15796",
     "SMAD3": "P84022", "CTNNB1": "P35222", "MAPK8": "P45983", "MAPK9": "P45984", "MAPK10": "P53779",
     "PLCG2": "P16885", "RPS6": "P62753", "MTOR": "P42345", "RAF1": "P04049", "EIF4EBP1": "Q13541",
+    "STAT3": "P40763", "RB1": "P06400", "CCNB1": "P14635",     # added by specs/176: STAT3 was missing in specs/174
 }
 
 
