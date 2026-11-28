@@ -8,7 +8,7 @@
 #                  variant nodes the largest pathway, R-HSA-194315, is 46,710
 #                  edges, which 40000 would skip silently; specs/046)
 #   --catalog ID   run against builds/ID instead of `current` (a variant build)
-#   --axis A       curator, experimental, korkut, korkut_predict, decryptm or lun_predict (repeatable;
+#   --axis A       curator, experimental, korkut, korkut_predict, decryptm, lun_predict or hpn_stim_predict (repeatable;
 #                  default curator and experimental)
 #   --decryptm-cases FILE --decryptm-phospho FILE
 #                  the decryptm axis's case table (decryptm_coverage.py) and Neo4j
@@ -63,8 +63,9 @@ while [ $# -gt 0 ]; do
     # specs/062: which benches to run (default curator and experimental).
     # korkut_predict never opens the korkut2015 values; korkut scores them.
     # lun_predict (specs/127) only predicts: Lun 2019 is scored once, by bench/lun_score.py.
-    --axis) case "${2:-}" in curator|experimental|korkut|korkut_predict|decryptm|lun_predict) AXES+=("$2") ;;
-              *) die "--axis must be curator, experimental, korkut, korkut_predict, decryptm or lun_predict" ;; esac; shift 2 ;;
+    # hpn_stim_predict (specs/184) only predicts the HPN-DREAM ligand stimulations.
+    --axis) case "${2:-}" in curator|experimental|korkut|korkut_predict|decryptm|lun_predict|hpn_stim_predict) AXES+=("$2") ;;
+              *) die "--axis must be curator, experimental, korkut, korkut_predict, decryptm, lun_predict or hpn_stim_predict" ;; esac; shift 2 ;;
     --decryptm-cases) [ -f "${2:-}" ] || die "--decryptm-cases needs an existing file"; DCASES=$(readlink -f "$2"); shift 2 ;;
     --decryptm-phospho) [ -f "${2:-}" ] || die "--decryptm-phospho needs an existing file"; DPHOSPHO=$(readlink -f "$2"); shift 2 ;;
     *) die "unknown argument $1" ;;
@@ -75,7 +76,7 @@ for gt in "${AXES[@]}"; do
   [ "$gt" != decryptm ] || { [ -n "$DCASES" ] && [ -n "$DPHOSPHO" ]; } \
     || die "--axis decryptm needs --decryptm-cases and --decryptm-phospho"
   # the drug benches solve every network: a limit would be recorded and not applied
-  case "$gt" in korkut|korkut_predict|decryptm|lun_predict)
+  case "$gt" in korkut|korkut_predict|decryptm|lun_predict|hpn_stim_predict)
     [ ${#LIMIT[@]} -eq 0 ] && [ -z "$MAX_EDGES_SET" ] || die "--limit and --max-edges apply only to the curator and experimental axes" ;;
   esac
 done
@@ -158,6 +159,10 @@ for kv in "${BENCH[@]}"; do
       case " $LUN_KNOBS " in *" $n "*) ;;
         *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench (it reads $LUN_KNOBS)" ;;
       esac ;;
+    hpn_stim_predict)      # specs/184: the Lun knobs without the total-readout rule (phospho readouts only)
+      case " ${LUN_KNOBS% DS_TOTAL_READOUT} DS_PERTURB_UI_DOWN " in *" $n "*) ;;
+        *) git worktree remove --force "$WT"; die "$n has no effect on the $gt bench" ;;
+      esac ;;
     *) case "$n" in DS_DRUG_ACTION|DS_DRUG_MECHANISM_*|DS_TOTAL_READOUT)
          git worktree remove --force "$WT"; die "$n applies only to the drug axes (specs/122, 123, 134), not $gt" ;;
        esac ;;
@@ -206,6 +211,9 @@ for gt in "${AXES[@]}"; do
     lun_predict)
       env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
         "$PY" "$WT/bench/lun_bench.py" "$OUT" > "$OUT/$gt.log" 2>&1 ;;
+    hpn_stim_predict)
+      env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
+        "$PY" "$WT/bench/hpn_stim_bench.py" "$OUT" > "$OUT/$gt.log" 2>&1 ;;
     decryptm)
       env "${BENCH[@]}" DELTASIGNAL_BASE="http://localhost:$PORT" DS_CATALOG_ROOT="$BUILD" \
         "$PY" "$WT/bench/decryptm_bench.py" "$DCASES" "$DPHOSPHO" "$OUT/decryptm" > "$OUT/$gt.log" 2>&1 ;;
@@ -228,7 +236,7 @@ for key, env in (("decryptm_cases", "ARM_DCASES"), ("decryptm_phospho", "ARM_DPH
     path = os.environ.get(env)
     if path:      # hashed by the shell before the arm ran
         rec[key] = {"path": path, "sha256": os.environ[env + "_SHA"]}
-for gt in ("curator", "experimental", "korkut", "korkut_predict", "decryptm", "lun_predict"):
+for gt in ("curator", "experimental", "korkut", "korkut_predict", "decryptm", "lun_predict", "hpn_stim_predict"):
     log = os.path.join(out, f"{gt}.log")
     if os.path.exists(log):
         text = open(log).read()
