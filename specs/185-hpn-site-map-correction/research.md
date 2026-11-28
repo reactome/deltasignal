@@ -70,5 +70,5 @@ textbook. They may also account for part of the unrouted changes on Lun (1,001 o
 measured here. The next spec registers a fix and measures it on every axis under the usual gates. Earlier merges of
 copies re-welded cycles (specs/053: −493), so the fix has to be one-way and narrow, and judged case by case.
 
-specs/112's corrected re-score was not run: it needs the Release 97 `hpn112` build served, and the correction moves
-one readout by one node there.
+specs/112's corrected re-score was not run: it needs the Release 97 `hpn112` build served. p70S6K is a direct mTOR
+target, so the corrected sub-challenge score may differ from the recorded 0.693; the re-score is still owed.
