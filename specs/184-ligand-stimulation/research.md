@@ -86,7 +86,7 @@ lines; NRG1 in UACC812 lowers EGFR, HER2 and SRC phosphorylation where the model
 ## Traced: the 232 wrong change calls
 
 - **211 are UP calls on readouts that did not move.** The model makes one prediction per ligand–readout pair for all
-  four lines. Of its 82 pairs, none is right in all four lines, 8 are right in three and 30 are right in none
+  four lines. Of its 82 pairs, none is right in all four lines, 8 are right in three and 36 are right in none
   (of the 73 measured in all four: 29 in none, 20 in one, 14 in two, 8 in three). The lines differ: 30% of pairs
   change in BT20 and 7% in UACC812. A context-free model cannot have high precision here whatever its wiring.
 - **15 are DOWN calls on unchanged readouts**, 12 of them c-Met pY1235 under EGF, FGF1 and NRG1 (0.06× in the model:
@@ -97,7 +97,8 @@ lines; NRG1 in UACC812 lowers EGFR, HER2 and SRC phosphorylation where the model
 
 1. The perturbation's activity matters: enrichment rises from 1.5 (Lun) to 2.0 here and 3.1 for EGF, and precision
    doubles where the receptor demonstrably responded.
-2. 43 of the 55 missed changes sit in three specific places (the p70S6K site map, IGF1's handoff, p90RSK), not in
+2. 31 of the 55 missed changes sit in three specific places (the p70S6K site map, IGF1's handoff, p90RSK; 35 with
+   S6, which sits behind p70S6K), not in
    the propagation rules. They are checkable against Reactome one at a time.
 3. The false alarms are mostly cell context. The measurement that separates them is on the array itself: the
    receptor's own phosphorylation.
